@@ -1,4 +1,6 @@
 #!/usr/bin/nodejs
+// This is just the very first start of the script that can start the starmade server program.  It does not actually parse anything yet.
+
 var starMadeFolder="/home/philip/Programs/StarMade/"
 console.log("starMadeFolder set to: " + starMadeFolder);
 var starMadeJar=starMadeFolder + "StarMade.jar";
@@ -6,8 +8,8 @@ console.log("starMadeJar set to: " + starMadeJar);
 var starNet=starMadeFolder + "StarNet.jar";
 console.log("starNet set to: " + starNet);
 
-var javaMin="-Xms128m"
-var javaMax="-Xmx1024m"
+var javaMin="128m"
+var javaMax="1024m"
 var starMadeArguments="-server";
 // var allArgs=javaArguments + " -jar" + starMadeJar + starMadeArguments;
 
@@ -30,14 +32,14 @@ var myEventHandler = function () {
 //Assign the event handler to an event:
 eventEmitter.on('line', myEventHandler);
 
-//Fire the 'line' event:
+//Fire the 'line' event as a test to see that custom events are working:
 eventEmitter.emit('line',"whatever","stuff");
 
 
 // Taken from https://stackoverflow.com/questions/10232192/exec-display-stdout-live
 // Running the starmade server process
 var spawn = require('child_process').spawn;
-var server = spawn("java", [javaMin, javaMax,"-jar", starMadeJar,"-server"], {cwd: starMadeFolder});
+var server = spawn("java", ["-Xms" + javaMin, "-Xmx" + javaMax,"-jar", starMadeJar,"-server"], {cwd: starMadeFolder});
 
 server.stdout.on('data', function (data) {
   console.log('stdout: ' + data.toString());
