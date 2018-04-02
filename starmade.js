@@ -1,6 +1,8 @@
 #!/usr/bin/nodejs
 // This is just the very first start of the script that can start the starmade server program.  It does not actually parse anything yet.
 
+// Testing with Visual Studio Code
+
 // Design fundamentals:
 // There should be the LEAST amount of input necessary from the user to get things going.  As much as can be automated or already included should be.  Such as including StarNet.jar or downloading it.  Any dependencies should also be able to be automatically installed for any OS.  No superuser should be asked, but should rather be pulled from the server.cfg file from the starmade install folder.  If no superuser password is established already, this scripting should ask the user to input a new one and then change the server.cfg file.  etc.
 // All areas of control of the wrapper should have scripting capable of taking input and performing the actions from the **command line**.  A GUI may or may not be built later.  This wrapper is intended to be used primarily on linux machines.  If a GUI is built, it will likely be in java.
