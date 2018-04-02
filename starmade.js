@@ -31,16 +31,33 @@
 // 9. Create an install script that will ask for information such as the location of the starmade folder and download any prerequisites, such as StarNet.jar.  It would be nice if it could allow a person to select the starmade folder from an explorer window, but the intended use of this wrapper is on console only systems, so it should be able to tell what OS it is running on and whether there is a GUI available to determine how it asks for the information.
 
 
+// #####################
+// ###    SETTINGS   ###
+// #####################
+// Import settings, including the starmade folder, min and max java settings, etc.
+const settings = require("./settings.json");
+
 // For now configuration of the wrapper will occur by setting variables directly in this script.  Later on, I'd like to have these values stored in a json file.
 var starMadeFolder="/home/philip/Programs/StarMade/"
+var javaMin="128m"
+var javaMax="1024m"
+
 console.log("starMadeFolder set to: " + starMadeFolder);
 var starMadeJar=starMadeFolder + "StarMade.jar";
 console.log("starMadeJar set to: " + starMadeJar);
 var starNet=starMadeFolder + "StarNet.jar";
 console.log("starNet set to: " + starNet);
 
-var javaMin="128m"
-var javaMax="1024m"
+// #####################
+// ### DEPENDENCIES  ###
+// #####################
+// Check for dependencies, such as StarNet.jar and download/install if needed.
+// By default the StarNet.jar needs to be in the ./bin/ folder, so let's see if it exists and download it if not.
+
+
+
+
+
 // This will need to be able to supportsetting other arguments, such as the port, and JVM arguments if the server plans on using the JVM to troubleshoot bugs, performance issues, etc.
 var starMadeArguments="-server";
 
