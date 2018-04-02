@@ -26,11 +26,12 @@
 
 // 7. Set up sqlite functionality.  This will be a dependency and will be used to store data in different databases.  There will be a wrapper database, "global" database, and "mod" database.  Mods should only have access to the global and mod databases.  When performing a sql query on the "mod" database, it should be a unique database for that mod, preferrably in a created directory under the mod folder.  The backup routine should also be compressing these databases into the main backup.
 
-// 8. Set up reading from a "settings.cfg" file to set information such as the starmade install folder, java min and max values, and other custom arguments, such as running a JVM.
+// 8. Set up reading from a "settings.json" file to set information such as the starmade install folder, java min and max values, and other custom arguments, such as running a JVM.
 
 // 9. Create an install script that will ask for information such as the location of the starmade folder and download any prerequisites, such as StarNet.jar.  It would be nice if it could allow a person to select the starmade folder from an explorer window, but the intended use of this wrapper is on console only systems, so it should be able to tell what OS it is running on and whether there is a GUI available to determine how it asks for the information.
 
 
+// For now configuration of the wrapper will occur by setting variables directly in this script.  Later on, I'd like to have these values stored in a json file.
 var starMadeFolder="/home/philip/Programs/StarMade/"
 console.log("starMadeFolder set to: " + starMadeFolder);
 var starMadeJar=starMadeFolder + "StarMade.jar";
@@ -40,16 +41,16 @@ console.log("starNet set to: " + starNet);
 
 var javaMin="128m"
 var javaMax="1024m"
+// This will need to be able to supportsetting other arguments, such as the port, and JVM arguments if the server plans on using the JVM to troubleshoot bugs, performance issues, etc.
 var starMadeArguments="-server";
-// var allArgs=javaArguments + " -jar" + starMadeJar + starMadeArguments;
 
-
-
+// Here we are setting up custom events, which will be used for various things such as player deaths, ship overheats, player spawns, etc.
 var events = require('events');
 var eventEmitter = new events.EventEmitter();
 
 //Create an event handler:
 var myEventHandler = function () {
+    // This is just an example function that might be used for a specific event, such as a player death, which can be copy/pasted and modified.
     console.log('Total arguments: ' + arguments.length);
     let temp="";
     for (var i=0;i < arguments.length; i++){
@@ -62,8 +63,8 @@ var myEventHandler = function () {
 //Assign the event handler to an event:
 eventEmitter.on('line', myEventHandler);
 
-//Fire the 'line' event as a test to see that custom events are working:
-eventEmitter.emit('line',"whatever","stuff");
+//Fire the 'line' event as a test to see that custom events are working
+eventEmitter.emit('line',"Hello","and welcome to starmade.js!");
 
 
 // Taken from https://stackoverflow.com/questions/10232192/exec-display-stdout-live
