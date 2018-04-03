@@ -168,13 +168,13 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   // ###    WRAPPER   ###
   // ####################
   function processDataInput(dataInput){
-    if (testMatch(dataInput)) {
+    if (testMatch(dataInput)) { // Check to see if the message fits any of the regex patterns
       console.log("Event found!: " + dataInput + "Arguments: " + arguments.length);
       for (let i=0;i<arguments.length;i++){
         console.log("arguments[" + i + "]: " + arguments[i]);
       }
       theArguments=arguments[0].split(" ");
-      if (theArguments[0] == "[CHANNELROUTER]"){
+      if (theArguments[0] == "[CHANNELROUTER]"){ // This is for all messages, including commands.
         let sender=dataInput.match(/sender=[A-Za-z0-9_-]*/).toString();
         let senderArray=sender.split("=");
         sender=senderArray.pop();
