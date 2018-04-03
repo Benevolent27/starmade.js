@@ -12,6 +12,8 @@
 
 // Todo:
 // 1. Set up auto-restart on server exit with a non-zero error code.  This should always immediately respawn the process.
+// 1a.  Set up lock file and exiting. <-- done
+// 1b.  Grab the server pid to be used to kill it.  Store this into the lock file instead of making it a blank file.
 
 // 2. Set up auto-restart on abnormal exists which have a 0 error code on exist.  To do this, we should rely on secondary scripting to start this script, such as a "start.js" script. This script creates a file to indicate the server is running. If the file still exists when the server shuts down, we know it should still be running, so this script should start the server again.  A second "stop.js" script will be used to shut down the server, sending the /shutdown command, and removing the temporary file.  Then when the server exits with no error code, this script should exit gracefully.
 
@@ -32,7 +34,7 @@
 
 
 // Exit codes
-// 1:
+// 1: Lock file existed. Possible other server running.  Cannot start.
 // 2: settings.json file did not contain all needed settings. 
 // 4: StarNet.jar did not exist and download failed due to a socks error, such as a failed connection.
 // 5. StarNet.jar did not exist and download failed with HTTP response from webserver.  The HTTP error code will be available in the last line output by this script.
@@ -46,6 +48,7 @@ const http = require('http');
 const fs = require('fs');
 const events = require('events');
 const spawn = require('child_process').spawn;
+const stream   = require('stream'); // For streaming user input to the child process for the server
 
 var eventEmitter = new events.EventEmitter(); // This is for custom events
 
@@ -54,6 +57,63 @@ var eventEmitter = new events.EventEmitter(); // This is for custom events
 // ###    SETTINGS   ###
 // #####################
 var operations=0;
+var lockFile="./server.lck";
+var showStderr=true;
+var showStdout=true;
+
+var includePatterns=[];
+var excludePatterns=[];
+
+// Patterns - This will be to detect things like connections, deaths, etc.  I'm pushing to an array so it's easier to add or remove patterns.
+includePatterns.push("^\\[SERVER\\] MAIN CORE STARTED DESTRUCTION");
+includePatterns.push("^\\[SERVER\\]\\[SPAWN\\]");
+includePatterns.push("^\\[SERVER\\]\\[DISCONNECT\\]");
+includePatterns.push("^\\[PLAYER\\]\\[DEATH\\]");
+includePatterns.push("^\\[SERVER\\] PlS\\[");
+includePatterns.push("^\\[SERVER\\]\\[PLAYERMESSAGE\\]");
+includePatterns.push("^\\[CHANNELROUTER\\]");
+includePatterns.push("^\\[SERVER\\] Object Ship\\[");
+includePatterns.push("^\\[CHARACTER\\]\\[GRAVITY\\] # This is the main gravity change");
+includePatterns.push("^PlayerCharacter\\["); // # This handles killing creatures as a player as well as some wonky gravity changes.  I need to compare this to the main gravity changes to see if I should utilize it or not
+includePatterns.push("^Ship\\[ "); // # This handles killing NPC creatures from a ship and possibly other things.. but I haven't seen anything else in the logs to indicate the "other things"
+includePatterns.push("^SpaceStation\\["); // # This handles killing NPC creatures from a station
+includePatterns.push("^AICharacter\\["); // # This handles NPC creature deaths from other NPC characters
+includePatterns.push("^Sector\\["); // # This handles NPC creature deaths via black hole or star damage
+includePatterns.push("^Planet[(]"); // # This handles NPC creature death via planet
+includePatterns.push("^ManagedAsteroid[(]"); // This handles NPC creature deaths via asteroids that have been modified in some way
+includePatterns.push("^\\[DEATH\\]");
+includePatterns.push("^\\[SPAWN\\]");
+includePatterns.push("^\\[BLUEPRINT\\]");
+includePatterns.push("^\\[SEGMENTCONTROLLER\\] ENTITY");
+includePatterns.push("^\\[FACTION\\]");
+includePatterns.push("^\\[FACTIONMANAGER\\]");
+includePatterns.push("^\\[SHUTDOWN\\]");
+
+excludePatterns.push("^\\[SERVER\\]\\[DISCONNECT\\] Client 'null'");
+excludePatterns.push("^\\[SERVER\\]\\[DISCONNECT\\] Client 'Info-Pinger \\(server-lists\\)'");
+
+// Build the regex patterns.
+var includePatternRegex="(" + includePatterns[0];
+for (var i=1;i<includePatterns.length;i++){ includePatternRegex+="|" + includePatterns[i]; }
+includePatternRegex+=")"
+includePatternRegex=new RegExp(includePatternRegex);
+console.log("includePatternRegex: " + includePatternRegex + "\n");
+var excludePatternRegex="(" + excludePatterns[0];
+for (var i=1;i<excludePatterns.length;i++){ excludePatternRegex+="|" + excludePatterns[i]; }
+excludePatternRegex+=")"
+excludePatternRegex=new RegExp(excludePatternRegex);
+console.log("excludePatternRegex: " + excludePatternRegex + "\n");
+
+function testMatch(valToCheck) {
+  if (includePatternRegex.test(valToCheck)){
+    if (!excludePatternRegex.test(valToCheck)){
+      return true;
+    }
+  } else {
+    return false;
+  }
+}
+
 
 var starNetJarURL="http://files.star-made.org/StarNet.jar";
 
@@ -74,7 +134,7 @@ if (!settings.hasOwnProperty('starMadeFolder') ||
   !settings.hasOwnProperty('javaMin') || 
   !settings.hasOwnProperty('javaMax')){
     console.error("ERROR: settings.json file did not contain needed configuration options!  Exiting!");
-    process.exit(2);
+    exitNow(2);
   }
 
 
@@ -94,27 +154,200 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   // Taken from https://stackoverflow.com/questions/10232192/exec-display-stdout-live
   // Running the starmade server process
   var server = spawn("java", ["-Xms" + settings["javaMin"], "-Xmx" + settings["javaMax"],"-jar", starMadeJar,"-server"], {cwd: settings["starMadeFolder"]});
+  // displayPID(server);  
+  console.log('Spawned server with PID:' + server.pid);
+  var lockFileObj = fs.createWriteStream(lockFile);
+  // function pidCB() { console.log("Wrote PID to lock file.."); }
+  // lockFileObj.on('finish', function() { lockFileObj.close(pidCB); });
+  lockFileObj.write(server.pid.toString());
+  lockFileObj.end();
+
+  var dataInput;
+
+  // ####################
+  // ###    WRAPPER   ###
+  // ####################
+  function processDataInput(dataInput){
+    if (testMatch(dataInput)) {
+      console.log("Event found!: " + dataInput + "Arguments: " + arguments.length);
+      for (let i=0;i<arguments.length;i++){
+        console.log("arguments[" + i + "]: " + arguments[i]);
+      }
+      theArguments=arguments[0].split(" ");
+      if (theArguments[0] == "[CHANNELROUTER]"){
+        let sender=dataInput.match(/sender=[A-Za-z0-9_-]*/).toString();
+        let senderArray=sender.split("=");
+        sender=senderArray.pop();
+        let receiver=dataInput.match(/\[receiver=[A-Za-z0-9_-]*/).toString();
+        let receiverArray=receiver.split("=");
+        receiver=receiverArray.pop();
+        let receiverType=dataInput.match(/\[receiverType=[A-Za-z0-9_-]*/).toString();
+        let receiverTypeArray=receiverType.split("=");
+        receiverType=receiverTypeArray.pop();
+        let message=dataInput.match(/\[message=.*\]$/).toString();
+        let messageArray=message.split("=");
+        message=messageArray.pop();
+        messageArray=message.split("");
+        messageArray.pop();
+        message=messageArray.join("");
+
+        //arguments[0]: [CHANNELROUTER] RECEIVED MESSAGE ON Server(0): [CHAT][sender=Benevolent27][receiverType=CHANNEL][receiver=all][message=words]
+
+        console.log("Message found: ");
+        console.log("sender: " + sender);
+        console.log("receiver: " + receiver);
+        console.log("receiverType: " + receiverType);
+        console.log("message: " + message);
+
+      }
+
+
+
+
+
+
+
+    }
+  }
 
   server.stdout.on('data', function (data) {
-    console.log('stdout: ' + data.toString());
+    let dataString=data.toString().trim();
+    if (dataString){
+      if (showStdout == true) {
+        console.log("stdout: " + dataString);
+      }
+      processDataInput(dataString);
+    }
   });
 
   server.stderr.on('data', function (data) {
-    // console.log('stderr: ' + data.toString());
+    let dataString=data.toString().trim();
+    if (dataString){
+      if (showStderr == true) {
+        console.log("stderr: " + dataString);
+      }
+      processDataInput(dataString);
+    }
   });
 
   server.on('exit', function (code) {
     console.log('child process exited with code ' + code.toString());
+    exitNow(code);
   });
+
+  server.on('message', function(text) { 
+    console.log("Message found: " + text);
+  });
+
+  // server.stdin.setEncoding('utf-8');
+  // process.stdin.pipe(server.stdin);
+  // server.stdin.pipe(process.stdin);
+
+
+
+  // #######################################
+  // ###    COMMAND LINE WRAPPER START   ###
+  // #######################################
+
+  // This will process user input at the console and either direct it to the server process or parse it as a command.
+  process.stdin.on('data', function(text){
+    let theText=text.toString().trim();
+    if (theText[0] == "!"){
+      let theArguments=theText.split(" ");
+      let theCommand=theArguments.shift().toLowerCase();
+      let tempArray=theCommand.split("")
+      tempArray.shift();
+      theCommand=tempArray.join("");
+      console.log("Wrapper command detected: " + theCommand)
+      console.log("Full: " + theText);
+
+      if (theCommand == "stdout" ) {
+        if (theArguments[0] == "on"){
+          console.log("Setting stdout to true!");
+          showStdout=true;
+        } else if (theArguments[0] == "off"){
+          console.log("Setting showStdout to false!");
+          showStdout=false;
+        } else {
+          console.log("Invalid parameter.  Usage:  !stdout on/off")
+        }
+      } else if (theCommand == "stderr" ) {
+        if (theArguments[0] == "on"){
+          console.log("Setting showStderr to true!");
+          showStderr=true;
+        } else if (theArguments[0] == "off"){
+          console.log("Setting Stderr to false!");
+          showStderr=false;
+        }
+      }
+    } else {
+      console.log("Running Command: " + theText);
+      server.stdin.write(text.toString().trim() + "\n");
+      // server.stdin.write(text.toString() + "\n");
+      // server.stdin.end();
+    }
+  });
+  
+  // This is great to have all the info show on the screen, but how does one turn off a pipe? No idea.  I'll use events instead.
+  // server.stdout.pipe(process.stdout);
+  // server.stderr.pipe(process.stdout);
+  
+  // var stdinStream = new stream.Readable();
 
 });
 
+
+
+
+//  ### Lock Check ###
+try {
+  fs.accessSync(lockFile,fs.constants.F_OK)
+  console.log("Lock file found!  Server already started!  Exiting!");
+  process.exit(1);
+} catch (err) {
+  console.log("Starting up!");
+};
+
+// ####################
+// ###  FUNCTIONS  ####
+// ####################
+function touch (file){
+  fs.closeSync(fs.openSync(file, 'w'));
+}
+function deleteFile (file) {
+  try {
+    fs.unlinkSync(file);
+    console.log("File, , " + file + ", deleted!");
+  } catch(err) {
+    console.error("File, " + file + ", cannot be deleted.  File not found!");
+  }
+}
+
+function exitNow(code) {
+  deleteFile(lockFile);
+  console.log("Exiting with exit code: " + code);
+  process.exit(code);
+}
+
+
+// ###############
+// ###  EXIT  ####
+// ###############
+
+process.on('exit', function() {
+  // Any sort of cleanup should be done now.  Such as possibly checking to see if the server process is still running and kill it.
+  console.log("Exiting..");
+});
+
+touch(lockFile);
+
+
 function operation(val){ // This controls when the start operation occurs.  All file reads, downloads, installs, etc, must be completed before this will trigger the "ready" event.
-  console.log("operations ongoing: " + operations);
-  if (val="start"){ // Start is used when an asyncronous operation starts and end should be used when it's finished.
+  console.log("operations ongoing: " + operations + " Command given: " + val);
+  if (val == "start"){ // Start is used when an asyncronous operation starts and end should be used when it's finished.
     operations++;
     console.log("operation added.  New operations amount: " + operations);
-  } else if (val="end"){
+  } else if (val == "end"){
     if (operations>1){
       operations--;
     } else {
@@ -123,6 +356,7 @@ function operation(val){ // This controls when the start operation occurs.  All 
     }
   }
 }
+
 
 
   // #####################
@@ -144,16 +378,18 @@ try {
     fs.mkdirSync("./bin");
 };
 
-
 // Check if StarNet.jar exists and download it if not.
 try {
+    operation("start");
     fs.accessSync('./bin/StarNet.jar',fs.constants.F_OK)
     console.log('StarNet.jar found! Starting wrapper!');
-    eventEmitter.emit('ready'); // Trigger the custom event to start the server since the StarNet.jar already existed.
+    // Below is commented out because it's obsolete.
+    // eventEmitter.emit('ready'); // Trigger the custom event to start the server since the StarNet.jar already existed.
+    operation("end");
 
   } catch (ex) {
     //  This will be an async operation, so we'll use the "operations" function to ensure it is complete before the ready occurs.
-    operation("start");
+    
     console.log("StarNet.jar not found!  Downloading!")
 
     // http://files.star-made.org/StarNet.jar
@@ -179,17 +415,17 @@ try {
                 response.pipe(file); 
             } else {
                 console.log("Error downloading file!  HTTP Code: " + response.statusCode);
-                process.exit(5);
+                exitNow(5);
             };
         });
         request.on('error', (e) => {
             console.error(`problem with request: ${e.message}`);
-            process.exit(4);
+            exitNow(4);
         });
     } catch (err) { // If there was any trouble connecting to the server, then hopefully this will catch those errors and exit the wrapper.
         console.log("Failed to download StarNet.jar!  Exiting!");
         console.error(err);
-        process.exit(4);
+        exitNow(4);
     }
     function cb() {
         console.log("Finished downloading StarNet.jar!");
