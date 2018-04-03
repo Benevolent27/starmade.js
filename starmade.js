@@ -31,72 +31,179 @@
 // 9. Create an install script that will ask for information such as the location of the starmade folder and download any prerequisites, such as StarNet.jar.  It would be nice if it could allow a person to select the starmade folder from an explorer window, but the intended use of this wrapper is on console only systems, so it should be able to tell what OS it is running on and whether there is a GUI available to determine how it asks for the information.
 
 
+// Exit codes
+// 1:
+// 2: settings.json file did not contain all needed settings. 
+// 4: StarNet.jar did not exist and download failed due to a socks error, such as a failed connection.
+// 5. StarNet.jar did not exist and download failed with HTTP response from webserver.  The HTTP error code will be available in the last line output by this script.
+
+
+
+// #####################
+// ###    REQUIRES   ###
+// #####################
+const http = require('http');
+const fs = require('fs');
+const events = require('events');
+const spawn = require('child_process').spawn;
+
+var eventEmitter = new events.EventEmitter(); // This is for custom events
+
+
 // #####################
 // ###    SETTINGS   ###
 // #####################
+var operations=0;
+
+var starNetJarURL="http://files.star-made.org/StarNet.jar";
+
 // Import settings, including the starmade folder, min and max java settings, etc.
-const settings = require("./settings.json");
-
-// For now configuration of the wrapper will occur by setting variables directly in this script.  Later on, I'd like to have these values stored in a json file.
-var starMadeFolder="/home/philip/Programs/StarMade/"
-var javaMin="128m"
-var javaMax="1024m"
-
-console.log("starMadeFolder set to: " + starMadeFolder);
-var starMadeJar=starMadeFolder + "StarMade.jar";
-console.log("starMadeJar set to: " + starMadeJar);
-var starNet=starMadeFolder + "StarNet.jar";
-console.log("starNet set to: " + starNet);
-
-// #####################
-// ### DEPENDENCIES  ###
-// #####################
-// Check for dependencies, such as StarNet.jar and download/install if needed.
-// By default the StarNet.jar needs to be in the ./bin/ folder, so let's see if it exists and download it if not.
-
-
+try {
+  var settings = require("./settings.json");
+  console.log("Imported settings values from settings.json.");
+} catch (ex) {
+    console.log("Settings.json file not found! Using default values");
+    var settings={ // This is a temporary fallback during testing.  In the future if there is no settings.json file, we'll run an install routine instead to set the values and write the file.
+      "starMadeFolder": "/home/philip/Programs/StarMade/",
+      "javaMin": "128m",
+      "javaMax": "1024m"
+    };
+}
+// Verify that all values are present and give an error if not enough settings are present.
+if (!settings.hasOwnProperty('starMadeFolder') || 
+  !settings.hasOwnProperty('javaMin') || 
+  !settings.hasOwnProperty('javaMax')){
+    console.error("ERROR: settings.json file did not contain needed configuration options!  Exiting!");
+    process.exit(2);
+  }
 
 
+// #########################
+// ###    SERVER START   ###
+// #########################
+eventEmitter.on('ready', function() { // This won't fire off yet, it's just being declared so later on in the script it can be started.  I can modify this later if I want to allow more than one instance to be ran at a time.
+  console.log("Starting server..");
+  var starMadeJar=settings["starMadeFolder"] + "StarMade.jar";
+  var starNet="./bin/" + "StarNet.jar";
+  // This will need to be able to supportsetting other arguments, such as the port, and JVM arguments if the server plans on using the JVM to troubleshoot bugs, performance issues, etc.
+  var starMadeArguments="-server";
 
-// This will need to be able to supportsetting other arguments, such as the port, and JVM arguments if the server plans on using the JVM to troubleshoot bugs, performance issues, etc.
-var starMadeArguments="-server";
+  // Here we are setting up custom events, which will be used for various things such as player deaths, ship overheats, player spawns, etc.
 
-// Here we are setting up custom events, which will be used for various things such as player deaths, ship overheats, player spawns, etc.
-var events = require('events');
-var eventEmitter = new events.EventEmitter();
 
-//Create an event handler:
-var myEventHandler = function () {
-    // This is just an example function that might be used for a specific event, such as a player death, which can be copy/pasted and modified.
-    console.log('Total arguments: ' + arguments.length);
-    let temp="";
-    for (var i=0;i < arguments.length; i++){
-        // console.log("Argument[" + i + "]: " + arguments[i]);
-        temp+=arguments[i] + (temp ? "":" ");
+  // Taken from https://stackoverflow.com/questions/10232192/exec-display-stdout-live
+  // Running the starmade server process
+  var server = spawn("java", ["-Xms" + settings["javaMin"], "-Xmx" + settings["javaMax"],"-jar", starMadeJar,"-server"], {cwd: settings["starMadeFolder"]});
+
+  server.stdout.on('data', function (data) {
+    console.log('stdout: ' + data.toString());
+  });
+
+  server.stderr.on('data', function (data) {
+    // console.log('stderr: ' + data.toString());
+  });
+
+  server.on('exit', function (code) {
+    console.log('child process exited with code ' + code.toString());
+  });
+
+});
+
+function operation(val){ // This controls when the start operation occurs.  All file reads, downloads, installs, etc, must be completed before this will trigger the "ready" event.
+  console.log("operations ongoing: " + operations);
+  if (val="start"){ // Start is used when an asyncronous operation starts and end should be used when it's finished.
+    operations++;
+    console.log("operation added.  New operations amount: " + operations);
+  } else if (val="end"){
+    if (operations>1){
+      operations--;
+    } else {
+      console.log("All operations finished, triggering start event: " + operations);
+      eventEmitter.emit('ready');
     }
-    console.log("Arguments: " + temp + "--end");
+  }
 }
 
-//Assign the event handler to an event:
-eventEmitter.on('line', myEventHandler);
 
-//Fire the 'line' event as a test to see that custom events are working
-eventEmitter.emit('line',"Hello","and welcome to starmade.js!");
+  // #####################
+  // ### DEPENDENCIES  ###
+  // #####################
+  // Check for dependencies, such as StarNet.jar and download/install if needed.
+  // By default the StarNet.jar needs to be in the ./bin/ folder, so let's see if it exists and download it if not.
 
 
-// Taken from https://stackoverflow.com/questions/10232192/exec-display-stdout-live
-// Running the starmade server process
-var spawn = require('child_process').spawn;
-var server = spawn("java", ["-Xms" + javaMin, "-Xmx" + javaMax,"-jar", starMadeJar,"-server"], {cwd: starMadeFolder});
+// ensure StarNet.jar exists, download if not.
+// Code from: https://stackoverflow.com/questions/11944932/how-to-download-a-file-with-node-js-without-using-third-party-libraries
 
-server.stdout.on('data', function (data) {
-  console.log('stdout: ' + data.toString());
-});
+// Check to see if the /bin dir exists and create it if not.
+try {
+    fs.accessSync('./bin/',fs.constants.F_OK)
+    console.log("/bin folder found!  Great!  Continuing..");
+} catch (err) {
+    console.log("/bin folder not found, creating it!");
+    fs.mkdirSync("./bin");
+};
 
-server.stderr.on('data', function (data) {
-  console.log('stderr: ' + data.toString());
-});
 
-server.on('exit', function (code) {
-  console.log('child process exited with code ' + code.toString());
-});
+// Check if StarNet.jar exists and download it if not.
+try {
+    fs.accessSync('./bin/StarNet.jar',fs.constants.F_OK)
+    console.log('StarNet.jar found! Starting wrapper!');
+    eventEmitter.emit('ready'); // Trigger the custom event to start the server since the StarNet.jar already existed.
+
+  } catch (ex) {
+    //  This will be an async operation, so we'll use the "operations" function to ensure it is complete before the ready occurs.
+    operation("start");
+    console.log("StarNet.jar not found!  Downloading!")
+
+    // http://files.star-made.org/StarNet.jar
+    try { // We will first download to a temporary name and then move it upon success.  Delete the temp file if exists already.
+        fs.accessSync('./bin/StarNet.jar.tmp'); 
+        console.log("StarNet.jar.tmp file found.  Removing first..");
+        fs.unlinkSync('./bin/StarNet.jar.tmp'); // I'm not including error handling here because there should never be a situation where the temp file cannot be removed by this script.
+    } catch (err) {
+        console.log("StarNet.jar.tmp not found, good!  Continuing!");
+    }
+    
+    // Open up a write stream to the temporary file
+    var file = fs.createWriteStream("./bin/StarNet.jar.tmp");
+    
+    // Let's try to now download the file and pipe it to the temporary file
+    console.log("Starting download..");
+    try {
+        var request = http.get(starNetJarURL, function(response) { 
+            console.log("Status Code: " + response.statusCode);
+            // When the file is downloaded with the "http.get" method, it returns an object from which you can get the HTTP status code.  
+            // 200 means it was successfully downloaded, anything else is a failure.  Such as 404.
+            if (response.statusCode == 200){
+                response.pipe(file); 
+            } else {
+                console.log("Error downloading file!  HTTP Code: " + response.statusCode);
+                process.exit(5);
+            };
+        });
+        request.on('error', (e) => {
+            console.error(`problem with request: ${e.message}`);
+            process.exit(4);
+        });
+    } catch (err) { // If there was any trouble connecting to the server, then hopefully this will catch those errors and exit the wrapper.
+        console.log("Failed to download StarNet.jar!  Exiting!");
+        console.error(err);
+        process.exit(4);
+    }
+    function cb() {
+        console.log("Finished downloading StarNet.jar!");
+    }
+    file.on('finish', function() {
+        file.close(cb);
+        fs.rename('./bin/StarNet.jar.tmp', './bin/StarNet.jar', (err) => {
+            if (err) {
+                console.error(err);
+            }
+            console.log('StarNet.jar downloaded successfully! :D');
+            operation("end"); // We're using a function to keep track of all ongoing operations and only triggering the start event when all are complete.  So let's complete this operation.
+            // Below is obsolete since we're using a function to manage ongoing async operations.
+            // eventEmitter.emit('ready'); // Trigger the custom event to start the server since the file is done downloading and there were no errors.
+          });
+      });
+}
