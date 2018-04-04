@@ -97,7 +97,7 @@ const http = require('http');
 const fs = require('fs');
 const events = require('events');
 const spawn = require('child_process').spawn;
-const stream   = require('stream'); // For streaming user input to the child process for the server
+// const stream   = require('stream'); // For streaming user input to the child process for the server
 
 var eventEmitter = new events.EventEmitter(); // This is for custom events
 

@@ -8,6 +8,7 @@
         "sourceType": "module"
     },
     "rules": {
+        "no-console": 0,
         "accessor-pairs": "error",
         "array-bracket-spacing": [
             "error",
