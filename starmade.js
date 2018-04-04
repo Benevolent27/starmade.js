@@ -2,6 +2,7 @@
 
 // #!/usr/bin/nodejs
 
+// Remember to put "todo" tags wherever code should have some changes coming
 
 // This is just the very first start of the script that can start the starmade server program.  It does not actually parse anything yet.
 
@@ -88,7 +89,7 @@
 
 // Exit codes
 // 1: Lock file existed. Possible other server running.  Cannot start.
-// 2: settings.json file did not contain all needed settings. 
+// 2: settings.json file did not contain all needed settings.
 // 4: StarNet.jar did not exist and download failed due to a socks error, such as a failed connection.
 // 5. StarNet.jar did not exist and download failed with HTTP response from webserver.  The HTTP error code will be available in the last line output by this script.
 
@@ -147,7 +148,7 @@ includePatterns.push("^\\[FACTION\\]");
 includePatterns.push("^\\[FACTIONMANAGER\\]");
 includePatterns.push("^\\[SHUTDOWN\\]");
 
-// Exclude Patterns 
+// Exclude Patterns
 excludePatterns.push("^\\[SERVER\\]\\[DISCONNECT\\] Client 'null'");
 excludePatterns.push("^\\[SERVER\\]\\[DISCONNECT\\] Client 'Info-Pinger \\(server-lists\\)'");
 
@@ -196,13 +197,13 @@ try {
 }
 
 // Where is an existing StarMade folder
-// What port would you like to use?  (Default 4242): 
+// What port would you like to use?  (Default 4242):
 
 
 // Verify that all values are present and give an error if not enough settings are present.
-if (!settings.hasOwnProperty('starMadeFolder') || 
-  !settings.hasOwnProperty('javaMin') || 
-  !settings.hasOwnProperty('javaMax') || 
+if (!settings.hasOwnProperty('starMadeFolder') ||
+  !settings.hasOwnProperty('javaMin') ||
+  !settings.hasOwnProperty('javaMax') ||
   !settings.hasOwnProperty('port')){
     console.error("ERROR: settings.json file did not contain needed configuration options!  Exiting!");
     exitNow(2);
@@ -315,7 +316,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
     exitNow(code);
   });
 
-  server.on('message', function(text) { 
+  server.on('message', function(text) {
     console.log("Message found: " + text);
   });
 
@@ -367,11 +368,11 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
       // server.stdin.end();
     }
   });
-  
+
   // This is great to have all the info show on the screen, but how does one turn off a pipe? No idea.  I'll use events instead.
   // server.stdout.pipe(process.stdout);
   // server.stderr.pipe(process.stdout);
-  
+
   // var stdinStream = new stream.Readable();
 
 });
@@ -419,7 +420,7 @@ process.on('exit', function() {
   // Any sort of cleanup should be done now.  Such as possibly checking to see if the server process is still running and kill it.
 
   // todo: Grab PID of any running StarMade server and kill it.  Or kill it through here.  This might need to be under the "ready" event so it has the scope to end the process of "server"
-  
+
   console.log("Exiting..");
 });
 
@@ -473,30 +474,30 @@ try {
 
   } catch (ex) {
     //  This will be an async operation, so we'll use the "operations" function to ensure it is complete before the ready occurs.
-    
+
     console.log("StarNet.jar not found!  Downloading!")
 
     // http://files.star-made.org/StarNet.jar
     try { // We will first download to a temporary name and then move it upon success.  Delete the temp file if exists already.
-        fs.accessSync('./bin/StarNet.jar.tmp'); 
+        fs.accessSync('./bin/StarNet.jar.tmp');
         console.log("StarNet.jar.tmp file found.  Removing first..");
         fs.unlinkSync('./bin/StarNet.jar.tmp'); // I'm not including error handling here because there should never be a situation where the temp file cannot be removed by this script.
     } catch (err) {
         console.log("StarNet.jar.tmp not found, good!  Continuing!");
     }
-    
+
     // Open up a write stream to the temporary file
     var file = fs.createWriteStream("./bin/StarNet.jar.tmp");
-    
+
     // Let's try to now download the file and pipe it to the temporary file
     console.log("Starting download..");
     try {
-        var request = http.get(starNetJarURL, function(response) { 
+        var request = http.get(starNetJarURL, function(response) {
             console.log("Status Code: " + response.statusCode);
-            // When the file is downloaded with the "http.get" method, it returns an object from which you can get the HTTP status code.  
+            // When the file is downloaded with the "http.get" method, it returns an object from which you can get the HTTP status code.
             // 200 means it was successfully downloaded, anything else is a failure.  Such as 404.
             if (response.statusCode == 200){
-                response.pipe(file); 
+                response.pipe(file);
             } else {
                 console.log("Error downloading file!  HTTP Code: " + response.statusCode);
                 exitNow(5);
