@@ -77,7 +77,9 @@
 // #######
 // ## 9 ##
 // #######
-// Create an install script that will ask for information such as the location of the starmade folder and download any prerequisites, such as StarNet.jar.  It would be nice if it could allow a person to select the starmade folder from an explorer window, but the intended use of this wrapper is on console only systems, so it should be able to tell what OS it is running on and whether there is a GUI available to determine how it asks for the information.
+// Change the "settings" loading of settings.json so that if the file does not exist, it asks for the information at the command prompt and then build the settings object and output to the settings.json file.
+// It should verify that the folder given for StarMade is valid, and if not, create it and install starmade by downloading the installer and running it.
+// It should ask for min value for RAM and MAX, also port to run on.  It should use a default of 4242 port if no user input.
 
 
 // Exit codes
@@ -405,6 +407,9 @@ function exitNow(code) {
 
 process.on('exit', function() {
   // Any sort of cleanup should be done now.  Such as possibly checking to see if the server process is still running and kill it.
+
+  // todo: Grab PID of any running StarMade server and kill it.  Or kill it through here.  This might need to be under the "ready" event so it has the scope to end the process of "server"
+  
   console.log("Exiting..");
 });
 
