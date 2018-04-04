@@ -8,6 +8,7 @@
         "sourceType": "module"
     },
     "rules": {
+        "no-extra-semi": 0,
         "no-console": 0,
         "accessor-pairs": "error",
         "array-bracket-spacing": [
