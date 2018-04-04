@@ -1,4 +1,8 @@
-#!/usr/bin/nodejs
+// @ts-check
+
+// #!/usr/bin/nodejs
+
+
 // This is just the very first start of the script that can start the starmade server program.  It does not actually parse anything yet.
 
 // Design fundamentals:
@@ -148,16 +152,18 @@ excludePatterns.push("^\\[SERVER\\]\\[DISCONNECT\\] Client 'null'");
 excludePatterns.push("^\\[SERVER\\]\\[DISCONNECT\\] Client 'Info-Pinger \\(server-lists\\)'");
 
 // Build the regex patterns into compact patterns.
-var includePatternRegex="(" + includePatterns[0];
-for (var i=1;i<includePatterns.length;i++){ includePatternRegex+="|" + includePatterns[i]; }
-includePatternRegex+=")"
-includePatternRegex=new RegExp(includePatternRegex);
+var includePatternRegexTemp="(" + includePatterns[0];
+for (var i=1;i<includePatterns.length;i++){ includePatternRegexTemp+="|" + includePatterns[i]; }
+includePatternRegexTemp+=")"
+var includePatternRegex=new RegExp(includePatternRegexTemp);
 console.log("includePatternRegex: " + includePatternRegex + "\n");
-var excludePatternRegex="(" + excludePatterns[0];
 
-for (var i=1;i<excludePatterns.length;i++){ excludePatternRegex+="|" + excludePatterns[i]; }
-excludePatternRegex+=")"
-excludePatternRegex=new RegExp(excludePatternRegex);
+var excludePatternRegexTemp="(" + excludePatterns[0];
+for (let i=1;i<excludePatterns.length;i++){ excludePatternRegexTemp+="|" + excludePatterns[i]; }
+
+//for (let e=1;e<excludePatterns.length;e++){ excludePatternRegexTemp+="|" + excludePatterns[e]; }
+excludePatternRegexTemp+=")"
+var excludePatternRegex=new RegExp(excludePatternRegexTemp);
 console.log("excludePatternRegex: " + excludePatternRegex + "\n");
 
 function testMatch(valToCheck) {
@@ -181,7 +187,7 @@ try {
   console.log("Imported settings values from settings.json.");
 } catch (ex) {
     console.log("Settings.json file not found! Using default values");
-    var settings={ // This is a temporary fallback during testing.  In the future if there is no settings.json file, we'll run an install routine instead to set the values and write the file.
+    settings = { // This is a temporary fallback during testing.  In the future if there is no settings.json file, we'll run an install routine instead to set the values and write the file.
       "starMadeFolder": "/home/philip/Programs/StarMade/",
       "javaMin": "128m",
       "javaMax": "1024m",
@@ -223,7 +229,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   var starMadeJar=settings["starMadeFolder"] + "StarMade.jar";
   var starNet="./bin/" + "StarNet.jar";
   // This will need to be able to supportsetting other arguments, such as the port, and JVM arguments if the server plans on using the JVM to troubleshoot bugs, performance issues, etc.
-  var starMadeArguments="-server";
+  // var starMadeArguments="-server";
 
   // Here we are setting up custom events, which will be used for various things such as player deaths, ship overheats, player spawns, etc.
 
@@ -238,8 +244,6 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   // lockFileObj.on('finish', function() { lockFileObj.close(pidCB); });
   lockFileObj.write(server.pid.toString());
   lockFileObj.end();
-
-  var dataInput;
 
   // ####################
   // ###    WRAPPER   ###
@@ -374,7 +378,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
 
 //  ### Lock Check ###
 try {
-  fs.accessSync(lockFile,fs.constants.F_OK)
+  fs.accessSync(lockFile,fs.constants.F_OK);
   console.log("Lock file found!  Server already started!  Exiting!");
   process.exit(1);
 } catch (err) {
