@@ -52,7 +52,6 @@
 // Restart - Start (and end if success), stop, forcestop, start.  Also let users know that the server is restarting.
 
 
-
 // #######
 // ## 4 ##
 // #######
@@ -63,7 +62,6 @@
 // #######
 // Set up backup scripting.  Presently the bash version of wrapper 2.0 uses rsync to do a quick backup to a temporary folder, starts the server, and then starts packing the temporary world file to a zip file or gzip file.  We need to either include rsync as a dependency or find an alternative to allow fast backups.  The alternative is to wait for a full zip operation to occur, which can take several minutes.  The scripting should utilize rsync for the appropriate OS.
 // Rsync:  https://rsync.samba.org/
-
 // #######
 // ## 6 ##
 // #######
@@ -86,7 +84,6 @@
 // It should verify that the folder given for StarMade is valid, and if not, create it and install starmade by downloading the installer and running it.
 // It should ask for min value for RAM and MAX, also port to run on.  It should use a default of 4242 port if no user input.
 
-
 // Exit codes
 // 1: Lock file existed. Possible other server running.  Cannot start.
 // 2: settings.json file did not contain all needed settings.
@@ -98,10 +95,10 @@
 // #####################
 // ###    REQUIRES   ###
 // #####################
-const http = require('http');
-const fs = require('fs');
+const http   = require('http');
+const fs     = require('fs');
 const events = require('events');
-const spawn = require('child_process').spawn;
+const spawn  = require('child_process').spawn;
 // const stream   = require('stream'); // For streaming user input to the child process for the server
 
 var eventEmitter = new events.EventEmitter(); // This is for custom events
@@ -110,13 +107,12 @@ var eventEmitter = new events.EventEmitter(); // This is for custom events
 // #####################
 // ###    SETTINGS   ###
 // #####################
-var operations=0;
-var lockFile="./server.lck";
-var showStderr=true;
-var showStdout=true;
-
-var includePatterns=[];
-var excludePatterns=[];
+var operations      = 0;
+var lockFile        = "./server.lck";
+var showStderr      = true;
+var showStdout      = true;
+var includePatterns = [];
+var excludePatterns = [];
 
 // #####################
 // ###    PATTERNS   ###
@@ -226,8 +222,8 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   });
 
 
-  var starMadeJar=settings["starMadeFolder"] + "StarMade.jar";
-  var starNet="./bin/" + "StarNet.jar";
+  var starMadeJar = settings["starMadeFolder"] + "StarMade.jar";
+  var starNet     = "./bin/" + "StarNet.jar";
   // This will need to be able to supportsetting other arguments, such as the port, and JVM arguments if the server plans on using the JVM to troubleshoot bugs, performance issues, etc.
   // var starMadeArguments="-server";
 
@@ -258,18 +254,18 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
 
       if (theArguments[0] == "[CHANNELROUTER]"){ // This is for all messages, including commands.
       let sender=dataInput.match(/sender=[A-Za-z0-9_-]*/).toString();
-        let senderArray=sender.split("=");
-        sender=senderArray.pop();
-        let receiver=dataInput.match(/\[receiver=[A-Za-z0-9_-]*/).toString();
-        let receiverArray=receiver.split("=");
-        receiver=receiverArray.pop();
-        let receiverType=dataInput.match(/\[receiverType=[A-Za-z0-9_-]*/).toString();
-        let receiverTypeArray=receiverType.split("=");
-        receiverType=receiverTypeArray.pop();
-        let message=dataInput.match(/\[message=.*\]$/).toString();
-        let messageArray=message.split("=");
-        message=messageArray.pop();
-        messageArray=message.split("");
+        let senderArray       = sender.split("=");
+        sender                = senderArray.pop();
+        let receiver          = dataInput.match(/\[receiver=[A-Za-z0-9_-]*/).toString();
+        let receiverArray     = receiver.split("=");
+        receiver              = receiverArray.pop();
+        let receiverType      = dataInput.match(/\[receiverType=[A-Za-z0-9_-]*/).toString();
+        let receiverTypeArray = receiverType.split("=");
+        receiverType          = receiverTypeArray.pop();
+        let message           = dataInput.match(/\[message=.*\]$/).toString();
+        let messageArray      = message.split("=");
+        message               = messageArray.pop();
+        messageArray          = message.split("");
         messageArray.pop();
         message=messageArray.join("");
         //arguments[0]: [CHANNELROUTER] RECEIVED MESSAGE ON Server(0): [CHAT][sender=Benevolent27][receiverType=CHANNEL][receiver=all][message=words]
@@ -280,10 +276,10 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
         console.log("receiverType: " + receiverType);
         console.log("message: " + message);
         var messageObj={
-          "sender":sender,
-          "receiver":receiver,
-          "receiverType":receiverType,
-          "text":message
+          "sender":       sender,
+          "receiver":     receiver,
+          "receiverType": receiverType,
+          "text":         message
         }
         eventEmitter.emit('message',messageObj);
       }
@@ -333,9 +329,9 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   process.stdin.on('data', function(text){
     let theText=text.toString().trim();
     if (theText[0] == "!"){
-      let theArguments=theText.split(" ");
-      let theCommand=theArguments.shift().toLowerCase();
-      let tempArray=theCommand.split("")
+      let theArguments = theText.split(" ");
+      let theCommand   = theArguments.shift().toLowerCase();
+      let tempArray    = theCommand.split("")
       tempArray.shift();
       theCommand=tempArray.join("");
       console.log("Wrapper command detected: " + theCommand)
