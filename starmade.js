@@ -25,9 +25,16 @@
 // 1b.  Grab the server pid to be used to kill it.  Store this into the lock file instead of making it a blank file.
 
 // #######
-// ## 2 ##
+// ## 2 ## -- MetaPhaze
 // #######
 // Set up auto-restart on abnormal exists which have a 0 error code on exist.  To do this, we should rely on secondary scripting to start this script, such as a "start.js" script. This script creates a file to indicate the server is running. If the file still exists when the server shuts down, we know it should still be running, so this script should start the server again.  A second "stop.js" script will be used to shut down the server, sending the /shutdown command, and removing the temporary file.  Then when the server exits with no error code, this script should exit gracefully.
+
+// Heartbeat process - needs to send a "/status" command via StarNet.jar every minute and ensure the connection was successful and the response was as expected.
+// Crashes:
+// Soft-crash - Too busy for 2 minutes to respond to StarNet.jar OR server is unresponsive.
+// ** Hard-crash - Server exits with an exit code other than 0.  It should automatically restart the server using the "ready" event emitter IF the server.lck file still exists.
+
+
 
 // #######
 // ## 3 ##
@@ -90,8 +97,6 @@
 // 4: StarNet.jar did not exist and download failed due to a socks error, such as a failed connection.
 // 5. StarNet.jar did not exist and download failed with HTTP response from webserver.  The HTTP error code will be available in the last line output by this script.
 
-
-
 // #####################
 // ###    REQUIRES   ###
 // #####################
@@ -103,7 +108,6 @@ const spawn  = require('child_process').spawn;
 
 var eventEmitter = new events.EventEmitter(); // This is for custom events
 
-
 // #####################
 // ###    SETTINGS   ###
 // #####################
@@ -113,6 +117,7 @@ var showStderr      = true;
 var showStdout      = true;
 var includePatterns = [];
 var excludePatterns = [];
+
 
 // #####################
 // ###    PATTERNS   ###
@@ -194,7 +199,6 @@ try {
 // Where is an existing StarMade folder
 // What port would you like to use?  (Default 4242):
 
-
 // Verify that all values are present and give an error if not enough settings are present.
 if (!settings.hasOwnProperty('starMadeFolder') ||
   !settings.hasOwnProperty('javaMin') ||
@@ -203,7 +207,6 @@ if (!settings.hasOwnProperty('starMadeFolder') ||
     console.error("ERROR: settings.json file did not contain needed configuration options!  Exiting!");
     exitNow(2);
   }
-
 
 // #########################
 // ###    SERVER START   ###
@@ -221,14 +224,12 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
     }
   });
 
-
   var starMadeJar = settings["starMadeFolder"] + "StarMade.jar";
   var starNet     = "./bin/" + "StarNet.jar";
   // This will need to be able to supportsetting other arguments, such as the port, and JVM arguments if the server plans on using the JVM to troubleshoot bugs, performance issues, etc.
   // var starMadeArguments="-server";
 
   // Here we are setting up custom events, which will be used for various things such as player deaths, ship overheats, player spawns, etc.
-
 
   // Taken from https://stackoverflow.com/questions/10232192/exec-display-stdout-live
   // Running the starmade server process
@@ -309,6 +310,8 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   server.on('exit', function (code) {
     console.log('child process exited with code ' + code.toString());
     exitNow(code);
+
+    // When the server child process ends
   });
 
   server.on('message', function(text) {
@@ -415,6 +418,8 @@ process.on('exit', function() {
   // Any sort of cleanup should be done now.  Such as possibly checking to see if the server process is still running and kill it.
 
   // todo: Grab PID of any running StarMade server and kill it.  Or kill it through here.  This might need to be under the "ready" event so it has the scope to end the process of "server"
+
+  // SIGTERM -- WAIT 5 MINUTES -- SIGKILL
 
   console.log("Exiting..");
 });
