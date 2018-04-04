@@ -14,12 +14,12 @@ These features are planned to be available upon release.
 But for now, if you would like to be a contributor, just send me a message and we'll get started. :)
 
 If you would like to test the wrapper RIGHT NOW, create a "settings.json" file in the same folder you have the starmade.js file with the following contents:
-...{
-...    "starMadeFolder": "/home/philip/Programs/StarMade/",
-...    "javaMin": "128m",
-...    "javaMax": "1024m",
-...    "port":"4242"
-...}
+{
+    "starMadeFolder": "/home/philip/Programs/StarMade/",
+    "javaMin": "128m",
+    "javaMax": "1024m",
+    "port":"4242"
+}
 
 Change the "starMadeFolder" value to be your starmade install folder where your StarMade.jar is located.  javaMin, javaMax, and port values can be changed as you wish.  (I'd suggest increasing the memory usage if you plan on actually flying around the universe)  When ready to shut down the server, type "/shutdown 1" in the console.  If for some reason your script crashes, the server will still be running.  You will need to kill end it manually.  The PID will be in the "server.lck" file generated.  You will then want to delete the "server.lck" file to start the server again.
 
