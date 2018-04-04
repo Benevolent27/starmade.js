@@ -406,6 +406,10 @@ function exitNow(code) {
   process.exit(code);
 }
 
+function cb() {
+  console.log("Finished downloading StarNet.jar!");
+}
+
 
 // ###############
 // ###  EXIT  ####
@@ -506,9 +510,6 @@ try {
         console.log("Failed to download StarNet.jar!  Exiting!");
         console.error(err);
         exitNow(4);
-    }
-    function cb() {
-        console.log("Finished downloading StarNet.jar!");
     }
     file.on('finish', function() {
         file.close(cb);
