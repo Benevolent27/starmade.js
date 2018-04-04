@@ -8,7 +8,7 @@
 // There will be easy access to databases that both the wrapper and mods can maintain.  There will be "wrapper," "global", and "mod-level" databases.
 // There will be built in methods to perform actions, such as sending a command to the console.  Or sending a command via starnet.  Or performing sql queries on the world database with easily parseable output.
 // As the wrapper is built, documentation for how it works, how to build a wrapper with it, and the built-in functions and event should be produced, which will be a website easily available to the public later upon release.
-
+// All code should be native to javascript, using outside tools the least possible.  All outside tools must be includable or downloadable and freely usable.receiver
 
 // Todo:
 // 1. Set up auto-restart on server exit with a non-zero error code.  This should always immediately respawn the process.
@@ -64,7 +64,12 @@ var showStdout=true;
 var includePatterns=[];
 var excludePatterns=[];
 
+// #####################
+// ###    PATTERNS   ###
+// #####################
 // Patterns - This will be to detect things like connections, deaths, etc.  I'm pushing to an array so it's easier to add or remove patterns.
+
+// Include Patterns
 includePatterns.push("^\\[SERVER\\] MAIN CORE STARTED DESTRUCTION");
 includePatterns.push("^\\[SERVER\\]\\[SPAWN\\]");
 includePatterns.push("^\\[SERVER\\]\\[DISCONNECT\\]");
@@ -89,16 +94,18 @@ includePatterns.push("^\\[FACTION\\]");
 includePatterns.push("^\\[FACTIONMANAGER\\]");
 includePatterns.push("^\\[SHUTDOWN\\]");
 
+// Exclude Patterns 
 excludePatterns.push("^\\[SERVER\\]\\[DISCONNECT\\] Client 'null'");
 excludePatterns.push("^\\[SERVER\\]\\[DISCONNECT\\] Client 'Info-Pinger \\(server-lists\\)'");
 
-// Build the regex patterns.
+// Build the regex patterns into compact patterns.
 var includePatternRegex="(" + includePatterns[0];
 for (var i=1;i<includePatterns.length;i++){ includePatternRegex+="|" + includePatterns[i]; }
 includePatternRegex+=")"
 includePatternRegex=new RegExp(includePatternRegex);
 console.log("includePatternRegex: " + includePatternRegex + "\n");
 var excludePatternRegex="(" + excludePatterns[0];
+
 for (var i=1;i<excludePatterns.length;i++){ excludePatternRegex+="|" + excludePatterns[i]; }
 excludePatternRegex+=")"
 excludePatternRegex=new RegExp(excludePatternRegex);
@@ -109,6 +116,7 @@ function testMatch(valToCheck) {
     if (!excludePatternRegex.test(valToCheck)){
       return true;
     }
+    return false;
   } else {
     return false;
   }
@@ -136,6 +144,11 @@ if (!settings.hasOwnProperty('starMadeFolder') ||
     console.error("ERROR: settings.json file did not contain needed configuration options!  Exiting!");
     exitNow(2);
   }
+
+
+  eventEmitter.on('message', function(message) {
+    console.log("Message DETECTED from " + message.sender + " to " + message.receiver + ": " + message.text);
+  });
 
 
 // #########################
@@ -198,15 +211,14 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
         console.log("receiver: " + receiver);
         console.log("receiverType: " + receiverType);
         console.log("message: " + message);
-
+        var messageObj={
+          "sender":sender,
+          "receiver":receiver,
+          "receiverType":receiverType,
+          "text":message
+        }
+        eventEmitter.emit('message',messageObj);
       }
-
-
-
-
-
-
-
     }
   }
 
