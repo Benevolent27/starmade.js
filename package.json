@@ -1,0 +1,29 @@
+{
+  "name": "starmade.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Benevolent27/starmade.js/"
+  },
+  "version": "0.0.1",
+  "description": "starmade.js for StarMade servers",
+  "main": "starmade.js",
+  "author": "Benevolent27",
+  "license": "GNU GENERAL PUBLIC LICENSE",
+  "keywords": [
+    "StarMade"
+  ],
+  "devDependencies": {
+    "babel-eslint": "^7.2.3",
+    "eslint": "^3.19.0",
+    "eslint-plugin-react": "^7.7.0"
+  },
+  "scripts": {
+    "lint": "./node_modules/.bin/eslint **/*.js",
+    "build": "...",
+    "test": "eslint starmade.js"
+  },
+  "dependencies": {
+    "grunt": "1.0.2",
+    "npm": "5.8.0"
+  }
+}

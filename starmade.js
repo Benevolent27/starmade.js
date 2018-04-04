@@ -11,26 +11,75 @@
 // All code should be native to javascript, using outside tools the least possible.  All outside tools must be includable or downloadable and freely usable.receiver
 
 // Todo:
-// 1. Set up auto-restart on server exit with a non-zero error code.  This should always immediately respawn the process.
+
+// #######
+// ## 1 ##
+// #######
+// Set up auto-restart on server exit with a non-zero error code.  This should always immediately respawn the process.
 // 1a.  Set up lock file and exiting. <-- done
 // 1b.  Grab the server pid to be used to kill it.  Store this into the lock file instead of making it a blank file.
 
-// 2. Set up auto-restart on abnormal exists which have a 0 error code on exist.  To do this, we should rely on secondary scripting to start this script, such as a "start.js" script. This script creates a file to indicate the server is running. If the file still exists when the server shuts down, we know it should still be running, so this script should start the server again.  A second "stop.js" script will be used to shut down the server, sending the /shutdown command, and removing the temporary file.  Then when the server exits with no error code, this script should exit gracefully.
+// #######
+// ## 2 ##
+// #######
+// Set up auto-restart on abnormal exists which have a 0 error code on exist.  To do this, we should rely on secondary scripting to start this script, such as a "start.js" script. This script creates a file to indicate the server is running. If the file still exists when the server shuts down, we know it should still be running, so this script should start the server again.  A second "stop.js" script will be used to shut down the server, sending the /shutdown command, and removing the temporary file.  Then when the server exits with no error code, this script should exit gracefully.
 
-// 3. Set up start.js, stop.js, restart.js scripts to control the server.
+// #######
+// ## 3 ##
+// #######
+// Set up start.js, stop.js, restart.js scripts to control the server.
+// Start.js Basic Design:
+// PID - javascript program <-- This one one we do not have.
+// PID - java StarMade server <--- this one we have
+// server.lck <-- json.  When PID javascript program, when starmade starts, it adds the starmade server PID to the lock file
 
-// 4. Set up the ability for OUTSIDE scripts to communicate with this script and send commands directly to the console.  Normally StarNet.jar will be ok for this, but not when processing hundreds of requests, such as performing operations on individual entities within a sector.  StarNet.jar might take 20 seconds to complete, but sending commands directly to the console takes less than 1 second.
+// start.js -- server.lck.
+// lockPIDS=include ("./server.lck");
+// lockPIDS["jsPID"]=PID of the actual javascript wrapper.
+// kill jsPID <-- might be different methods used per OS
+// lockPIDS["starmadeJar"]=PID of the starmade server.
+// Same here, but try using StarNet.jar to send a "/shutdown 1" command first
 
-// 5. Set up backup scripting.  Presently the bash version of wrapper 2.0 uses rsync to do a quick backup to a temporary folder, starts the server, and then starts packing the temporary world file to a zip file or gzip file.  We need to either include rsync as a dependency or find an alternative to allow fast backups.  The alternative is to wait for a full zip operation to occur, which can take several minutes.  The scripting should utilize rsync for the appropriate OS.
+// Scripts:
+// Start gives up easily, checks for lock file.  PIDS, etc.  If PIDS in lock file are not running, it should delete the lock file and start the program.
+// Stop - Try to shut it down gracefully with a /shutdown command and send a message to the server letting players know the server is shutting down.  Will not force shut down anything.
+// ForceStop - Tries to shut down gracefully with "/shutdown 1" (using stop), then SIGTERM (graceful) (wait 5 minutes, checking every 10 seconds or so to see if the program is still running), then SIGKILL (HARMFUL SHUTDOWN)
+// Restart - Start (and end if success), stop, forcestop, start.  Also let users know that the server is restarting.
+
+
+
+// #######
+// ## 4 ##
+// #######
+// Set up the ability for OUTSIDE scripts to communicate with this script and send commands directly to the console.  Normally StarNet.jar will be ok for this, but not when processing hundreds of requests, such as performing operations on individual entities within a sector.  StarNet.jar might take 20 seconds to complete, but sending commands directly to the console takes less than 1 second.
+
+// #######
+// ## 5 ##
+// #######
+// Set up backup scripting.  Presently the bash version of wrapper 2.0 uses rsync to do a quick backup to a temporary folder, starts the server, and then starts packing the temporary world file to a zip file or gzip file.  We need to either include rsync as a dependency or find an alternative to allow fast backups.  The alternative is to wait for a full zip operation to occur, which can take several minutes.  The scripting should utilize rsync for the appropriate OS.
 // Rsync:  https://rsync.samba.org/
 
-// 6. Set up the mod structure.  The way I want this to work is there will be a "mods" folder which contains sub-folders.  Within each subfolder is a script with various names, such as "playerDeath.js" or "shipOverheat.js".  When a specific event happens, it will asyncronously spawn these mod scripts, preloading the parsed data from the event, such as the player who died, or the player who killed the other player, etc.  This mod loading should also be refreshable, so that the wrapper does not need to be restarted when a mod is edited, but will instead refresh the individual mod scripts.
+// #######
+// ## 6 ##
+// #######
+// Set up the mod structure.  The way I want this to work is there will be a "mods" folder which contains sub-folders.  Within each subfolder is a script with various names, such as "playerDeath.js" or "shipOverheat.js".  When a specific event happens, it will asyncronously spawn these mod scripts, preloading the parsed data from the event, such as the player who died, or the player who killed the other player, etc.  This mod loading should also be refreshable, so that the wrapper does not need to be restarted when a mod is edited, but will instead refresh the individual mod scripts.
 
-// 7. Set up sqlite functionality.  This will be a dependency and will be used to store data in different databases.  There will be a wrapper database, "global" database, and "mod" database.  Mods should only have access to the global and mod databases.  When performing a sql query on the "mod" database, it should be a unique database for that mod, preferrably in a created directory under the mod folder.  The backup routine should also be compressing these databases into the main backup.
+// #######
+// ## 7 ##
+// #######
+// Set up sqlite functionality.  This will be a dependency and will be used to store data in different databases.  There will be a wrapper database, "global" database, and "mod" database.  Mods should only have access to the global and mod databases.  When performing a sql query on the "mod" database, it should be a unique database for that mod, preferrably in a created directory under the mod folder.  The backup routine should also be compressing these databases into the main backup.
 
-// 8. Set up reading from a "settings.json" file to set information such as the starmade install folder, java min and max values, and other custom arguments, such as running a JVM.
+// #######
+// ## 8 ##
+// #######
+// Set up reading from a "settings.json" file to set information such as the starmade install folder, java min and max values, and other custom arguments, such as running a JVM.
 
-// 9. Create an install script that will ask for information such as the location of the starmade folder and download any prerequisites, such as StarNet.jar.  It would be nice if it could allow a person to select the starmade folder from an explorer window, but the intended use of this wrapper is on console only systems, so it should be able to tell what OS it is running on and whether there is a GUI available to determine how it asks for the information.
+// #######
+// ## 9 ##
+// #######
+// Change the "settings" loading of settings.json so that if the file does not exist, it asks for the information at the command prompt and then build the settings object and output to the settings.json file.
+// It should verify that the folder given for StarMade is valid, and if not, create it and install starmade by downloading the installer and running it.
+// It should ask for min value for RAM and MAX, also port to run on.  It should use a default of 4242 port if no user input.
 
 
 // Exit codes
@@ -48,7 +97,7 @@ const http = require('http');
 const fs = require('fs');
 const events = require('events');
 const spawn = require('child_process').spawn;
-const stream   = require('stream'); // For streaming user input to the child process for the server
+// const stream   = require('stream'); // For streaming user input to the child process for the server
 
 var eventEmitter = new events.EventEmitter(); // This is for custom events
 
@@ -117,6 +166,7 @@ function testMatch(valToCheck) {
       return true;
     }
     return false;
+
   } else {
     return false;
   }
@@ -134,21 +184,23 @@ try {
     var settings={ // This is a temporary fallback during testing.  In the future if there is no settings.json file, we'll run an install routine instead to set the values and write the file.
       "starMadeFolder": "/home/philip/Programs/StarMade/",
       "javaMin": "128m",
-      "javaMax": "1024m"
+      "javaMax": "1024m",
+      "port": "4242"
     };
 }
+
+// Where is an existing StarMade folder
+// What port would you like to use?  (Default 4242): 
+
+
 // Verify that all values are present and give an error if not enough settings are present.
 if (!settings.hasOwnProperty('starMadeFolder') || 
   !settings.hasOwnProperty('javaMin') || 
-  !settings.hasOwnProperty('javaMax')){
+  !settings.hasOwnProperty('javaMax') || 
+  !settings.hasOwnProperty('port')){
     console.error("ERROR: settings.json file did not contain needed configuration options!  Exiting!");
     exitNow(2);
   }
-
-
-  eventEmitter.on('message', function(message) {
-    console.log("Message DETECTED from " + message.sender + " to " + message.receiver + ": " + message.text);
-  });
 
 
 // #########################
@@ -156,6 +208,18 @@ if (!settings.hasOwnProperty('starMadeFolder') ||
 // #########################
 eventEmitter.on('ready', function() { // This won't fire off yet, it's just being declared so later on in the script it can be started.  I can modify this later if I want to allow more than one instance to be ran at a time.
   console.log("Starting server..");
+
+  eventEmitter.on('message', function(message) {
+    console.log("Message DETECTED from " + message.sender + " to " + message.receiver + ": " + message.text);
+    if (message.text == "!command" ){
+      console.log("!command found bitches!");
+      let mMessage="/server_message_to plain " + message.sender + " 'Melvin: What the fack do you want?'";
+      server.stdin.write(mMessage.toString().trim() + "\n");
+      // server.stdin.end();
+    }
+  });
+
+
   var starMadeJar=settings["starMadeFolder"] + "StarMade.jar";
   var starNet="./bin/" + "StarNet.jar";
   // This will need to be able to supportsetting other arguments, such as the port, and JVM arguments if the server plans on using the JVM to troubleshoot bugs, performance issues, etc.
@@ -166,8 +230,8 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
 
   // Taken from https://stackoverflow.com/questions/10232192/exec-display-stdout-live
   // Running the starmade server process
-  var server = spawn("java", ["-Xms" + settings["javaMin"], "-Xmx" + settings["javaMax"],"-jar", starMadeJar,"-server"], {cwd: settings["starMadeFolder"]});
-  // displayPID(server);  
+  var server = spawn("java", ["-Xms" + settings["javaMin"], "-Xmx" + settings["javaMax"],"-jar", starMadeJar,"-server", "-port:" + settings["port"]], {cwd: settings["starMadeFolder"]});
+
   console.log('Spawned server with PID:' + server.pid);
   var lockFileObj = fs.createWriteStream(lockFile);
   // function pidCB() { console.log("Wrote PID to lock file.."); }
@@ -186,9 +250,10 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
       for (let i=0;i<arguments.length;i++){
         console.log("arguments[" + i + "]: " + arguments[i]);
       }
-      theArguments=arguments[0].split(" ");
+      let theArguments=arguments[0].split(" ");
+
       if (theArguments[0] == "[CHANNELROUTER]"){ // This is for all messages, including commands.
-        let sender=dataInput.match(/sender=[A-Za-z0-9_-]*/).toString();
+      let sender=dataInput.match(/sender=[A-Za-z0-9_-]*/).toString();
         let senderArray=sender.split("=");
         sender=senderArray.pop();
         let receiver=dataInput.match(/\[receiver=[A-Za-z0-9_-]*/).toString();
@@ -203,7 +268,6 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
         messageArray=message.split("");
         messageArray.pop();
         message=messageArray.join("");
-
         //arguments[0]: [CHANNELROUTER] RECEIVED MESSAGE ON Server(0): [CHAT][sender=Benevolent27][receiverType=CHANNEL][receiver=all][message=words]
 
         console.log("Message found: ");
@@ -294,7 +358,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
       }
     } else {
       console.log("Running Command: " + theText);
-      server.stdin.write(text.toString().trim() + "\n");
+      server.stdin.write(theText + "\n");
       // server.stdin.write(text.toString() + "\n");
       // server.stdin.end();
     }
@@ -307,9 +371,6 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   // var stdinStream = new stream.Readable();
 
 });
-
-
-
 
 //  ### Lock Check ###
 try {
@@ -348,6 +409,9 @@ function exitNow(code) {
 
 process.on('exit', function() {
   // Any sort of cleanup should be done now.  Such as possibly checking to see if the server process is still running and kill it.
+
+  // todo: Grab PID of any running StarMade server and kill it.  Or kill it through here.  This might need to be under the "ready" event so it has the scope to end the process of "server"
+  
   console.log("Exiting..");
 });
 
@@ -383,7 +447,7 @@ function operation(val){ // This controls when the start operation occurs.  All 
 
 // Check to see if the /bin dir exists and create it if not.
 try {
-    fs.accessSync('./bin/',fs.constants.F_OK)
+    fs.accessSync('./bin/',fs.constants.F_OK);
     console.log("/bin folder found!  Great!  Continuing..");
 } catch (err) {
     console.log("/bin folder not found, creating it!");
