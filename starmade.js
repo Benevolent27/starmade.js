@@ -179,7 +179,6 @@ function testMatch(valToCheck) {
   }
 }
 
-
 var starNetJarURL="http://files.star-made.org/StarNet.jar";
 
 // Import settings, including the starmade folder, min and max java settings, etc.
