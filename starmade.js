@@ -184,13 +184,20 @@ try {
     var settings={ // This is a temporary fallback during testing.  In the future if there is no settings.json file, we'll run an install routine instead to set the values and write the file.
       "starMadeFolder": "/home/philip/Programs/StarMade/",
       "javaMin": "128m",
-      "javaMax": "1024m"
+      "javaMax": "1024m",
+      "port": "4242"
     };
 }
+
+// Where is an existing StarMade folder
+// What port would you like to use?  (Default 4242): 
+
+
 // Verify that all values are present and give an error if not enough settings are present.
 if (!settings.hasOwnProperty('starMadeFolder') || 
   !settings.hasOwnProperty('javaMin') || 
-  !settings.hasOwnProperty('javaMax')){
+  !settings.hasOwnProperty('javaMax') || 
+  !settings.hasOwnProperty('port')){
     console.error("ERROR: settings.json file did not contain needed configuration options!  Exiting!");
     exitNow(2);
   }
@@ -201,8 +208,6 @@ if (!settings.hasOwnProperty('starMadeFolder') ||
 // #########################
 eventEmitter.on('ready', function() { // This won't fire off yet, it's just being declared so later on in the script it can be started.  I can modify this later if I want to allow more than one instance to be ran at a time.
   console.log("Starting server..");
-
-
 
   eventEmitter.on('message', function(message) {
     console.log("Message DETECTED from " + message.sender + " to " + message.receiver + ": " + message.text);
@@ -225,7 +230,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
 
   // Taken from https://stackoverflow.com/questions/10232192/exec-display-stdout-live
   // Running the starmade server process
-  var server = spawn("java", ["-Xms" + settings["javaMin"], "-Xmx" + settings["javaMax"],"-jar", starMadeJar,"-server"], {cwd: settings["starMadeFolder"]});
+  var server = spawn("java", ["-Xms" + settings["javaMin"], "-Xmx" + settings["javaMax"],"-jar", starMadeJar,"-server", "-port:" + settings["port"]], {cwd: settings["starMadeFolder"]});
 
   console.log('Spawned server with PID:' + server.pid);
   var lockFileObj = fs.createWriteStream(lockFile);
@@ -366,9 +371,6 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   // var stdinStream = new stream.Readable();
 
 });
-
-
-
 
 //  ### Lock Check ###
 try {
