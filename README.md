@@ -1,4 +1,10 @@
 # starmade.js
+
+[![Build Status](https://travis-ci.org/Jump-Suit/starmade.js.svg?branch=master)](https://travis-ci.org/Jump-Suit/starmade.js)
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2FJump-Suit%2Fstarmade.js.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2FJump-Suit%2Fstarmade.js?ref=badge_shield) <!---
+(Note to Developers!: Change this with your Github Projects's badge!)
+-->
+
 This is an unfinished server wrapper for running a StarMade server.  It is currently being developed and is close to working out of the box.
 
 The end goal here is to produce a highly moddable wrapper that will:
@@ -23,4 +29,9 @@ If you would like to test the wrapper RIGHT NOW, create a "settings.json" file i
 
 Change the "starMadeFolder" value to be your starmade install folder where your StarMade.jar is located.  javaMin, javaMax, and port values can be changed as you wish.  (I'd suggest increasing the memory usage if you plan on actually flying around the universe)  When ready to shut down the server, type "/shutdown 1" in the console.  If for some reason your script crashes, the server will still be running.  You will need to kill end it manually.  The PID will be in the "server.lck" file generated.  You will then want to delete the "server.lck" file to start the server again.
 
-[![Build Status](https://travis-ci.org/Benevolent27/starmade.js.svg?branch=master)](https://travis-ci.org/Benevolent27/starmade.js.svg?branch=master)
+
+
+## License
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2FJump-Suit%2Fstarmade.js.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2FJump-Suit%2Fstarmade.js?ref=badge_large) <!---
+(Note to Developers!: Change this with your Github Projects's badge!)
+-->
