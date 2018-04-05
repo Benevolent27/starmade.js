@@ -1,7 +1,6 @@
 // @ts-check
 
 // #!/usr/bin/nodejs
-// Just a test
 
 // Remember to put "todo" tags wherever code should have some changes coming
 
