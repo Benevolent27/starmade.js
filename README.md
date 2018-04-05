@@ -1,6 +1,6 @@
 # starmade.js
 
-[![Build Status](https://travis-ci.org/Jump-Suit/starmade.js.svg?branch=master)](https://travis-ci.org/Jump-Suit/starmade.js)
+[![Build Status](https://travis-ci.org/Benevolent27/starmade.js.svg?branch=master)](https://travis-ci.org/Benevolent27/starmade.js)
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2FJump-Suit%2Fstarmade.js.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2FJump-Suit%2Fstarmade.js?ref=badge_shield) <!---
 (Note to Developers!: Change this with your Github Projects's badge!)
 -->
