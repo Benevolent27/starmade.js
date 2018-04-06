@@ -1,5 +1,7 @@
-settings.json
+/settings.json
 StarNet.jar
-server.lck
-.tags
+/server.lck
+/.tags*
 /.vs
+/starmade/
+/node_modules/*
