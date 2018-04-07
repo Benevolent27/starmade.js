@@ -104,6 +104,11 @@ const http   = require('http');
 const fs     = require('fs');
 const events = require('events');
 const spawn  = require('child_process').spawn;
+const path   = require('path');
+
+var setSettings = require("./bin/setSettings.js"); // This will confirm the settings.json file is created and the install folder is set up.
+
+
 // const stream   = require('stream'); // For streaming user input to the child process for the server
 
 var eventEmitter = new events.EventEmitter(); // This is for custom events
@@ -183,8 +188,11 @@ function testMatch(valToCheck) {
 var starNetJarURL="http://files.star-made.org/StarNet.jar";
 
 // Import settings, including the starmade folder, min and max java settings, etc.
+var settings=setSettings();
+console.log("Settings set: " + JSON.stringify(settings));
+
 try {
-  var settings = require("./settings.json");
+  // settings = require("./settings.json");
   console.log("Imported settings values from settings.json.");
 } catch (ex) {
     console.log("Settings.json file not found! Using default values");
@@ -224,8 +232,8 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
     }
   });
 
-  var starMadeJar = settings["starMadeFolder"] + "StarMade.jar";
-  var starNet     = "./bin/" + "StarNet.jar";
+  var starMadeJar = path.join(settings["starMadeFolder"],"StarMade.jar");
+  var starNet     = path.join("./bin/","StarNet.jar");
   // This will need to be able to supportsetting other arguments, such as the port, and JVM arguments if the server plans on using the JVM to troubleshoot bugs, performance issues, etc.
   // var starMadeArguments="-server";
 
@@ -421,7 +429,7 @@ process.on('exit', function() {
 
   // SIGTERM -- WAIT 5 MINUTES -- SIGKILL
 
-  console.log("Exiting..");
+  console.log("Exit event running..");
 });
 
 touch(lockFile);

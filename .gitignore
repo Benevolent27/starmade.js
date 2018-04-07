@@ -5,3 +5,4 @@ StarNet.jar
 /.vs
 /starmade/
 /node_modules/*
+*.bak
