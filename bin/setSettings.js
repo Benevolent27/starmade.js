@@ -90,7 +90,7 @@ module.exports = function() {
 
   // This is needed to check if a "require" module needs to be installed or not.  One cannot use a try/catch to test, because the response is cached.  Even after installing the module, if you try to require it, it will error out saying it cannot be found.  Using this method, it does not fail.
   // Note that this function will NOT work for modules that do not use the "module" name as it's install directory, so it MUST be tested to work with a required module FIRST.  If it does not work, then I'll need to code in exceptions for specific required modules.
-  function isModuleAvailableSync(moduleName) { // From: https://stackoverflow.com/questions/15302618/node-js-check-if-module-is-installed-without-actually-requiring-it
+  function isModuleAvailableSync(moduleName) { // Based on code from: https://stackoverflow.com/questions/15302618/node-js-check-if-module-is-installed-without-actually-requiring-it
     var ret = false; // return value, boolean
     var dirSeparator = require("path").sep
     // scan each module.paths. If there exists
