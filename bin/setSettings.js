@@ -203,7 +203,7 @@ module.exports = function() {
       settingsLoadedCheck=true;
     } catch (ex) {
       console.log("Wrapper does not appear to be set up yet.  Running setup routine! :D");
-      console.log("Temp - Current Dir: " + mainDirName);
+      // console.log("Temp - Current Dir: " + mainDirName);
     }
 
     // IF there was a settings.json file imported, ensure that all values are set, asking for any that do not exist.
