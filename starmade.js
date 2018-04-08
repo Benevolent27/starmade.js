@@ -124,19 +124,20 @@ var showStderr      = true;
 var showStdout      = true;
 var includePatterns = [];
 var excludePatterns = [];
+var serversRunning  = 0; // This is to count the server's running to manage the exit function and kill them when this main script dies.
 
 // #######################
 // ### SCRIPT REQUIRES ###
 // #######################
 // path.resolve below builds the full path to "./bin/setSettings.js" in such a way that is compatible with both windows and linux/macosx, since it doesn't use / or \ characters.
 var setSettings = require(path.join(binFolder, "setSettings.js")); // This will confirm the settings.json file is created and the install folder is set up.
-var installAndRequire = require(path.resolve("bin", "installAndRequire.js")); // This is used to install missing NPM modules and then require them.
+var installAndRequire = require(path.join(binFolder, "installAndRequire.js")); // This is used to install missing NPM modules and then require them.
 
 // #################################
 // ### NPM DOWNLOADABLE REQUIRES ###
 // #################################
 const makeDir=installAndRequire('make-dir'); // This allows creating folders recursively if they do not exist, with either async or sync functionality.
-
+const treeKill=installAndRequire('tree-kill'); // To kill the server and any sub-processes
 
 // ### Setting up submodules from requires.
 var eventEmitter = new events.EventEmitter(); // This is for custom events
@@ -241,7 +242,7 @@ if (!settings.hasOwnProperty('starMadeFolder') ||
 eventEmitter.on('ready', function() { // This won't fire off yet, it's just being declared so later on in the script it can be started.  I can modify this later if I want to allow more than one instance to be ran at a time.
   console.log("Starting server..");
 
-  eventEmitter.on('message', function(message) {
+  eventEmitter.on('message', function(message) { // Handle messages sent from players
     console.log("Message DETECTED from " + message.sender + " to " + message.receiver + ": " + message.text);
     if (message.text == "!command" ){
       console.log("!command found bitches!");
@@ -262,9 +263,16 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
 
   // Taken from https://stackoverflow.com/questions/10232192/exec-display-stdout-live
   // Running the starmade server process
-  var server = spawn("java", ["-Xms" + settings["javaMin"], "-Xmx" + settings["javaMax"],"-jar", starMadeJar,"-server", "-port:" + settings["port"]], {"cwd": settings["starMadeFolder"]});
-
-  console.log('Spawned server with PID:' + server.pid);
+  try { // This is to catch an error if spawn cannot start the java process
+    var server = spawn("java", ["-Xms" + settings["javaMin"], "-Xmx" + settings["javaMax"],"-jar", starMadeJar,"-server", "-port:" + settings["port"]], {"cwd": settings["starMadeFolder"]});
+  } catch (err) { // This does NOT handle errors returned by the spawn process.  This only handles errors actually spawning the process in the first place, such as if we type "javaBlah" instead of "java".  Cannot run "javaBlah" since it doesn't exist.
+    console.error("ERROR: Could not spawn server!")
+    if (err.message) { console.error("Error Message: " + err.message.toString()); }
+    if (err.code) { console.error("Error Code: " + err.code.toString()); }
+    exitNow(130);
+  }
+  serversRunning++; // Increment the number of servers running.
+  console.log('Spawned server process with PID:' + server.pid);
   var lockFileObj = fs.createWriteStream(lockFile);
   // function pidCB() { console.log("Wrote PID to lock file.."); }
   // lockFileObj.on('finish', function() { lockFileObj.close(pidCB); });
@@ -316,35 +324,58 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
     }
   }
 
-  server.stdout.on('data', function (data) {
-    let dataString=data.toString().trim();
+  server.stdout.on('data', function (data) { // Displays the standard output from the starmade server
+    let dataString=data.toString().trim(); // Clear out any blank lines
     if (dataString){
       if (showStdout == true) {
         console.log("stdout: " + dataString);
       }
-      processDataInput(dataString);
+      processDataInput(dataString); // Process the line to see if it matches any events
     }
   });
 
-  server.stderr.on('data', function (data) {
-    let dataString=data.toString().trim();
+  server.stderr.on('data', function (data) { // Displays the error output from the starmade server
+    let dataString=data.toString().trim(); // Clear out any blank lines
     if (dataString){
       if (showStderr == true) {
         console.log("stderr: " + dataString);
       }
-      processDataInput(dataString);
+      processDataInput(dataString); // Process the line to see if it matches any events
     }
   });
 
-  server.on('exit', function (code) {
+  process.on('exit', function() { // This is scoped so that it can terminate the starmade server when the main script ends.
+    // This should kill the server, but ONLY if there is a server running.
+    console.log("Scoped exit event running..");
+    if (serversRunning>0){
+      // Kill the processes, including all decendent processes.  For example, if we set the starmade server to actually be a script, then this will kill the script + the server.
+      if (server.pid){
+        console.log("Killing server PID, '" + server.pid + "' and all process descendants.");
+        treeKill(server.pid, 'SIGTERM');
+      }
+      // We don't decrement the serversRunning value, because the "exit" event for the server process should do it.
+    }
+  });
+
+  server.on('exit', function (code) { // This handles When the server child process ends, abormally or not.
+    serversRunning--;
     if (code.message){
         console.log('Server instance exited with message: ' + code.message.toString());
     }
     console.log('Server instance exited with code: ' + code.toString());
-    exitNow(code);
+    exitNow(code); // This is temporary, we don't necessarily want to kill the wrapper when the process dies.  For example, maybe we want to respawn it?  Ya know?!
 
-    // When the server child process ends
   });
+  server.on('error', function (code) {
+    // This runs is the java process could not start for some reason.
+    console.error("ERROR:  Could not launch server process!")
+    if (code.message){
+        console.log('Error Message: ' + code.message.toString());
+    }
+    console.log('Exit code: ' + code.toString());
+    exitNow(code); // This is temporary, we don't necessarily want to kill the wrapper when the process dies.
+  });
+
 
   server.on('message', function(text) {
     console.log("Message found: " + text);
@@ -413,7 +444,7 @@ try {
   console.log("Lock file found!  Server already started!  Exiting!");
   process.exit(1);
 } catch (err) {
-  console.log("Starting up!");
+  console.log("No lock detected!  Continuing.");
 };
 
 // ####################
@@ -425,13 +456,14 @@ function touch (file){
 function deleteFile (file) {
   try {
     fs.unlinkSync(file);
-    console.log("File, , " + file + ", deleted!");
+    // console.log("File, , " + file + ", deleted!");
   } catch(err) {
     console.error("File, " + file + ", cannot be deleted.  File not found!");
   }
 }
 
 function exitNow(code) {
+  console.log("Deleting lock file.");
   deleteFile(lockFile);
   console.log("Exiting main script with exit code: " + code);
   process.exit(code);
@@ -442,9 +474,9 @@ function cb() {
 }
 
 
-// ###############
-// ###  EXIT  ####
-// ###############
+// ##########################################
+// ###  MAIN SCRIPT EXIT  - GLOBAL SCOPE ####
+// ##########################################
 
 process.on('exit', function() {
   // Any sort of cleanup should be done now.  Such as possibly checking to see if the server process is still running and kill it.
