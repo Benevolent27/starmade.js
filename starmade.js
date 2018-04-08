@@ -97,26 +97,50 @@
 // 4: StarNet.jar did not exist and download failed due to a socks error, such as a failed connection.
 // 5. StarNet.jar did not exist and download failed with HTTP response from webserver.  The HTTP error code will be available in the last line output by this script.
 
-// #####################
-// ###    REQUIRES   ###
-// #####################
+
+
+
+// ##############################
+// ###    BUILT-IN REQUIRES   ###
+// ##############################
+
+// ### Built-in nodejs modules that should never need to be installed.
 const http   = require('http');
 const fs     = require('fs');
 const events = require('events');
 const spawn  = require('child_process').spawn;
-// const stream   = require('stream'); // For streaming user input to the child process for the server
+const path   = require('path'); // This is needed to build file and directory paths that will work in windows or linux or macosx.  For example, The / character is used in linu, but windows uses \ characters.  Windows also uses hard drive characters, wherease linux has mount points.  For example, in linux a path looks like "/path/to/somewhere", but in windows it looks like "c:\path\to\somewhere".  The path module takes care of this for us to build the path correctly.
+// const stream   = require('stream'); // For creating streams.  Not used right now but may be later.
 
-var eventEmitter = new events.EventEmitter(); // This is for custom events
 
 // #####################
 // ###    SETTINGS   ###
 // #####################
+var mainDirName     = path.dirname(require.main.filename); // This is where the starmade.js is
+var binFolder       = path.join(mainDirName,"bin");
 var operations      = 0;
-var lockFile        = "./server.lck";
+var lockFile        = path.join(mainDirName,"server.lck");
 var showStderr      = true;
 var showStdout      = true;
 var includePatterns = [];
 var excludePatterns = [];
+var serversRunning  = 0; // This is to count the server's running to manage the exit function and kill them when this main script dies.
+
+// #######################
+// ### SCRIPT REQUIRES ###
+// #######################
+// path.resolve below builds the full path to "./bin/setSettings.js" in such a way that is compatible with both windows and linux/macosx, since it doesn't use / or \ characters.
+var setSettings = require(path.join(binFolder, "setSettings.js")); // This will confirm the settings.json file is created and the install folder is set up.
+var installAndRequire = require(path.join(binFolder, "installAndRequire.js")); // This is used to install missing NPM modules and then require them.
+
+// #################################
+// ### NPM DOWNLOADABLE REQUIRES ###
+// #################################
+const makeDir=installAndRequire('make-dir'); // This allows creating folders recursively if they do not exist, with either async or sync functionality.
+const treeKill=installAndRequire('tree-kill'); // To kill the server and any sub-processes
+
+// ### Setting up submodules from requires.
+var eventEmitter = new events.EventEmitter(); // This is for custom events
 
 
 // #####################
@@ -125,16 +149,16 @@ var excludePatterns = [];
 // Patterns - This will be to detect things like connections, deaths, etc.  I'm pushing to an array so it's easier to add or remove patterns.
 
 // Include Patterns
-includePatterns.push("^\\[SERVER\\] MAIN CORE STARTED DESTRUCTION");
+includePatterns.push("^\\[SERVER\\] MAIN CORE STARTED DESTRUCTION"); // This is for ship overheats.  It was implemented with systems 2.0, but it's bugged.  It fires off not only when ships overheat but also when they are destroyed.
 includePatterns.push("^\\[SERVER\\]\\[SPAWN\\]");
-includePatterns.push("^\\[SERVER\\]\\[DISCONNECT\\]");
+includePatterns.push("^\\[SERVER\\]\\[DISCONNECT\\]"); // Player disconnects
 includePatterns.push("^\\[PLAYER\\]\\[DEATH\\]");
 includePatterns.push("^\\[SERVER\\] PlS\\[");
 includePatterns.push("^\\[SERVER\\]\\[PLAYERMESSAGE\\]");
-includePatterns.push("^\\[CHANNELROUTER\\]");
+includePatterns.push("^\\[CHANNELROUTER\\]"); // These are messages sent from players
 includePatterns.push("^\\[SERVER\\] Object Ship\\[");
 includePatterns.push("^\\[CHARACTER\\]\\[GRAVITY\\] # This is the main gravity change");
-includePatterns.push("^PlayerCharacter\\["); // # This handles killing creatures as a player as well as some wonky gravity changes.  I need to compare this to the main gravity changes to see if I should utilize it or not
+includePatterns.push("^PlayerCharacter\\["); // # This handles killing creatures as a player as well as some wonky gravity changes.  I need to compare this to the main gravity changes to see if I should utilize it or not for that.
 includePatterns.push("^Ship\\[ "); // # This handles killing NPC creatures from a ship and possibly other things.. but I haven't seen anything else in the logs to indicate the "other things"
 includePatterns.push("^SpaceStation\\["); // # This handles killing NPC creatures from a station
 includePatterns.push("^AICharacter\\["); // # This handles NPC creature deaths from other NPC characters
@@ -143,32 +167,32 @@ includePatterns.push("^Planet[(]"); // # This handles NPC creature death via pla
 includePatterns.push("^ManagedAsteroid[(]"); // This handles NPC creature deaths via asteroids that have been modified in some way
 includePatterns.push("^\\[DEATH\\]");
 includePatterns.push("^\\[SPAWN\\]");
-includePatterns.push("^\\[BLUEPRINT\\]");
+includePatterns.push("^\\[BLUEPRINT\\]"); // Blueprint spawns, including admin spawns.  They can be separated.
 includePatterns.push("^\\[SEGMENTCONTROLLER\\] ENTITY");
 includePatterns.push("^\\[FACTION\\]");
 includePatterns.push("^\\[FACTIONMANAGER\\]");
-includePatterns.push("^\\[SHUTDOWN\\]");
+includePatterns.push("^\\[SHUTDOWN\\]");  // When the server shuts down naturally
 
 // Exclude Patterns
-excludePatterns.push("^\\[SERVER\\]\\[DISCONNECT\\] Client 'null'");
-excludePatterns.push("^\\[SERVER\\]\\[DISCONNECT\\] Client 'Info-Pinger \\(server-lists\\)'");
+excludePatterns.push("^\\[SERVER\\]\\[DISCONNECT\\] Client 'null'"); // These spam all over the damn place so we want to filter them out.
+excludePatterns.push("^\\[SERVER\\]\\[DISCONNECT\\] Client 'Info-Pinger \\(server-lists\\)'"); // Every time someone refreshes their server list from the main menu of the game, all servers have a message on their console.
 
 // Build the regex patterns into compact patterns.
 var includePatternRegexTemp="(" + includePatterns[0];
 for (var i=1;i<includePatterns.length;i++){ includePatternRegexTemp+="|" + includePatterns[i]; }
 includePatternRegexTemp+=")"
 var includePatternRegex=new RegExp(includePatternRegexTemp);
-console.log("includePatternRegex: " + includePatternRegex + "\n");
-
+// console.log("includePatternRegex: " + includePatternRegex + "\n");
+console.log("Include patterns loaded.");
 var excludePatternRegexTemp="(" + excludePatterns[0];
 for (let i=1;i<excludePatterns.length;i++){ excludePatternRegexTemp+="|" + excludePatterns[i]; }
-
 //for (let e=1;e<excludePatterns.length;e++){ excludePatternRegexTemp+="|" + excludePatterns[e]; }
 excludePatternRegexTemp+=")"
 var excludePatternRegex=new RegExp(excludePatternRegexTemp);
-console.log("excludePatternRegex: " + excludePatternRegex + "\n");
+// console.log("excludePatternRegex: " + excludePatternRegex + "\n");
+console.log("Exclude patterns loaded.");
 
-function testMatch(valToCheck) {
+function testMatch(valToCheck) { // This function will be called on EVERY line the wrapper outputs to see if the line matches a known event or not.
   if (includePatternRegex.test(valToCheck)){
     if (!excludePatternRegex.test(valToCheck)){
       return true;
@@ -182,19 +206,23 @@ function testMatch(valToCheck) {
 
 var starNetJarURL="http://files.star-made.org/StarNet.jar";
 
-// Import settings, including the starmade folder, min and max java settings, etc.
-try {
-  var settings = require("./settings.json");
-  console.log("Imported settings values from settings.json.");
-} catch (ex) {
-    console.log("Settings.json file not found! Using default values");
-    settings = { // This is a temporary fallback during testing.  In the future if there is no settings.json file, we'll run an install routine instead to set the values and write the file.
-      "starMadeFolder": "/home/philip/Programs/StarMade/",
-      "javaMin": "128m",
-      "javaMax": "1024m",
-      "port": "4242"
-    };
-}
+// Import settings, including the starmade folder, min and max java settings, etc.  If the settings.json file does not exist, it will set it up.
+var settings=setSettings();
+// console.log("Settings set: " + JSON.stringify(settings));
+
+// Obsolete - This section was originally to load the settings.json file and use "default" values just for testing, this has been replaced by the setSettings.js scripting.
+// try {
+//   settings = require("./settings.json");
+//   console.log("Imported settings values from settings.json.");
+// } catch (ex) {
+//     console.log("Settings.json file not found! Using default values");
+//     settings = { // This is a temporary fallback during testing.  In the future if there is no settings.json file, we'll run an install routine instead to set the values and write the file.
+//       "starMadeFolder": "/home/philip/Programs/StarMade/",
+//       "javaMin": "128m",
+//       "javaMax": "1024m",
+//       "port": "4242"
+//     };
+// }
 
 // Where is an existing StarMade folder
 // What port would you like to use?  (Default 4242):
@@ -214,7 +242,7 @@ if (!settings.hasOwnProperty('starMadeFolder') ||
 eventEmitter.on('ready', function() { // This won't fire off yet, it's just being declared so later on in the script it can be started.  I can modify this later if I want to allow more than one instance to be ran at a time.
   console.log("Starting server..");
 
-  eventEmitter.on('message', function(message) {
+  eventEmitter.on('message', function(message) { // Handle messages sent from players
     console.log("Message DETECTED from " + message.sender + " to " + message.receiver + ": " + message.text);
     if (message.text == "!command" ){
       console.log("!command found bitches!");
@@ -224,8 +252,10 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
     }
   });
 
-  var starMadeJar = settings["starMadeFolder"] + "StarMade.jar";
-  var starNet     = "./bin/" + "StarNet.jar";
+  var starMadeJar = path.join(settings["starMadeFolder"],"StarMade.jar");
+  var starNet     = path.join(binFolder,"StarNet.jar");
+
+
   // This will need to be able to supportsetting other arguments, such as the port, and JVM arguments if the server plans on using the JVM to troubleshoot bugs, performance issues, etc.
   // var starMadeArguments="-server";
 
@@ -233,9 +263,16 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
 
   // Taken from https://stackoverflow.com/questions/10232192/exec-display-stdout-live
   // Running the starmade server process
-  var server = spawn("java", ["-Xms" + settings["javaMin"], "-Xmx" + settings["javaMax"],"-jar", starMadeJar,"-server", "-port:" + settings["port"]], {cwd: settings["starMadeFolder"]});
-
-  console.log('Spawned server with PID:' + server.pid);
+  try { // This is to catch an error if spawn cannot start the java process
+    var server = spawn("java", ["-Xms" + settings["javaMin"], "-Xmx" + settings["javaMax"],"-jar", starMadeJar,"-server", "-port:" + settings["port"]], {"cwd": settings["starMadeFolder"]});
+  } catch (err) { // This does NOT handle errors returned by the spawn process.  This only handles errors actually spawning the process in the first place, such as if we type "javaBlah" instead of "java".  Cannot run "javaBlah" since it doesn't exist.
+    console.error("ERROR: Could not spawn server!")
+    if (err.message) { console.error("Error Message: " + err.message.toString()); }
+    if (err.code) { console.error("Error Code: " + err.code.toString()); }
+    exitNow(130);
+  }
+  serversRunning++; // Increment the number of servers running.
+  console.log('Spawned server process with PID:' + server.pid);
   var lockFileObj = fs.createWriteStream(lockFile);
   // function pidCB() { console.log("Wrote PID to lock file.."); }
   // lockFileObj.on('finish', function() { lockFileObj.close(pidCB); });
@@ -287,32 +324,58 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
     }
   }
 
-  server.stdout.on('data', function (data) {
-    let dataString=data.toString().trim();
+  server.stdout.on('data', function (data) { // Displays the standard output from the starmade server
+    let dataString=data.toString().trim(); // Clear out any blank lines
     if (dataString){
       if (showStdout == true) {
         console.log("stdout: " + dataString);
       }
-      processDataInput(dataString);
+      processDataInput(dataString); // Process the line to see if it matches any events
     }
   });
 
-  server.stderr.on('data', function (data) {
-    let dataString=data.toString().trim();
+  server.stderr.on('data', function (data) { // Displays the error output from the starmade server
+    let dataString=data.toString().trim(); // Clear out any blank lines
     if (dataString){
       if (showStderr == true) {
         console.log("stderr: " + dataString);
       }
-      processDataInput(dataString);
+      processDataInput(dataString); // Process the line to see if it matches any events
     }
   });
 
-  server.on('exit', function (code) {
-    console.log('child process exited with code ' + code.toString());
-    exitNow(code);
-
-    // When the server child process ends
+  process.on('exit', function() { // This is scoped so that it can terminate the starmade server when the main script ends.
+    // This should kill the server, but ONLY if there is a server running.
+    console.log("Scoped exit event running..");
+    if (serversRunning>0){
+      // Kill the processes, including all decendent processes.  For example, if we set the starmade server to actually be a script, then this will kill the script + the server.
+      if (server.pid){
+        console.log("Killing server PID, '" + server.pid + "' and all process descendants.");
+        treeKill(server.pid, 'SIGTERM');
+      }
+      // We don't decrement the serversRunning value, because the "exit" event for the server process should do it.
+    }
   });
+
+  server.on('exit', function (code) { // This handles When the server child process ends, abormally or not.
+    serversRunning--;
+    if (code.message){
+        console.log('Server instance exited with message: ' + code.message.toString());
+    }
+    console.log('Server instance exited with code: ' + code.toString());
+    exitNow(code); // This is temporary, we don't necessarily want to kill the wrapper when the process dies.  For example, maybe we want to respawn it?  Ya know?!
+
+  });
+  server.on('error', function (code) {
+    // This runs is the java process could not start for some reason.
+    console.error("ERROR:  Could not launch server process!")
+    if (code.message){
+        console.log('Error Message: ' + code.message.toString());
+    }
+    console.log('Exit code: ' + code.toString());
+    exitNow(code); // This is temporary, we don't necessarily want to kill the wrapper when the process dies.
+  });
+
 
   server.on('message', function(text) {
     console.log("Message found: " + text);
@@ -381,7 +444,7 @@ try {
   console.log("Lock file found!  Server already started!  Exiting!");
   process.exit(1);
 } catch (err) {
-  console.log("Starting up!");
+  console.log("No lock detected!  Continuing.");
 };
 
 // ####################
@@ -393,15 +456,16 @@ function touch (file){
 function deleteFile (file) {
   try {
     fs.unlinkSync(file);
-    console.log("File, , " + file + ", deleted!");
+    // console.log("File, , " + file + ", deleted!");
   } catch(err) {
     console.error("File, " + file + ", cannot be deleted.  File not found!");
   }
 }
 
 function exitNow(code) {
+  console.log("Deleting lock file.");
   deleteFile(lockFile);
-  console.log("Exiting with exit code: " + code);
+  console.log("Exiting main script with exit code: " + code);
   process.exit(code);
 }
 
@@ -410,9 +474,9 @@ function cb() {
 }
 
 
-// ###############
-// ###  EXIT  ####
-// ###############
+// ##########################################
+// ###  MAIN SCRIPT EXIT  - GLOBAL SCOPE ####
+// ##########################################
 
 process.on('exit', function() {
   // Any sort of cleanup should be done now.  Such as possibly checking to see if the server process is still running and kill it.
@@ -421,22 +485,22 @@ process.on('exit', function() {
 
   // SIGTERM -- WAIT 5 MINUTES -- SIGKILL
 
-  console.log("Exiting..");
+  console.log("Exit event running..");
 });
 
 touch(lockFile);
 
 
 function operation(val){ // This controls when the start operation occurs.  All file reads, downloads, installs, etc, must be completed before this will trigger the "ready" event.
-  console.log("operations ongoing: " + operations + " Command given: " + val);
+  // console.log("operations ongoing: " + operations + " Command given: " + val);
   if (val == "start"){ // Start is used when an asyncronous operation starts and end should be used when it's finished.
     operations++;
-    console.log("operation added.  New operations amount: " + operations);
+    // console.log("operation added.  New operations amount: " + operations);
   } else if (val == "end"){
     if (operations>1){
       operations--;
     } else {
-      console.log("All operations finished, triggering start event: " + operations);
+      console.log("All operations finished, triggering start event! ");
       eventEmitter.emit('ready');
     }
   }
@@ -456,38 +520,42 @@ function operation(val){ // This controls when the start operation occurs.  All 
 
 // Check to see if the /bin dir exists and create it if not.
 try {
-    fs.accessSync('./bin/',fs.constants.F_OK);
-    console.log("/bin folder found!  Great!  Continuing..");
+    fs.accessSync(binFolder,fs.constants.F_OK);  // Using resolve to ensure the folder path is specified in the right way for the OS
+    // console.log("'bin' folder found!  Great!  Continuing..");
 } catch (err) {
     console.log("/bin folder not found, creating it!");
-    fs.mkdirSync("./bin");
+    // fs.mkdirSync("./bin");
+    try {
+      fs.mkdirSync(binFolder);  // This will create the folder and any inbetween needed.
+    } catch (error) {
+      console.error("ERROR: Unable to create bin folder!  Please make sure you have WRITE access to the folder starmade.js is in!");
+      if (error.message) {
+        console.error("Error Message: " + error.message);
+      }
+      exitNow(130);
+    }
 };
 
 // Check if StarNet.jar exists and download it if not.
 try {
     operation("start");
-    fs.accessSync('./bin/StarNet.jar',fs.constants.F_OK)
-    console.log('StarNet.jar found! Starting wrapper!');
-    // Below is commented out because it's obsolete.
-    // eventEmitter.emit('ready'); // Trigger the custom event to start the server since the StarNet.jar already existed.
-    operation("end");
-
+    fs.accessSync(path.resolve(path.join("bin","StarNet.jar")),fs.constants.F_OK);
+    console.log('StarNet.jar found.');
+    operation("end"); // This now handles emitting the ready signal to start the server when all operations have completed.
   } catch (ex) {
-    //  This will be an async operation, so we'll use the "operations" function to ensure it is complete before the ready occurs.
-
+    //  This will be an async operation to downloading StarNet.jar.
     console.log("StarNet.jar not found!  Downloading!")
-
     // http://files.star-made.org/StarNet.jar
     try { // We will first download to a temporary name and then move it upon success.  Delete the temp file if exists already.
-        fs.accessSync('./bin/StarNet.jar.tmp');
-        console.log("StarNet.jar.tmp file found.  Removing first..");
-        fs.unlinkSync('./bin/StarNet.jar.tmp'); // I'm not including error handling here because there should never be a situation where the temp file cannot be removed by this script.
+        fs.accessSync(path.join(binFolder,'StarNet.jar.tmp'));
+        console.log("Deleting StarNet.jar.tmp file before continuing.");
+        fs.unlinkSync(path.join(binFolder,'StarNet.jar.tmp')); // I'm not including error handling here because there should never be a situation where the temp file cannot be removed by this script.
     } catch (err) {
         console.log("StarNet.jar.tmp not found, good!  Continuing!");
     }
 
     // Open up a write stream to the temporary file
-    var file = fs.createWriteStream("./bin/StarNet.jar.tmp");
+    var file = fs.createWriteStream(path.join(binFolder,"StarNet.jar.tmp"));
 
     // Let's try to now download the file and pipe it to the temporary file
     console.log("Starting download..");
@@ -514,14 +582,12 @@ try {
     }
     file.on('finish', function() {
         file.close(cb);
-        fs.rename('./bin/StarNet.jar.tmp', './bin/StarNet.jar', (err) => {
+        fs.rename(path.join(binFolder,'StarNet.jar.tmp'), path.join(binFolder,'StarNet.jar'), (err) => {
             if (err) {
                 console.error(err);
             }
             console.log('StarNet.jar downloaded successfully! :D');
             operation("end"); // We're using a function to keep track of all ongoing operations and only triggering the start event when all are complete.  So let's complete this operation.
-            // Below is obsolete since we're using a function to manage ongoing async operations.
-            // eventEmitter.emit('ready'); // Trigger the custom event to start the server since the file is done downloading and there were no errors.
           });
       });
 }
