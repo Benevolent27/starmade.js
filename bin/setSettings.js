@@ -15,7 +15,7 @@ module.exports = function() {
 
   var mainDirName = path.dirname(require.main.filename);
 
-  // May be a quick way to uncache required files and then re-require them without need for the .
+  // May be a quick way to uncache required files and then re-require them without need for the "decache" module.
   // function requireUncached(module){
   //     delete require.cache[require.resolve(module)]
   //     return require(module)();
@@ -109,7 +109,7 @@ module.exports = function() {
     if (isModuleAvailableSync(theModule) == false){
       try {
         process.stdout.write("Installing required module: " + theModule);
-        child.execSync('npm install --save prompt-sync');
+        child.execSync('npm install --save ' + theModule,{"cwd": mainDirName});
         process.stdout.write(" ..Done!\n");
       } catch(error) {
         console.error("ERROR installing module, " + theModule + "! Exiting!");
@@ -117,6 +117,7 @@ module.exports = function() {
         process.exit(130);
       }
     }
+    console.log("Loading module: " + theModule);
     return require(theModule);
   }
 
@@ -173,12 +174,14 @@ module.exports = function() {
   function testStarMadeDirValue (installDir) {
     if (!installDir) { return path.join(mainDirName, "starmade"); }
     if (!isInvalidPath(installDir)) { // If the path provided was valid
-      let resolvedInstallDir=path.resolve(installDir);
+      let resolvedInstallDir=path.resolve(mainDirName,installDir); // This will resolve from right to left, so if the install dir is a full path, it will not use the main starmade directory as the first part.  Otherwise, it will be relative to the folder starmade.js is in.
       if (fs.existsSync(resolvedInstallDir)){ // If the path exists, check to see if it is a file or named pipe.  IF so, we cannot use it.
         if (fs.statSync(resolvedInstallDir).isFile()) {
           console.log("ERROR: '" + resolvedInstallDir + "' already exists as a filename.  Please choose a different directory path!");
+          return false;
         } else if (fs.statSync(resolvedInstallDir).isFIFO()) {
           console.log("ERROR: '" + resolvedInstallDir + "' already exists as a named pipe.  Please choose a different directory path!");
+          return false;
         } else {
           return resolvedInstallDir // The path existed and it was not a file or named pipe so we should be able to use it.. unless it's a symlink to a file.. but I figure if someone is using symlinks to a file they should be smart enough to know not to try to use it as their starmade install folder..
         }
@@ -188,7 +191,7 @@ module.exports = function() {
     }
     // The path was invalid, so throw crap at the person.
     console.log("ERROR: The path you specified is not valid!");
-    console.log("Please enter the full path to where you want your StarMade install to be.");
+    console.log("Please enter the folder name OR full path to where you want your StarMade install to be.");
     console.log("Note:  If you simply press enter, we'll use the same folder that starmade.js is in. (Recommended!)");
     return false;
   }
