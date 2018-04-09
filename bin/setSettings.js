@@ -276,7 +276,7 @@ module.exports = function() {
         process.exit(32);
       }
     } else {
-      console.log("Existing settings.json file loaded!")
+      console.log("Settings file loaded!")
     }
     // console.log("Settings: " + JSON.stringify(settings));
     return settings;
