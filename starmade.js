@@ -1,95 +1,31 @@
 // @ts-check
 
-// #!/usr/bin/nodejs
-
-// Remember to put "todo" tags wherever code should have some changes coming
-
-// This is just the very first start of the script that can start the starmade server program.  It does not actually parse anything yet.
-
 // Design fundamentals:
-// There should be the LEAST amount of input necessary from the user to get things going.  As much as can be automated or already included should be.  Such as including StarNet.jar or downloading it.  Any dependencies should also be able to be automatically installed for any OS.  No superuser should be asked, but should rather be pulled from the server.cfg file from the starmade install folder.  If no superuser password is established already, this scripting should ask the user to input a new one and then change the server.cfg file.  etc.
-// All areas of control of the wrapper should have scripting capable of taking input and performing the actions from the **command line**.  A GUI may or may not be built later.  This wrapper is intended to be used primarily on linux machines.  If a GUI is built, it will likely be in java.
-// This wrapper should be moddable.  Everything will be event driven, so mods will be able to easily detect when events happen in game and have individual scripts run.
-// There will be easy access to databases that both the wrapper and mods can maintain.  There will be "wrapper," "global", and "mod-level" databases.
-// There will be built in methods to perform actions, such as sending a command to the console.  Or sending a command via starnet.  Or performing sql queries on the world database with easily parseable output.
-// As the wrapper is built, documentation for how it works, how to build a wrapper with it, and the built-in functions and event should be produced, which will be a website easily available to the public later upon release.
-// All code should be native to javascript, using outside tools the least possible.  All outside tools must be includable or downloadable and freely usable.receiver
 
-// Todo:
+// SIMPLICITY
+// There should be the LEAST amount of input necessary from the user to get things going.
+// As much as can be automated should be, such as downloading all dependencies, like StarNet.jar or any modules automagically.
+// Any dependencies should be functional for LINUX, WINDOWS, AND MAC --> NO OS DEPENDENT MODULES.
+// Any information that can be grabbed should be grabbed automatically, such as the "SUPERADMINPASSWORD" from the starmade server.cfg file.
+// When information is missing, this scripting should ask the user and make changes wher needed (such as asking for and then changing the server.cfg file for the SUPERADMINPASSWORD).
 
-// #######
-// ## 1 ##
-// #######
-// Set up auto-restart on server exit with a non-zero error code.  This should always immediately respawn the process.
-// 1a.  Set up lock file and exiting. <-- done
-// 1b.  Grab the server pid to be used to kill it.  Store this into the lock file instead of making it a blank file.
+// No GUI  - NUFF SAID - TEXT CONSOLE FTW
+// The servers that should be using this should be headless, so if we want to create a "GUI", we should create it as a web-app with focus on security.  Express is great for this sort of thing:
 
-// #######
-// ## 2 ## -- MetaPhaze
-// #######
-// Set up auto-restart on abnormal exists which have a 0 error code on exist.  To do this, we should rely on secondary scripting to start this script, such as a "start.js" script. This script creates a file to indicate the server is running. If the file still exists when the server shuts down, we know it should still be running, so this script should start the server again.  A second "stop.js" script will be used to shut down the server, sending the /shutdown command, and removing the temporary file.  Then when the server exits with no error code, this script should exit gracefully.
+// MODDABILITY
+// This wrapper will feature a high degree of moddability.  Everything will be event driven, so mods will be able to easily detect when events happen in game.
+// There will be easy access to databases that both the wrapper and mods can maintain.  There will be "wrapper," "global", and "mod-level" databases.  By default, a mod should only have access to the "global" and "mod-level" databases, but we should have a specification for a "high level" mod that gets loaded in at the global scope so it can change the base functionality of the wrapper (if desired - AND ONLY WITH LOTS OF WARNINGS TO THE SERVER OWNER)
+// I want a rich tapestry of built in methods that can perform functions such as grabbing the current faction of a specific player.  These should be able to send commands to the server, retrieve the data, parse it, and whittle it down to what is needed.  Sql queries will get special attention here, allowing the output to be easily parsable by mod scripting.
 
-// Heartbeat process - needs to send a "/status" command via StarNet.jar every minute and ensure the connection was successful and the response was as expected.
-// Crashes:
-// Soft-crash - Too busy for 2 minutes to respond to StarNet.jar OR server is unresponsive.
-// ** Hard-crash - Server exits with an exit code other than 0.  It should automatically restart the server using the "ready" event emitter IF the server.lck file still exists.
+// DOCUMENTATION
+// As the wrapper is built, documentation should be done alongside it.  All final versions of built-in functions and events should be documented carefully.
 
+// NODE.JS JAVASCRIPT - MOSTLY NATIVE CODE
+// Code should be mostly native to node.js javascript, using outside tools the least possible.  All outside tools must be includable or downloadable and freely usable on supported OS's, including linux, windows, and macosx.
 
+// NPM REQUIRES OK - NO NEED TO RE-INVENT WHEELS
+// Provided a NPM package seems stable enough, we can use them to expand the functionality of our scripting and decrease production time.  Care must be taken to ensure that performance isn't decreased significantly though.  -- NO GHETTO PACKAGES PLZ
 
-// #######
-// ## 3 ##
-// #######
-// Set up start.js, stop.js, restart.js scripts to control the server.
-// Start.js Basic Design:
-// PID - javascript program <-- This one one we do not have.
-// PID - java StarMade server <--- this one we have
-// server.lck <-- json.  When PID javascript program, when starmade starts, it adds the starmade server PID to the lock file
-
-// start.js -- server.lck.
-// lockPIDS=include ("./server.lck");
-// lockPIDS["jsPID"]=PID of the actual javascript wrapper.
-// kill jsPID <-- might be different methods used per OS
-// lockPIDS["starmadeJar"]=PID of the starmade server.
-// Same here, but try using StarNet.jar to send a "/shutdown 1" command first
-
-// Scripts:
-// Start gives up easily, checks for lock file.  PIDS, etc.  If PIDS in lock file are not running, it should delete the lock file and start the program.
-// Stop - Try to shut it down gracefully with a /shutdown command and send a message to the server letting players know the server is shutting down.  Will not force shut down anything.
-// ForceStop - Tries to shut down gracefully with "/shutdown 1" (using stop), then SIGTERM (graceful) (wait 5 minutes, checking every 10 seconds or so to see if the program is still running), then SIGKILL (HARMFUL SHUTDOWN)
-// Restart - Start (and end if success), stop, forcestop, start.  Also let users know that the server is restarting.
-
-
-// #######
-// ## 4 ##
-// #######
-// Set up the ability for OUTSIDE scripts to communicate with this script and send commands directly to the console.  Normally StarNet.jar will be ok for this, but not when processing hundreds of requests, such as performing operations on individual entities within a sector.  StarNet.jar might take 20 seconds to complete, but sending commands directly to the console takes less than 1 second.
-
-// #######
-// ## 5 ##
-// #######
-// Set up backup scripting.  Presently the bash version of wrapper 2.0 uses rsync to do a quick backup to a temporary folder, starts the server, and then starts packing the temporary world file to a zip file or gzip file.  We need to either include rsync as a dependency or find an alternative to allow fast backups.  The alternative is to wait for a full zip operation to occur, which can take several minutes.  The scripting should utilize rsync for the appropriate OS.
-// Rsync:  https://rsync.samba.org/
-// #######
-// ## 6 ##
-// #######
-// Set up the mod structure.  The way I want this to work is there will be a "mods" folder which contains sub-folders.  Within each subfolder is a script with various names, such as "playerDeath.js" or "shipOverheat.js".  When a specific event happens, it will asyncronously spawn these mod scripts, preloading the parsed data from the event, such as the player who died, or the player who killed the other player, etc.  This mod loading should also be refreshable, so that the wrapper does not need to be restarted when a mod is edited, but will instead refresh the individual mod scripts.
-
-// #######
-// ## 7 ##
-// #######
-// Set up sqlite functionality.  This will be a dependency and will be used to store data in different databases.  There will be a wrapper database, "global" database, and "mod" database.  Mods should only have access to the global and mod databases.  When performing a sql query on the "mod" database, it should be a unique database for that mod, preferrably in a created directory under the mod folder.  The backup routine should also be compressing these databases into the main backup.
-
-// #######
-// ## 8 ##
-// #######
-// Set up reading from a "settings.json" file to set information such as the starmade install folder, java min and max values, and other custom arguments, such as running a JVM.
-
-// #######
-// ## 9 ##
-// #######
-// Change the "settings" loading of settings.json so that if the file does not exist, it asks for the information at the command prompt and then build the settings object and output to the settings.json file.
-// It should verify that the folder given for StarMade is valid, and if not, create it and install starmade by downloading the installer and running it.
-// It should ask for min value for RAM and MAX, also port to run on.  It should use a default of 4242 port if no user input.
 
 // Exit codes
 // 1: Lock file existed. Possible other server running.  Cannot start.
@@ -132,6 +68,9 @@ var installAndRequire = require(path.join(binFolder, "installAndRequire.js")); /
 const makeDir=installAndRequire('make-dir'); // https://www.npmjs.com/package/make-dir This allows creating folders recursively if they do not exist, with either async or sync functionality.
 const treeKill=installAndRequire('tree-kill'); // https://www.npmjs.com/package/tree-kill To kill the server and any sub-processes
 // const decache = installAndRequire("decache"); // https://www.npmjs.com/package/decache - This is used to reload requires, such as reloading a json file or mod without having to restart the scripting.
+// const express = installAndRequire('express'); // https://www.npmjs.com/package/express Incredibly useful tool for serving web requests
+// const targz = installAndRequire('tar.gz'); // https://www.npmjs.com/package/tar.gz2 For gunzipping files,folders, and streams (including download streams)
+// const blessed = installAndRequire('blessed'); // https://www.npmjs.com/package/blessed Awesome terminal screen with boxes and all sorts of interesting things.
 
 // ### Setting up submodules from requires.
 var eventEmitter = new events.EventEmitter(); // This is for custom events
@@ -255,6 +194,7 @@ if (!settings.hasOwnProperty('starMadeFolder') ||
 eventEmitter.on('ready', function() { // This won't fire off yet, it's just being declared so later on in the script it can be started.  I can modify this later if I want to allow more than one instance to be ran at a time.
   console.log("Starting server..");
 
+  // #####  PLAYER MESSAGES  #####
   eventEmitter.on('message', function(message) { // Handle messages sent from players
     console.log("Message DETECTED from " + message.sender + " to " + message.receiver + ": " + message.text);
     if (message.text == "!command" ){
@@ -266,10 +206,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   });
 
 
-  // This will need to be able to supportsetting other arguments, such as the port, and JVM arguments if the server plans on using the JVM to troubleshoot bugs, performance issues, etc.
-  // var starMadeArguments="-server";
-
-  // Here we are setting up custom events, which will be used for various things such as player deaths, ship overheats, player spawns, etc.
+  // todo: Support for JVM arguments on the command line.
 
   // Taken from https://stackoverflow.com/questions/10232192/exec-display-stdout-live
   // Running the starmade server process
@@ -430,6 +367,43 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           console.log("Setting Stderr to false!");
           showStderr=false;
         }
+      } else if (theCommand == "settings") {
+        if (theArguments[0] == "list"){
+          // const copy = Object.create(Object.getPrototypeOf(settings));
+          console.log("\nHere are your current settings:")
+          const propNames = Object.getOwnPropertyNames(settings);
+          propNames.forEach(function(name){
+            // console.log("Setting: " + name + " Value: " + Object.getOwnPropertyDescriptor(settings, name));
+            if (name != "smTermsAgreedTo"){ console.log(" " + name + ": " + settings[name]); }
+          });
+          console.log("\nIf you would like to change a setting, try !changesetting [SettingName] [NewValue]");
+        }
+      } else if (theCommand == "changesetting") {
+        let showUsage = function(){ console.log("Usage: !changeSetting [Property] [NewValue]"); };
+        if (theArguments[0]){
+          // console.log("Result of checking hasOwnProperty with " + theArguments[0] + ": " + settings.hasOwnProperty(theArguments[0]));
+          if (settings.hasOwnProperty(theArguments[0])){
+
+            let oldSettings=copyObj(settings);
+            let settingNameToChange=theArguments.shift();
+            let newSetting=theArguments.join(" ");
+            if (newSetting){
+              console.log("\nChanged setting from: " + oldSettings[settingNameToChange]);
+              settings[settingNameToChange]=newSetting;
+              console.log("Changed setting to: " + settings[settingNameToChange]);
+              console.log("Settings update will take effect next time the server is restarted.")
+              writeSettings();
+            } else {
+              console.log("ERROR: You need to specify WHAT you wish to change the setting, '', to!");
+              showUsage();
+            }
+          } else {
+            console.log("ERROR:  Cannot change setting, '" + theArguments[0] + "'! No such setting: ");
+          }
+        } else {
+          console.log("ERROR:  Please provide a setting to change!");
+          showUsage();
+        }
       }
     } else {
       console.log("Running Command: " + theText);
@@ -460,8 +434,18 @@ function sleep(ms) { // This will only work within async functions.
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function copyObj(obj) {
+  const copy = Object.create(Object.getPrototypeOf(obj));
+  const propNames = Object.getOwnPropertyNames(obj);
+  propNames.forEach(function(name) {
+    const desc = Object.getOwnPropertyDescriptor(obj, name);
+    Object.defineProperty(copy, name, desc);
+  });
+  return copy;
+}
+
 function writeSettings() {
-  var settingsFileName=path.baseFile(settingsFile);
+  var settingsFileName=path.basename(settingsFile);
   try {
     var settingsFileStream=fs.createWriteStream(settingsFile);
     settingsFileStream.write(JSON.stringify(settings, null, 4));
@@ -658,6 +642,7 @@ touch(lockFile); // Create an empty lock file.  This is to prevent this script f
 // ##############################
 
 ensureFolderExists(binFolder);
+ensureFolderExists(starMadeInstallFolder); // This is redundant, handling if the person deletes or moves their install folder.
 
 // ###################################
 // ### DEPENDENCIES AND DOWNLOADS  ###
@@ -682,10 +667,12 @@ async function installDepsSync() {
   // Let's see if the starmade jar file exists, and install StarMade to the installer path if not.
   if (!fs.existsSync(starMadeJar)){
     console.log("StarMade does not appear to be installed already.  Installing now..");
-    function installStarMade(){
-      return (smInstallerProcess=child.spawnSync("java",["-jar",starMadeInstaller,"-nogui"],{"cwd": settings["starMadeFolder"]}));
-    }
-    await installStarMade();
+    // function installStarMade(){
+    //   var smInstallerProcess=child.spawnSync("java",["-jar",starMadeInstaller,"-nogui"],{"cwd": settings["starMadeFolder"]});
+    //   return smInstallerProcess;
+    // }
+    // await installStarMade();
+    var smInstallerProcess=child.spawnSync("java",["-jar",starMadeInstaller,"-nogui"],{"cwd": settings["starMadeFolder"]});
     console.log("Install PID: " + smInstallerProcess.pid);
   }
   console.log("Here we go..");
