@@ -1,7 +1,7 @@
 // This script ensures a "settings.json" file exists and has valid settings.
 // If settings do not exist, it will ask for them.
 // It then returns the settings as an object.
-//
+
 // To use this in the main starmade.js file, use as:
 // const setSettings = require("./bin/setSettings.js");
 // var settings = setSettings();
@@ -11,137 +11,15 @@ module.exports = function() {
   const fs = require('fs');
   const child = require('child_process');
   const path = require('path');
-  // https://www.npmjs.com/package/prompt-sync
+  var mainFolder = path.dirname(require.main.filename);
+  var binFolder  = path.join(mainFolder,"bin");
+  var installAndRequire = require(path.join(binFolder, "installAndRequire.js")); // This is used to install missing NPM modules and then require them without messing up the require cache.
+  var settingsFile=path.join(mainFolder, "/settings.json");
 
-  var mainDirName = path.dirname(require.main.filename);
-
-  // May be a quick way to uncache required files and then re-require them without need for the "decache" module.
-  // function requireUncached(module){
-  //     delete require.cache[require.resolve(module)]
-  //     return require(module)();
-  // }
-
-  var settingsFile=path.join(mainDirName, "/settings.json");
-
-  // NPM Reminders
-  // To uninstall from local dependencies:  npm uninstall -save [Package Name]
-  // To install to local folder: npm install -save [Package Name]
-  // To install to local folder and to only use for TESTING ONLY:  npm install -save-dev [Package Name]
-
-
-  // Depreciated.  I came up with a better method.  Rather than using the "require" function to check for the module and then requiring the main script, I can avoid using require by checking to see if the module exists and then just use require on it.  This leaves the require cache correct, which is important if the module needs to have "require" ran on it somewhere else in the script, such as loading submodules.
-  // function forceRequire(nodeRequire){
-  //   // This is intended to replace require, where it will download remote packages needed if not already available
-  //   // However there are bugs.  This will ONLY work with packages that install to the node_modules folder bearing the name of the package.
-  //   try {
-  //     return require(nodeRequire);
-  //   } catch (err) {
-  //     console.log("'" + nodeRequire + "' dependency not installed!  Installing to local folder..");
-  //     try {
-  //       var installPromptSync = child.execSync('npm install --save ' + nodeRequire);
-  //       if (installPromptSync.stdout) { console.log(installPromptSync.stdout.toString()); }
-  //       if (installPromptSync.stderr) { console.log(installPromptSync.stderr.toString()); }
-  //       if (installPromptSync.message) { console.log(installPromptSync.message.toString()); }
-  //       // var installDeps = child.execSync('npm install'); // This might be necessary if dependencies aren't auto-installed.
-  //       console.log("'" + nodeRequire + "' module installed successfully!");
-  //     } catch (error) {
-  //       console.error("ERROR:  Could not install the dependency, '" + nodeRequire + "'!  Error code: " + error.status);
-  //       if (error.message) { console.error("Infos: " + error.message); }
-  //       process.exit(error.status);
-  //     }
-  //   }
-  //   // Get the main js file from the package.js file.  This only works if the package uses it's own name as it's install folder.  For example, the "is-valid-path" package DOES NOT, so it fails for that.
-  //   let thisModuleFolder=path.join(mainDirName, "node_modules", nodeRequire);
-  //   let theMainJSFile=path.join(thisModuleFolder, require(thisModuleFolder + "package.json")["main"]);
-  //   return require(theMainJSFile);
-  // }
-
-  // Depreciated.  I came up with a better method.  Rather than using the "require" function to check for the module and then requiring the main script, I can avoid using require by checking to see if the module exists and then just use require on it.  This leaves the require cache correct, which is important if the module needs to have "require" ran on it somewhere else in the script, such as loading submodules.
-  // function forceRequireWithSettings(nodeRequire,settings){
-  // // I had to create this function variation because of the package "prompt-sync", which forces a require('prompt-sync')() <-- note the extra parenthesis
-  // // Every other package that I've been looking at gets fucked up if you try to require it with the extra ()
-  // let theSettings="";
-  // if (settings) { theSettings=settings; }
-  //   try {
-  //     return require(nodeRequire)(theSettings);
-  //   } catch (err) {
-  //     console.log("'" + nodeRequire + "' dependency not installed!  Installing to local folder..");
-  //     try {
-  //       var installPromptSync = child.execSync('npm install --save ' + nodeRequire);
-  //       console.log("Path to main .js file: " + require.resolve(nodeRequire)); // Temp just to see if this is what is failing.
-  //       if (installPromptSync.stdout) { console.log(installPromptSync.stdout.toString()); }
-  //       if (installPromptSync.stderr) { console.log(installPromptSync.stderr.toString()); }
-  //       if (installPromptSync.message) { console.log(installPromptSync.message.toString()); }
-  //       // var installDeps = child.execSync('npm install'); // This might be necessary if dependencies aren't auto-installed.
-  //       console.log("'" + nodeRequire + "' module installed successfully!");
-  //     } catch (error) {
-  //       console.error("ERROR:  Could not install the dependency, '" + nodeRequire + "'!  Error code: " + error.status);
-  //       if (error.message) { console.error("Infos: " + error.message); }
-  //       process.exit(error.status);
-  //     }
-  //   }
-  //   // Get the main js file from the package.js file.  This only works if the package uses it's own name as it's install folder.  For example, the "is-valid-path" package DOES NOT, so it fails for that.
-  //   let thisModuleFolder=path.join(mainDirName, "node_modules", nodeRequire);
-  //   let theMainJSFile=path.join(thisModuleFolder, require(thisModuleFolder + "package.json")["main"]);
-  //   return require(theMainJSFile)(theSettings);
-  // }
-
-
-
-  // This is needed to check if a "require" module needs to be installed or not.  One cannot use a try/catch to test, because the response is cached.  Even after installing the module, if you try to require it, it will error out saying it cannot be found.  Using this method, it does not fail.
-  // Note that this function will NOT work for modules that do not use the "module" name as it's install directory, so it MUST be tested to work with a required module FIRST.  If it does not work, then I'll need to code in exceptions for specific required modules.
-  function isModuleAvailableSync(moduleName) { // Based on code from: https://stackoverflow.com/questions/15302618/node-js-check-if-module-is-installed-without-actually-requiring-it
-    var ret = false; // return value, boolean
-    var dirSeparator = require("path").sep
-    // scan each module.paths. If there exists
-    // node_modules/moduleName then
-    // return true. Otherwise return false.
-    module.paths.forEach(function(nodeModulesPath) {
-      if(fs.existsSync(nodeModulesPath + dirSeparator + moduleName) === true) {
-          ret = true;
-          return false; // break forEach
-      }
-      return true; // Added to make ESLint happy.. not sure if it will break the code or what.
-    });
-    return ret;
-  }
-  function installAndRequire(theModule){  // This should only ever be ran on modules that are installable through NPM
-    if (isModuleAvailableSync(theModule) == false){
-      try {
-        process.stdout.write("Installing required module: " + theModule);
-        child.execSync('npm install --save ' + theModule,{"cwd": mainDirName});
-        process.stdout.write(" ..Done!\n");
-      } catch(error) {
-        console.error("ERROR installing module, " + theModule + "! Exiting!");
-        console.error("Error returned: " + error)
-        process.exit(130);
-      }
-    }
-    console.log("Loading module: " + theModule);
-    return require(theModule);
-  }
-
-  console.log("Loading dependencies..");
+  // console.log("Loading dependencies..");
   const prompt = installAndRequire("prompt-sync")({"sigint":true}); // https://www.npmjs.com/package/prompt-sync - This creates sync prompts and can have auto-complete capabilties.  The sigint true part makes it so pressing CTRL + C sends the normal SIGINT to the parent javascript process
-  // const decache = forceRequire("decache"); // https://www.npmjs.com/package/decache - This is used to reload requires, such as reloading a json file or mod without having to restart the scripting.
   const isInvalidPath = installAndRequire("is-invalid-path"); // https://www.npmjs.com/package/is-invalid-path -- Not using the "is-valid-path" because my force require scripting won't work with it since it uses a non-standard path to it's scripts
   const mkdirp = installAndRequire("mkdirp"); // https://www.npmjs.com/package/mkdirp - Great for sync or async folder creation, creating all folders necessary up to the end folder
-
-  // These are just examples you can uncomment out for uses of "prompt"
-  // var testPrompt;
-  // testPrompt = prompt("What color is your hair? ") ; console.log("I LOOOVE " + testPrompt + " hair!");
-  // testPrompt=prompt("What are you wearing? "); console.log("I wish I was wearing " + testPrompt + "..");
-
-  // console.log("I love the number, " + prompt("What is your favorite number? ") + "!"); testPrompt=parseInt(prompt("Gimme a number! ")) + parseInt(prompt("And another number! "));
-  // if (!isNaN(testPrompt)) console.log("Result: " + testPrompt); else console.error("One or both of those were not numbers you fuck!");
-
-  // Using an empty while loop to keep prompting someone till they enter a number
-  // while (isNaN(testPrompt=parseInt(prompt("ANOTHER NUMBER! ")))){ }
-  // console.log("Final Number: " + testPrompt);
-
-  // do testPrompt=parseInt(prompt("Gimme a number for the DO/WHILE Loop Please! "));
-  // while (isNaN(testPrompt));
-  // console.log("Do/While Loop Number: " + testPrompt);
 
   function isRamValue(testVal) {
     let testTextArray=testVal.toString().toLowerCase().split("");
@@ -172,9 +50,9 @@ module.exports = function() {
   }
 
   function testStarMadeDirValue (installDir) {
-    if (!installDir) { return path.join(mainDirName, "starmade"); }
+    if (!installDir) { return path.join(mainFolder, "starmade"); }
     if (!isInvalidPath(installDir)) { // If the path provided was valid
-      let resolvedInstallDir=path.resolve(mainDirName,installDir); // This will resolve from right to left, so if the install dir is a full path, it will not use the main starmade directory as the first part.  Otherwise, it will be relative to the folder starmade.js is in.
+      let resolvedInstallDir=path.resolve(mainFolder,installDir); // This will resolve from right to left, so if the install dir is a full path, it will not use the main starmade directory as the first part.  Otherwise, it will be relative to the folder starmade.js is in.
       if (fs.existsSync(resolvedInstallDir)){ // If the path exists, check to see if it is a file or named pipe.  IF so, we cannot use it.
         if (fs.statSync(resolvedInstallDir).isFile()) {
           console.log("ERROR: '" + resolvedInstallDir + "' already exists as a filename.  Please choose a different directory path!");
