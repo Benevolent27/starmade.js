@@ -2,8 +2,8 @@
 
 [![Build Status](https://travis-ci.org/Benevolent27/starmade.js.svg?branch=master)](https://travis-ci.org/Benevolent27/starmade.js)
 [![AppVeyor](https://ci.appveyor.com/api/projects/status/nklifk3369iqmed5?svg=true)](https://ci.appveyor.com/api/projects/status/nklifk3369iqmed5?svg=true)
-[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2FBenevolent27%2Fstarmade.js.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2FBenevolent27%2Fstarmade.js?ref=badge_shield)
 [![Dependencies Status](https://david-dm.org/Benevolent27/starmade.js.svg)](https://david-dm.org/Benevolent27/starmade.js.svg)
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2FBenevolent27%2Fstarmade.js.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2FBenevolent27%2Fstarmade.js?ref=badge_shield)
 
 This is an unfinished server wrapper for running a StarMade server.  It is currently being developed and is close to working out of the box.
 
