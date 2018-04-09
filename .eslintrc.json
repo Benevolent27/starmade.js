@@ -72,7 +72,7 @@
             "never"
         ],
         "func-style": [
-            "error",
+            "warn",
             "declaration"
         ],
         "generator-star-spacing": "error",
