@@ -97,15 +97,6 @@
 // 4: StarNet.jar did not exist and download failed due to a socks error, such as a failed connection.
 // 5. StarNet.jar did not exist and download failed with HTTP response from webserver.  The HTTP error code will be available in the last line output by this script.
 
-// ### Main Vars ### - Don't change these
-var mainFolder      = path.dirname(require.main.filename); // This is where the starmade.js is
-var binFolder       = path.join(mainFolder,"bin");
-var operations      = 0;
-var includePatterns = [];
-var excludePatterns = [];
-var serversRunning  = 0; // This is to count the server's running to manage the exit function and kill them when this main script dies.
-
-
 // ##############################
 // ###    BUILT-IN REQUIRES   ###
 // ##############################
@@ -117,6 +108,14 @@ const events = require('events');
 const spawn  = require('child_process').spawn;
 const path   = require('path'); // This is needed to build file and directory paths that will work in windows or linux or macosx.  For example, The / character is used in linu, but windows uses \ characters.  Windows also uses hard drive characters, wherease linux has mount points.  For example, in linux a path looks like "/path/to/somewhere", but in windows it looks like "c:\path\to\somewhere".  The path module takes care of this for us to build the path correctly.
 // const stream   = require('stream'); // For creating streams.  Not used right now but may be later.
+
+// ### Main Vars ### - Don't change these
+var mainFolder      = path.dirname(require.main.filename); // This is where the starmade.js is
+var binFolder       = path.join(mainFolder,"bin");
+var operations      = 0;
+var includePatterns = [];
+var excludePatterns = [];
+var serversRunning  = 0; // This is to count the server's running to manage the exit function and kill them when this main script dies.
 
 // #######################
 // ### SCRIPT REQUIRES ###
@@ -139,7 +138,6 @@ var eventEmitter = new events.EventEmitter(); // This is for custom events
 // #####################
 // ###    SETTINGS   ###
 // #####################
-
 var lockFile        = path.join(mainFolder,"server.lck");
 var showStderr      = true;
 var showStdout      = true;
@@ -149,13 +147,18 @@ var starNetJarURL="http://files.star-made.org/StarNet.jar";
 var starMadeJar = path.join(settings["starMadeFolder"],"StarMade.jar");
 var starNetJar  = path.join(binFolder,"StarNet.jar");
 
-var starMadeStarter="StarMade-Starter.jar";
+var os=process.platform;
+var starMadeStarter;
+if (os=="win32"){
+  starMadeStarter="StarMade-Starter.exe";
+} else {
+  starMadeStarter="StarMade-Starter.jar";
+}
 var starMadeInstaller = path.join(binFolder,starMadeStarter);
-var starMadeInstallerURL = "http://files.star-made.org/ + starMadeStarter";
+var starMadeInstallerURL = "http://files.star-made.org/" + starMadeStarter;
 // Windows: http://files.star-made.org/StarMade-starter.exe
 // macosx: http://files.star-made.org/StarMade-Starter.jar
 // Linux: http://files.star-made.org/StarMade-Starter.jar
-
 
 // ##################
 // ### Lock Check ###  -- Temporary solution is to prevent this script from running if lock file exists
@@ -599,8 +602,8 @@ function preDownload(httpURL,fileToPlace){ // This function handles the pre-down
         if (response.statusCode == 200){
           response.pipe(file);
         } else {
-          console.error("Error downloading file!  HTTP Code: " + response.statusCode);
-          throw new Error(response.statusMessage);
+          console.error("Error downloading file, '" + baseFileToPlace + "'!  HTTP Code: " + response.statusCode);
+          throw new Error("Response from HTTP server: " + response.statusMessage);
           // exitNow(5);
         };
       });
@@ -664,6 +667,7 @@ console.log("Ensuring all dependencies are downloaded or installed..");
 // ### Async downloads/installs that have no dependencies ### -- This sub-section is for all installs/downloads that can be done asynchronously to occur as quickly as possible.
 asyncOperation("start"); // This prevents the first async function from starting the wrapper if it finishes before the next one starts.
 preDownload(starNetJarURL,starNetJar); // This function handles the asyncronous downloads and starts the sync event when finished.
+preDownload(starMadeInstallerURL,starMadeInstaller);
 asyncOperation("end");
 
 // ### Sync downloads/installs ### -- When async installs/downloads are finished, this function will be called.
