@@ -434,7 +434,7 @@ function sleep(ms) { // This will only work within async functions.
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function copyObj(obj) {
+function copyObj(obj) { // From:  https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/forEach
   const copy = Object.create(Object.getPrototypeOf(obj));
   const propNames = Object.getOwnPropertyNames(obj);
   propNames.forEach(function(name) {
