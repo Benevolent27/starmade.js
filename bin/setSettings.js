@@ -138,6 +138,45 @@ module.exports = function() {
       }
       changeMadeToSettings=true;
     }
+
+
+    function complete(commands) {
+      // console.log("commands: " + commands);
+      return function (str) {
+        var ret = [];
+        for (let i=0;i<commands.length;i++) {
+          // console.log("Working on: " + commands[i]);
+          if (commands[i].indexOf(str) == 0) {
+            ret.push(commands[i]);
+          }
+        }
+        return ret;
+      };
+    }
+
+    if (!settings.hasOwnProperty('smTermsAgreedTo')) {
+      if (settingsLoadedCheck == true) { console.log("\nTerms and Conditions setting seems to have been forgotten!"); }
+      console.log("\nIMPORTANT:  In order to run a StarMade server, you MUST have already read and agreed ");
+      console.log("to the 'Terms and Conditions' as set forth by Schine.  Otherwise you are not authorized");
+      console.log("to download their software via this scripting.\n");
+      console.log("If you have not yet read and agreed to them, please visit the StarMade webpage now and ");
+      console.log("agree to them before proceeding.");
+      console.log("Their 'Terms and Conditions' of service may be located here: ");
+      console.log("http://www.star-made.org/terms_and_conditions\n");
+      console.log("If you HAVE ALREADY read and agreed to the StarMade Terms and Conditions,");
+      console.log("please type 'yes' below.  Anything else will exit the setup process.");
+
+      // var autocompleteTest = prompt('custom autocomplete: ', {"autocomplete": complete(['fuck','bye1234', 'by', 'bye12', 'bye123456'])});
+      settings["smTermsAgreedTo"]=prompt(": ",{autocomplete: complete(["ardvark","babelfish","conch","doge","earwig","fritiniency","gadzooks!","hereticide","ichthyoacanthotoxism","jackalope","kickie-wickie","lactescent","milquetoast","nougat","nubile","odiferous","pupillarity","quackle","rencounter","shrieval","tabernacular","uraniscus","vulgus","wharfinger","xenodocheionology","zyzzyva","yabbadabbadoo!"])}).toLowerCase();
+      if (settings["smTermsAgreedTo"] != "yes"){
+        console.log("\nSince you have not already agreed to Schine's terms of service for StarMade,");
+        console.log("You have indicated that you are not authorized to download nor use their software,");
+        console.log("therefore this wrapper cannot run!");
+        console.log("If you agree to them in the future, feel free to run this script again.  Mkaythxbai!");
+        process.exit(32);
+      }
+      changeMadeToSettings=true;
+    }
     // Only write to the file IF new settings were set, otherwise leave it alone.
     if (changeMadeToSettings==true) {
       console.log("");
