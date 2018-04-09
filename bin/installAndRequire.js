@@ -7,7 +7,7 @@ var mainDirName = path.dirname(require.main.filename);
 
 function isModuleAvailableSync(moduleName) { // Based on code from: https://stackoverflow.com/questions/15302618/node-js-check-if-module-is-installed-without-actually-requiring-it
   var ret = false; // return value, boolean
-  var dirSeparator = require("path").sep
+  // var dirSeparator = require("path").sep
   // scan each module.paths. If there exists
   // node_modules/moduleName then
   // return true. Otherwise return false.
