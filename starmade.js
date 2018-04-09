@@ -106,6 +106,7 @@ const http   = require('http');
 const fs     = require('fs');
 const events = require('events');
 const spawn  = require('child_process').spawn;
+const child  = require('child_process');
 const path   = require('path'); // This is needed to build file and directory paths that will work in windows or linux or macosx.  For example, The / character is used in linu, but windows uses \ characters.  Windows also uses hard drive characters, wherease linux has mount points.  For example, in linux a path looks like "/path/to/somewhere", but in windows it looks like "c:\path\to\somewhere".  The path module takes care of this for us to build the path correctly.
 // const stream   = require('stream'); // For creating streams.  Not used right now but may be later.
 
@@ -144,7 +145,8 @@ var showStdout      = true;
 var settingsFile=path.join(mainFolder, "/settings.json");
 var settings=setSettings(); // Import settings, including the starmade folder, min and max java settings, etc.  If the settings.json file does not exist, it will set it up.
 var starNetJarURL="http://files.star-made.org/StarNet.jar";
-var starMadeJar = path.join(settings["starMadeFolder"],"StarMade.jar");
+var starMadeInstallFolder=path.join(settings["starMadeFolder"],"StarMade");
+var starMadeJar = path.join(starMadeInstallFolder,"StarMade.jar");
 var starNetJar  = path.join(binFolder,"StarNet.jar");
 
 var os=process.platform;
@@ -272,7 +274,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   // Taken from https://stackoverflow.com/questions/10232192/exec-display-stdout-live
   // Running the starmade server process
   try { // This is to catch an error if spawn cannot start the java process
-    var server = spawn("java", ["-Xms" + settings["javaMin"], "-Xmx" + settings["javaMax"],"-jar", starMadeJar,"-server", "-port:" + settings["port"]], {"cwd": settings["starMadeFolder"]});
+    var server = spawn("java", ["-Xms" + settings["javaMin"], "-Xmx" + settings["javaMax"],"-jar", starMadeJar,"-server", "-port:" + settings["port"]], {"cwd": starMadeInstallFolder});
   } catch (err) { // This does NOT handle errors returned by the spawn process.  This only handles errors actually spawning the process in the first place, such as if we type "javaBlah" instead of "java".  Cannot run "javaBlah" since it doesn't exist.
     console.error("ERROR: Could not spawn server!")
     if (err.message) { console.error("Error Message: " + err.message.toString()); }
@@ -667,7 +669,7 @@ console.log("Ensuring all dependencies are downloaded or installed..");
 // ### Async downloads/installs that have no dependencies ### -- This sub-section is for all installs/downloads that can be done asynchronously to occur as quickly as possible.
 asyncOperation("start"); // This prevents the first async function from starting the wrapper if it finishes before the next one starts.
 preDownload(starNetJarURL,starNetJar); // This function handles the asyncronous downloads and starts the sync event when finished.
-preDownload(starMadeInstallerURL,starMadeInstaller);
+preDownload(starMadeInstallerURL,starMadeInstaller); // This is temporary, because we HAVE TO verify that the person has read and agreed to the SM terms of service prior to installing.
 asyncOperation("end");
 
 // ### Sync downloads/installs ### -- When async installs/downloads are finished, this function will be called.
@@ -677,12 +679,17 @@ async function installDepsSync() {
 
   // ### Only syncronous installs here ###
 
-  // Let's see if the starmade installer exists and download it if not.
-
+  // Let's see if the starmade jar file exists, and install StarMade to the installer path if not.
+  if (!fs.existsSync(starMadeJar)){
+    console.log("StarMade does not appear to be installed already.  Installing now..");
+    function installStarMade(){
+      return (smInstallerProcess=child.spawnSync("java",["-jar",starMadeInstaller,"-nogui"],{"cwd": settings["starMadeFolder"]}));
+    }
+    await installStarMade();
+    console.log("Install PID: " + smInstallerProcess.pid);
+  }
+  console.log("Here we go..");
   await sleep(2000);
-  console.log("First done..");
-  await sleep(2000);
-  console.log("Second done..");
 
   // ### Unimportant Async downloads/installs ### -- These should not be required by the server to run, but they may have depended on the first async install or sync installs before they could be run.
 
