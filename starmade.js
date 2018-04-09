@@ -116,10 +116,10 @@ const path   = require('path'); // This is needed to build file and directory pa
 // #####################
 // ###    SETTINGS   ###
 // #####################
-var mainDirName     = path.dirname(require.main.filename); // This is where the starmade.js is
-var binFolder       = path.join(mainDirName,"bin");
+var mainFolder     = path.dirname(require.main.filename); // This is where the starmade.js is
+var binFolder       = path.join(mainFolder,"bin");
 var operations      = 0;
-var lockFile        = path.join(mainDirName,"server.lck");
+var lockFile        = path.join(mainFolder,"server.lck");
 var showStderr      = true;
 var showStdout      = true;
 var includePatterns = [];
@@ -136,12 +136,27 @@ var installAndRequire = require(path.join(binFolder, "installAndRequire.js")); /
 // #################################
 // ### NPM DOWNLOADABLE REQUIRES ###
 // #################################
-const makeDir=installAndRequire('make-dir'); // This allows creating folders recursively if they do not exist, with either async or sync functionality.
-const treeKill=installAndRequire('tree-kill'); // To kill the server and any sub-processes
+const makeDir=installAndRequire('make-dir'); // https://www.npmjs.com/package/make-dir This allows creating folders recursively if they do not exist, with either async or sync functionality.
+const treeKill=installAndRequire('tree-kill'); // https://www.npmjs.com/package/tree-kill To kill the server and any sub-processes
 
 // ### Setting up submodules from requires.
 var eventEmitter = new events.EventEmitter(); // This is for custom events
 
+//  ### Lock Check ###  -- Temporary solution is to prevent this script from running if lock file exists
+if (fs.existsSync(lockFile)){
+  //todo if the lock file exists, we need to grab the PID from the file and see if the server is running.  If not, then we can safely remove the lock file, otherwise end with an error.
+  console.log("Lock file found!  Server already started!  Exiting!");
+  process.exit(1);
+}
+
+// Depreciated wonky way of checking if the file existed.  Will delete this soon.
+// try {
+//   fs.accessSync(lockFile,fs.constants.F_OK);
+//   console.log("Lock file found!  Server already started!  Exiting!");
+//   process.exit(1);
+// } catch (err) {
+//   console.log("No lock detected!  Continuing.");
+// };
 
 // #####################
 // ###    PATTERNS   ###
@@ -204,10 +219,13 @@ function testMatch(valToCheck) { // This function will be called on EVERY line t
   }
 }
 
-var starNetJarURL="http://files.star-made.org/StarNet.jar";
-
 // Import settings, including the starmade folder, min and max java settings, etc.  If the settings.json file does not exist, it will set it up.
 var settings=setSettings();
+
+var starNetJarURL="http://files.star-made.org/StarNet.jar";
+var starMadeJar = path.join(settings["starMadeFolder"],"StarMade.jar");
+var starNetJar  = path.join(binFolder,"StarNet.jar");
+
 // console.log("Settings set: " + JSON.stringify(settings));
 
 // Obsolete - This section was originally to load the settings.json file and use "default" values just for testing, this has been replaced by the setSettings.js scripting.
@@ -251,9 +269,6 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
       // server.stdin.end();
     }
   });
-
-  var starMadeJar = path.join(settings["starMadeFolder"],"StarMade.jar");
-  var starNet     = path.join(binFolder,"StarNet.jar");
 
 
   // This will need to be able to supportsetting other arguments, such as the port, and JVM arguments if the server plans on using the JVM to troubleshoot bugs, performance issues, etc.
@@ -438,15 +453,6 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
 
 });
 
-//  ### Lock Check ###
-try {
-  fs.accessSync(lockFile,fs.constants.F_OK);
-  console.log("Lock file found!  Server already started!  Exiting!");
-  process.exit(1);
-} catch (err) {
-  console.log("No lock detected!  Continuing.");
-};
-
 // ####################
 // ###  FUNCTIONS  ####
 // ####################
@@ -462,6 +468,21 @@ function deleteFile (file) {
   }
 }
 
+function tryDelete (fileToDelete){
+  let resolvedFile = path.resolve(mainFolder,fileToDelete); // This will resolve relative paths back to the main script's root dir as the base
+  if (fs.existsSync(resolvedFile)){
+    try {
+      fs.unlinkSync(resolvedFile);
+      console.log("Deleting: " + fileToDelete);
+    } catch (err) {
+      console.error("ERROR: Could not delete file: " + resolvedFile);
+      console.error("Please manually remove this file and ENSURE you have access to delete files at this location!")
+      throw err;
+    }
+  }
+}
+
+
 function exitNow(code) {
   console.log("Deleting lock file.");
   deleteFile(lockFile);
@@ -469,8 +490,165 @@ function exitNow(code) {
   process.exit(code);
 }
 
-function cb() {
-  console.log("Finished downloading StarNet.jar!");
+function ensureFolderExists (folderPath){ // Returns true if the folder exists or if it can be created and then exists, otherwise throws an error.
+  let resolvedFolderPath=path.resolve(folderPath); // Using resolve to ensure the path is specified in the right way for the OS.  Resolve tack on the current working directory to make it a full path if needed, which may NOT be the same as the folder starmade.js is in because this is meant to be a general purpose function and not necessarily tied to the starmade.js script.
+  try {
+    fs.accessSync(resolvedFolderPath,fs.constants.F_OK);  //  Check if the path can be seen.
+      if (fs.statSync(resolvedFolderPath).isFile()) { // Check if it is a file
+        let theError = new Error("Cannot create folder!  File already exists at this path!  Please delete or move: '" + resolvedFolderPath);
+        throw theError;
+      } else if (fs.statSync(resolvedFolderPath).isFIFO()) {
+        let theError = new Error("Cannot create folder!  Named Pipe already exists at this path!  Please delete or move: '" + resolvedFolderPath);
+        throw theError;
+      } else { return true; } // it might be a symlink, but I don't know how to check if it's symlinked to a file or folder, so let's just assume it is fine.
+  } catch (err) {
+    console.log("Folder not found, creating: " + folderPath);
+    try {
+      // fs.mkdirSync(folderPath);  // This will only create the folder IF no other folders between need to be created, using the nodejs built in fs.
+      makeDir.sync(folderPath); // This will create the folder and any inbetween needed, but requires the make-dir module.
+      return true;
+    } catch (error) {
+      console.error("ERROR: Unable to create folder: " + folderPath);
+      throw error; // Forward the error given by makeDir and throw it.
+    }
+  }
+}
+
+function operation(val){ // This controls when the start operation occurs.  All file reads, downloads, installs, etc, must be completed before this will trigger the "ready" event.
+  // console.log("operations ongoing: " + operations + " Command given: " + val);
+  var operationMessage=".";
+  if (arguments[1]){
+    operationMessage=": " + arguments[1];
+  }
+  if (val == "start"){ // Start is used when an asyncronous operation starts and end should be used when it's finished.
+    operations++;
+    // console.log("Operation started" + operationMessage);
+  } else if (val == "end"){
+    // console.log("Operation ended" + operationMessage);
+    if (operations>1){
+      operations--;
+    } else {
+      console.log("All operations finished, triggering 'ready' event!");
+      eventEmitter.emit('ready');
+    }
+  }
+}
+
+// function cb() {
+//   console.log("Finished downloading StarNet.jar!");
+// }
+
+function downloadSync(httpURL,fileToPlace) {
+  // todo make a sync downloader.
+  var tempFileToPlace=path.resolve(mainFolder,fileToPlace + ".tmp");
+  tryDelete(tempFileToPlace);
+  var resolvedFileToPlace=path.resolve(mainFolder,fileToPlace);
+  var baseFileToPlace=path.basename(resolvedFileToPlace);
+  var baseDirForFile=path.dirname(resolvedFileToPlace);
+  console.log("Sync Downloading: " + fileToPlace + " From: " + httpURL);
+  return new Promise(function(resolve, reject) {
+    if (fs.existsSync(resolvedFileToPlace)) { // We can see that a file, directory, or symlink exists at the target path
+      if (fs.statSync(resolvedFileToPlace).isFile()){
+        // console.log("'" + baseFileToPlace + "' existed.  Good!"); // File already exists, nothing to do.
+        return true;
+      } else if (fs.statSync(resolvedFileToPlace).isDirectory()){
+        throw new Error("ERROR: Cannot download file: " + resolvedFileToPlace + "\nDirectory already exists with the name!  Please remove this directory and run this script again!");
+      } else {
+        throw new Error("ERROR: Cannot download file: " + resolvedFileToPlace + "\nPath already exists with the name!  Please rectify this and then run this script again!");
+      }
+    } else { // If the file does not exist, let's download it.
+      console.log("Downloading '" + baseFileToPlace + "' from: " + httpURL);
+      ensureFolderExists(baseDirForFile); // ensure the directory the file needs to be placed in exists before trying to write to the file.
+      var file = fs.createWriteStream(tempFileToPlace); // Open up a write stream to the temporary file.  We are using a temporary file to ensure the file will only exist at the target IF the download is a success and the file write finishes.
+      try {
+        var request = http.get(httpURL, function(response) {
+          // console.log("Status Code: " + response.statusCode);
+          // When the file is downloaded with the "http.get" method, it returns an object from which you can get the HTTP status code.
+          // 200 means it was successfully downloaded, anything else is a failure.  Such as 404.
+          if (response.statusCode == 200){
+            response.pipe(file);
+          } else {
+            console.error("Error downloading file!  HTTP Code: " + response.statusCode);
+            throw new Error(response.statusMessage);
+          };
+        }).catch(reject); // I may need to add other catches elsewhere rather than throwing errors, if not only to have a consistent format for how errors are handled here.
+        request.on('error', (e) => {
+          throw new Error(`problem with request: ${e.message}`);
+        });
+      } catch (err) { // If there was any trouble connecting to the server, then hopefully this will catch those errors and exit the wrapper.
+        console.log("ERROR:  Failed to download, '" + httpURL + "'!");
+        throw err;
+      }
+      file.on('finish', function() {
+        file.close();
+        fs.rename(tempFileToPlace, resolvedFileToPlace, (err) => {
+          if (err) { throw err; }
+          console.log("'" + baseFileToPlace + "' downloaded successfully! :D");
+        });
+      });
+    }
+    return true;
+  });
+}
+
+
+function preDownload(httpURL,fileToPlace){ // This function handles the pre-downloading of files, such as StarNet.jar.  When all downloads are finished, the StarMade server is started by emitting the event signal, "ready".
+  // Code adapted from: https://stackoverflow.com/questions/11944932/how-to-download-a-file-with-node-js-without-using-third-party-libraries
+  operation("start","preDownload: " + fileToPlace);
+  let tempFileToPlace=path.resolve(mainFolder,fileToPlace + ".tmp");
+  tryDelete(tempFileToPlace);
+  let resolvedFileToPlace=path.resolve(mainFolder,fileToPlace);
+  let baseFileToPlace=path.basename(resolvedFileToPlace);
+  let baseDirForFile=path.dirname(resolvedFileToPlace);
+
+  // Check to see if the file already exists or not.  If it does exist, then we can end this operation.
+  // fs.accessSync(resolvedFileToPlace),fs.constants.F_OK); // Supposed to check if the file can be seen but it was not working for me for some reason.
+  if (fs.existsSync(resolvedFileToPlace)) { // We can see that a file, directory, or symlink exists at the target path
+    if (fs.statSync(resolvedFileToPlace).isFile()){
+      // console.log("'" + baseFileToPlace + "' existed.  Good!"); // File already exists, nothing to do.
+      operation("end","preDownload: " + fileToPlace);
+      return true;
+    } else if (fs.statSync(resolvedFileToPlace).isDirectory()){
+      throw new Error("ERROR: Cannot pre-download file: " + resolvedFileToPlace + "\nDirectory already exists with the name!  Please remove this directory and run this script again!");
+    } else {
+      throw new Error("ERROR: Cannot pre-download file: " + resolvedFileToPlace + "\nPath already exists with the name!  Please rectify this and then run this script again!");
+    }
+  } else { // If the file does not exist, let's download it.
+    console.log("Downloading '" + baseFileToPlace + "' from: " + httpURL);
+    ensureFolderExists(baseDirForFile); // ensure the directory the file needs to be placed in exists before trying to write to the file.
+    var file = fs.createWriteStream(tempFileToPlace); // Open up a write stream to the temporary file.  We are using a temporary file to ensure the file will only exist at the target IF the download is a success and the file write finishes.
+    try {
+      var request = http.get(httpURL, function(response) {
+        // console.log("Status Code: " + response.statusCode);
+        // When the file is downloaded with the "http.get" method, it returns an object from which you can get the HTTP status code.
+        // 200 means it was successfully downloaded, anything else is a failure.  Such as 404.
+        if (response.statusCode == 200){
+          response.pipe(file);
+        } else {
+          console.error("Error downloading file!  HTTP Code: " + response.statusCode);
+          throw new Error(response.statusMessage);
+          // exitNow(5);
+        };
+      });
+      request.on('error', (e) => {
+        throw new Error(`problem with request: ${e.message}`);
+        // exitNow(4);
+      });
+    } catch (err) { // If there was any trouble connecting to the server, then hopefully this will catch those errors and exit the wrapper.
+      console.log("ERROR:  Failed to download, '" + httpURL + "'!");
+      throw err;
+      // exitNow(4);
+    }
+    file.on('finish', function() {
+      file.close();
+      fs.rename(tempFileToPlace, resolvedFileToPlace, (err) => {
+        if (err) { throw err; }
+        console.log("'" + baseFileToPlace + "' downloaded successfully! :D");
+        operation("end","preDownload: " + fileToPlace); // We're using a function to keep track of all ongoing operations and only triggering the start event when all are complete.  So let's complete this operation.
+      });
+    });
+  }
+  return true;
 }
 
 
@@ -479,115 +657,94 @@ function cb() {
 // ##########################################
 
 process.on('exit', function() {
-  // Any sort of cleanup should be done now.  Such as possibly checking to see if the server process is still running and kill it.
-
-  // todo: Grab PID of any running StarMade server and kill it.  Or kill it through here.  This might need to be under the "ready" event so it has the scope to end the process of "server"
-
-  // SIGTERM -- WAIT 5 MINUTES -- SIGKILL
-
-  console.log("Exit event running..");
+  // Cleanup that needs to be done on the global scope should be done here.
+  console.log("Global Exit event running..");
 });
 
-touch(lockFile);
+touch(lockFile); // Create an empty lock file.  This is to prevent this script from running multiple times.
 
+// ##############################
+// ### CREATE NEEDED FOLDERS  ###
+// ##############################
 
-function operation(val){ // This controls when the start operation occurs.  All file reads, downloads, installs, etc, must be completed before this will trigger the "ready" event.
-  // console.log("operations ongoing: " + operations + " Command given: " + val);
-  if (val == "start"){ // Start is used when an asyncronous operation starts and end should be used when it's finished.
-    operations++;
-    // console.log("operation added.  New operations amount: " + operations);
-  } else if (val == "end"){
-    if (operations>1){
-      operations--;
-    } else {
-      console.log("All operations finished, triggering start event! ");
-      eventEmitter.emit('ready');
-    }
-  }
-}
+ensureFolderExists(binFolder);
 
+// ###################################
+// ### DEPENDENCIES AND DOWNLOADS  ###
+// ###################################
+// Check for dependencies, such as StarNet.jar and download/install if needed.
+// When all dependency downloads/installs are finished, start the server!
 
+console.log("Ensuring all dependencies are downloaded or installed..");
 
-  // #####################
-  // ### DEPENDENCIES  ###
-  // #####################
-  // Check for dependencies, such as StarNet.jar and download/install if needed.
-  // By default the StarNet.jar needs to be in the ./bin/ folder, so let's see if it exists and download it if not.
+// ### Sync downloads/installs ### -- This sub-section is to ensure installs/downloads happen in the right order.
 
+// Nothing here yet
+// Todo create a syncronous file downloader
 
-// ensure StarNet.jar exists, download if not.
-// Code from: https://stackoverflow.com/questions/11944932/how-to-download-a-file-with-node-js-without-using-third-party-libraries
+// ### Async downloads/installs ### -- This sub-section is for all installs/downloads that can be done asynchronously to occur as quickly as possible.
+preDownload(starNetJarURL,starNetJar); // This function handles the asyncronous downloads and starts the server when finished.
 
-// Check to see if the /bin dir exists and create it if not.
-try {
-    fs.accessSync(binFolder,fs.constants.F_OK);  // Using resolve to ensure the folder path is specified in the right way for the OS
-    // console.log("'bin' folder found!  Great!  Continuing..");
-} catch (err) {
-    console.log("/bin folder not found, creating it!");
-    // fs.mkdirSync("./bin");
-    try {
-      fs.mkdirSync(binFolder);  // This will create the folder and any inbetween needed.
-    } catch (error) {
-      console.error("ERROR: Unable to create bin folder!  Please make sure you have WRITE access to the folder starmade.js is in!");
-      if (error.message) {
-        console.error("Error Message: " + error.message);
-      }
-      exitNow(130);
-    }
-};
+// When all async dependencies are finished downloading/installing, the server will start automatically as per the operation function that should be managing them.
 
 // Check if StarNet.jar exists and download it if not.
-try {
-    operation("start");
-    fs.accessSync(path.resolve(path.join("bin","StarNet.jar")),fs.constants.F_OK);
-    console.log('StarNet.jar found.');
-    operation("end"); // This now handles emitting the ready signal to start the server when all operations have completed.
-  } catch (ex) {
-    //  This will be an async operation to downloading StarNet.jar.
-    console.log("StarNet.jar not found!  Downloading!")
+// try {
+//     operation("start");
+//     fs.accessSync(path.join(binFolder,"StarNet.jar"),fs.constants.F_OK);
+//     console.log('StarNet.jar found.');
+//     operation("end"); // This now handles emitting the ready signal to start the server when all operations have completed.
+//   } catch (ex) {
+//     //  This will be an async operation to downloading StarNet.jar.
+//     console.log("StarNet.jar not found!  Downloading!")
+//
+//     let starNetTmpFile=path.join(binFolder,'StarNet.jar.tmp');
+//     tryDelete(starNetTmpFile);
     // http://files.star-made.org/StarNet.jar
-    try { // We will first download to a temporary name and then move it upon success.  Delete the temp file if exists already.
-        fs.accessSync(path.join(binFolder,'StarNet.jar.tmp'));
-        console.log("Deleting StarNet.jar.tmp file before continuing.");
-        fs.unlinkSync(path.join(binFolder,'StarNet.jar.tmp')); // I'm not including error handling here because there should never be a situation where the temp file cannot be removed by this script.
-    } catch (err) {
-        console.log("StarNet.jar.tmp not found, good!  Continuing!");
-    }
+    // try { // We will first download to a temporary name and then move it upon success.  Delete the temp file if exists already.
+    //     fs.accessSync();
+    //     console.log("Deleting StarNet.jar.tmp file before continuing.");
+    //     try {
+    //       fs.unlinkSync(path.join(binFolder,'StarNet.jar.tmp')); // I'm not including error handling here because there should never be a situation where the temp file cannot be removed by this script.
+    //     } catch (err) {
+    //       console.error("ERROR: Could not delete StarNet.jar.tmp!  Please manually remove this file and restart this script!");
+    //       throw err;
+    //     }
+    // } catch (err) {
+    //     console.log("StarNet.jar.tmp not found, good!  Continuing!");
+    // }
 
-    // Open up a write stream to the temporary file
-    var file = fs.createWriteStream(path.join(binFolder,"StarNet.jar.tmp"));
-
-    // Let's try to now download the file and pipe it to the temporary file
-    console.log("Starting download..");
-    try {
-        var request = http.get(starNetJarURL, function(response) {
-            console.log("Status Code: " + response.statusCode);
-            // When the file is downloaded with the "http.get" method, it returns an object from which you can get the HTTP status code.
-            // 200 means it was successfully downloaded, anything else is a failure.  Such as 404.
-            if (response.statusCode == 200){
-                response.pipe(file);
-            } else {
-                console.log("Error downloading file!  HTTP Code: " + response.statusCode);
-                exitNow(5);
-            };
-        });
-        request.on('error', (e) => {
-            console.error(`problem with request: ${e.message}`);
-            exitNow(4);
-        });
-    } catch (err) { // If there was any trouble connecting to the server, then hopefully this will catch those errors and exit the wrapper.
-        console.log("Failed to download StarNet.jar!  Exiting!");
-        console.error(err);
-        exitNow(4);
-    }
-    file.on('finish', function() {
-        file.close(cb);
-        fs.rename(path.join(binFolder,'StarNet.jar.tmp'), path.join(binFolder,'StarNet.jar'), (err) => {
-            if (err) {
-                console.error(err);
-            }
-            console.log('StarNet.jar downloaded successfully! :D');
-            operation("end"); // We're using a function to keep track of all ongoing operations and only triggering the start event when all are complete.  So let's complete this operation.
-          });
-      });
-}
+    // var file = fs.createWriteStream(starNetTmpFile); // Open up a write stream to the temporary file
+    // // Let's try to now download the file and pipe it to the temporary file
+    // console.log("Starting download..");
+    // try {
+    //     var request = http.get(starNetJarURL, function(response) {
+    //         console.log("Status Code: " + response.statusCode);
+    //         // When the file is downloaded with the "http.get" method, it returns an object from which you can get the HTTP status code.
+    //         // 200 means it was successfully downloaded, anything else is a failure.  Such as 404.
+    //         if (response.statusCode == 200){
+    //             response.pipe(file);
+    //         } else {
+    //             console.log("Error downloading file!  HTTP Code: " + response.statusCode);
+    //             exitNow(5);
+    //         };
+    //     });
+    //     request.on('error', (e) => {
+    //         console.error(`problem with request: ${e.message}`);
+    //         exitNow(4);
+    //     });
+    // } catch (err) { // If there was any trouble connecting to the server, then hopefully this will catch those errors and exit the wrapper.
+    //     console.log("Failed to download StarNet.jar!  Exiting!");
+    //     console.error(err);
+    //     exitNow(4);
+    // }
+    // file.on('finish', function() {
+    //     file.close(cb);
+    //     fs.rename(path.join(binFolder,'StarNet.jar.tmp'), path.join(binFolder,'StarNet.jar'), (err) => {
+    //         if (err) {
+    //             console.error(err);
+    //         }
+    //         console.log('StarNet.jar downloaded successfully! :D');
+    //         operation("end"); // We're using a function to keep track of all ongoing operations and only triggering the start event when all are complete.  So let's complete this operation.
+    //       });
+    //   });
+// }
