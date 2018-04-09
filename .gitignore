@@ -7,3 +7,4 @@ StarNet.jar
 /node_modules/*
 *.bak
 StarMade-Starter.jar
+temp*
