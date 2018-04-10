@@ -71,6 +71,8 @@ const treeKill=installAndRequire('tree-kill'); // https://www.npmjs.com/package/
 // const express = installAndRequire('express'); // https://www.npmjs.com/package/express Incredibly useful tool for serving web requests
 // const targz = installAndRequire('tar.gz'); // https://www.npmjs.com/package/tar.gz2 For gunzipping files,folders, and streams (including download streams)
 // const blessed = installAndRequire('blessed'); // https://www.npmjs.com/package/blessed Awesome terminal screen with boxes and all sorts of interesting things.  See here for examples:  https://github.com/yaronn/blessed-contrib/blob/master/README.md
+const ini = installAndRequire('ini'); // https://www.npmjs.com/package/ini Imports ini files as objects.  It's a bit wonky with # style comments (in that it removes them and all text that follows) and leaves // type comments, so I created some scripting to modify how it loads ini files and also created some functions to handle comments.
+const prompt = installAndRequire("prompt-sync")({"sigint":true}); // https://www.npmjs.com/package/prompt-sync - This creates sync prompts and can have auto-complete capabilties.  The sigint true part makes it so pressing CTRL + C sends the normal SIGINT to the parent javascript process
 
 // ### Setting up submodules from requires.
 var eventEmitter = new events.EventEmitter(); // This is for custom events
@@ -87,6 +89,8 @@ var starNetJarURL="http://files.star-made.org/StarNet.jar";
 var starMadeInstallFolder=path.join(settings["starMadeFolder"],"StarMade");
 var starMadeJar = path.join(starMadeInstallFolder,"StarMade.jar");
 var starNetJar  = path.join(binFolder,"StarNet.jar");
+var starMadeServerConfigFile=path.join(starMadeInstallFolder,"server.cfg");
+var serverCfg = {}; // getIniFileAsObj('./server.cfg'); // I'm only declaring an empty array here initially because we don't want to try and load it till we are sure the install has been completed
 
 var os=process.platform;
 var starMadeStarter;
@@ -379,7 +383,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           console.log("\nIf you would like to change a setting, try !changesetting [SettingName] [NewValue]");
         }
       } else if (theCommand == "changesetting") {
-        let showUsage = function(){ console.log("Usage: !changeSetting [Property] [NewValue]"); };
+        let showUsage = function(){ console.log("Usage: !changeSetting [Property] [NewValue]"); }; // Ignore this ESLinter warning, I WANT this to be scoped how it is, I do NOT want to declare with function which will give it a wider scope
         if (theArguments[0]){
           // console.log("Result of checking hasOwnProperty with " + theArguments[0] + ": " + settings.hasOwnProperty(theArguments[0]));
           if (settings.hasOwnProperty(theArguments[0])){
@@ -429,6 +433,76 @@ eventEmitter.on('asyncDone', installDepsSync);
 // ####################
 // ###  FUNCTIONS  ####
 // ####################
+
+// ### INI Stuff ###
+function getIniFileAsObj(iniFile){ // This requires the ini module from npm
+  return ini.parse(fs.readFileSync(iniFile, 'utf-8' ).replace(/[#]/g,"\\#")); // We need to escape the # characters because otherwise the ini.parse removes them and all text that happens after them.. Annoying if we are preserving the comments!
+}
+function writeObjToIni(theObj,iniFileToWrite){
+  // console.log("Writing to file: " + iniFileToWrite);
+  return fs.writeFileSync(iniFileToWrite, ini.stringify(theObj));
+}
+function removeIniComments(text){
+  return text.match(/^[^/#]*/).toString().trim();
+}
+function getComment(text,commentSymbols){ // Comment symbols are optional
+    var commentSymbolsToUse;
+    if (commentSymbols){
+      commentSymbolsToUse=commentSymbols;
+    } else {
+      commentSymbolsToUse=["//","#"]; // By default we are going to be reading from ini files that use // or # as their comments.
+    }
+    var regexArray=[];
+    for (let i=0;i<commentSymbolsToUse.length;i++){
+      regexArray.push(new RegExp(" *" + commentSymbolsToUse[i] + "+(.+)")); // Preserves spaces in front of the comment
+    }
+    var valToBeat="";
+    for (let e=0;e<regexArray.length;e++){
+      // console.log("Working with regex pattern: " + regexArray[e]);
+      if (regexArray[e].exec(text)){
+        if (!valToBeat){
+          valToBeat=regexArray[e].exec(text)[0];
+        } else if (valToBeat.length < regexArray[e].exec(text)[0].length){
+          valToBeat=regexArray[e].exec(text)[0];
+        }
+      }
+    }
+    return valToBeat;
+}
+function keepIniComment(stringWComments,newVal){
+    if (stringWComments && newVal){
+      return newVal + getComment(stringWComments);
+    }
+    throw new Error("ERROR: Please specify a string from an ini object and a new value to replace the old one with!");
+}
+// ### end INI STUFF ###
+
+
+function isAlphaNumeric(testString){
+  return "/^[A-Za-z0-9]+$/".test(testString);
+}
+
+function getRandomAlphaNumericString(charLength){ // If no charlength given or it is invalid, it will output 10 and throw an error message. // Original code from: https://stackoverflow.com/questions/1349404/generate-random-string-characters-in-javascript
+  var text = "";
+  var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  var outputLength=10;
+  if (charLength){
+    if (isNaN(parseInt(charLength))){
+      console.error("ERROR: Invalid length given to getRandomAlphaNumeric function!  Set to default length of 10.  Here is what as given as input: " + charLength);
+    } else {
+      outputLength=parseInt(charLength);
+    }
+  } else {
+    console.error("ERROR:  No charLength specified, using default of 10!");
+  }
+  for (var i = 0;i < outputLength;i++){
+    text += possible.charAt(Math.floor(Math.random() * possible.length)).toString();
+  }
+  return text;
+}
+
+
+
 function sleep(ms) { // This will only work within async functions.
   // Usage: await sleep(ms);
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -659,8 +733,7 @@ asyncOperation("end");
 
 // ### Sync downloads/installs ### -- When async installs/downloads are finished, this function will be called.
 async function installDepsSync() {
-  // inside an async function we can use await to wait for each function call to end before moving to the next.
-  // await insallroutine();
+  // inside an async function we can use await to wait for each function call to end before moving to the next. eg. await installRoutine();
 
   // ### Only syncronous installs here ###
 
@@ -674,6 +747,61 @@ async function installDepsSync() {
     // await installStarMade();
     var smInstallerProcess=child.spawnSync("java",["-jar",starMadeInstaller,"-nogui"],{"cwd": settings["starMadeFolder"]});
     console.log("Install PID: " + smInstallerProcess.pid);
+  }
+
+  // ### IMPORTANT INFO REGARDING EDITING THE SERVER.CFG AND OTHER INI FILES:
+  // To READ values, we can use serverCfg["WHATEVER"] to get the values.
+  // Beware though, comments are imported as part of the value!  You you can strip them away with the removeIniComments() function that I created.
+  // For example:  removeIniComments(serverCfg["WHATEVER"]) will retun only the needed value.
+
+  // When CHANGING a value, we should KEEP the existing comments!  So for example, here I change a value but keep the comments:
+  // In this example excerpt from an Ini file, we have a comment.
+  // WHATEVER=OLD VALUE // This is an IMPORTANT ini comment
+  //
+  // If we set use: iniImport["WHATEVER"]="New Value..", then write the ini file, it will come out looking like this:
+  // WHATEVER=New Value..
+  //
+  // We don't want to lose that IMPORTANT comment, do we?  So instead, we should use my keepIniComment() function when replacing values in the ini object.
+  // serverCfg["WHATEVER"]=keepIniComment(serverCfg["WHATEVER"],"New Value!");
+  //
+  // The newly written ini file will look like this:
+  // WHATEVER=New Value! // This is an IMPORTANT ini comment
+
+  // If we want to write the iniObj to disk, then use writeObjToIni(serverCfg,starMadeServerCfgFile)
+  // IMPORTANT:  Please keep the comments when changing values, so use
+
+
+  serverCfg = getIniFileAsObj(starMadeServerConfigFile); // Import the server.cfg values to an object
+  var superAdminPassword=removeIniComments(serverCfg["SUPER_ADMIN_PASSWORD"]);
+  var superAdminPasswordEnabled=removeIniComments(serverCfg["SUPER_ADMIN_PASSWORD_USE"]);
+  if (superAdminPasswordEnabled){ // I'm doing it this way instead of tacking it on above because if the value is empty it would crash the script.  The alternative is to wrap it into a try, but.. meh this is ok.
+    superAdminPasswordEnabled=superAdminPasswordEnabled.toLowerCase();
+  }
+
+  // Set up the SuperAdminPassword if it's not set up already.
+  if (superAdminPassword == "mypassword" || !superAdminPassword){ // "mypassword" is the default value upon install
+    console.log("\nThe 'SuperAdminPassword' has not been set up yet!  This is needed for StarNet.jar to connect to the server.");
+    console.log("You can set a custom alphanumeric password OR just press [ENTER] to have a long, randomized one set for you. (Recommended)")
+    let newSuperAdminPassword="";
+    do {
+      newSuperAdminPassword=prompt("New SuperAdminPassword: ");
+    }
+    while (!(newSuperAdminPassword === null || newSuperAdminPassword == "" || isAlphaNumeric(newSuperAdminPassword))) // If a person puts invalid characters in, it'll just keep repeating the prompt.
+    if (newSuperAdminPassword === null || newSuperAdminPassword == ""){
+      console.log("Excellent choice!  I have set a VERY LONG and nearly impossible to crack SuperAdminPassword for you! :D");
+      newSuperAdminPassword = getRandomAlphaNumericString(32);
+    } else { console.log("Alrighty then.  I'll just use what you provided!") };
+    await sleep(2000);
+    serverCfg["SUPER_ADMIN_PASSWORD"]=keepIniComment(serverCfg["SUPER_ADMIN_PASSWORD"],newSuperAdminPassword);
+    if (superAdminPasswordEnabled == "false") {
+      console.log("Super Admin Password was disabled, enabling!");
+      serverCfg["SUPER_ADMIN_PASSWORD_USE"]=keepIniComment(serverCfg["SUPER_ADMIN_PASSWORD_USE"],"true");
+    }
+    writeObjToIni(serverCfg,starMadeServerConfigFile);
+  } else if (superAdminPasswordEnabled != "true"){ // Enable super admin password if it was disabled for some reason.
+    console.log("Super Admin Password was disabled, enabling!");
+    serverCfg["SUPER_ADMIN_PASSWORD_USE"]=keepIniComment(serverCfg["SUPER_ADMIN_PASSWORD_USE"],"true");
+    writeObjToIni(serverCfg,starMadeServerConfigFile);
   }
   console.log("Here we go..");
   await sleep(2000);
