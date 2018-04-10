@@ -35,7 +35,7 @@ Start a command window.  (in windows, you can use windows key + r, then type cmd
 
 When you would like to shut the server down, type `/shutdown 1` in the window.  Anything you type will be forwarded to the running server process, so you can use any of the [[Admin Commands](https://starmadedock.net/threads/admin-commands.1283/)].  There will also be !style commands that you can run to control the server wrapper.  Right now there are just a few basic commands which will change:
 * !stdout \[on/off\]
-* !stderr on/off
+* !stderr \[on/off\]
 * !settings list
 * !changesettings \[settingName\] \[What you want to change it to\]
 
