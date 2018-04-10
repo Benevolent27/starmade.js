@@ -233,18 +233,27 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   // ####################
   // ###    WRAPPER   ###
   // ####################
-  function processDataInput(dataInput){
+
+  function processDataInput(dataInput){ // This function is run on every single line that is output by the server console.
     if (testMatch(dataInput)) { // Check to see if the message fits any of the regex patterns
       console.log("Event found!: " + dataInput + "Arguments: " + arguments.length);
-      for (let i=0;i<arguments.length;i++){
-        console.log("arguments[" + i + "]: " + arguments[i]);
-      }
-      let theArguments=arguments[0].split(" ");
+      // for (let i=0;i<arguments.length;i++){
+      //   console.log("arguments[" + i + "]: " + arguments[i]);
+      // }
+      let theArguments=arguments[0].split(" "); // This is to allow easier parsing of each individual word in the line
 
+      // ### Player Messages ###
       if (theArguments[0] == "[CHANNELROUTER]"){ // This is for all messages, including commands.
-      let sender=dataInput.match(/sender=[A-Za-z0-9_-]*/).toString();
-        let senderArray       = sender.split("=");
-        sender                = senderArray.pop();
+        // I know this is a super messy way of processing the text.  I was stringing them along in 1 line apiece, but ESLint was yelling at me.  Here's some more ways to do it:  https://stackoverflow.com/questions/4092325/how-to-remove-part-of-a-string-before-a-in-javascript
+        // let sender            = dataInput.match(/sender=[A-Za-z0-9_-]*/).toString();
+        // let senderArray       = sender.split("=");
+        // sender                = senderArray.pop();
+
+        let sender            = dataInput.match(/sender=[A-Za-z0-9_-]*/).toString().split("=").pop();
+        // let senderArray       = sender.split("=");
+        // sender                = senderArray.pop();
+
+
         let receiver          = dataInput.match(/\[receiver=[A-Za-z0-9_-]*/).toString();
         let receiverArray     = receiver.split("=");
         receiver              = receiverArray.pop();
@@ -258,7 +267,6 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
         messageArray.pop();
         message=messageArray.join("");
         //arguments[0]: [CHANNELROUTER] RECEIVED MESSAGE ON Server(0): [CHAT][sender=Benevolent27][receiverType=CHANNEL][receiver=all][message=words]
-
         console.log("Message found: ");
         console.log("sender: " + sender);
         console.log("receiver: " + receiver);
@@ -271,6 +279,51 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           "text":         message
         }
         eventEmitter.emit('message',messageObj);
+
+      } else if (theArguments[0] == "[SERVER][SPAWN]") { // Player Spawns
+        if (theArguments[1] == /PlS\[.*/ ){
+          let playerName=theArguments[1].split("[").pop();
+          if (playerName) {
+            if (settings["announceSpawnsToMainChat"] == "true") {
+              console.log("Player Spawned: " + playerName);
+            }
+            let playerObj={
+              "name": playerName,
+              "spawnTime": Math.floor(new Date() / 1000)
+            }
+            eventEmitter.emit('playerSpawn',playerObj);
+          }
+        }
+      } else if (theArguments[0] == "[SPAWN]") { // New Ship or Base Creation
+        let playerName=theArguments[1];
+        let shipName=arguments[0].match(/spawned new ship: "[0-9a-zA-Z _-]*/);
+        if (shipName){
+          shipName=shipName.split(":").pop();
+          let shipObj={
+            "playerName": playerName,
+            "name": shipName,
+            "spawnTime" : Math.floor(new Date() / 1000)
+          }
+          eventEmitter.emit('shipSpawn',shipObj);
+        } else {
+          var baseName=arguments[0].match(/spawned new station: "[0-9a-zA-Z _-]*/);
+          if (baseName){
+            baseName=baseName.split(":").pop();
+            let baseObj={
+              "playerName": playerName,
+              "name": baseName,
+              "spawnTime" : Math.floor(new Date() / 1000)
+            }
+            eventEmitter.emit('baseSpawn',baseObj);
+          }
+        }
+      } else if (theArguments[0] == /\[BLUEPRINT\].*/) { // Various Blueprint events
+        if (theArguments[0] == "[BLUEPRINT][BUY]"){ // New Ship spawn from blueprint
+          console.log("Some blueprint buy event happened.");
+        }
+
+      } else if (theArguments[0] == "[BLUEPRINT][LOAD]"){ // New ship from load - possibly /spawn_mobs command
+        console.log("Some blueprint load event happened.");
       }
     }
   }
