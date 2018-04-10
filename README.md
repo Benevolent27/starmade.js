@@ -33,7 +33,11 @@ Start a command window.  (in windows, you can use windows key + r, then type cmd
 * `cd starmade.js`
 * `node starmade.js`  <-- you are now running the server!  Yay!
 
-When you would like to shut the server down, type `/shutdown 1` in the window.  Anything you type will be forwarded to the running server process, so you can use any of the admin commands:  [[!Admin Commands](https://starmadedock.net/threads/admin-commands.1283/)](https://starmadedock.net/threads/admin-commands.1283/)
+When you would like to shut the server down, type `/shutdown 1` in the window.  Anything you type will be forwarded to the running server process, so you can use any of the [[Admin Commands](https://starmadedock.net/threads/admin-commands.1283/)].  There will also be !style commands that you can run to control the server wrapper.  Right now there are just a few basic commands which will change:
+* !stdout \[on/off\]
+* !stderr on/off
+* !settings list
+* !changesettings \[settingName\] \[What you want to change it to\]
 
 Note:  If for some reason your script crashes, the StarMade server might still be running in the background.  You can kill it manually in task manager or at the command line.  If you need the PID, it will be stored the "server.lck" file that is generated in the same folder as your starmade.js file.  You can also type "jps" in your console if you have the JDK installed to get the PID of any java process running.  AFTER the server is killed You will then want to delete the "server.lck" file to start the server again.
 
