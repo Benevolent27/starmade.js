@@ -94,7 +94,7 @@
         ],
         "lines-around-comment": "error",
         "lines-around-directive": "error",
-        "max-depth": "error",
+        "max-depth": [ "warn", { "max": 8 } ],
         "max-len": "off",
         "max-lines": "off",
         "max-nested-callbacks": "error",
