@@ -32,8 +32,9 @@ Start a command window.  (in windows, you can use windows key + r, then type cmd
 * `git clone https://github.com/Benevolent27/starmade.js`  <-- clone the code repository.  This creates a starmade.js folder.
 * `cd starmade.js`
 * `node starmade.js`  <-- you are now running the server!  Yay!
+* `git pull http://github.com/Benevolent27/starmade.js` <-- and that's how you can update to the latest copy! (run from inside the starmade.js folder, not below it!)
 
-When you would like to shut the server down, type `/shutdown 1` in the window.  Anything you type will be forwarded to the running server process, so you can use any of the [[Admin Commands](https://starmadedock.net/threads/admin-commands.1283/)].  There will also be !style commands that you can run to control the server wrapper.  Right now there are just a few basic commands which will change:
+When you would like to shut the server down, type `/shutdown 1` in the window.  Anything you type will be forwarded to the running server process, so you can use any of the [[Admin Commands](https://starmadedock.net/threads/admin-commands.1283/)].  There will also be !style commands that you can run to control the server wrapper.  These are typed DIRECTLY into your console window.  Right now there are just a few basic console commands which will change:
 * !stdout \[on/off\]
 * !stderr \[on/off\]
 * !settings list
