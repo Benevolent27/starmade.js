@@ -5,7 +5,7 @@
 [![Dependencies Status](https://david-dm.org/Benevolent27/starmade.js.svg)](https://david-dm.org/Benevolent27/starmade.js)
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2FBenevolent27%2Fstarmade.js.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2FBenevolent27%2Fstarmade.js?ref=badge_shield)
 
-This is an unfinished server wrapper for running a StarMade server.  It is currently being developed and is close to working out of the box.
+This is an server wrapper for running a StarMade server.  It is currently being developed and is lacking most features.
 
 The end goal here is to produce a highly moddable wrapper that will:
 * Work on any OS that runs nodejs.  
@@ -17,10 +17,29 @@ The end goal here is to produce a highly moddable wrapper that will:
 
 These features are planned to be available upon release.
 
-But for now, if you would like to be a contributor, just send me a message and we'll get started. :)
+But for now, if you would like to be a contributor, just send me a message and we'll get started or get yourself a test build set up! :)
 
-If you'd like to get started now, the scripting has been successfully running a server on linux.  When you run starmade.js, it should automatically download whatever is needed and get things set up after some quick questions. 
-Note:  If for some reason your script crashes, the StarMade server might still be in the background.  One of the quirks of starting a process in node.  You can kill it manually.  If you need the PID, it will be stored the "server.lck" file that is generated in the same folder as your starmade.js file.  You can also type "jps" in your console if you have the JDK installed to get the PID of any java process running.  You will then want to delete the "server.lck" file to start the server again.
+**Spawn a test build!**
+If you'd like to spawn a test build, the scripting has been successfully running a server on linux but could use some testing on windows. 
+It requires node.js and git to be installed first.
+* https://nodejs.org/  <-- get eeett, nodejs is a pretty awesome language.
+* https://git-scm.com/downloads  <-- git, yus, it is good.
+
+Then you can clone my repository and run it.  No other install required.
+
+Here's how to clone a repo:
+Start a command window.  (in windows, you can use windows key + r, then type cmd and press enter)
+* `git clone https://github.com/Benevolent27/starmade.js`  <-- clone the code repository.  This creates a starmade.js folder.
+* `cd starmade.js`
+* `node starmade.js`  <-- you are now running the server!  Yay!
+
+When you would like to shut the server down, type `/shutdown 1` in the window.  Anything you type will be forwarded to the running server process, so you can use any of the [[Admin Commands](https://starmadedock.net/threads/admin-commands.1283/)].  There will also be !style commands that you can run to control the server wrapper.  Right now there are just a few basic commands which will change:
+* !stdout \[on/off\]
+* !stderr \[on/off\]
+* !settings list
+* !changesettings \[settingName\] \[What you want to change it to\]
+
+Note:  If for some reason your script crashes, the StarMade server might still be running in the background.  You can kill it manually in task manager or at the command line.  If you need the PID, it will be stored the "server.lck" file that is generated in the same folder as your starmade.js file.  You can also type "jps" in your console if you have the JDK installed to get the PID of any java process running.  AFTER the server is killed You will then want to delete the "server.lck" file to start the server again.
 
 Oh, and if you get a server up and running, try typing "!command" in-game in any chat window and press enter.
 
