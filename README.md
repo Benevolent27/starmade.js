@@ -22,16 +22,16 @@ But for now, if you would like to be a contributor, just send me a message and w
 **Spawn a test build!**
 If you'd like to spawn a test build, the scripting has been successfully running a server on linux but could use some testing on windows. 
 It requires node.js and git to be installed first.
-https://nodejs.org/  <-- get eeett, nodejs is a pretty awesome language.
-https://git-scm.com/downloads  <-- git, yus, it is good.
+* https://nodejs.org/  <-- get eeett, nodejs is a pretty awesome language.
+* https://git-scm.com/downloads  <-- git, yus, it is good.
 
 Then you can clone my repository and run it.  No other install required.
 
 Here's how to clone a repo:
 Start a command window.  (in windows, you can use windows key + r, then type cmd and press enter)
-*`git clone https://github.com/Benevolent27/starmade.js`  <-- clone the code repository.  This creates a starmade.js folder.
-*`cd starmade.js`
-*`node starmade.js`  <-- you are now running the server!  Yay!
+* `git clone https://github.com/Benevolent27/starmade.js`  <-- clone the code repository.  This creates a starmade.js folder.
+* `cd starmade.js`
+* `node starmade.js`  <-- you are now running the server!  Yay!
 
 Note:  If for some reason your script crashes, the StarMade server might still be running in the background.  You can kill it manually in task manager or at the command line.  If you need the PID, it will be stored the "server.lck" file that is generated in the same folder as your starmade.js file.  You can also type "jps" in your console if you have the JDK installed to get the PID of any java process running.  AFTER the server is killed You will then want to delete the "server.lck" file to start the server again.
 
