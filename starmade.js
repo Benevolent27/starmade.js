@@ -73,25 +73,27 @@ const treeKill=installAndRequire('tree-kill'); // https://www.npmjs.com/package/
 // const blessed = installAndRequire('blessed'); // https://www.npmjs.com/package/blessed Awesome terminal screen with boxes and all sorts of interesting things.  See here for examples:  https://github.com/yaronn/blessed-contrib/blob/master/README.md
 const ini = installAndRequire('ini'); // https://www.npmjs.com/package/ini Imports ini files as objects.  It's a bit wonky with # style comments (in that it removes them and all text that follows) and leaves // type comments, so I created some scripting to modify how it loads ini files and also created some functions to handle comments.
 const prompt = installAndRequire("prompt-sync")({"sigint":true}); // https://www.npmjs.com/package/prompt-sync - This creates sync prompts and can have auto-complete capabilties.  The sigint true part makes it so pressing CTRL + C sends the normal SIGINT to the parent javascript process
-
+const Tail = installAndRequire('tail').Tail; // https://github.com/lucagrulla/node-tail/blob/master/README.md // For following the server log.  I forgot that the console output does NOT have everything.  This is NOT a perfect solution because whenever file rotation occurs, there is a 1 second gap in coverage.  Argh.
 // ### Setting up submodules from requires.
 var eventEmitter = new events.EventEmitter(); // This is for custom events
 
 // #####################
 // ###    SETTINGS   ###
 // #####################
-var lockFile        = path.join(mainFolder,"server.lck");
-var showStderr      = true;
-var showStdout      = true;
-var settingsFile=path.join(mainFolder, "/settings.json");
-var settings=setSettings(); // Import settings, including the starmade folder, min and max java settings, etc.  If the settings.json file does not exist, it will set it up.
-var starNetJarURL="http://files.star-made.org/StarNet.jar";
-var starMadeInstallFolder=path.join(settings["starMadeFolder"],"StarMade");
-var starMadeJar = path.join(starMadeInstallFolder,"StarMade.jar");
-var starNetJar  = path.join(binFolder,"StarNet.jar");
-var starMadeServerConfigFile=path.join(starMadeInstallFolder,"server.cfg");
-var serverCfg = {}; // getIniFileAsObj('./server.cfg'); // I'm only declaring an empty array here initially because we don't want to try and load it till we are sure the install has been completed
-
+var lockFile                 = path.join(mainFolder,"server.lck");
+var showStderr               = true;
+var showStdout               = true;
+var showServerlog            = true;
+var showAllEvents            = false;
+var enumerateEventArguments  = false;
+var settingsFile             = path.join(mainFolder, "/settings.json");
+var settings                 = setSettings(); // Import settings, including the starmade folder, min and max java settings, etc.  If the settings.json file does not exist, it will set it up.
+var starNetJarURL            = "http://files.star-made.org/StarNet.jar";
+var starMadeInstallFolder    = path.join(settings["starMadeFolder"],"StarMade");
+var starMadeJar              = path.join(starMadeInstallFolder,"StarMade.jar");
+var starNetJar               = path.join(binFolder,"StarNet.jar");
+var starMadeServerConfigFile = path.join(starMadeInstallFolder,"server.cfg");
+var serverCfg                = {}; // getIniFileAsObj('./server.cfg'); // I'm only declaring an empty array here initially because we don't want to try and load it till we are sure the install has been completed
 var os=process.platform;
 var starMadeStarter;
 if (os=="win32"){
@@ -148,6 +150,12 @@ includePatterns.push("^\\[SHUTDOWN\\]");  // When the server shuts down naturall
 // Exclude Patterns
 excludePatterns.push("^\\[SERVER\\]\\[DISCONNECT\\] Client 'null'"); // These spam all over the damn place so we want to filter them out.
 excludePatterns.push("^\\[SERVER\\]\\[DISCONNECT\\] Client 'Info-Pinger \\(server-lists\\)'"); // Every time someone refreshes their server list from the main menu of the game, all servers have a message on their console.
+excludePatterns.push(".*Narrowphase of Sector.*");
+excludePatterns.push("^\\[BLUEPRINT\\]\\[SPAWNINDB\\]");
+
+// Event found!: Sector[24](2, 2, 1) Narrowphase of Sector[24](2, 2, 1) took: 40; Objects in physics context: 8Arguments: 1
+
+
 
 // Build the regex patterns into compact patterns.
 var includePatternRegexTemp="(" + includePatterns[0];
@@ -209,6 +217,22 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
     }
   });
 
+  eventEmitter.on('playerSpawn', function(playerSpawn) {
+    console.log("playerSpawn detected.");
+    let mMessage="/server_message_to plain " + playerSpawn.playerName + " 'Melvin: Well hello there, " + playerSpawn.playerName + "!  Thanks for spawning in!'";
+    server.stdin.write(mMessage.toString().trim() + "\n");
+  });
+  eventEmitter.on('shipSpawn', function(shipSpawn) {
+    console.log("shipSpawn detected.");
+    let mMessage="/server_message_to plain " + shipSpawn.playerName + " 'Melvin: THAT is one nice ship: " + shipSpawn.shipName + "'";
+    server.stdin.write(mMessage.toString().trim() + "\n");
+  });
+  eventEmitter.on('baseSpawn', function(baseSpawn) {
+    console.log("baseSpawn detected.");
+    let mMessage="/server_message_to plain " + baseSpawn.playerName + " 'Melvin: Cool new base dude! " + baseSpawn.baseName + "'";
+    server.stdin.write(mMessage.toString().trim() + "\n");
+  });
+
 
   // todo: Support for JVM arguments on the command line.
 
@@ -222,6 +246,12 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
     if (err.code) { console.error("Error Code: " + err.code.toString()); }
     exitNow(130);
   }
+  var tailOptions = {
+    "fsWatchOptions": {"persistent": false},
+    "follow": true
+  };
+  var serverTail = new Tail(path.join(starMadeInstallFolder,"logs","serverlog.0.log"),tailOptions);
+
   serversRunning++; // Increment the number of servers running.
   console.log('Spawned server process with PID:' + server.pid);
   var lockFileObj = fs.createWriteStream(lockFile);
@@ -236,12 +266,13 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
 
   function processDataInput(dataInput){ // This function is run on every single line that is output by the server console.
     if (testMatch(dataInput)) { // Check to see if the message fits any of the regex patterns
-      console.log("Event found!: " + dataInput + "Arguments: " + arguments.length);
-      // for (let i=0;i<arguments.length;i++){
-      //   console.log("arguments[" + i + "]: " + arguments[i]);
-      // }
+      if (showAllEvents == true) {
+        console.log("Event found!: " + dataInput + "Arguments: " + arguments.length);
+      }
       let theArguments=arguments[0].split(" "); // This is to allow easier parsing of each individual word in the line
-
+      if (enumerateEventArguments == true){
+        for (let i=0;i<theArguments.length;i++){ console.log("theArguments[" + i + "]: " + theArguments[i]); }
+      }
       // ### Player Messages ###
       if (theArguments[0] == "[CHANNELROUTER]"){ // This is for all messages, including commands.
         // I know this is a super messy way of processing the text.  I was stringing them along in 1 line apiece, but ESLint was yelling at me.  Here's some more ways to do it:  https://stackoverflow.com/questions/4092325/how-to-remove-part-of-a-string-before-a-in-javascript
@@ -252,8 +283,6 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
         let sender            = dataInput.match(/sender=[A-Za-z0-9_-]*/).toString().split("=").pop();
         // let senderArray       = sender.split("=");
         // sender                = senderArray.pop();
-
-
         let receiver          = dataInput.match(/\[receiver=[A-Za-z0-9_-]*/).toString();
         let receiverArray     = receiver.split("=");
         receiver              = receiverArray.pop();
@@ -280,38 +309,81 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
         }
         eventEmitter.emit('message',messageObj);
 
-      } else if (theArguments[0] == "[SERVER][SPAWN]") { // Player Spawns
-        if (theArguments[1] == /PlS\[.*/ ){
-          let playerName=theArguments[1].split("[").pop();
+      } else if (theArguments[0] == "[SERVER][SPAWN]" ) { // Player Spawns
+
+
+          // Event found!: [SERVER][SPAWN] SPAWNING NEW CHARACTER FOR PlS[Benevolent27 ; id(2)(1)f(0)]Arguments: 1
+          // theArguments[0]: [SERVER][SPAWN]
+          // theArguments[1]: SPAWNING
+          // theArguments[2]: NEW
+          // theArguments[3]: CHARACTER
+          // theArguments[4]: FOR
+          // theArguments[5]: PlS[Benevolent27
+          // theArguments[6]: ;
+          // theArguments[7]: id(2)(1)f(0)]
+
+
+        console.log("Parsing possible player spawn.  theArguments[5]: " + theArguments[5].toString());
+        if (/PlS\[.*/.test(theArguments[5].toString())){
+          let playerName=theArguments[5].split("[").pop();
           if (playerName) {
+            console.log("Player Spawned: " + playerName);
             if (settings["announceSpawnsToMainChat"] == "true") {
-              console.log("Player Spawned: " + playerName);
+              let mMessage="/server_message_broadcast plain " + "'" + playerName + " has spawned.'";
+              server.stdin.write(mMessage.toString().trim() + "\n");
             }
             let playerObj={
-              "name": playerName,
+              "playerName": playerName,
               "spawnTime": Math.floor(new Date() / 1000)
             }
             eventEmitter.emit('playerSpawn',playerObj);
           }
         }
+
+
+          // Event found!: [SERVER] Object Ship[Benevolent27_1523388998134](355) didn't have a db entry yet. Creating entry!Arguments: 1
+          // theArguments[0]: [SERVER]
+          // theArguments[1]: Object
+          // theArguments[2]: Ship[Benevolent27_1523388998134](355)
+          // theArguments[3]: didn't
+          // theArguments[4]: have
+          // theArguments[5]: a
+          // theArguments[6]: db
+          // theArguments[7]: entry
+          // theArguments[8]: yet.
+          // theArguments[9]: Creating
+          // theArguments[10]: entry!
+
+
+
       } else if (theArguments[0] == "[SPAWN]") { // New Ship or Base Creation
-        let playerName=theArguments[1];
-        let shipName=arguments[0].match(/spawned new ship: "[0-9a-zA-Z _-]*/);
+        // Event found!: [SERVER] Object Ship[Benevolent27_1523387756157](1447) didn't have a db entry yet. Creating entry!Arguments: 1
+        console.log("Parsing possible ship or base spawn.");
+        var playerName=theArguments[1];
+        // var shipName=arguments[0].match(/spawned new ship: "[0-9a-zA-Z _-]*/);
+        var shipName=arguments[0].match(/spawned new ship: ["][0-9a-zA-Z _-]*/);
         if (shipName){
-          shipName=shipName.split(":").pop();
+          console.log("Temp shipName: " + shipName);
+          shipName=shipName.toString().replace(/^spawned new ship: ["]/,'');
+          // shipName=shipName.toString().split(":").pop();
+          console.log("Temp shipName: " + shipName);
           let shipObj={
             "playerName": playerName,
-            "name": shipName,
+            "shipName": shipName,
             "spawnTime" : Math.floor(new Date() / 1000)
           }
           eventEmitter.emit('shipSpawn',shipObj);
         } else {
-          var baseName=arguments[0].match(/spawned new station: "[0-9a-zA-Z _-]*/);
+          // var baseName=arguments[0].match(/spawned new station: "[0-9a-zA-Z _-]*/);
+          var baseName=arguments[0].match(/spawned new station: ["][0-9a-zA-Z _-]*/);
           if (baseName){
-            baseName=baseName.split(":").pop();
+            // baseName=baseName.split(":").pop();
+            baseName=baseName.toString().replace(/^spawned new station: ["]/,'');
+
+            // baseNameArray=baseName.split()
             let baseObj={
               "playerName": playerName,
-              "name": baseName,
+              "baseName": baseName,
               "spawnTime" : Math.floor(new Date() / 1000)
             }
             eventEmitter.emit('baseSpawn',baseObj);
@@ -319,11 +391,84 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
         }
       } else if (theArguments[0] == /\[BLUEPRINT\].*/) { // Various Blueprint events
         if (theArguments[0] == "[BLUEPRINT][BUY]"){ // New Ship spawn from blueprint
-          console.log("Some blueprint buy event happened.");
-        }
+          // Event found!: [BLUEPRINT][BUY] Benevolent27 bought blueprint from metaItem: "Isanth-VI" as "Isanth-VI1523389134208"; Price: 194625; to sector: (2, 2, 2) (loadTime: 80ms, spawnTime: 0ms)
+          // [SERVER][META] removing metaID: 100320Arguments: 1
+          // theArguments[0]: [BLUEPRINT][BUY]
+          // theArguments[1]: Benevolent27
+          // theArguments[2]: bought
+          // theArguments[3]: blueprint
+          // theArguments[4]: from
+          // theArguments[5]: metaItem:
+          // theArguments[6]: "Isanth-VI"
+          // theArguments[7]: as
+          // theArguments[8]: "Isanth-VI1523389134208";
+          // theArguments[9]: Price:
+          // theArguments[10]: 194625;
+          // theArguments[11]: to
+          // theArguments[12]: sector:
+          // theArguments[13]: (2,
+          // theArguments[14]: 2,
+          // theArguments[15]: 2)
+          // theArguments[16]: (loadTime:
+          // theArguments[17]: 80ms,
+          // theArguments[18]: spawnTime:
+          // theArguments[19]: 0ms)
+          // [SERVER][META]
+          // theArguments[20]: removing
+          // theArguments[21]: metaID:
+          // theArguments[22]: 100320
 
-      } else if (theArguments[0] == "[BLUEPRINT][LOAD]"){ // New ship from load - possibly /spawn_mobs command
-        console.log("Some blueprint load event happened.");
+          console.log("Some blueprint buy event happened.");
+        } else if (theArguments[0] == "[BLUEPRINT][LOAD]"){ // New ship from load - possibly /spawn_mobs command
+          console.log("Some blueprint load event happened.");
+          // Event found!: [BLUEPRINT][LOAD] <admin> loaded Isanth-VI as "Isanth-VI_1523389201663" in (2, 2, 2) as faction 0Arguments: 1
+          // theArguments[0]: [BLUEPRINT][LOAD]
+          // theArguments[1]: <admin>
+          // theArguments[2]: loaded
+          // theArguments[3]: Isanth-VI
+          // theArguments[4]: as
+          // theArguments[5]: "Isanth-VI_1523389201663"
+          // theArguments[6]: in
+          // theArguments[7]: (2,
+          // theArguments[8]: 2,
+          // theArguments[9]: 2)
+          // theArguments[10]: as
+          // theArguments[11]: faction
+          // theArguments[12]: 0
+
+        }
+          // Player Disconnects
+          // Event found!: [SERVER][DISCONNECT] Client 'RegisteredClient: Benevolent27 (1) connected: true' HAS BEEN DISCONNECTED . PROBE: false; ProcessorID: 0Arguments: 1
+          // theArguments[0]: [SERVER][DISCONNECT]
+          // theArguments[1]: Client
+          // theArguments[2]: 'RegisteredClient:
+          // theArguments[3]: Benevolent27
+          // theArguments[4]: (1)
+          // theArguments[5]: connected:
+          // theArguments[6]: true'
+          // theArguments[7]: HAS
+          // theArguments[8]: BEEN
+          // theArguments[9]: DISCONNECTED
+          // theArguments[10]: .
+          // theArguments[11]: PROBE:
+          // theArguments[12]: false;
+          // theArguments[13]: ProcessorID:
+          // theArguments[14]: 0
+
+
+          // Event found!: [SERVER][PLAYERMESSAGE] received message request from PlS[Benevolent27 ; id(2)(1)f(0)] for 10 messagesArguments: 1
+          // theArguments[0]: [SERVER][PLAYERMESSAGE]
+          // theArguments[1]: received
+          // theArguments[2]: message
+          // theArguments[3]: request
+          // theArguments[4]: from
+          // theArguments[5]: PlS[Benevolent27
+          // theArguments[6]: ;
+          // theArguments[7]: id(2)(1)f(0)]
+          // theArguments[8]: for
+          // theArguments[9]: 10
+          // theArguments[10]: messages
+
       }
     }
   }
@@ -348,6 +493,18 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
     }
   });
 
+  serverTail.on('line', function(data) {
+    let dataString=data.toString().trim().replace(/^\[[^\[]*\] */,'');
+    if (dataString){
+      // sed 's/^\[[^\[]*\][[:blank:]]*//g'
+      if (showServerlog == true ) {
+        console.log("serverlog: " + dataString);
+      }
+      processDataInput(dataString);
+    }
+
+  });
+
   process.on('exit', function() { // This is scoped so that it can terminate the starmade server when the main script ends.
     // This should kill the server, but ONLY if there is a server running.
     console.log("Scoped exit event running..");
@@ -363,12 +520,14 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
 
   server.on('exit', function (code) { // This handles When the server child process ends, abormally or not.
     serversRunning--;
-    if (code.message){
-        console.log('Server instance exited with message: ' + code.message.toString());
+    if (code){
+      if (code.message){
+          console.log('Server instance exited with message: ' + code.message.toString());
+      }
+      console.log('Server instance exited with code: ' + code.toString());
     }
-    console.log('Server instance exited with code: ' + code.toString());
+    serverTail.unwatch();
     exitNow(code); // This is temporary, we don't necessarily want to kill the wrapper when the process dies.  For example, maybe we want to respawn it?  Ya know?!
-
   });
   server.on('error', function (code) {
     // This runs is the java process could not start for some reason.
@@ -406,7 +565,17 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
       console.log("Wrapper command detected: " + theCommand)
       console.log("Full: " + theText);
 
-      if (theCommand == "stdout" ) {
+      if (theCommand == "help" ) {
+        console.log("Here are the current console commands:");
+        console.log(" !stdout [on/off]");
+        console.log(" !stderr [on/off]");
+        console.log(" !serverlog [on/off]");
+        console.log(" !enumerateevents [on/off]");
+        console.log(" !showallevents [on/off]");
+        console.log(" !settings list");
+        console.log(" !changesetting [setting] [newvalue]");
+
+      } else if (theCommand == "stdout" ) {
         if (theArguments[0] == "on"){
           console.log("Setting stdout to true!");
           showStdout=true;
@@ -423,6 +592,30 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
         } else if (theArguments[0] == "off"){
           console.log("Setting Stderr to false!");
           showStderr=false;
+        }
+      } else if (theCommand == "serverlog" ) {
+        if (theArguments[0] == "on"){
+          console.log("Setting showServerlog to true!");
+          showServerlog=true;
+        } else if (theArguments[0] == "off"){
+          console.log("Setting showServerlog to false!");
+          showServerlog=false;
+        }
+      } else if (theCommand == "enumerateevents" ) {
+        if (theArguments[0] == "on"){
+          console.log("Setting enumerateEventArguments to true!");
+          enumerateEventArguments=true;
+        } else if (theArguments[0] == "off"){
+          console.log("Setting enumerateEventArguments to false!");
+          enumerateEventArguments=false;
+        }
+      } else if (theCommand == "showallevents" ) {
+        if (theArguments[0] == "on"){
+          console.log("Setting showAllEvents to true!");
+          showAllEvents=true;
+        } else if (theArguments[0] == "off"){
+          console.log("Setting showAllEvents to false!");
+          showAllEvents=false;
         }
       } else if (theCommand == "settings") {
         if (theArguments[0] == "list"){
