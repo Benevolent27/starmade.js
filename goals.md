@@ -9,7 +9,7 @@ Here are the current goals of starmade.js:
 7. All functionality of the wrapper should exist in the form of mods which can be replaced or disabled.
 
 How-To and WHY:
-1. This is done by parsing the console output AND the serverlog.0.log file, then parsing each line to pull the relevant data.
+1. This is done by scanning the console output AND the serverlog.0.log file, then parsing each line to pull relevant data, such as the name of a player who has died.
 2. We want mods to function on either the server OR global scope so that server management mods can exist.
 For example, perhaps a global mod has a web interface and allows spawning multiple instances of a StarMade server and then loading and unloading specific mods to all of them.
 If not specified, the scope will be assumed to work for the individual server instance, so that mods can be kept simpler.
