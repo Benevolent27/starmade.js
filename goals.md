@@ -5,7 +5,7 @@ Here are the current goals of starmade.js:
 3. Mods will be scoped to the running StarMade instance by default, but globally scoped mods can also be created.
 4. There should be adequate built in functions to support mods, but we should avoid unnecessary complexity.
 5. Setting up the wrapper should be as simple and easy as possible.
-6. The wrapper should be able to run on Windows, MacOSX, and Linux consoles.
+6. The wrapper should be able to run on Windows, MacOSX, and Linux consoles, with full functionality at the console.
 7. All functionality of the wrapper should exist in the form of mods which can be replaced or disabled.
 
 How-To and WHY:
