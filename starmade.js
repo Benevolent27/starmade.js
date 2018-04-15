@@ -18,12 +18,12 @@
 // I want a rich tapestry of built in methods that can perform functions such as grabbing the current faction of a specific player.  These should be able to send commands to the server, retrieve the data, parse it, and whittle it down to what is needed.  Sql queries will get special attention here, allowing the output to be easily parsable by mod scripting.
 
 // DOCUMENTATION
-// As the wrapper is built, documentation should be done alongside it.  All final versions of built-in functions and events should be documented carefully.
+// As features are FINALIZED and then built, documentation should be done alongside it.
 
 // NODE.JS JAVASCRIPT - MOSTLY NATIVE CODE
 // Code should be mostly native to node.js javascript, using outside tools the least possible.  All outside tools must be includable or downloadable and freely usable on supported OS's, including linux, windows, and macosx.
 
-// NPM REQUIRES OK - NO NEED TO RE-INVENT WHEELS
+// NPM "REQUIRES" ARE OK - NO NEED TO RE-INVENT WHEELS
 // Provided a NPM package seems stable enough, we can use them to expand the functionality of our scripting and decrease production time.  Care must be taken to ensure that performance isn't decreased significantly though.  -- NO GHETTO PACKAGES PLZ
 
 
@@ -69,11 +69,14 @@ const makeDir=installAndRequire('make-dir'); // https://www.npmjs.com/package/ma
 const treeKill=installAndRequire('tree-kill'); // https://www.npmjs.com/package/tree-kill To kill the server and any sub-processes
 // const decache = installAndRequire("decache"); // https://www.npmjs.com/package/decache - This is used to reload requires, such as reloading a json file or mod without having to restart the scripting.
 // const express = installAndRequire('express'); // https://www.npmjs.com/package/express Incredibly useful tool for serving web requests
+// const Tail = installAndRequire('express-ipfilter') // https://www.npmjs.com/package/express-ipfilter - This will be used to restrict only local IP's to access the RESTFul API, which is what other scripts will use to remote control this
 // const targz = installAndRequire('tar.gz'); // https://www.npmjs.com/package/tar.gz2 For gunzipping files,folders, and streams (including download streams)
 // const blessed = installAndRequire('blessed'); // https://www.npmjs.com/package/blessed Awesome terminal screen with boxes and all sorts of interesting things.  See here for examples:  https://github.com/yaronn/blessed-contrib/blob/master/README.md
 const ini = installAndRequire('ini'); // https://www.npmjs.com/package/ini Imports ini files as objects.  It's a bit wonky with # style comments (in that it removes them and all text that follows) and leaves // type comments, so I created some scripting to modify how it loads ini files and also created some functions to handle comments.
 const prompt = installAndRequire("prompt-sync")({"sigint":true}); // https://www.npmjs.com/package/prompt-sync - This creates sync prompts and can have auto-complete capabilties.  The sigint true part makes it so pressing CTRL + C sends the normal SIGINT to the parent javascript process
 const Tail = installAndRequire('tail').Tail; // https://github.com/lucagrulla/node-tail/blob/master/README.md // For following the server log.  I forgot that the console output does NOT have everything.  This is NOT a perfect solution because whenever file rotation occurs, there is a 1 second gap in coverage.  Argh.
+
+
 // ### Setting up submodules from requires.
 var eventEmitter = new events.EventEmitter(); // This is for custom events
 
