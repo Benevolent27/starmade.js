@@ -494,7 +494,8 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   });
 
   serverTail.on('line', function(data) {
-    let dataString=data.toString().trim().replace(/^\[[^\[]*\] */,'');
+    // let dataString=data.toString().trim().replace(/^\[[^\[]*\] */,'');
+    let dataString=data.toString().trim().replace(/^\[[^[]*\] */,''); // Trying to fix ESLinter error
     if (dataString){
       // sed 's/^\[[^\[]*\][[:blank:]]*//g'
       if (showServerlog == true ) {
@@ -629,7 +630,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           console.log("\nIf you would like to change a setting, try !changesetting [SettingName] [NewValue]");
         }
       } else if (theCommand == "changesetting") {
-        let showUsage = function(){ console.log("Usage: !changeSetting [Property] [NewValue]"); }; // Ignore this ESLinter warning, I WANT this to be scoped how it is, I do NOT want to declare with function which will give it a wider scope
+        var showUsage = function(){ console.log("Usage: !changeSetting [Property] [NewValue]"); }; // Ignore this ESLinter warning, I WANT this to be scoped how it is, I do NOT want to declare with function which will give it a wider scope
         if (theArguments[0]){
           // console.log("Result of checking hasOwnProperty with " + theArguments[0] + ": " + settings.hasOwnProperty(theArguments[0]));
           if (settings.hasOwnProperty(theArguments[0])){
