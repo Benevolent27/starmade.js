@@ -960,13 +960,13 @@ function spawnStarMadeInstallTo(pathToInstall,installerJar){  // This always req
   }
   var starMadeJarFile=path.join(starMadeInstallFolder,"StarMade.jar");
   if (fs.existsSync(starMadeJarFile)){ // Check if the starmade jar file exists. Install StarMade to the installer path if not.
-    console.log("Found StarMade install at: " + pathToInstall);
+    console.log("Found StarMade install at: " + starMadeInstallFolder);
   } else {
-    console.log("Spawning StarMade Install to: " + pathToInstall);
-    var smInstallerProcess=child.spawnSync("java",["-jar",installerJar,"-nogui"],{"cwd": pathToInstall});
+    console.log("Spawning StarMade Install to: " + starMadeInstallFolder);
+    var smInstallerProcess=child.spawnSync("java",["-jar",installerJar,"-nogui"],{"cwd": pathToInstall}); // Use pathToInstall because it will create the /StarMade folder.
     console.log("Install PID: " + smInstallerProcess.pid);
     if (smInstallerProcess.status && smInstallerProcess.status != 0){ // Installer exited with a non-zero exit code
-      console.error("ERROR: StarMade install failed!  Path: " + pathToInstall);
+      console.error("ERROR: StarMade install failed!  Path: " + starMadeInstallFolder);
       if (smInstallerProcess.signal){  // Installer was killed!
         console.error("ERROR INFO: Install process was killed! Exit code (" + smInstallerProcess.status + ") and signal (" + smInstallerProcess.signal + ")!");
       } else {  // Installer exited on it's own with an error code
@@ -992,7 +992,7 @@ function verifyInstall (pathToSMInstall){
   if (fs.existsSync(starMadeServerCfg)){ // Right now our "verification" is pretty simple.  Just check for the server.cfg file.  This can be expanded on later if needed to verify all preloaded configs and needed folders exist.
     console.log("server.cfg file found..")
   } else { // If the install does not verify, then we'll need to repair it.
-    generateConfigFiles(starMadeInstallFolder); // Right now the "repair" is just to generate config files, but later if we have checks to actually verify the install and it's missing things like the StarMade.jar file, we'll need to run a repair install
+    generateConfigFiles(pathToUse); // Right now the "repair" is just to generate config files, but later if we have checks to actually verify the install and it's missing things like the StarMade.jar file, we'll need to run a repair install
   }
 }
 
