@@ -3,7 +3,7 @@ StarNet.jar
 /server.lck
 /.tags*
 /.vs
-/starmade/
+/starmade/*
 /node_modules/*
 *.bak*
 StarMade-Starter.jar
