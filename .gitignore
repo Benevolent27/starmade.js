@@ -5,6 +5,6 @@ StarNet.jar
 /.vs
 /starmade/
 /node_modules/*
-*.bak
+*.bak*
 StarMade-Starter.jar
 temp*
