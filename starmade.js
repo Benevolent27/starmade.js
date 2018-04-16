@@ -47,7 +47,7 @@ const path   = require('path'); // This is needed to build file and directory pa
 // const stream   = require('stream'); // For creating streams.  Not used right now but may be later.
 
 // ### Main Vars ### - Don't change these
-var mainFolder      = path.dirname(require.main.filename); // This is where the starmade.js is
+var mainFolder      = path.dirname(require.main.filename); // This is where the starmade.js is.  I use this method instead of __filename because starmade.js might load itself
 var binFolder       = path.join(mainFolder,"bin");
 var operations      = 0;
 var includePatterns = [];
@@ -73,9 +73,9 @@ const treeKill=installAndRequire('tree-kill'); // https://www.npmjs.com/package/
 // const targz = installAndRequire('tar.gz'); // https://www.npmjs.com/package/tar.gz2 For gunzipping files,folders, and streams (including download streams)
 // const blessed = installAndRequire('blessed'); // https://www.npmjs.com/package/blessed Awesome terminal screen with boxes and all sorts of interesting things.  See here for examples:  https://github.com/yaronn/blessed-contrib/blob/master/README.md
 const ini = installAndRequire('ini'); // https://www.npmjs.com/package/ini Imports ini files as objects.  It's a bit wonky with # style comments (in that it removes them and all text that follows) and leaves // type comments, so I created some scripting to modify how it loads ini files and also created some functions to handle comments.
-const prompt = installAndRequire("prompt-sync")({"sigint":true}); // https://www.npmjs.com/package/prompt-sync - This creates sync prompts and can have auto-complete capabilties.  The sigint true part makes it so pressing CTRL + C sends the normal SIGINT to the parent javascript process
-const Tail = installAndRequire('tail').Tail; // https://github.com/lucagrulla/node-tail/blob/master/README.md // For following the server log.  I forgot that the console output does NOT have everything.  This is NOT a perfect solution because whenever file rotation occurs, there is a 1 second gap in coverage.  Argh.
-
+const prompt = installAndRequire("prompt-sync")({"sigint":true}); // https://www.npmjs.com/package/prompt-sync This creates sync prompts and can have auto-complete capabilties.  The sigint true part makes it so pressing CTRL + C sends the normal SIGINT to the parent javascript process
+const Tail = installAndRequire('tail').Tail; // https://github.com/lucagrulla/node-tail/blob/master/README.md For following the server log.  I forgot that the console output does NOT have everything.  This is NOT a perfect solution because whenever file rotation occurs, there is a 1 second gap in coverage.  Argh.
+const exitHook = installAndRequire('exit-hook'); // https://github.com/sindresorhus/exit-hook Handles normal shutdowns, sigterm, sigint, and a "message=shutdown" event.  Good for ensuring the server gets shutdown.
 
 // ### Setting up submodules from requires.
 var eventEmitter = new events.EventEmitter(); // This is for custom events
@@ -89,7 +89,8 @@ var showStdout               = true;
 var showServerlog            = true;
 var showAllEvents            = false;
 var enumerateEventArguments  = false;
-var settingsFile             = path.join(mainFolder, "/settings.json");
+var pauseBeforeStartingServer="2000"; // After any sort of installs, config verifications, etc, how long should we wait before pulling the trigger on the server spawn in ms?
+var settingsFile             = path.join(mainFolder, "settings.json");
 var settings                 = setSettings(); // Import settings, including the starmade folder, min and max java settings, etc.  If the settings.json file does not exist, it will set it up.
 var starNetJarURL            = "http://files.star-made.org/StarNet.jar";
 var starMadeInstallFolder    = path.join(settings["starMadeFolder"],"StarMade");
@@ -253,6 +254,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
     "fsWatchOptions": {"persistent": false},
     "follow": true
   };
+  touch(path.join(starMadeInstallFolder,"logs","serverlog.0.log")); // Ensure the file exists before we tail it.
   var serverTail = new Tail(path.join(starMadeInstallFolder,"logs","serverlog.0.log"),tailOptions);
 
   serversRunning++; // Increment the number of servers running.
@@ -950,14 +952,149 @@ function testMatch(valToCheck) { // This function will be called on EVERY line t
   }
 }
 
+function spawnStarMadeInstallTo(pathToInstall,installerJar){  // This always requires the installerJar path because this will be offloaded to a require later.
+  try {
+    var starMadeInstallFolder=getSMInstallPath(pathToInstall);
+  } catch (err) {
+    throw new Error("No path to SM install provided!  Cannot spawn server install!");  // This is a bit harsh, but hey we will need to ensure the config files are generated.
+  }
+  var starMadeJarFile=path.join(starMadeInstallFolder,"StarMade.jar");
+  if (fs.existsSync(starMadeJarFile)){ // Check if the starmade jar file exists. Install StarMade to the installer path if not.
+    console.log("Found StarMade install at: " + pathToInstall);
+  } else {
+    console.log("Spawning StarMade Install to: " + pathToInstall);
+    var smInstallerProcess=child.spawnSync("java",["-jar",installerJar,"-nogui"],{"cwd": pathToInstall});
+    console.log("Install PID: " + smInstallerProcess.pid);
+    if (smInstallerProcess.status && smInstallerProcess.status != 0){ // Installer exited with a non-zero exit code
+      console.error("ERROR: StarMade install failed!  Path: " + pathToInstall);
+      if (smInstallerProcess.signal){  // Installer was killed!
+        console.error("ERROR INFO: Install process was killed! Exit code (" + smInstallerProcess.status + ") and signal (" + smInstallerProcess.signal + ")!");
+      } else {  // Installer exited on it's own with an error code
+        console.error("ERROR INFO: Failed to spawn the StarMade install! Failed with exit code (" + smInstallerProcess.status + ").");
+      }
+      if (smInstallerProcess.stderr){ console.error("Install Error output: " + smInstallerProcess.stderr); }
+      exitNow(35); // Exit the main script, since we cannot run a wrapper without an install.
+    } else {
+      console.log("Spawned StarMade install successfully to: " + starMadeInstallFolder);
+      generateConfigFiles(starMadeInstallFolder); // After every install, we should generate config files/folders.  We don't verify the install because the installation itself should have produced a verified install.
+    }
+  }
+}
+
+function verifyInstall (pathToSMInstall){
+  try {
+    var pathToUse=getSMInstallPath(pathToSMInstall);
+  } catch (err) {
+    throw new Error("No path to SM install provided!  Cannot verify install!");  // This is a bit harsh, but hey we will need to ensure the config files are generated.
+  }
+  var starMadeServerCfg=path.join(pathToUse,"server.cfg");
+  console.log("Verifying install..");
+  if (fs.existsSync(starMadeServerCfg)){ // Right now our "verification" is pretty simple.  Just check for the server.cfg file.  This can be expanded on later if needed to verify all preloaded configs and needed folders exist.
+    console.log("server.cfg file found..")
+  } else { // If the install does not verify, then we'll need to repair it.
+    generateConfigFiles(starMadeInstallFolder); // Right now the "repair" is just to generate config files, but later if we have checks to actually verify the install and it's missing things like the StarMade.jar file, we'll need to run a repair install
+  }
+}
+
+function generateConfigFiles (pathToSMInstall){
+  // If StarMAde install files and folders don't exist, we can actually run the StarMade.jar file with an invalid argument and it will generate config files/folders and then exit.
+  // IMPORTANT:  This method may not be future-proof!
+  try {
+    var pathToUse=getSMInstallPath(pathToSMInstall);
+  } catch (err) {
+    throw new Error("No path to SM install provided!  Cannot generate config files!");  // This is a bit harsh, but hey we will need to ensure the config files are generated.
+  }
+  var starMadeJarFile=path.join(pathToUse,"StarMade.jar");
+  console.log("Generating config files..");
+  var createConfigFilesSpawn=child.spawnSync("java",["-jar",starMadeJarFile,"-nonsense4534"],{"cwd": pathToUse});  // Starting the StarMade.jar file with an invalid argument will generate the config files and then exit with a 0 exit code.  This may very well not be future proof!
+  console.log("PID: " + createConfigFilesSpawn.pid);
+  if (createConfigFilesSpawn.status && createConfigFilesSpawn.status != 0){ // temporary instance of the StarMade.jar with a non-zero exit code.  This might happen if there isn't enough RAM available or some other error when running it.
+    console.error("ERROR: Failed to generate config files to folder: " + pathToUse);
+    if (createConfigFilesSpawn.signal){  // Instance of StarMade was killed!
+      console.error("ERROR INFO: Temporary StarMade Instance killed! Exit code (" + createConfigFilesSpawn.status + ") and signal (" + createConfigFilesSpawn.signal + ").");
+    } else {  // Installer exited on it's own with an error code
+      console.error("ERROR INFO: Temporary StarMade Instance exited with error code (" + createConfigFilesSpawn.status + ").");
+    }
+    if (createConfigFilesSpawn.stderr){ console.error("Error output: " + createConfigFilesSpawn.stderr); }
+    exitNow(35); // Exit the main script, since we cannot run a wrapper without a valid install.
+  } else { console.log("Config files and folders generated successfully to: " + pathToUse); }
+}
+
+  // This method of generating a config file is not viable because we want to load any config files PRIOR to running the server, and if we are relying on running the server for the first time to generate them, we cannot ensure the config files exist and are loadable prior to loading mods.. which means we'd need to do a wonky solution of parsing the console output for an exact success message on server.cfg file generation or loading which might change from version to version.. and even then we cannot guarantee that the file has finished writing before loading it..
+
+  // var tempServerIniCfgFile=path.join(pathToInstall,"StarMade","server.cfg");
+  // if (!fs.existsSync(tempServerIniCfgFile)){
+  //   var tempServerIniCfgObj={
+  //       "SUPER_ADMIN_PASSWORD_USE": "true //Enable super admin for this server",
+  //       "SUPER_ADMIN_PASSWORD": "mypassword //Super admin password for this server"
+  //   }
+  //   writeObjToIni(tempServerIniCfgObj,tempServerIniCfgFile);
+  // }
+
+
+function getSMInstallPath(thePath){
+  if (!thePath) {
+    throw new Error("No path provided!"); // It is expected that anywhere this function is used, the error will be handled and a custom error given instead.
+  }
+  var pathToUse=thePath;
+  if (!thePath.match(/StarMade$/)){ // This is to allow the install path OR the full path to the StarMade install folder to be used.
+    pathToUse=path.join(thePath, "StarMade");
+  }
+  return pathToUse;
+}
+
+async function getSuperAdminPassword(starMadeInstallPath){ // This will grab the superadmin password, setting it up and enabling it if not already.
+  // Load the server.cfg from install path
+  var serverCfgFile=path.join(starMadeInstallPath,"StarMade","server.cfg");
+  var serverCfgObj=getIniFileAsObj(serverCfgFile);
+  var superAdminPassword=removeIniComments(serverCfgObj["SUPER_ADMIN_PASSWORD"]);
+  var superAdminPasswordEnabled=removeIniComments(serverCfgObj["SUPER_ADMIN_PASSWORD_USE"]);
+  if (superAdminPasswordEnabled){ // Only perform .toLowerCase() if the value exists to avoid crashing the script.
+    superAdminPasswordEnabled=superAdminPasswordEnabled.toLowerCase();
+  }
+  if (superAdminPassword == "mypassword" || !superAdminPassword){ // "mypassword" is the default value upon install.  We do not want to keep this since it'd be a major security vulnerability.
+    console.log("\nThe 'SuperAdminPassword' has not been set up yet!  This is needed for StarNet.jar to connect to the server.");
+    console.log("You can set a custom alphanumeric password OR just press [ENTER] to have a long, randomized one set for you. (Recommended)")
+    let newSuperAdminPassword="";
+    do {
+      newSuperAdminPassword=prompt("New SuperAdminPassword: ");
+    }
+    while (!(newSuperAdminPassword === null || newSuperAdminPassword == "" || isAlphaNumeric(newSuperAdminPassword))) // If a person puts invalid characters in, it'll just keep repeating the prompt.
+    if (newSuperAdminPassword === null || newSuperAdminPassword == ""){
+      console.log("Excellent choice!  I have set a LONG and nearly impossible to crack SuperAdminPassword for you! :D");
+      newSuperAdminPassword = getRandomAlphaNumericString(32);
+    } else { console.log("Alrighty then.  I'll just use what you provided!") };
+    await sleep(2000);
+    serverCfgObj["SUPER_ADMIN_PASSWORD"]=keepIniComment(serverCfgObj["SUPER_ADMIN_PASSWORD"],newSuperAdminPassword);
+    if (superAdminPasswordEnabled == "false") {
+      console.log("Super Admin Password was disabled, enabling!");
+      serverCfgObj["SUPER_ADMIN_PASSWORD_USE"]=keepIniComment(serverCfgObj["SUPER_ADMIN_PASSWORD_USE"],"true");
+    }
+    writeObjToIni(serverCfgObj,serverCfgFile);
+  } else if (superAdminPasswordEnabled != "true"){ // Enable super admin password if it was disabled for some reason.
+    console.log("Super Admin Password was disabled, enabling!");
+    serverCfgObj["SUPER_ADMIN_PASSWORD_USE"]=keepIniComment(serverCfgObj["SUPER_ADMIN_PASSWORD_USE"],"true");
+    writeObjToIni(serverCfgObj,serverCfgFile);
+  }
+  return serverCfgObj["SUPER_ADMIN_PASSWORD"];
+}
+
+
+
 // ##########################################
 // ###  MAIN SCRIPT EXIT  - GLOBAL SCOPE ####
 // ##########################################
 
-process.on('exit', function() {
+exitHook(() => { // This will handle sigint and sigterm exits.
   // Cleanup that needs to be done on the global scope should be done here.
   console.log("Global Exit event running..");
 });
+
+// This doesn't handle sigterm or sigint exit codes.
+// process.on('exit', function() {
+//   // Cleanup that needs to be done on the global scope should be done here.
+//   console.log("Global Exit event running..");
+// });
 
 touch(lockFile); // Create an empty lock file.  This is to prevent this script from running multiple times.
 
@@ -966,7 +1103,7 @@ touch(lockFile); // Create an empty lock file.  This is to prevent this script f
 // ##############################
 
 ensureFolderExists(binFolder);
-ensureFolderExists(starMadeInstallFolder); // This is redundant, handling if the person deletes or moves their install folder.
+ensureFolderExists(starMadeInstallFolder); // This is redundant to handle if the person deletes or moves their StarMade install folder.
 
 // ###################################
 // ### DEPENDENCIES AND DOWNLOADS  ###
@@ -978,29 +1115,16 @@ console.log("Ensuring all dependencies are downloaded or installed..");
 // ### Async downloads/installs that have no dependencies ### -- This sub-section is for all installs/downloads that can be done asynchronously to occur as quickly as possible.
 asyncOperation("start"); // This prevents the first async function from starting the wrapper if it finishes before the next one starts.
 preDownload(starNetJarURL,starNetJar); // This function handles the asyncronous downloads and starts the sync event when finished.
-preDownload(starMadeInstallerURL,starMadeInstaller); // This is temporary, because we HAVE TO verify that the person has read and agreed to the SM terms of service prior to installing.
+preDownload(starMadeInstallerURL,starMadeInstaller); // When setting the install path for StarMade, we should have handled the terms and conditions, so it should be ok to download it.
 asyncOperation("end");
 
 // ### Sync downloads/installs ### -- When async installs/downloads are finished, this function will be called.
 async function installDepsSync() {
-  // inside an async function we can use await to wait for each function call to end before moving to the next. eg. await installRoutine();
-
-  // ### Only syncronous installs here ###
-
-  // Let's see if the starmade jar file exists, and install StarMade to the installer path if not.
-  if (!fs.existsSync(starMadeJar)){
-    console.log("StarMade does not appear to be installed already.  Installing now..");
-    // function installStarMade(){
-    //   var smInstallerProcess=child.spawnSync("java",["-jar",starMadeInstaller,"-nogui"],{"cwd": settings["starMadeFolder"]});
-    //   return smInstallerProcess;
-    // }
-    // await installStarMade();
-    var smInstallerProcess=child.spawnSync("java",["-jar",starMadeInstaller,"-nogui"],{"cwd": settings["starMadeFolder"]});
-    console.log("Install PID: " + smInstallerProcess.pid);
-  }
-
+  // ### Only syncronous installs here ### e.g. await installRoutine();
+  await spawnStarMadeInstallTo(settings["starMadeFolder"],starMadeInstaller);
+  await verifyInstall(settings["starMadeFolder"]);
   // ### IMPORTANT INFO REGARDING EDITING THE SERVER.CFG AND OTHER INI FILES:
-  // To READ values, we can use serverCfg["WHATEVER"] to get the values.
+  // To pull up values, we can use serverCfg["WHATEVER"] to get the values.
   // Beware though, comments are imported as part of the value!  You you can strip them away with the removeIniComments() function that I created.
   // For example:  removeIniComments(serverCfg["WHATEVER"]) will retun only the needed value.
 
@@ -1021,43 +1145,22 @@ async function installDepsSync() {
   // IMPORTANT:  Please keep the comments when changing values, so use
 
 
-  serverCfg = getIniFileAsObj(starMadeServerConfigFile); // Import the server.cfg values to an object
-  var superAdminPassword=removeIniComments(serverCfg["SUPER_ADMIN_PASSWORD"]);
-  var superAdminPasswordEnabled=removeIniComments(serverCfg["SUPER_ADMIN_PASSWORD_USE"]);
-  if (superAdminPasswordEnabled){ // I'm doing it this way instead of tacking it on above because if the value is empty it would crash the script.  The alternative is to wrap it into a try, but.. meh this is ok.
-    superAdminPasswordEnabled=superAdminPasswordEnabled.toLowerCase();
+  // Check the super admin password and set up if not configured.
+  var superAdminPassword = await getSuperAdminPassword(settings["starMadeFolder"]);
+  console.log("Using superAdminPassword: " + superAdminPassword); // Temporary, just for testing.  We don't want to print this to the screen normally.
+
+  serverCfg = getIniFileAsObj(starMadeServerConfigFile); // Import the server.cfg values to an object.  These should be the final values.  Any settings changes to the file should be completed before this is loaded.  Note that this KEEPS comments in the value!
+  if (serverCfg){
+    console.log("Server config loaded: " + starMadeServerConfigFile);
   }
 
-  // Set up the SuperAdminPassword if it's not set up already.
-  if (superAdminPassword == "mypassword" || !superAdminPassword){ // "mypassword" is the default value upon install
-    console.log("\nThe 'SuperAdminPassword' has not been set up yet!  This is needed for StarNet.jar to connect to the server.");
-    console.log("You can set a custom alphanumeric password OR just press [ENTER] to have a long, randomized one set for you. (Recommended)")
-    let newSuperAdminPassword="";
-    do {
-      newSuperAdminPassword=prompt("New SuperAdminPassword: ");
-    }
-    while (!(newSuperAdminPassword === null || newSuperAdminPassword == "" || isAlphaNumeric(newSuperAdminPassword))) // If a person puts invalid characters in, it'll just keep repeating the prompt.
-    if (newSuperAdminPassword === null || newSuperAdminPassword == ""){
-      console.log("Excellent choice!  I have set a VERY LONG and nearly impossible to crack SuperAdminPassword for you! :D");
-      newSuperAdminPassword = getRandomAlphaNumericString(32);
-    } else { console.log("Alrighty then.  I'll just use what you provided!") };
-    await sleep(2000);
-    serverCfg["SUPER_ADMIN_PASSWORD"]=keepIniComment(serverCfg["SUPER_ADMIN_PASSWORD"],newSuperAdminPassword);
-    if (superAdminPasswordEnabled == "false") {
-      console.log("Super Admin Password was disabled, enabling!");
-      serverCfg["SUPER_ADMIN_PASSWORD_USE"]=keepIniComment(serverCfg["SUPER_ADMIN_PASSWORD_USE"],"true");
-    }
-    writeObjToIni(serverCfg,starMadeServerConfigFile);
-  } else if (superAdminPasswordEnabled != "true"){ // Enable super admin password if it was disabled for some reason.
-    console.log("Super Admin Password was disabled, enabling!");
-    serverCfg["SUPER_ADMIN_PASSWORD_USE"]=keepIniComment(serverCfg["SUPER_ADMIN_PASSWORD_USE"],"true");
-    writeObjToIni(serverCfg,starMadeServerConfigFile);
-  }
   console.log("Here we go..");
-  await sleep(2000);
+  await sleep(pauseBeforeStartingServer);
+
 
   // ### Unimportant Async downloads/installs ### -- These should not be required by the server to run, but they may have depended on the first async install or sync installs before they could be run.
+  // None right now
 
-  // Start the server
+  // Signal ready to start the server
   eventEmitter.emit('ready');
 }
