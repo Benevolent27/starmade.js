@@ -53,6 +53,10 @@ var operations      = 0;
 var includePatterns = [];
 var excludePatterns = [];
 var serversRunning  = 0; // This is to count the server's running to manage the exit function and kill them when this main script dies.
+var lockFileObj = { // This will be used for the lock file, so if another instance of the script runs, it can parse the file and check PIDs, making decisions on what to do.
+  "mainPID": process.pid,
+  "serverSpawnPIDs": []
+}
 
 // #######################
 // ### SCRIPT REQUIRES ###
@@ -69,13 +73,15 @@ const makeDir=installAndRequire('make-dir'); // https://www.npmjs.com/package/ma
 const treeKill=installAndRequire('tree-kill'); // https://www.npmjs.com/package/tree-kill To kill the server and any sub-processes
 // const decache = installAndRequire("decache"); // https://www.npmjs.com/package/decache - This is used to reload requires, such as reloading a json file or mod without having to restart the scripting.
 // const express = installAndRequire('express'); // https://www.npmjs.com/package/express Incredibly useful tool for serving web requests
-// const Tail = installAndRequire('express-ipfilter') // https://www.npmjs.com/package/express-ipfilter - This will be used to restrict only local IP's to access the RESTFul API, which is what other scripts will use to remote control this
+// const expressIpfilter = installAndRequire('express-ipfilter') // https://www.npmjs.com/package/express-ipfilter - This will be used to restrict only local IP's to access the RESTFul API, which is what other scripts will use to remote control this
 // const targz = installAndRequire('tar.gz'); // https://www.npmjs.com/package/tar.gz2 For gunzipping files,folders, and streams (including download streams)
 // const blessed = installAndRequire('blessed'); // https://www.npmjs.com/package/blessed Awesome terminal screen with boxes and all sorts of interesting things.  See here for examples:  https://github.com/yaronn/blessed-contrib/blob/master/README.md
 const ini = installAndRequire('ini'); // https://www.npmjs.com/package/ini Imports ini files as objects.  It's a bit wonky with # style comments (in that it removes them and all text that follows) and leaves // type comments, so I created some scripting to modify how it loads ini files and also created some functions to handle comments.
 const prompt = installAndRequire("prompt-sync")({"sigint":true}); // https://www.npmjs.com/package/prompt-sync This creates sync prompts and can have auto-complete capabilties.  The sigint true part makes it so pressing CTRL + C sends the normal SIGINT to the parent javascript process
 const Tail = installAndRequire('tail').Tail; // https://github.com/lucagrulla/node-tail/blob/master/README.md For following the server log.  I forgot that the console output does NOT have everything.  This is NOT a perfect solution because whenever file rotation occurs, there is a 1 second gap in coverage.  Argh.
 const exitHook = installAndRequire('exit-hook'); // https://github.com/sindresorhus/exit-hook Handles normal shutdowns, sigterm, sigint, and a "message=shutdown" event.  Good for ensuring the server gets shutdown.
+const sleep=installAndRequire('system-sleep');  // https://github.com/jochemstoel/nodejs-system-sleep Allows sleeping WITHOUT using 100% of CPU
+
 
 // ### Setting up submodules from requires.
 var eventEmitter = new events.EventEmitter(); // This is for custom events
@@ -89,7 +95,7 @@ var showStdout               = true;
 var showServerlog            = true;
 var showAllEvents            = false;
 var enumerateEventArguments  = false;
-var pauseBeforeStartingServer="2000"; // After any sort of installs, config verifications, etc, how long should we wait before pulling the trigger on the server spawn in ms?
+var pauseBeforeStartingServer="10000"; // Default: 2 - After any sort of installs, config verifications, etc, how long should we wait before pulling the trigger on the server spawn in ms?
 var settingsFile             = path.join(mainFolder, "settings.json");
 var settings                 = setSettings(); // Import settings, including the starmade folder, min and max java settings, etc.  If the settings.json file does not exist, it will set it up.
 var starNetJarURL            = "http://files.star-made.org/StarNet.jar";
@@ -98,12 +104,15 @@ var starMadeJar              = path.join(starMadeInstallFolder,"StarMade.jar");
 var starNetJar               = path.join(binFolder,"StarNet.jar");
 var starMadeServerConfigFile = path.join(starMadeInstallFolder,"server.cfg");
 var serverCfg                = {}; // getIniFileAsObj('./server.cfg'); // I'm only declaring an empty array here initially because we don't want to try and load it till we are sure the install has been completed
+var force=false;
+var ignoreLockFile=false;
+var debug=false;
 var os=process.platform;
 var starMadeStarter;
 if (os=="win32"){
   starMadeStarter="StarMade-Starter.exe";
 } else {
-  starMadeStarter="StarMade-Starter.jar";
+  starMadeStarter="StarMade-Starter.jar"; // This handles linux and macOSX
 }
 var starMadeInstaller = path.join(binFolder,starMadeStarter);
 var starMadeInstallerURL = "http://files.star-made.org/" + starMadeStarter;
@@ -111,13 +120,221 @@ var starMadeInstallerURL = "http://files.star-made.org/" + starMadeStarter;
 // macosx: http://files.star-made.org/StarMade-Starter.jar
 // Linux: http://files.star-made.org/StarMade-Starter.jar
 
+// ##############################
+// ### Command Line Arguments ###  -- Temporary solution is to prevent this script from running if lock file exists
+// ##############################
+if (process.argv[2]){
+  // Some command line argument was given
+  var argumentsPassed=process.argv.slice(2);
+  var argumentRoot;
+  var argumentEqual;
+  for (let i=0;i<argumentsPassed.length;i++){
+    argumentRoot=argumentsPassed[i].match(/^-[a-zA-Z]*/).toString().toLowerCase();
+    // console.log("argumentRoot: " + argumentRoot);
+    argumentEqual=argumentsPassed[i].match(/[^=]*$/).toString();
+    // console.log("argumentEqual: " + argumentEqual);
+    if (argumentRoot == "-force"){
+      if (argumentEqual){
+        argumentEqual=argumentEqual.toLowerCase();
+        if (argumentEqual == "true"){
+          force=true;
+        } else if (argumentEqual == "false"){
+          force=false;
+        } else {
+          console.log("Invalid setting for force attempted.  Must be 'true' or 'false'!  Ignoring argument!")
+        }
+      } else {
+        force=true;
+      }
+      console.log("Set 'force' to " + force + ".");
+    } else if (argumentRoot=="-ignorelockfile"){
+      console.log("Setting ignoreLockFile to true.");
+      ignoreLockFile=true;
+    } else if (argumentRoot=="-debug"){
+      console.log("Turning debug messages on!");
+      debug=true;
+    } else {
+      console.error("Error:  Unrecognized argument, '" + argumentsPassed[i] + "'!  Ignoring!")
+    }
+  }
+}
+
+console.debug=function (vals) {
+  if (debug==true){
+    console.log(vals);
+  }
+}
+if (debug==true){
+console.debug("It's working?")
+  sleep(5000);
+}
+
 // ##################
 // ### Lock Check ###  -- Temporary solution is to prevent this script from running if lock file exists
 // ##################
-if (fs.existsSync(lockFile)){
+function countActiveLockFilePids(lockFileObject){
+  var count=0;
+  if (lockFileObject.hasOwnProperty("mainPID")){
+    if (lockFileObject["mainPID"]){
+      if (isPidAlive(lockFileObject["mainPID"])) {
+        count++
+      }
+    }
+  }
+  if (lockFileObject.hasOwnProperty("serverSpawnPIDs")){
+    var serverPIDs=lockFileObject["serverSpawnPIDs"];
+    for (let i=0;i<serverPIDS.length;i++){
+      if (isPidAlive(serverPIDs[i])){
+        count++
+      }
+    }
+  }
+  return count;
+}
+
+function waitAndThenKill(mSeconds,thePID,options){ // options are optional.
+  // By default this will send a SIGKILL signal to the PID if it has not ended within the specified timeout
+  // options example:
+  // {
+  //    interval:'2',
+  //    sigType:'SIGTERM'
+  // }
+  var mSecondsCount=0;
+  var intervalVar=1000;
+  var sigType="SIGKILL";
+  if (mSeconds && thePID){
+    if (options){
+      if (options.hasOwnProperty("interval")){
+        intervalVar=options["interval"];
+      }
+      if (options.hasOwnProperty("sigType")){
+        sigType=options["sigType"];
+      }
+    }
+    if (isPidAlive(thePID)){
+      process.stdout.write("\nWaiting for process to die.");
+      while (isPidAlive(thePID) && mSecondsCount < mSeconds){
+        sleep(intervalVar);
+        process.stdout.write(".");
+        mSecondsCount+=intervalVar;
+      }
+      process.stdout.write("\n");
+      if (isPidAlive(thePID)){
+        console.log("PID (" + thePID + ") still alive after waiting " + mSecondsCount + " milliseconds!  Killing it with: " + sigType);
+        process.kill(thePID,sigType);
+      } else if (mSecondsCount>0){
+          console.log("PID (" + thePID + ") died of natural causes after " + mSecondsCount + " milliseconds.  No need to send a " + sigType + " signal to it.  Phew!");
+      } else {
+        console.log("PID (" + thePID + ") died of natural causes.  No need to send a " + sigType + " signal to it.  Phew!");
+      }
+    } else {
+      console.log("Process already died on it's own!  GREAT!  :D");
+    }
+  } else {
+    throw new Error("Insufficient parameters given to waitAndThenSigKill function!");
+  }
+}
+
+
+if (fs.existsSync(lockFile) && ignoreLockFile == false){
   //todo if the lock file exists, we need to grab the PID from the file and see if the server is running.  If not, then we can safely remove the lock file, otherwise end with an error.
-  console.log("Lock file found!  Server already started!  Exiting!");
-  process.exit(1);
+  console.log("Existing Lock file found! Parsing to determine if server is still running..");
+  var response;
+  var lockFileContents=fs.readFileSync(lockFile);
+  var lockFileObject=JSON.parse(lockFileContents);
+  // console.log("Lock File contents: " + JSON.stringify(lockFileObject, null, 4));
+  if (lockFileObject.hasOwnProperty("mainPID")){
+    if (lockFileObject["mainPID"]){
+      // console.log("Main PID found: " + lockFileObject["mainPID"]);
+      if (isPidAlive(lockFileObject["mainPID"])){
+        console.log("Existing starmade.js process found running on PID, '" + lockFileObject["mainPID"] + "'.");
+        response=prompt("If you want to kill it, type 'yes': ").toLowerCase();
+        if (response=="yes"){
+          console.log("TREE KILLING WITH EXTREME BURNINATION!");
+          treeKill(lockFileObject["mainPID"], 'SIGTERM');
+          // We should initiate a loop giving up to 5 minutes for it to shut down before sending a sig-kill.
+          waitAndThenKill(300000,lockFileObject["mainPID"]);
+          sleep(1000); // Give the sigKILL time to complete if it was necessary.
+        } else {
+          console.log("Alrighty, I'll just let it run then.");
+        }
+      } else {
+        console.log("Prior starmade.js script not running. Cool.");
+      }
+    }
+  }
+  console.log("");
+  if (lockFileObject.hasOwnProperty("serverSpawnPIDs")){
+    var serverPIDS=lockFileObject["serverSpawnPIDs"];
+      if (serverPIDS){
+        for (let i=0;i<serverPIDS.length;i++){
+          if (isPidAlive(serverPIDS[i])){
+            console.log("Running StarMade Server found on PID: " + serverPIDS[i]);
+            response=prompt("If you want to kill it, type 'yes': ").toLowerCase();
+            if (response == "yes"){
+              console.log("KILLING IT WITH FIRE! (SIGTERM)")
+              process.kill(serverPIDS[i],'SIGTERM');
+              waitAndThenKill(300,serverPIDS[i]);
+              sleep(1000); // Giving the SIGKILL time to complete.
+              // We should initiate a loop giving up to 5 minutes for it to shut down before sending a sig-kill.
+            } else {
+              console.log("Alrighty then, I'll just let it keep running.")
+            }
+          } else {
+            console.log("Verified that server PID, '" + serverPIDS[i] + "' was not running!");
+          }
+        }
+      }
+  }
+  if (countActiveLockFilePids(lockFileObject) > 0){
+    console.log("\nDANGER WILL ROBINSON!  There are still " + countActiveLockFilePids(lockFileObject) + " processes still running!");
+    console.log("We cannot continue while an existing server might still be running!  Exiting!");
+    console.log("NOTE: If you are 100% SURE that these are old PIDs, you can restart this script with '-force' to ignore the old lock file.")
+    process.exit(1);
+  } else {
+    // None of the processes from the lock file are still running, so we can just delete the lock file and continue.
+    if (fs.existsSync(lockFile)){
+      console.log("Deleting old lock file..");
+      try {
+        fs.unlinkSync(lockFile);
+      } catch (err){
+        // Every now and then it is POSSIBLE that the first check will show it existing, but when trying to delete it, it won't exist.  So we can just run another check to be 100% sure that this is a bonafide error.
+        if (fs.existsSync(lockFile)) {
+          console.error("ERROR: Could not delete old lock file!  Please ensure this script has access to delete files from it's own folder!");
+          if (err){
+            console.error("Error info: " + err);
+          }
+          throw err;
+        }
+      }
+      console.log("Blamo!");
+    } else {
+      console.log("server.lck went poof on it's own!  Wonderful! Contining..");
+    }
+    sleep(2000);
+  }
+} else if (fs.existsSync(lockFile)){
+  console.log("Ignored existing lock file!");
+  try {
+    var lockBackupFile=path.join(lockFile,".bak");
+    if (fs.existsSync(lockBackupFile)){ // If a backup of the lock file already exists, remove it
+      fs.unlinkSync(lockBackupFile);
+    }
+    fs.renameSync(lockFile,lockBackupFile);
+    console.log("Moved server.lck to server.lck.bak!");
+  } catch (err) {
+    console.error("ERROR:  There was a problem renaming the server.lck file to server.lck.bak!");
+    throw err; // This should only ever happen if a directory was created called server.lck.bak or if the person doesn't have delete rights on the folder..
+  }
+}
+
+function isPidAlive(thePID){
+  try {
+    process.kill(thePID,0);
+    return true;
+  } catch (err) {
+    return false;
+  }
 }
 
 
@@ -257,13 +474,9 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   touch(path.join(starMadeInstallFolder,"logs","serverlog.0.log")); // Ensure the file exists before we tail it.
   var serverTail = new Tail(path.join(starMadeInstallFolder,"logs","serverlog.0.log"),tailOptions);
 
+  addServerPID(server.pid); // Adds the PID to the lockfile PID tracker for servers and writes the file
   serversRunning++; // Increment the number of servers running.
   console.log('Spawned server process with PID:' + server.pid);
-  var lockFileObj = fs.createWriteStream(lockFile);
-  // function pidCB() { console.log("Wrote PID to lock file.."); }
-  // lockFileObj.on('finish', function() { lockFileObj.close(pidCB); });
-  lockFileObj.write(server.pid.toString());
-  lockFileObj.end();
 
   // ####################
   // ###    WRAPPER   ###
@@ -526,6 +739,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
 
   server.on('exit', function (code) { // This handles When the server child process ends, abormally or not.
     serversRunning--;
+    delServerPID(server.pid); // This updates the lock file
     if (code){
       if (code.message){
           console.log('Server instance exited with message: ' + code.message.toString());
@@ -754,11 +968,10 @@ function getRandomAlphaNumericString(charLength){ // If no charlength given or i
 }
 
 
-
-function sleep(ms) { // This will only work within async functions.
-  // Usage: await sleep(ms);
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+// function sleep(ms) { // This will only work within async functions.
+//   // Usage: await sleep(ms);
+//   return new Promise((resolve) => setTimeout(resolve, ms));
+// }
 
 function copyObj(obj) { // From:  https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/forEach
   const copy = Object.create(Object.getPrototypeOf(obj));
@@ -1079,6 +1292,45 @@ async function getSuperAdminPassword(starMadeInstallPath){ // This will grab the
   return serverCfgObj["SUPER_ADMIN_PASSWORD"];
 }
 
+function addServerPID (serverPID){
+  if (serverPID){
+    if (!lockFileObj.hasOwnProperty("serverSpawnPIDs")){
+      lockFileObj["serverSpawnPIDs"]=[];
+    }
+    lockFileObj["serverSpawnPIDs"].push(serverPID);
+    writeLockFile();
+    return true;
+  }
+  return new Error("No PID given to addServerPID function!");
+}
+function delServerPID (serverPID){
+  if (serverPID){
+    if (!lockFileObj.hasOwnProperty("serverSpawnPIDs")){
+      lockFileObj["serverSpawnPIDs"]=[];
+    }
+    lockFileObj["serverSpawnPIDs"]=arrayMinus(lockFileObj["serverSpawnPIDs"],serverPID);
+    writeLockFile();
+    return true;
+  }
+  return new Error("No PID given to delServerPID function!");
+}
+function arrayMinus(theArray,val){ // Returns an array MINUS any values that match val
+  if (val && theArray){
+    return theArray.filter(function(e){
+      return e !== val;
+    });
+  }
+  return new Error("Insufficient parameters given to arrayMinus function!");
+}
+function writeLockFile(){
+  // var lockFileWriteObj = fs.createWriteStream(lockFile);
+  // lockFileWriteObj.write(JSON.stringify(lockFileObj));
+  // lockFileWriteObj.end();
+  console.log("Writing to lock file..");
+  fs.writeFileSync(lockFile,JSON.stringify(lockFileObj, null, 4));
+}
+
+
 
 
 // ##########################################
@@ -1096,7 +1348,8 @@ exitHook(() => { // This will handle sigint and sigterm exits.
 //   console.log("Global Exit event running..");
 // });
 
-touch(lockFile); // Create an empty lock file.  This is to prevent this script from running multiple times.
+// touch(lockFile); // Create an empty lock file.  This is to prevent this script from running multiple times.
+writeLockFile(); // This is to prevent this script from running multiple times or starting while another server instance is already running.
 
 // ##############################
 // ### CREATE NEEDED FOLDERS  ###
