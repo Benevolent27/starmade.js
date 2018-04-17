@@ -7,16 +7,12 @@ var mainDirName = path.dirname(require.main.filename);
 
 function isModuleAvailableSync(moduleName) { // Based on code from: https://stackoverflow.com/questions/15302618/node-js-check-if-module-is-installed-without-actually-requiring-it
   var ret = false; // return value, boolean
-  // var dirSeparator = require("path").sep
-  // scan each module.paths. If there exists
-  // node_modules/moduleName then
-  // return true. Otherwise return false.
-  module.paths.forEach(function(nodeModulesPath) {
+  module.paths.forEach(function(nodeModulesPath) { // scan each module.paths. If there exists node_modules/moduleName then return true. Otherwise return false.
     if(fs.existsSync(path.join(nodeModulesPath,moduleName)) === true) {
         ret = true;
         return false; // break forEach
     }
-    return true; // Added to make ESLint happy.. not sure if it will break the code or what.
+    return true; // Added to make ESLint happy.
   });
   return ret;
 }
@@ -28,8 +24,7 @@ function installAndRequire(theModule){  // This should only ever be ran on modul
       process.stdout.write(" ..Done!\n");
     } catch(error) {
       console.error("ERROR installing module, " + theModule + "! Exiting!");
-      console.error("Error returned: " + error)
-      process.exit(130);
+      throw error;
     }
   }
   console.log("Loading module: " + theModule);
