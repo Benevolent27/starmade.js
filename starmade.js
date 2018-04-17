@@ -130,20 +130,17 @@ if (process.argv[2]){
   var argumentEqual;
   var argumentEqualLower;
   for (let i=0;i<argumentsPassed.length;i++){
-    argumentEqualLower=null;
+    // Set up each argument to grab before = and after =, so arguments can be given specific values.
     argumentRoot=argumentsPassed[i].match(/^-[a-zA-Z]*/).toString().toLowerCase();
-    // console.log("argumentRoot: " + argumentRoot);
-    console.log("argumentsPassed[i].indexOf(\"=\"): " + argumentsPassed[i].indexOf("="));
-    if (argumentsPassed[i].indexOf("=") !== -1){
-      argumentEqual=argumentsPassed[i].match(/[^=]*$/).toString();
-    } else {
+    console.log("Test result: " + argumentsPassed[i].indexOf("="));
+    if (argumentsPassed[i].indexOf("=") == -1){
       argumentEqual=null;
+      argumentEqualLower=null;
+    } else {
+      argumentEqual=argumentsPassed[i].match(/[^=]*$/).toString();
+      argumentEqualLower=argumentEqual.toLowerCase();
     }
-    argumentEqualLower=argumentEqual ? argumentEqual.toLowerCase : null; // ternary operator - good stuff, suck it ESLINT
-
-    // console.log("argumentEqual: " + argumentEqual);
     if (argumentRoot == "-forcekill"){
-      console.log("argumentEqualLower: " + argumentEqualLower);
       if (argumentEqualLower == "true" || !argumentEqualLower){
         forceKill=true;
       } else if (argumentEqualLower == "false"){
