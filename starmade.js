@@ -104,7 +104,7 @@ var starMadeJar              = path.join(starMadeInstallFolder,"StarMade.jar");
 var starNetJar               = path.join(binFolder,"StarNet.jar");
 var starMadeServerConfigFile = path.join(starMadeInstallFolder,"server.cfg");
 var serverCfg                = {}; // getIniFileAsObj('./server.cfg'); // I'm only declaring an empty array here initially because we don't want to try and load it till we are sure the install has been completed
-var force=false;
+var forceKill=false;
 var ignoreLockFile=false;
 var debug=false;
 var os=process.platform;
@@ -128,25 +128,30 @@ if (process.argv[2]){
   var argumentsPassed=process.argv.slice(2);
   var argumentRoot;
   var argumentEqual;
+  var argumentEqualLower;
   for (let i=0;i<argumentsPassed.length;i++){
+    argumentEqualLower=null;
     argumentRoot=argumentsPassed[i].match(/^-[a-zA-Z]*/).toString().toLowerCase();
     // console.log("argumentRoot: " + argumentRoot);
-    argumentEqual=argumentsPassed[i].match(/[^=]*$/).toString();
+    console.log("argumentsPassed[i].indexOf(\"=\"): " + argumentsPassed[i].indexOf("="));
+    if (argumentsPassed[i].indexOf("=") !== -1){
+      argumentEqual=argumentsPassed[i].match(/[^=]*$/).toString();
+    } else {
+      argumentEqual=null;
+    }
+    argumentEqualLower=argumentEqual ? argumentEqual.toLowerCase : null; // ternary operator - good stuff, suck it ESLINT
+
     // console.log("argumentEqual: " + argumentEqual);
-    if (argumentRoot == "-force"){
-      if (argumentEqual){
-        argumentEqual=argumentEqual.toLowerCase();
-        if (argumentEqual == "true"){
-          force=true;
-        } else if (argumentEqual == "false"){
-          force=false;
-        } else {
-          console.log("Invalid setting for force attempted.  Must be 'true' or 'false'!  Ignoring argument!")
-        }
+    if (argumentRoot == "-forcekill"){
+      console.log("argumentEqualLower: " + argumentEqualLower);
+      if (argumentEqualLower == "true" || !argumentEqualLower){
+        forceKill=true;
+      } else if (argumentEqualLower == "false"){
+        forceKill=false;
       } else {
-        force=true;
+        console.log("Invalid setting for forceKill attempted.  Must be 'true' or 'false'!  Ignoring argument!")
       }
-      console.log("Set 'force' to " + force + ".");
+      console.log("Set 'forceKill' to " + forceKill + ".");
     } else if (argumentRoot=="-ignorelockfile"){
       console.log("Setting ignoreLockFile to true.");
       ignoreLockFile=true;
@@ -159,15 +164,12 @@ if (process.argv[2]){
   }
 }
 
-console.debug=function (vals) {
+console.debug=function (vals) { // Just putting this here since it's not scoped as a function
   if (debug==true){
     console.log(vals);
   }
 }
-if (debug==true){
-console.debug("It's working?")
-  sleep(5000);
-}
+
 
 // ##################
 // ### Lock Check ###  -- Temporary solution is to prevent this script from running if lock file exists
@@ -242,13 +244,18 @@ if (fs.existsSync(lockFile) && ignoreLockFile == false){
   var response;
   var lockFileContents=fs.readFileSync(lockFile);
   var lockFileObject=JSON.parse(lockFileContents);
-  // console.log("Lock File contents: " + JSON.stringify(lockFileObject, null, 4));
+  // Checking the main starmade.js process PID - We check this first because we run a treekill on it which will normally also bring down the individual server PID and prevent it from auto-restarting the server on abnormal exit
   if (lockFileObject.hasOwnProperty("mainPID")){
     if (lockFileObject["mainPID"]){
       // console.log("Main PID found: " + lockFileObject["mainPID"]);
       if (isPidAlive(lockFileObject["mainPID"])){
         console.log("Existing starmade.js process found running on PID, '" + lockFileObject["mainPID"] + "'.");
-        response=prompt("If you want to kill it, type 'yes': ").toLowerCase();
+        if (forceKill==true){
+          console.log("forceKill flag set!  Auto-killing PID!");
+          response= "yes";
+        } else {
+          response=prompt("If you want to kill it, type 'yes': ").toLowerCase();
+        }
         if (response=="yes"){
           console.log("TREE KILLING WITH EXTREME BURNINATION!");
           treeKill(lockFileObject["mainPID"], 'SIGTERM');
@@ -264,13 +271,19 @@ if (fs.existsSync(lockFile) && ignoreLockFile == false){
     }
   }
   console.log("");
+  // Checking the array of potential server that are running.
   if (lockFileObject.hasOwnProperty("serverSpawnPIDs")){
     var serverPIDS=lockFileObject["serverSpawnPIDs"];
       if (serverPIDS){
         for (let i=0;i<serverPIDS.length;i++){
           if (isPidAlive(serverPIDS[i])){
             console.log("Running StarMade Server found on PID: " + serverPIDS[i]);
-            response=prompt("If you want to kill it, type 'yes': ").toLowerCase();
+            if (forceKill==true){
+              console.log("forceKill flag set!  Auto-killing PID!");
+              response= "yes";
+            } else {
+              response=prompt("If you want to kill it, type 'yes': ").toLowerCase();
+            }
             if (response == "yes"){
               console.log("KILLING IT WITH FIRE! (SIGTERM)")
               process.kill(serverPIDS[i],'SIGTERM');
