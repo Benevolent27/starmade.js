@@ -57,6 +57,11 @@ var lockFileObj = { // This will be used for the lock file, so if another instan
   "mainPID": process.pid,
   "serverSpawnPIDs": []
 }
+console.debug=function (vals) { // for only displaying text when the -debug flag is set.
+  if (debug==true){
+    console.log(vals);
+  }
+}
 
 // #######################
 // ### SCRIPT REQUIRES ###
@@ -149,21 +154,18 @@ if (process.argv[2]){
         console.log("Invalid setting for forceKill attempted.  Must be 'true' or 'false'!  Ignoring argument!")
       }
       console.log("Set 'forceKill' to " + forceKill + ".");
+
     } else if (argumentRoot=="-ignorelockfile"){
       console.log("Setting ignoreLockFile to true.");
       ignoreLockFile=true;
+
     } else if (argumentRoot=="-debug"){
       console.log("Turning debug messages on!");
       debug=true;
+
     } else {
       console.error("Error:  Unrecognized argument, '" + argumentsPassed[i] + "'!  Ignoring!")
     }
-  }
-}
-
-console.debug=function (vals) { // Just putting this here since it's not scoped as a function
-  if (debug==true){
-    console.log(vals);
   }
 }
 
@@ -1299,7 +1301,7 @@ async function getSuperAdminPassword(starMadeInstallPath){ // This will grab the
     serverCfgObj["SUPER_ADMIN_PASSWORD_USE"]=keepIniComment(serverCfgObj["SUPER_ADMIN_PASSWORD_USE"],"true");
     writeObjToIni(serverCfgObj,serverCfgFile);
   }
-  return serverCfgObj["SUPER_ADMIN_PASSWORD"];
+  return removeIniComments(serverCfgObj["SUPER_ADMIN_PASSWORD"]);
 }
 
 function addServerPID (serverPID){
@@ -1410,7 +1412,7 @@ async function installDepsSync() {
 
   // Check the super admin password and set up if not configured.
   var superAdminPassword = await getSuperAdminPassword(settings["starMadeFolder"]);
-  console.log("Using superAdminPassword: " + superAdminPassword); // Temporary, just for testing.  We don't want to print this to the screen normally.
+  console.debug("Using superAdminPassword: " + superAdminPassword); // Temporary, just for testing.  We don't want to print this to the screen normally.
 
   serverCfg = getIniFileAsObj(starMadeServerConfigFile); // Import the server.cfg values to an object.  These should be the final values.  Any settings changes to the file should be completed before this is loaded.  Note that this KEEPS comments in the value!
   if (serverCfg){
