@@ -94,30 +94,31 @@ var eventEmitter = new events.EventEmitter(); // This is for custom events
 // #####################
 // ###    SETTINGS   ###
 // #####################
-var lockFile                 = path.join(mainFolder,"server.lck");
-var showStderr               = true;
-var showStdout               = true;
-var showServerlog            = true;
-var showAllEvents            = false;
-var enumerateEventArguments  = false;
-var pauseBeforeStartingServer="10000"; // Default: 2 - After any sort of installs, config verifications, etc, how long should we wait before pulling the trigger on the server spawn in ms?
-var settingsFile             = path.join(mainFolder, "settings.json");
-var settings                 = setSettings(); // Import settings, including the starmade folder, min and max java settings, etc.  If the settings.json file does not exist, it will set it up.
-var starNetJarURL            = "http://files.star-made.org/StarNet.jar";
-var starMadeInstallFolder    = path.join(settings["starMadeFolder"],"StarMade");
-var starMadeJar              = path.join(starMadeInstallFolder,"StarMade.jar");
-var starNetJar               = path.join(binFolder,"StarNet.jar");
-var starMadeServerConfigFile = path.join(starMadeInstallFolder,"server.cfg");
-var serverCfg                = {}; // getIniFileAsObj('./server.cfg'); // I'm only declaring an empty array here initially because we don't want to try and load it till we are sure the install has been completed
-var forceKill=false;
-var ignoreLockFile=false;
-var debug=false;
-var os=process.platform;
+var lockFile                  = path.join(mainFolder,"server.lck");
+var showStderr                = true;
+var showStdout                = true;
+var showServerlog             = true;
+var showAllEvents             = false;
+var enumerateEventArguments   = false;
+var pauseBeforeStartingServer = "2000"; // Default: 2 - After any sort of installs, config verifications, etc, how long should we wait before pulling the trigger on the server spawn in ms?
+var settingsFile              = path.join(mainFolder, "settings.json");
+var settings                  = setSettings(); // Import settings, including the starmade folder, min and max java settings, etc.  If the settings.json file does not exist, it will set it up.
+var starNetJarURL             = "http://files.star-made.org/StarNet.jar";
+var starMadeInstallFolder     = path.join(settings["starMadeFolder"],"StarMade");
+var starMadeJar               = path.join(starMadeInstallFolder,"StarMade.jar");
+var starNetJar                = path.join(binFolder,"StarNet.jar");
+var starMadeServerConfigFile  = path.join(starMadeInstallFolder,"server.cfg");
+var serverCfg                 = {}; // getIniFileAsObj('./server.cfg'); // I'm only declaring an empty array here initially because we don't want to try and load it till we are sure the install has been completed
+var forceStart                = false; // Having this set to true will make the script kill any existing scripts and servers and then start with no prompt.
+var ignoreLockFile            = false;
+var debug                     = false;
+var os                        = process.platform;
 var starMadeStarter;
 if (os=="win32"){
   starMadeStarter="StarMade-Starter.exe";
 } else {
   starMadeStarter="StarMade-Starter.jar"; // This handles linux and macOSX
+
 }
 var starMadeInstaller = path.join(binFolder,starMadeStarter);
 var starMadeInstallerURL = "http://files.star-made.org/" + starMadeStarter;
@@ -145,15 +146,15 @@ if (process.argv[2]){
       argumentEqual=argumentsPassed[i].match(/[^=]*$/).toString();
       argumentEqualLower=argumentEqual.toLowerCase();
     }
-    if (argumentRoot == "-forcekill"){
+    if (argumentRoot == "-forcestart"){
       if (argumentEqualLower == "true" || !argumentEqualLower){
-        forceKill=true;
+        forceStart=true;
       } else if (argumentEqualLower == "false"){
-        forceKill=false;
+        forceStart=false;
       } else {
-        console.log("Invalid setting for forceKill attempted.  Must be 'true' or 'false'!  Ignoring argument!")
+        console.log("Invalid setting for forceStart attempted.  Must be 'true' or 'false'!  Ignoring argument!")
       }
-      console.log("Set 'forceKill' to " + forceKill + ".");
+      console.log("Set 'forceStart' to " + forceStart + ".");
 
     } else if (argumentRoot=="-ignorelockfile"){
       console.log("Setting ignoreLockFile to true.");
@@ -170,73 +171,9 @@ if (process.argv[2]){
 }
 
 
-// ##################
-// ### Lock Check ###  -- Temporary solution is to prevent this script from running if lock file exists
-// ##################
-function countActiveLockFilePids(lockFileObject){
-  var count=0;
-  if (lockFileObject.hasOwnProperty("mainPID")){
-    if (lockFileObject["mainPID"]){
-      if (isPidAlive(lockFileObject["mainPID"])) {
-        count++
-      }
-    }
-  }
-  if (lockFileObject.hasOwnProperty("serverSpawnPIDs")){
-    var serverPIDs=lockFileObject["serverSpawnPIDs"];
-    for (let i=0;i<serverPIDS.length;i++){
-      if (isPidAlive(serverPIDs[i])){
-        count++
-      }
-    }
-  }
-  return count;
-}
-
-function waitAndThenKill(mSeconds,thePID,options){ // options are optional.
-  // By default this will send a SIGKILL signal to the PID if it has not ended within the specified timeout
-  // options example:
-  // {
-  //    interval:'2',
-  //    sigType:'SIGTERM'
-  // }
-  var mSecondsCount=0;
-  var intervalVar=1000;
-  var sigType="SIGKILL";
-  if (mSeconds && thePID){
-    if (options){
-      if (options.hasOwnProperty("interval")){
-        intervalVar=options["interval"];
-      }
-      if (options.hasOwnProperty("sigType")){
-        sigType=options["sigType"];
-      }
-    }
-    if (isPidAlive(thePID)){
-      process.stdout.write("\nWaiting for process to die.");
-      while (isPidAlive(thePID) && mSecondsCount < mSeconds){
-        sleep(intervalVar);
-        process.stdout.write(".");
-        mSecondsCount+=intervalVar;
-      }
-      process.stdout.write("\n");
-      if (isPidAlive(thePID)){
-        console.log("PID (" + thePID + ") still alive after waiting " + mSecondsCount + " milliseconds!  Killing it with: " + sigType);
-        process.kill(thePID,sigType);
-      } else if (mSecondsCount>0){
-          console.log("PID (" + thePID + ") died of natural causes after " + mSecondsCount + " milliseconds.  No need to send a " + sigType + " signal to it.  Phew!");
-      } else {
-        console.log("PID (" + thePID + ") died of natural causes.  No need to send a " + sigType + " signal to it.  Phew!");
-      }
-    } else {
-      console.log("Process already died on it's own!  GREAT!  :D");
-    }
-  } else {
-    throw new Error("Insufficient parameters given to waitAndThenSigKill function!");
-  }
-}
-
-
+// ########################
+// ### Smart Lock Check ###
+// ########################
 if (fs.existsSync(lockFile) && ignoreLockFile == false){
   //todo if the lock file exists, we need to grab the PID from the file and see if the server is running.  If not, then we can safely remove the lock file, otherwise end with an error.
   console.log("Existing Lock file found! Parsing to determine if server is still running..");
@@ -249,7 +186,7 @@ if (fs.existsSync(lockFile) && ignoreLockFile == false){
       // console.log("Main PID found: " + lockFileObject["mainPID"]);
       if (isPidAlive(lockFileObject["mainPID"])){
         console.log("Existing starmade.js process found running on PID, '" + lockFileObject["mainPID"] + "'.");
-        if (forceKill==true){
+        if (forceStart==true){
           console.log("forceKill flag set!  Auto-killing PID!");
           response= "yes";
         } else {
@@ -277,7 +214,7 @@ if (fs.existsSync(lockFile) && ignoreLockFile == false){
         for (let i=0;i<serverPIDS.length;i++){
           if (isPidAlive(serverPIDS[i])){
             console.log("Running StarMade Server found on PID: " + serverPIDS[i]);
-            if (forceKill==true){
+            if (forceStart==true){
               console.log("forceKill flag set!  Auto-killing PID!");
               response= "yes";
             } else {
@@ -298,16 +235,17 @@ if (fs.existsSync(lockFile) && ignoreLockFile == false){
         }
       }
   }
-  if (countActiveLockFilePids(lockFileObject) > 0){
+  if (countActiveLockFilePids(lockFileObject) > 0){ // This should always be 0 after a -forceStart
     console.log("\nDANGER WILL ROBINSON!  There are still " + countActiveLockFilePids(lockFileObject) + " processes still running!");
     console.log("We cannot continue while an existing server might still be running!  Exiting!");
-    console.log("NOTE: If you are 100% SURE that these are old PIDs, you can restart this script with '-force' to ignore the old lock file.")
+    console.log("NOTE: If you are 100% SURE that these the PIDs from the lock file are NOT from another starmade.js script or StarMade servers, you can restart this script with '-ignorelockfile' to ignore the old lock file and create a new one.");
+    console.log("NOTE2: If you want to start this script auto-killing any old PID's, you can use the -forceStart argument.");
     process.exit(1);
   } else {
     // None of the processes from the lock file are still running, so we can just delete the lock file and continue.
     if (fs.existsSync(lockFile)){
-      console.log("Deleting old lock file..");
       try {
+        console.log("Deleting old lock file..");
         fs.unlinkSync(lockFile);
       } catch (err){
         // Every now and then it is POSSIBLE that the first check will show it existing, but when trying to delete it, it won't exist.  So we can just run another check to be 100% sure that this is a bonafide error.
@@ -472,7 +410,12 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   // Taken from https://stackoverflow.com/questions/10232192/exec-display-stdout-live
   // Running the starmade server process
   try { // This is to catch an error if spawn cannot start the java process
-    var server = spawn("java", ["-Xms" + settings["javaMin"], "-Xmx" + settings["javaMax"],"-jar", starMadeJar,"-server", "-port:" + settings["port"]], {"cwd": starMadeInstallFolder});
+    var server;
+    if (os == "win32"){
+      server = spawn("java", ["-Xms" + settings["javaMin"], "-Xmx" + settings["javaMax"],"-Xincgc","-Xshare:off","-jar", starMadeJar,"-server", "-port:" + settings["port"]], {"cwd": starMadeInstallFolder});
+    } else {
+      server = spawn("java", ["-Xms" + settings["javaMin"], "-Xmx" + settings["javaMax"],"-jar", starMadeJar,"-server", "-port:" + settings["port"]], {"cwd": starMadeInstallFolder});
+    }
   } catch (err) { // This does NOT handle errors returned by the spawn process.  This only handles errors actually spawning the process in the first place, such as if we type "javaBlah" instead of "java".  Cannot run "javaBlah" since it doesn't exist.
     console.error("ERROR: Could not spawn server!")
     if (err.message) { console.error("Error Message: " + err.message.toString()); }
@@ -916,14 +859,27 @@ eventEmitter.on('asyncDone', installDepsSync);
 function getIniFileAsObj(iniFile){ // This requires the ini module from npm
   return ini.parse(fs.readFileSync(iniFile, 'utf-8' ).replace(/[#]/g,"\\#")); // We need to escape the # characters because otherwise the ini.parse removes them and all text that happens after them.. Annoying if we are preserving the comments!
 }
-function writeObjToIni(theObj,iniFileToWrite){
+function writeIniObjToIni(theObj,iniFileToWrite){
   // console.log("Writing to file: " + iniFileToWrite);
   return fs.writeFileSync(iniFileToWrite, ini.stringify(theObj));
 }
 function removeIniComments(text){
   return text.match(/^[^/#]*/).toString().trim();
 }
-function getComment(text,commentSymbols){ // Comment symbols are optional
+function getIniValue(iniObj,variable){ // Rather than using removeIniComments on a specific value, this can be used to pull the value.  This is mostly for readability but also to handle errors.
+  if (iniObj && variable){
+    // TODO This needs to use typeof to determine that iniObj is, in fact, an object rather than undefined or something else.
+    if (iniObj.hasOwnProperty(variable)){
+      return removeIniComments(iniObj[variable]);
+    } else {
+      console.error("ERROR: Invalid variable in Ini object - does not exist!");
+      return new Error("ERROR: Invalid variable in Ini object (" + iniObj.constructor.name + ") - does not exist!");
+    }
+  } else {
+    throw new Error("ERROR:  Insufficient parameters given to getIniValue!")
+  }
+}
+function getIniComment(text,commentSymbols){ // Gets just the comment from an excerpt from an Ini obj.  Comment symbols are optional.
     var commentSymbolsToUse;
     if (commentSymbols){
       commentSymbolsToUse=commentSymbols;
@@ -949,7 +905,7 @@ function getComment(text,commentSymbols){ // Comment symbols are optional
 }
 function keepIniComment(stringWComments,newVal){
     if (stringWComments && newVal){
-      return newVal + getComment(stringWComments);
+      return newVal + getIniComment(stringWComments);
     }
     throw new Error("ERROR: Please specify a string from an ini object and a new value to replace the old one with!");
 }
@@ -1231,7 +1187,13 @@ function generateConfigFiles (pathToSMInstall){
   }
   var starMadeJarFile=path.join(pathToUse,"StarMade.jar");
   console.log("Generating config files..");
-  var createConfigFilesSpawn=child.spawnSync("java",["-jar",starMadeJarFile,"-nonsense4534"],{"cwd": pathToUse});  // Starting the StarMade.jar file with an invalid argument will generate the config files and then exit with a 0 exit code.  This may very well not be future proof!
+  var createConfigFilesSpawn;
+  if (os=="win32"){
+    createConfigFilesSpawn=child.spawnSync("java",["-Xincgc","-Xshare:off","-jar",starMadeJarFile,"-nonsense4534"],{"cwd": pathToUse});  // Starting the StarMade.jar file with an invalid argument will generate the config files and then exit with a 0 exit code.  This may very well not be future proof!
+  } else {
+    createConfigFilesSpawn=child.spawnSync("java",["-jar",starMadeJarFile,"-nonsense4534"],{"cwd": pathToUse});  // Starting the StarMade.jar file with an invalid argument will generate the config files and then exit with a 0 exit code.  This may very well not be future proof!
+  }
+
   console.log("PID: " + createConfigFilesSpawn.pid);
   if (createConfigFilesSpawn.status && createConfigFilesSpawn.status != 0){ // temporary instance of the StarMade.jar with a non-zero exit code.  This might happen if there isn't enough RAM available or some other error when running it.
     console.error("ERROR: Failed to generate config files to folder: " + pathToUse);
@@ -1290,16 +1252,19 @@ async function getSuperAdminPassword(starMadeInstallPath){ // This will grab the
       newSuperAdminPassword = getRandomAlphaNumericString(32);
     } else { console.log("Alrighty then.  I'll just use what you provided!") };
     await sleep(2000);
-    serverCfgObj["SUPER_ADMIN_PASSWORD"]=keepIniComment(serverCfgObj["SUPER_ADMIN_PASSWORD"],newSuperAdminPassword);
+    // serverCfgObj["SUPER_ADMIN_PASSWORD"]=keepIniComment(serverCfgObj["SUPER_ADMIN_PASSWORD"],newSuperAdminPassword);
+    changeIniObjValue(serverCfgObj,"SUPER_ADMIN_PASSWORD",newSuperAdminPassword);
     if (superAdminPasswordEnabled == "false") {
       console.log("Super Admin Password was disabled, enabling!");
-      serverCfgObj["SUPER_ADMIN_PASSWORD_USE"]=keepIniComment(serverCfgObj["SUPER_ADMIN_PASSWORD_USE"],"true");
+      // serverCfgObj["SUPER_ADMIN_PASSWORD_USE"]=keepIniComment(serverCfgObj["SUPER_ADMIN_PASSWORD_USE"],"true");
+      changeIniObjValue(serverCfgObj,"SUPER_ADMIN_PASSWORD_USE","true");
     }
-    writeObjToIni(serverCfgObj,serverCfgFile);
+    writeIniObjToIni(serverCfgObj,serverCfgFile);
   } else if (superAdminPasswordEnabled != "true"){ // Enable super admin password if it was disabled for some reason.
     console.log("Super Admin Password was disabled, enabling!");
-    serverCfgObj["SUPER_ADMIN_PASSWORD_USE"]=keepIniComment(serverCfgObj["SUPER_ADMIN_PASSWORD_USE"],"true");
-    writeObjToIni(serverCfgObj,serverCfgFile);
+    // serverCfgObj["SUPER_ADMIN_PASSWORD_USE"]=keepIniComment(serverCfgObj["SUPER_ADMIN_PASSWORD_USE"],"true");
+    changeIniObjValue(serverCfgObj,"SUPER_ADMIN_PASSWORD_USE","true");
+    writeIniObjToIni(serverCfgObj,serverCfgFile);
   }
   return removeIniComments(serverCfgObj["SUPER_ADMIN_PASSWORD"]);
 }
@@ -1342,7 +1307,68 @@ function writeLockFile(){
   fs.writeFileSync(lockFile,JSON.stringify(lockFileObj, null, 4));
 }
 
+function countActiveLockFilePids(lockFileObject){
+  var count=0;
+  if (lockFileObject.hasOwnProperty("mainPID")){
+    if (lockFileObject["mainPID"]){
+      if (isPidAlive(lockFileObject["mainPID"])) {
+        count++
+      }
+    }
+  }
+  if (lockFileObject.hasOwnProperty("serverSpawnPIDs")){
+    var serverPIDs=lockFileObject["serverSpawnPIDs"];
+    for (let i=0;i<serverPIDS.length;i++){
+      if (isPidAlive(serverPIDs[i])){
+        count++
+      }
+    }
+  }
+  return count;
+}
 
+function waitAndThenKill(mSeconds,thePID,options){ // options are optional.  This can be used on any PID as a sync function
+  // By default this will send a SIGKILL signal to the PID if it has not ended within the specified timeout
+  // options example:
+  // {
+  //    interval:'2',
+  //    sigType:'SIGTERM'
+  // }
+  var mSecondsCount=0;
+  var intervalVar=1000;
+  var sigType="SIGKILL";
+  if (mSeconds && thePID){
+    if (options){
+      if (options.hasOwnProperty("interval")){
+        intervalVar=options["interval"];
+      }
+      if (options.hasOwnProperty("sigType")){
+        sigType=options["sigType"];
+      }
+    }
+    if (isPidAlive(thePID)){
+      process.stdout.write("\nWaiting for process to die.");
+      while (isPidAlive(thePID) && mSecondsCount < mSeconds){
+        sleep(intervalVar);
+        process.stdout.write(".");
+        mSecondsCount+=intervalVar;
+      }
+      process.stdout.write("\n");
+      if (isPidAlive(thePID)){
+        console.log("PID (" + thePID + ") still alive after waiting " + mSecondsCount + " milliseconds!  Killing it with: " + sigType);
+        process.kill(thePID,sigType);
+      } else if (mSecondsCount>0){
+          console.log("PID (" + thePID + ") died of natural causes after " + mSecondsCount + " milliseconds.  No need to send a " + sigType + " signal to it.  Phew!");
+      } else {
+        console.log("PID (" + thePID + ") died of natural causes.  No need to send a " + sigType + " signal to it.  Phew!");
+      }
+    } else {
+      console.log("Process already died on it's own!  GREAT!  :D");
+    }
+  } else {
+    throw new Error("Insufficient parameters given to waitAndThenSigKill function!");
+  }
+}
 
 
 // ##########################################
@@ -1383,6 +1409,24 @@ preDownload(starNetJarURL,starNetJar); // This function handles the asyncronous 
 preDownload(starMadeInstallerURL,starMadeInstaller); // When setting the install path for StarMade, we should have handled the terms and conditions, so it should be ok to download it.
 asyncOperation("end");
 
+
+function changeIniObjValue(iniObj,iniVariable,newIniValue){
+  // This function will change an ini object's variable to have a new value, preserving comments
+  // Example of usage:  changeIniObjValue("iniObject","theVariable","New Words and such")
+  if (iniObj && iniVariable && newIniValue){
+    try {
+      iniObj[iniVariable]=keepIniComment(iniObj[iniVariable],newIniValue);
+      return true;
+    } catch (err) {
+      console.error("ERROR:  Problem while changing variable of Ini object!");
+      return false;
+    }
+  } else {
+    console.error("ERROR: Not enough arguments given to changeIniObjValue!");
+    return false
+  }
+}
+
 // ### Sync downloads/installs ### -- When async installs/downloads are finished, this function will be called.
 async function installDepsSync() {
   // ### Only syncronous installs here ### e.g. await installRoutine();
@@ -1418,11 +1462,8 @@ async function installDepsSync() {
   if (serverCfg){
     console.log("Server config loaded: " + starMadeServerConfigFile);
   }
-
   console.log("Here we go..");
   await sleep(pauseBeforeStartingServer);
-
-
   // ### Unimportant Async downloads/installs ### -- These should not be required by the server to run, but they may have depended on the first async install or sync installs before they could be run.
   // None right now
 
