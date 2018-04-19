@@ -57,9 +57,12 @@ var lockFileObj = { // This will be used for the lock file, so if another instan
   "mainPID": process.pid,
   "serverSpawnPIDs": []
 }
-console.debug=function (vals) { // for only displaying text when the -debug flag is set.
+console.debug=function (vals,sleepTime) { // for only displaying text when the -debug flag is set.  sleepTime is optional.
   if (debug==true){
     console.log(vals);
+    if (sleepTime){
+      sleep(sleepTime);
+    }
   }
 }
 
@@ -85,8 +88,13 @@ const ini = installAndRequire('ini'); // https://www.npmjs.com/package/ini Impor
 const prompt = installAndRequire("prompt-sync")({"sigint":true}); // https://www.npmjs.com/package/prompt-sync This creates sync prompts and can have auto-complete capabilties.  The sigint true part makes it so pressing CTRL + C sends the normal SIGINT to the parent javascript process
 const Tail = installAndRequire('tail').Tail; // https://github.com/lucagrulla/node-tail/blob/master/README.md For following the server log.  I forgot that the console output does NOT have everything.  This is NOT a perfect solution because whenever file rotation occurs, there is a 1 second gap in coverage.  Argh.
 const exitHook = installAndRequire('exit-hook'); // https://github.com/sindresorhus/exit-hook Handles normal shutdowns, sigterm, sigint, and a "message=shutdown" event.  Good for ensuring the server gets shutdown.
-const sleep=installAndRequire('system-sleep');  // https://github.com/jochemstoel/nodejs-system-sleep Allows sleeping WITHOUT using 100% of CPU
-
+// const sleep=installAndRequire('system-sleep');  // https://github.com/jochemstoel/nodejs-system-sleep Allows sleeping WITHOUT using 100% of CPU ---  IMPORTANT:  Disabled because it has no license, which means it defaults to "full rights reserved", which means the code cannot be used, linked to, or included in any way
+const deasync=installAndRequire('deasync'); // This is what system-sleep uses as it's basis, it actually has a sleep function built in AND has a MIT license, so we're good with that.  We can just use this instead to create a sleep function.  It can also be used to turn async functions and processes into sync ones.  Voila!  https://www.npmjs.com/package/deasync
+// const deasync-promise=installAndRequire('deasync-promise'); // This can make working with promises a lot easier by making them syncronous.  Just keep in MIND that we don't want to use this unless it's in the startup routine where things MUST BE syncronous.  https://www.npmjs.com/package/deasync-promise
+function sleep(ms){
+  console.debug("Sleeping for " + ms + " milliseconds..");
+  deasync.sleep(ms);
+}
 
 // ### Setting up submodules from requires.
 var eventEmitter = new events.EventEmitter(); // This is for custom events
@@ -406,16 +414,27 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
 
 
   // todo: Support for JVM arguments on the command line.
-
+  // Build the java arguments, separating by java arguments and arguments passed to StarMade.jar
+  var baseJavaArgs=["-Xms" + settings["javaMin"], "-Xmx" + settings["javaMax"],"-jar"]; // This can have -JVM flags added to it later
+  var baseJavaArgsWindows=["-Xincgc","-Xshare:off"]; // These will run on windows only
+  var baseSMJarArgs=[starMadeJar,"-server", "-port:" + settings["port"]];
+  var javaArgs=[];
+  if (os == "win32"){
+    javaArgs=baseJavaArgs.concat(baseJavaArgsWindows).concat(baseSMJarArgs);
+  } else {
+    javaArgs=baseJavaArgs.concat(baseSMJarArgs);
+  }
   // Taken from https://stackoverflow.com/questions/10232192/exec-display-stdout-live
   // Running the starmade server process
   try { // This is to catch an error if spawn cannot start the java process
+    console.debug("Starting server with arguments: " + javaArgs,2000);
     var server;
-    if (os == "win32"){
-      server = spawn("java", ["-Xms" + settings["javaMin"], "-Xmx" + settings["javaMax"],"-Xincgc","-Xshare:off","-jar", starMadeJar,"-server", "-port:" + settings["port"]], {"cwd": starMadeInstallFolder});
-    } else {
-      server = spawn("java", ["-Xms" + settings["javaMin"], "-Xmx" + settings["javaMax"],"-jar", starMadeJar,"-server", "-port:" + settings["port"]], {"cwd": starMadeInstallFolder});
-    }
+    // if (os == "win32"){
+    //   server = spawn("java", ["-Xms" + settings["javaMin"], "-Xmx" + settings["javaMax"],"-Xincgc","-Xshare:off","-jar", starMadeJar,"-server", "-port:" + settings["port"]], {"cwd": starMadeInstallFolder});
+    // } else {
+    //   server = spawn("java", ["-Xms" + settings["javaMin"], "-Xmx" + settings["javaMax"],"-jar", starMadeJar,"-server", "-port:" + settings["port"]], {"cwd": starMadeInstallFolder});
+    // }
+    server = spawn("java",javaArgs,{"cwd": starMadeInstallFolder});
   } catch (err) { // This does NOT handle errors returned by the spawn process.  This only handles errors actually spawning the process in the first place, such as if we type "javaBlah" instead of "java".  Cannot run "javaBlah" since it doesn't exist.
     console.error("ERROR: Could not spawn server!")
     if (err.message) { console.error("Error Message: " + err.message.toString()); }
@@ -942,7 +961,7 @@ function getRandomAlphaNumericString(charLength){ // If no charlength given or i
 // }
 
 function copyObj(obj) { // From:  https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/forEach
-  const copy = Object.create(Object.getPrototypeOf(obj));
+  const copy = Object.create(Object.getPrototypeOf(obj)); // Ignore the ESLint warnings, it really doesn't know what it's talking about.  I looked into it, it's suggesting to use functions of Reflect that don't exist.
   const propNames = Object.getOwnPropertyNames(obj);
   propNames.forEach(function(name) {
     const desc = Object.getOwnPropertyDescriptor(obj, name);
@@ -1370,6 +1389,22 @@ function waitAndThenKill(mSeconds,thePID,options){ // options are optional.  Thi
   }
 }
 
+function changeIniObjValue(iniObj,iniVariable,newIniValue){
+  // This function will change an ini object's variable to have a new value, preserving comments
+  // Example of usage:  changeIniObjValue("iniObject","theVariable","New Words and such")
+  if (iniObj && iniVariable && newIniValue){
+    try {
+      iniObj[iniVariable]=keepIniComment(iniObj[iniVariable],newIniValue);
+      return true;
+    } catch (err) {
+      console.error("ERROR:  Problem while changing variable of Ini object!");
+      return false;
+    }
+  } else {
+    console.error("ERROR: Not enough arguments given to changeIniObjValue!");
+    return false
+  }
+}
 
 // ##########################################
 // ###  MAIN SCRIPT EXIT  - GLOBAL SCOPE ####
@@ -1409,23 +1444,6 @@ preDownload(starNetJarURL,starNetJar); // This function handles the asyncronous 
 preDownload(starMadeInstallerURL,starMadeInstaller); // When setting the install path for StarMade, we should have handled the terms and conditions, so it should be ok to download it.
 asyncOperation("end");
 
-
-function changeIniObjValue(iniObj,iniVariable,newIniValue){
-  // This function will change an ini object's variable to have a new value, preserving comments
-  // Example of usage:  changeIniObjValue("iniObject","theVariable","New Words and such")
-  if (iniObj && iniVariable && newIniValue){
-    try {
-      iniObj[iniVariable]=keepIniComment(iniObj[iniVariable],newIniValue);
-      return true;
-    } catch (err) {
-      console.error("ERROR:  Problem while changing variable of Ini object!");
-      return false;
-    }
-  } else {
-    console.error("ERROR: Not enough arguments given to changeIniObjValue!");
-    return false
-  }
-}
 
 // ### Sync downloads/installs ### -- When async installs/downloads are finished, this function will be called.
 async function installDepsSync() {
