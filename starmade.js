@@ -98,7 +98,15 @@ const exitHook = installAndRequire('exit-hook'); // https://github.com/sindresor
 const sleepTest=installAndRequire('thread-sleep');
 function sleep(ms){
   console.debug("Sleeping for " + ms + " milliseconds..");
-  sleepTest(parseInt(ms));
+  if (ms){
+    if (isNaN(parseInt(ms))){
+        console.error("ERROR: Invalid parameter passed to sleep function: " + ms);
+    } else {
+      sleepTest(parseInt(ms));
+    }
+  } else {
+    console.error("ERROR: No parameter passed to sleep function!");
+  }
 }
 
 // ### Setting up submodules from requires.
