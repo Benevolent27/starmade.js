@@ -89,11 +89,16 @@ const prompt = installAndRequire("prompt-sync")({"sigint":true}); // https://www
 const Tail = installAndRequire('tail').Tail; // https://github.com/lucagrulla/node-tail/blob/master/README.md For following the server log.  I forgot that the console output does NOT have everything.  This is NOT a perfect solution because whenever file rotation occurs, there is a 1 second gap in coverage.  Argh.
 const exitHook = installAndRequire('exit-hook'); // https://github.com/sindresorhus/exit-hook Handles normal shutdowns, sigterm, sigint, and a "message=shutdown" event.  Good for ensuring the server gets shutdown.
 // const sleep=installAndRequire('system-sleep');  // https://github.com/jochemstoel/nodejs-system-sleep Allows sleeping WITHOUT using 100% of CPU ---  IMPORTANT:  Disabled because it has no license, which means it defaults to "full rights reserved", which means the code cannot be used, linked to, or included in any way
-const deasync=installAndRequire('deasync'); // This is what system-sleep uses as it's basis, it actually has a sleep function built in AND has a MIT license, so we're good with that.  We can just use this instead to create a sleep function.  It can also be used to turn async functions and processes into sync ones.  Voila!  https://www.npmjs.com/package/deasync
-// const deasync-promise=installAndRequire('deasync-promise'); // This can make working with promises a lot easier by making them syncronous.  Just keep in MIND that we don't want to use this unless it's in the startup routine where things MUST BE syncronous.  https://www.npmjs.com/package/deasync-promise
+// const deasync=installAndRequire('deasync'); // IMPORTANT:  Not gonna work because it requires a C++ compiler to be installed to work, since it uses node-gyp to compile some C++ file to do the actual sleeping - This is what system-sleep uses as it's basis, it actually has a sleep function built in AND has a MIT license, so we're good with that.  We can just use this instead to create a sleep function.  It can also be used to turn async functions and processes into sync ones.  Voila!  https://www.npmjs.com/package/deasync
+// const deasync-promise=installAndRequire('deasync-promise'); // IMPORTANT:  See above -- This can make working with promises a lot easier by making them syncronous.  Just keep in MIND that we don't want to use this unless it's in the startup routine where things MUST BE syncronous.  https://www.npmjs.com/package/deasync-promise
+// function sleep(ms){
+//   console.debug("Sleeping for " + ms + " milliseconds..");
+//   deasync.sleep(ms);
+// }
+const sleepTest=installAndRequire('thread-sleep');
 function sleep(ms){
   console.debug("Sleeping for " + ms + " milliseconds..");
-  deasync.sleep(ms);
+  sleepTest(parseInt(ms));
 }
 
 // ### Setting up submodules from requires.
