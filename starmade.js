@@ -72,7 +72,19 @@ console.debug=function (vals,sleepTime) { // for only displaying text when the -
 // path.resolve below builds the full path to "./bin/setSettings.js" in such a way that is compatible with both windows and linux/macosx, since it doesn't use / or \ characters.
 var setSettings = require(path.join(binFolder, "setSettings.js")); // This will confirm the settings.json file is created and the install folder is set up.
 var installAndRequire = require(path.join(binFolder, "installAndRequire.js")); // This is used to install missing NPM modules and then require them without messing up the require cache with modules not found (which blocks requiring them till an app restart).
-
+var mySleep = require(path.join(binFolder, "mySleep.js")); // Only accurate for 100ms or higher wait times.
+function sleep(ms){
+  console.debug("Sleeping for " + ms + " milliseconds..");
+  if (ms){
+    if (isNaN(parseInt(ms))){
+        console.error("ERROR: Invalid parameter passed to sleep function: " + ms);
+    } else {
+      mySleep(parseInt(ms));
+    }
+  } else {
+    console.error("ERROR: No parameter passed to sleep function!");
+  }
+}
 
 // #################################
 // ### NPM DOWNLOADABLE REQUIRES ###
@@ -95,19 +107,20 @@ const exitHook = installAndRequire('exit-hook'); // https://github.com/sindresor
 //   console.debug("Sleeping for " + ms + " milliseconds..");
 //   deasync.sleep(ms);
 // }
-const sleepTest=installAndRequire('thread-sleep');
-function sleep(ms){
-  console.debug("Sleeping for " + ms + " milliseconds..");
-  if (ms){
-    if (isNaN(parseInt(ms))){
-        console.error("ERROR: Invalid parameter passed to sleep function: " + ms);
-    } else {
-      sleepTest(parseInt(ms));
-    }
-  } else {
-    console.error("ERROR: No parameter passed to sleep function!");
-  }
-}
+
+// const sleepTest=installAndRequire('thread-sleep'); // This might be all well and good and stuff, but the use of node-pre-gyp still bothers me a bit.  It might be accurate, but the idea of compiling some C++ script just for sleep seems to be bit muuch to me, so I created my own simple script that uses spawnSync to introduce a sleep.
+// function sleep(ms){
+//   console.debug("Sleeping for " + ms + " milliseconds..");
+//   if (ms){
+//     if (isNaN(parseInt(ms))){
+//         console.error("ERROR: Invalid parameter passed to sleep function: " + ms);
+//     } else {
+//       sleepTest(parseInt(ms));
+//     }
+//   } else {
+//     console.error("ERROR: No parameter passed to sleep function!");
+//   }
+// }
 
 // ### Setting up submodules from requires.
 var eventEmitter = new events.EventEmitter(); // This is for custom events
