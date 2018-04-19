@@ -122,15 +122,14 @@ var ignoreLockFile            = false;
 var debug                     = false;
 var os                        = process.platform;
 var starMadeStarter;
-if (os=="win32"){
-  starMadeStarter="StarMade-Starter.exe";
-} else {
+// if (os=="win32"){
+//   starMadeStarter="StarMade-Starter.exe";
+// } else {
   starMadeStarter="StarMade-Starter.jar"; // This handles linux and macOSX
-
-}
+// }
 var starMadeInstaller = path.join(binFolder,starMadeStarter);
 var starMadeInstallerURL = "http://files.star-made.org/" + starMadeStarter;
-// Windows: http://files.star-made.org/StarMade-starter.exe
+// Windows: http://files.star-made.org/StarMade-starter.exe // Does not seem to actually work correctly with spawnSync and the -nogui option on windows.. Using the linux/macOSX jar installer does though!  wtf!
 // macosx: http://files.star-made.org/StarMade-Starter.jar
 // Linux: http://files.star-made.org/StarMade-Starter.jar
 
@@ -1163,6 +1162,8 @@ function spawnStarMadeInstallTo(pathToInstall,installerJar){  // This always req
     console.log("Found StarMade install at: " + starMadeInstallFolder);
   } else {
     console.log("Spawning StarMade Install to: " + starMadeInstallFolder);
+    console.debug("Using Spawner Jar: " + installerJar);
+    console.debug("Using CWD: " + pathToInstall);
     var smInstallerProcess=child.spawnSync("java",["-jar",installerJar,"-nogui"],{"cwd": pathToInstall}); // Use pathToInstall because it will create the /StarMade folder.
     console.log("Install PID: " + smInstallerProcess.pid);
     if (smInstallerProcess.status && smInstallerProcess.status != 0){ // Installer exited with a non-zero exit code
