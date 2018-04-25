@@ -1,5 +1,10 @@
 
+// The structure of mod loading looks like this:
+
+// modFolder - commandFiles -
+
 console.log("Starting up..");
+
 var debug=false;
 var commandArguments=process.argv.slice(2);
 console.log("commandArguments: " + commandArguments);
@@ -17,15 +22,49 @@ console.debug=function(theMessage){
 
 var path=require('path');
 var fs=require('fs');
-
 var modFolder=path.resolve(__dirname,"../mods/");
 var binFolder=path.resolve(__dirname,"../bin/");
-
-var commandsMap=new Map([]);
 
 var installAndRequire = require(path.join(binFolder, "installAndRequire.js"));
 const makeDir=installAndRequire('make-dir');
 const decache=installAndRequire('decache');
+
+
+function Mod(folderName){
+  // This constructs the mod object that will store commands and other scripts.
+  this.folder=path.join(modFolder,folderName);
+  this.commands=getCommandsForMod(folderName); // This returns a map object that pairs each file to it's require, only loading valid requires and decaching any that don't pass
+  
+}
+function getMods(){
+  return getFolders(modFolder); // Returns an array of the mod folders
+}
+console.log("Mods found: " + getMods());
+
+var mods=new Map([]);
+function setMods(){
+  var modNames=getMods();
+  for (let i=0;i<modNames.length;i++){
+    console.log("Processing mod: " + modNames);
+    mods.set(modNames[i],new Mod(modNames[i])); // This pairs each mod folder to a mod object
+  }
+}
+setMods();
+console.dir(mods.size);
+
+for (const mod of mods.keys()){
+  console.log("Mod Loaded: " + mod);
+  console.log("Mod folder: " + mods.get(mod).folder);
+  // console.log("Mod commands: " + mods.get(mod).commands);
+  mods.get(mod).commands.forEach(function(val,key){
+    console.log("script: " + key + " \tcommand: " + val.name + " \tDescription: " + val.description);
+  });
+}
+
+process.exit();
+var commandsMap=new Map([]);
+
+
 
 function folderExists(theFolder){
   // This checks to see if the path provided exists and is a directory.  Will return false if a file of the same name exists!
@@ -139,6 +178,17 @@ function mapRequire(basePath){
 function getScriptFiles(basePath){
   return filterJsFiles(getFiles(basePath));
 }
+function getCommandsForMod(mod){
+  let returnMap=new Map();
+  var commandFolderToCheck=path.join(modFolder,mod,"commands");
+  // Check the mod folder for a commands folder and if it exists perform the map require.
+  if (folderExists(commandFolderToCheck)){
+    console.debug("Commands folder found at: " + commandFolderToCheck);
+    returnMap=mapRequire(commandFolderToCheck);
+  }
+  return returnMap;
+}
+
 function getCommands(){
   let returnMap=new Map();
   let modFolders=getFolders(modFolder);
@@ -158,44 +208,6 @@ function getCommands(){
   return returnMap;
 }
 
-
-function getCommandsOld(){
-  console.debug("Looking up command folders..");
-  var theModsFolders=getFolders(modFolder);
-  console.debug("Got mod folders: " + theModsFolders);
-  var modCommandsFolder;
-  // var modCommandFolderStats;
-  var commandFiles=[];
-  var commandFileTemp=[];
-  var commandFilesMap=new Map();
-  for (let i=0;i<theModsFolders.length;i++){
-    console.debug("Looping over folder: " + theModsFolders[i]);
-    modCommandsFolder=path.join(modFolder,theModsFolders[i],"commands");
-    console.debug("Checking if folder: " + modCommandsFolder);
-    if (fs.existsSync(modCommandsFolder)){
-      if (fs.lstatSync(modCommandsFolder).isDirectory()){
-        commandFileTemp=filterJsFiles(getFiles(modCommandsFolder));
-        console.debug("commandFileTemp: " + commandFileTemp);
-        if (commandFileTemp == ""){
-          console.debug("No javascript files found in folder, skipping! " + modCommandsFolder);
-        } else {
-          for (let i=0;i<commandFileTemp.length;i++){
-            console.debug("Setting require for: " + commandFileTemp[i]);
-            commandFilesMap.set(theModsFolders[i],require(path.join(modCommandsFolder,commandFileTemp[i])));
-          }
-          commandFiles.push([modCommandsFolder,commandFilesMap]);
-        }
-      } else {
-        console.error("ERROR: Filename called 'commands' should be deleted since only a 'commands' folder should exist here!");
-        console.error("Path: " + modCommandsFolder);
-      }
-    } else {
-      console.debug("No such folder.  Skipping.");
-    }
-  }
-  return commandFiles;
-}
-
 function convertArrayToMap(theArray){
   return new Map(theArray);
 }
@@ -205,27 +217,19 @@ function getInit() {
   commandsMap=getCommands();
   if (commandsMap.size > 0){
     console.log("Loaded command mods.");
-    // commandsMap.forEach(function(value,key){
-    //   console.log("\nKey: " + key);
-    //   value.forEach(function (val2,key2){
-    //     console.log("subKey: " + key2);
-    //     console.dir("subVal: " + val2);
-    //     if (val2.name){
-    //       console.log("Name: " + val2.name);
-    //     }
-    //     if (val2.description){
-    //       console.log("Description: " + val2.description);
-    //     }
-    //
-    //   });
-      // console.log("Value: " + value);
-    // });
   } else {
     console.log("No Mod commands to load!");
   }
 }
 
 getInit();
+function unloadModCommands(mod){
+  var theMod=commandsMap.get(mod);
+
+
+
+}
+
 
 function getCommandNameForModScript(mod,script){
   return commandsMap.get(mod).get(script).name;
