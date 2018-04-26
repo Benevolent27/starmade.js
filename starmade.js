@@ -159,6 +159,17 @@ var starMadeInstallerURL = "http://files.star-made.org/" + starMadeStarter;
 // macosx: http://files.star-made.org/StarMade-Starter.jar
 // Linux: http://files.star-made.org/StarMade-Starter.jar
 
+
+
+// ###########################
+// ### Object Constructors ###
+// ###########################
+function playerObj(playerName){
+
+}
+
+
+
 // ##############################
 // ### Command Line Arguments ###  -- Temporary solution is to prevent this script from running if lock file exists
 // ##############################
@@ -899,15 +910,15 @@ eventEmitter.on('asyncDone', installDepsSync);
 // ###  FUNCTIONS  ####
 // ####################
 
-// ### INI Stuff ###
-function getIniFileAsObj(iniFile){ // This requires the ini module from npm
+// ### INI Stuff ### -- These are helper functions for the Ini NPM package to ensure compatibility with StarMade's ini files
+// Note: in-place comments like /* whatever */ are not supported right now and are annoying and these need to die.
+function getIniFileAsObj(iniFile){ // This loads an ini file as an object
   return ini.parse(fs.readFileSync(iniFile, 'utf-8' ).replace(/[#]/g,"\\#")); // We need to escape the # characters because otherwise the ini.parse removes them and all text that happens after them.. Annoying if we are preserving the comments!
 }
-function writeIniObjToIni(theObj,iniFileToWrite){
-  // console.log("Writing to file: " + iniFileToWrite);
+function writeIniObjToIni(theObj,iniFileToWrite){ // This sync writes an ini object to an ini file
   return fs.writeFileSync(iniFileToWrite, ini.stringify(theObj));
 }
-function removeIniComments(text){
+function removeIniComments(text){ // This removes comments from a string
   return text.match(/^[^/#]*/).toString().trim();
 }
 function getIniValue(iniObj,variable){ // Rather than using removeIniComments on a specific value, this can be used to pull the value.  This is mostly for readability but also to handle errors.
@@ -923,7 +934,50 @@ function getIniValue(iniObj,variable){ // Rather than using removeIniComments on
     throw new Error("ERROR:  Insufficient parameters given to getIniValue!")
   }
 }
-function getIniComment(text,commentSymbols){ // Gets just the comment from an excerpt from an Ini obj.  Comment symbols are optional.
+function changeIniValue(iniObj,iniVariable,newIniValue){
+  // This function will change an ini object's variable to have a new value, preserving comments
+  // Example of usage:  changeIniObjValue(iniObject,"theVariable","New Words and such")
+  if (typeof iniObj == 'object' && typeof iniVariable == 'string' && typeof newIniValue == 'string'){
+    try {
+      iniObj[iniVariable]=changeIniValueFromString(iniObj[iniVariable],newIniValue);
+      return true;
+    } catch (err) {
+      console.error("ERROR:  Problem while changing variable of Ini object!");
+      return false;
+    }
+  } else {
+    console.error("ERROR: Not enough arguments given to changeIniObjValue!");
+    return false
+  }
+}
+function renameIniVariable(iniObj,oldVar,newVar){
+  if (typeof iniObj == "object" && typeof oldVar == "string" && typeof newVar == "string"){
+    if (oldVar == newVar){
+      return false; // Cannot rename because the oldVar is the same as the new!  Not technically an error, but a sloppy call.
+    } else if (iniObj.hasOwnProperty(oldVar)){
+        iniObj[newVar]=iniObj[oldVar]; // Assign the old variable to the new
+        Reflect.deleteProperty(iniObj,oldVar); // Delete the old variable in an ESLinter friendly way
+        return true; // Indicate we did something, yay!
+    } else {
+      return new Error("ERROR: Object did not have property, '" + oldVar + "'!")
+    }
+  } else {
+    return new Error("ERROR: Invalid parameters given to function renameIniVariable!");
+  }
+}
+
+function getIniComment(iniObj,iniVariable){
+  if (typeof iniObj == 'object' && typeof iniVariable == 'string'){
+    if (iniObj.hasOwnProperty(iniVariable)){
+      return getIniCommentFromString(iniObj[iniVariable]);
+    } else {
+      return new Error("ERROR: Object, '" + iniObj.constructor.name + "' did not have property, '" + iniVariable + "'!")
+    }
+  } else {
+    return new Error("ERROR: Insufficient parameters given to getIniComment!");
+  }
+}
+function getIniCommentFromString(text,commentSymbols){ // Gets just the comment from a string excerpt from an Ini obj.  Comment symbols are optional.
     var commentSymbolsToUse;
     if (commentSymbols){
       commentSymbolsToUse=commentSymbols;
@@ -947,9 +1001,10 @@ function getIniComment(text,commentSymbols){ // Gets just the comment from an ex
     }
     return valToBeat;
 }
-function keepIniComment(stringWComments,newVal){
+function changeIniValueFromString(stringWComments,newVal){
+    // This function takes the existing value + comment, changing the value and returns it with the comment
     if (stringWComments && newVal){
-      return newVal + getIniComment(stringWComments);
+      return newVal + getIniCommentFromString(stringWComments);
     }
     throw new Error("ERROR: Please specify a string from an ini object and a new value to replace the old one with!");
 }
@@ -1253,18 +1308,6 @@ function generateConfigFiles (pathToSMInstall){
   } else { console.log("Config files and folders generated successfully to: " + pathToUse); }
 }
 
-  // This method of generating a config file is not viable because we want to load any config files PRIOR to running the server, and if we are relying on running the server for the first time to generate them, we cannot ensure the config files exist and are loadable prior to loading mods.. which means we'd need to do a wonky solution of parsing the console output for an exact success message on server.cfg file generation or loading which might change from version to version.. and even then we cannot guarantee that the file has finished writing before loading it..
-
-  // var tempServerIniCfgFile=path.join(pathToInstall,"StarMade","server.cfg");
-  // if (!fs.existsSync(tempServerIniCfgFile)){
-  //   var tempServerIniCfgObj={
-  //       "SUPER_ADMIN_PASSWORD_USE": "true //Enable super admin for this server",
-  //       "SUPER_ADMIN_PASSWORD": "mypassword //Super admin password for this server"
-  //   }
-  //   writeObjToIni(tempServerIniCfgObj,tempServerIniCfgFile);
-  // }
-
-
 function getSMInstallPath(thePath){
   if (!thePath) {
     throw new Error("No path provided!"); // It is expected that anywhere this function is used, the error will be handled and a custom error given instead.
@@ -1299,17 +1342,17 @@ async function getSuperAdminPassword(starMadeInstallPath){ // This will grab the
     } else { console.log("Alrighty then.  I'll just use what you provided!") };
     await sleep(2000);
     // serverCfgObj["SUPER_ADMIN_PASSWORD"]=keepIniComment(serverCfgObj["SUPER_ADMIN_PASSWORD"],newSuperAdminPassword);
-    changeIniObjValue(serverCfgObj,"SUPER_ADMIN_PASSWORD",newSuperAdminPassword);
+    changeIniValue(serverCfgObj,"SUPER_ADMIN_PASSWORD",newSuperAdminPassword);
     if (superAdminPasswordEnabled == "false") {
       console.log("Super Admin Password was disabled, enabling!");
       // serverCfgObj["SUPER_ADMIN_PASSWORD_USE"]=keepIniComment(serverCfgObj["SUPER_ADMIN_PASSWORD_USE"],"true");
-      changeIniObjValue(serverCfgObj,"SUPER_ADMIN_PASSWORD_USE","true");
+      changeIniValue(serverCfgObj,"SUPER_ADMIN_PASSWORD_USE","true");
     }
     writeIniObjToIni(serverCfgObj,serverCfgFile);
   } else if (superAdminPasswordEnabled != "true"){ // Enable super admin password if it was disabled for some reason.
     console.log("Super Admin Password was disabled, enabling!");
     // serverCfgObj["SUPER_ADMIN_PASSWORD_USE"]=keepIniComment(serverCfgObj["SUPER_ADMIN_PASSWORD_USE"],"true");
-    changeIniObjValue(serverCfgObj,"SUPER_ADMIN_PASSWORD_USE","true");
+    changeIniValue(serverCfgObj,"SUPER_ADMIN_PASSWORD_USE","true");
     writeIniObjToIni(serverCfgObj,serverCfgFile);
   }
   return removeIniComments(serverCfgObj["SUPER_ADMIN_PASSWORD"]);
@@ -1416,22 +1459,6 @@ function waitAndThenKill(mSeconds,thePID,options){ // options are optional.  Thi
   }
 }
 
-function changeIniObjValue(iniObj,iniVariable,newIniValue){
-  // This function will change an ini object's variable to have a new value, preserving comments
-  // Example of usage:  changeIniObjValue("iniObject","theVariable","New Words and such")
-  if (iniObj && iniVariable && newIniValue){
-    try {
-      iniObj[iniVariable]=keepIniComment(iniObj[iniVariable],newIniValue);
-      return true;
-    } catch (err) {
-      console.error("ERROR:  Problem while changing variable of Ini object!");
-      return false;
-    }
-  } else {
-    console.error("ERROR: Not enough arguments given to changeIniObjValue!");
-    return false
-  }
-}
 
 // ##########################################
 // ###  MAIN SCRIPT EXIT  - GLOBAL SCOPE ####
@@ -1477,37 +1504,24 @@ async function installDepsSync() {
   // ### Only syncronous installs here ### e.g. await installRoutine();
   await spawnStarMadeInstallTo(settings["starMadeFolder"],starMadeInstaller);
   await verifyInstall(settings["starMadeFolder"]);
-  // ### IMPORTANT INFO REGARDING EDITING THE SERVER.CFG AND OTHER INI FILES:
-  // To pull up values, we can use serverCfg["WHATEVER"] to get the values.
-  // Beware though, comments are imported as part of the value!  You you can strip them away with the removeIniComments() function that I created.
-  // For example:  removeIniComments(serverCfg["WHATEVER"]) will retun only the needed value.
-
-  // When CHANGING a value, we should KEEP the existing comments!  So for example, here I change a value but keep the comments:
-  // In this example excerpt from an Ini file, we have a comment.
-  // WHATEVER=OLD VALUE // This is an IMPORTANT ini comment
-  //
-  // If we set use: iniImport["WHATEVER"]="New Value..", then write the ini file, it will come out looking like this:
-  // WHATEVER=New Value..
-  //
-  // We don't want to lose that IMPORTANT comment, do we?  So instead, we should use my keepIniComment() function when replacing values in the ini object.
-  // serverCfg["WHATEVER"]=keepIniComment(serverCfg["WHATEVER"],"New Value!");
-  //
-  // The newly written ini file will look like this:
-  // WHATEVER=New Value! // This is an IMPORTANT ini comment
-
-  // If we want to write the iniObj to disk, then use writeObjToIni(serverCfg,starMadeServerCfgFile)
-  // IMPORTANT:  Please keep the comments when changing values, so use
-
 
   // Check the super admin password and set up if not configured.
   var superAdminPassword = await getSuperAdminPassword(settings["starMadeFolder"]);
   console.debug("Using superAdminPassword: " + superAdminPassword); // Temporary, just for testing.  We don't want to print this to the screen normally.
 
   serverCfg = getIniFileAsObj(starMadeServerConfigFile); // Import the server.cfg values to an object.  These should be the final values.  Any settings changes to the file should be completed before this is loaded.  Note that this KEEPS comments in the value!
+  // Use Ini functions to handle the the ini object:
+  // Get a value + comments: serverCfg["WHATEVER"]
+  // Get an individual value WITHOUT comment:  getIniValue(serverCfg,"whatever");
+  // Get JUST the comment: getIniComment(servercfg,"whatever");
+  // Change an individual value PRESERVING comments: changeIniValue(serverCfg,"Variable","New Value");
+  // Rename a Variable: renameIniVariable(serverCfg,"oldVar","newVar");
+  // Write ini object to disk: writeObjToIni(serverCfg,starMadeServerCfgFile);
+
   if (serverCfg){
     console.log("Server config loaded: " + starMadeServerConfigFile);
   }
-  console.log("Here we go..");
+  console.log("About to start server..");
   await sleep(pauseBeforeStartingServer);
   // ### Unimportant Async downloads/installs ### -- These should not be required by the server to run, but they may have depended on the first async install or sync installs before they could be run.
   // None right now
