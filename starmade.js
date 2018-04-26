@@ -2,15 +2,16 @@
 
 // Design fundamentals:
 
-// SIMPLICITY
-// There should be the LEAST amount of input necessary from the user to get things going.
-// As much as can be automated should be, such as downloading all dependencies, like StarNet.jar or any modules automagically.
+// SIMPLICITY IN USE
+// Everything should be guided.  There should be the LEAST amount of input necessary from the user to get things going.
+// All dependencies should be downloaded automatically, like StarNet.jar or any modules automagically.  IMPORTANT:  If downloading a dependency, it is IMPORTANT to ensure that agreement to the third-party license of use is confirmed before downloading!
 // Any dependencies should be functional for LINUX, WINDOWS, AND MAC --> NO OS DEPENDENT MODULES.
 // Any information that can be grabbed should be grabbed automatically, such as the "SUPERADMINPASSWORD" from the starmade server.cfg file.
-// When information is missing, this scripting should ask the user and make changes wher needed (such as asking for and then changing the server.cfg file for the SUPERADMINPASSWORD).
+// When information is missing, this scripting should ask the user and make changes where needed (such as asking for the SUPERADMINPASSWORD if not set already and then setting it).
+// Assume a complete idiot is going to use this wrapper.  Everything should have safeguards to protect people from themselves.
 
 // No GUI  - NUFF SAID - TEXT CONSOLE FTW
-// The servers that should be using this should be headless, so if we want to create a "GUI", we should create it as a web-app with focus on security.  Express is great for this sort of thing:
+// The servers that should be using this should be headless, so if we want to create a GUI we should create it as a plugin web-app with focus on security.  Express is great for this sort of thing.
 
 // MODDABILITY
 // This wrapper will feature a high degree of moddability.  Everything will be event driven, so mods will be able to easily detect when events happen in game.
@@ -18,26 +19,28 @@
 // I want a rich tapestry of built in methods that can perform functions such as grabbing the current faction of a specific player.  These should be able to send commands to the server, retrieve the data, parse it, and whittle it down to what is needed.  Sql queries will get special attention here, allowing the output to be easily parsable by mod scripting.
 
 // DOCUMENTATION
-// As features are FINALIZED and then built, documentation should be done alongside it.
+// As features are FINALIZED, documentation should created.
 
 // NODE.JS JAVASCRIPT - MOSTLY NATIVE CODE
-// Code should be mostly native to node.js javascript, using outside tools the least possible.  All outside tools must be includable or downloadable and freely usable on supported OS's, including linux, windows, and macosx.
+// Code should be mostly native to node.js javascript using outside tools the least possible.  For example, downloading can be handled by javascript.  No needto use "wget" or similar tool.
+// Where outside tools are used:  They MUST be includable or downloadable and freely usable on supported OS's, including linux, windows, and macosx.
 
 // NPM "REQUIRES" ARE OK - NO NEED TO RE-INVENT WHEELS
 // Provided a NPM package seems stable enough, we can use them to expand the functionality of our scripting and decrease production time.  Care must be taken to ensure that performance isn't decreased significantly though.  -- NO GHETTO PACKAGES PLZ
 
 
-// Exit codes
+
+// ######################
+// ###   EXIT CODES   ###
+// ######################
+// 0: The script exited with no problems.
 // 1: Lock file existed. Possible other server running.  Cannot start.
-// 2: settings.json file did not contain all needed settings.
 // 4: StarNet.jar did not exist and download failed due to a socks error, such as a failed connection.
 // 5. StarNet.jar did not exist and download failed with HTTP response from webserver.  The HTTP error code will be available in the last line output by this script.
 
-// ##############################
-// ###    BUILT-IN REQUIRES   ###
-// ##############################
-
-// ### Built-in nodejs modules that should never need to be installed.
+// ############################
+// ###    NATIVE REQUIRES   ### - Built-in nodejs modules that should never need to be installed.
+// ############################
 const http   = require('http');
 const fs     = require('fs');
 const events = require('events');
@@ -47,8 +50,9 @@ const path   = require('path'); // This is needed to build file and directory pa
 // const stream   = require('stream'); // For creating streams.  Not used right now but may be later.
 
 // ### Main Vars ### - Don't change these
-var mainFolder      = path.dirname(require.main.filename); // This is where the starmade.js is.  I use this method instead of __filename because starmade.js might load itself
+var mainFolder      = path.dirname(require.main.filename); // This is where the starmade.js is.  I use this method instead of __filename because starmade.js might load itself or be started from another script
 var binFolder       = path.join(mainFolder,"bin");
+var modFolder       = path.join(mainFolder,"mods");
 var operations      = 0;
 var includePatterns = [];
 var excludePatterns = [];
@@ -91,24 +95,20 @@ function sleep(ms){
 // #################################
 const makeDir=installAndRequire('make-dir'); // https://www.npmjs.com/package/make-dir This allows creating folders recursively if they do not exist, with either async or sync functionality.
 const treeKill=installAndRequire('tree-kill'); // https://www.npmjs.com/package/tree-kill To kill the server and any sub-processes
+const ini = installAndRequire('ini'); // https://www.npmjs.com/package/ini Imports ini files as objects.  It's a bit wonky with # style comments (in that it removes them and all text that follows) and leaves // type comments, so I created some scripting to modify how it loads ini files and also created some functions to handle comments.
+const prompt = installAndRequire("prompt-sync")({"sigint":true}); // https://www.npmjs.com/package/prompt-sync This creates sync prompts and can have auto-complete capabilties.  The sigint true part makes it so pressing CTRL + C sends the normal SIGINT to the parent javascript process
+const Tail = installAndRequire('tail').Tail; // https://github.com/lucagrulla/node-tail/blob/master/README.md For following the server log.  I forgot that the console output does NOT have everything.  This is NOT a perfect solution because whenever file rotation occurs, there is a 1 second gap in coverage.  Argh.
+const exitHook = installAndRequire('exit-hook'); // https://github.com/sindresorhus/exit-hook Handles normal shutdowns, sigterm, sigint, and a "message=shutdown" event.  Good for ensuring the server gets shutdown.
+
+// Possible Future requires:
 // const decache = installAndRequire("decache"); // https://www.npmjs.com/package/decache - This is used to reload requires, such as reloading a json file or mod without having to restart the scripting.
 // const express = installAndRequire('express'); // https://www.npmjs.com/package/express Incredibly useful tool for serving web requests
 // const expressIpfilter = installAndRequire('express-ipfilter') // https://www.npmjs.com/package/express-ipfilter - This will be used to restrict only local IP's to access the RESTFul API, which is what other scripts will use to remote control this
 // const targz = installAndRequire('tar.gz'); // https://www.npmjs.com/package/tar.gz2 For gunzipping files,folders, and streams (including download streams)
 // const blessed = installAndRequire('blessed'); // https://www.npmjs.com/package/blessed Awesome terminal screen with boxes and all sorts of interesting things.  See here for examples:  https://github.com/yaronn/blessed-contrib/blob/master/README.md
-const ini = installAndRequire('ini'); // https://www.npmjs.com/package/ini Imports ini files as objects.  It's a bit wonky with # style comments (in that it removes them and all text that follows) and leaves // type comments, so I created some scripting to modify how it loads ini files and also created some functions to handle comments.
-const prompt = installAndRequire("prompt-sync")({"sigint":true}); // https://www.npmjs.com/package/prompt-sync This creates sync prompts and can have auto-complete capabilties.  The sigint true part makes it so pressing CTRL + C sends the normal SIGINT to the parent javascript process
-const Tail = installAndRequire('tail').Tail; // https://github.com/lucagrulla/node-tail/blob/master/README.md For following the server log.  I forgot that the console output does NOT have everything.  This is NOT a perfect solution because whenever file rotation occurs, there is a 1 second gap in coverage.  Argh.
-const exitHook = installAndRequire('exit-hook'); // https://github.com/sindresorhus/exit-hook Handles normal shutdowns, sigterm, sigint, and a "message=shutdown" event.  Good for ensuring the server gets shutdown.
-// const sleep=installAndRequire('system-sleep');  // https://github.com/jochemstoel/nodejs-system-sleep Allows sleeping WITHOUT using 100% of CPU ---  IMPORTANT:  Disabled because it has no license, which means it defaults to "full rights reserved", which means the code cannot be used, linked to, or included in any way
-// const deasync=installAndRequire('deasync'); // IMPORTANT:  Not gonna work because it requires a C++ compiler to be installed to work, since it uses node-gyp to compile some C++ file to do the actual sleeping - This is what system-sleep uses as it's basis, it actually has a sleep function built in AND has a MIT license, so we're good with that.  We can just use this instead to create a sleep function.  It can also be used to turn async functions and processes into sync ones.  Voila!  https://www.npmjs.com/package/deasync
-// const deasync-promise=installAndRequire('deasync-promise'); // IMPORTANT:  See above -- This can make working with promises a lot easier by making them syncronous.  Just keep in MIND that we don't want to use this unless it's in the startup routine where things MUST BE syncronous.  https://www.npmjs.com/package/deasync-promise
-// function sleep(ms){
-//   console.debug("Sleeping for " + ms + " milliseconds..");
-//   deasync.sleep(ms);
-// }
 
-// const sleepTest=installAndRequire('thread-sleep'); // This might be all well and good and stuff, but the use of node-pre-gyp still bothers me a bit.  It might be accurate, but the idea of compiling some C++ script just for sleep seems to be bit muuch to me, so I created my own simple script that uses spawnSync to introduce a sleep.
+// Unused but might be brought back:
+// const sleepTest=installAndRequire('thread-sleep'); // This might be ok if the solution I came up with doesn't work well enough. It doesn't require a C++ compiler to be installed.  It might be mostly accurate, but the idea of compiling some C++ script just for sleep seems to be bit muuch to me. The sleep function I created uses spawnSync to introduce a sleep that can also block exit functions, which is what I needed.  This require apparently does not block exit functions, which might actually be needed later.
 // function sleep(ms){
 //   console.debug("Sleeping for " + ms + " milliseconds..");
 //   if (ms){
@@ -121,6 +121,12 @@ const exitHook = installAndRequire('exit-hook'); // https://github.com/sindresor
 //     console.error("ERROR: No parameter passed to sleep function!");
 //   }
 // }
+
+// Unused Requires:
+// const sleep=installAndRequire('system-sleep');  // https://github.com/jochemstoel/nodejs-system-sleep Allows sleeping WITHOUT using 100% of CPU ---  Disabled because it has no license, which means it defaults to "full rights reserved", which means the code cannot be used, linked to, or included in any way
+// const deasync=installAndRequire('deasync'); // Not used because it requires a C++ compiler to be installed to work (node-gyp), to compile some C++ file to do the actual sleeping - This is also what system-sleep uses as it's basis but it actually has a sleep function built in AND has a MIT license, so we'd be good with that.  This can also be used to turn async functions and processes into sync ones.  Too bad about the compiler requirement..  https://www.npmjs.com/package/deasync
+// const deasync-promise=installAndRequire('deasync-promise'); // IMPORTANT:  See above -- This can make working with promises a lot easier by making them syncronous.  Just keep in MIND that we don't want to use this unless it's in the startup routine where things MUST BE syncronous.  https://www.npmjs.com/package/deasync-promise
+
 
 // ### Setting up submodules from requires.
 var eventEmitter = new events.EventEmitter(); // This is for custom events
@@ -148,6 +154,7 @@ var ignoreLockFile            = false;
 var debug                     = false;
 var os                        = process.platform;
 var starMadeStarter;
+// TODO: Fix this to use the .exe file properly when doing installs.  Sure the Jar works, but might be a bad idea for some reason.
 // if (os=="win32"){
 //   starMadeStarter="StarMade-Starter.exe";
 // } else {
@@ -164,11 +171,73 @@ var starMadeInstallerURL = "http://files.star-made.org/" + starMadeStarter;
 // ###########################
 // ### Object Constructors ###
 // ###########################
-function playerObj(playerName){
-
+function MessageObj(sender,receiver,receiverType,message){
+  // Takes string values and converts to strings or objects of the correct types
+  this.sender=new PlayerObj(sender); // This should ALWAYS be a player sending a message
+  if (receiverType=="DIRECT"){ // This is a private message sent from one player to another
+    this.type="private";
+    this.receiver=new PlayerObj(receiver);
+  } else if (receiverType=="CHANNEL"){
+    this.type="channel";
+    this.receiver=new ChannelObj(receiver);
+  } else { // This should never happen, but hey maybe in the future they'll expand on the receiverTypes
+    this.receiver=receiver;
+    this.type=receiverType;
+    console.error("ERROR: Unknown Receiever type for message! Set receiver and type as string! " + receiverType);
+  }
+  this.text=message;
 }
 
+function ChannelObj(channelName){
+  var factionTest=new RegExp("^Faction-{0,1}[0-9]+");
+  if (channelName == "all"){
+    this.type="global";
+  } else if (factionTest.test(channelName)){
+    var getFactionNumber=new RegExp("-{0,1}[0-9]+$");
+    this.type="faction";
+    this.factionNumber=channelName.match(getFactionNumber);
+  } else {
+    this.type="named";
+  }
+  this.name=channelName;
+}
 
+function PlayerObj(playerName){
+  if (playerName){
+    this.name=playerName;
+    // TODO: Add methods for
+    // smName
+    // ip
+    // faction
+    // currentEntity
+  } else {
+    throw new Error("ERROR: No playername provided to playerObj constructor!");
+  }
+}
+
+function EntityObj(uid){
+  // This should build the entity object based on the UID, adding the entity type if necessary to build the full UID
+  if (uid){
+    this.UID=uid;
+    this.fullUID=uid;
+  } else {
+    throw new Error("ERROR: No UID provided to EntityObj constructor!");
+  }
+}
+function FactionObj(factionNumber){
+  this.number=factionNumber;
+}
+function SectorObj(x,y,z){
+  this.x=x;
+  this.y=y;
+  this.y=z;
+  this.coords=new CoordsObj(x,y,z);
+}
+function CoordsObj(x,y,z){
+  this.x=x;
+  this.y=y;
+  this.z=z;
+}
 
 // ##############################
 // ### Command Line Arguments ###  -- Temporary solution is to prevent this script from running if lock file exists
@@ -423,6 +492,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
 
   // #####  PLAYER MESSAGES  #####
   eventEmitter.on('message', function(message) { // Handle messages sent from players
+    // Expects message to be a message type object
     console.log("Message DETECTED from " + message.sender + " to " + message.receiver + ": " + message.text);
     if (message.text == "!command" ){
       console.log("!command found bitches!");
@@ -529,13 +599,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
         console.log("receiver: " + receiver);
         console.log("receiverType: " + receiverType);
         console.log("message: " + message);
-        var messageObj={
-          "sender":       sender,
-          "receiver":     receiver,
-          "receiverType": receiverType,
-          "text":         message
-        }
-        eventEmitter.emit('message',messageObj);
+        eventEmitter.emit('message',new MessageObj(sender,receiver,receiverType,message));
 
       } else if (theArguments[0] == "[SERVER][SPAWN]" ) { // Player Spawns
 
@@ -1079,8 +1143,8 @@ function simpleDelete (file) { // Simple delete which doesn't resolve paths nor 
 function ensureDelete (fileToDelete,options){
   // Resolves files to use main script path as root if given relative path.
   // Also throws an error if it cannot delete the file.
-  // Default behavior is to be quite, unless "quiet" is set to "false" from an options object.
-  var console={};
+  // Default behavior is to be quiet, unless "quiet" is set to "false" from an options object.
+  var console={}; // This is to replace the functionality of console, JUST for this function
   if (options) {
     if (options.hasOwnProperty("quiet")){
        if (options.quiet != false) {
