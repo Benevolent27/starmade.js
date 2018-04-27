@@ -494,7 +494,8 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   eventEmitter.on('message', function(message) { // Handle messages sent from players
     // Expects message to be a message type object
     console.log("Message DETECTED from " + message.sender + " to " + message.receiver + ": " + message.text);
-    if (message.text == "!command" ){
+
+    if (message.text == settings["commandOperator"] + "command" ){
       console.log("!command found bitches!");
       let mMessage="/server_message_to plain " + message.sender + " 'Melvin: What the fack do you want?'";
       server.stdin.write(mMessage.toString().trim() + "\n");
@@ -1568,7 +1569,6 @@ async function installDepsSync() {
   // ### Only syncronous installs here ### e.g. await installRoutine();
   await spawnStarMadeInstallTo(settings["starMadeFolder"],starMadeInstaller);
   await verifyInstall(settings["starMadeFolder"]);
-
   // Check the super admin password and set up if not configured.
   var superAdminPassword = await getSuperAdminPassword(settings["starMadeFolder"]);
   console.debug("Using superAdminPassword: " + superAdminPassword); // Temporary, just for testing.  We don't want to print this to the screen normally.
