@@ -27,7 +27,7 @@ function installAndRequire(theModule){  // This should only ever be ran on modul
       throw error;
     }
   }
-  console.log("Loading module: " + theModule);
+  // console.log("Loading module: " + theModule);
   return require(theModule);
 }
 module.exports = installAndRequire;
