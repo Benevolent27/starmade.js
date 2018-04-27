@@ -27,7 +27,9 @@ module.exports = function() {
   function isValidCommandOperator(testString){
     // Command operators cannot be / characters, alphanumeric, blank, and must be 1 character
 
-    if (!testString || isAlphaNumeric(testString) || testString.indexOf("/") != -1 || testString.length > 1){
+    if (!testString){
+      return true;
+    } else if (isAlphaNumeric(testString) || testString.indexOf("/") != -1 || testString.length > 1){
       return false;
     }
     return true;
@@ -128,7 +130,8 @@ module.exports = function() {
       console.log("What would you like your command operator to be?");
       console.log("For example, if users type '!help' to receive help then '!' is the command operator.");
       while (!isValidCommandOperator(settings["commandOperator"]=prompt("Default is '!':  "))){ console.log("Please specifiy a non-alphanumeric character!  Mkaythx!"); }
-      console.log("Command Operator set to: " + settings["commandOperator"]);
+      if (!settings["commandOperator"]){ settings["commandOperator"]="!"; } // If nothing was entered, set the default.
+      console.log("Command Operator set to: '" + settings["commandOperator"] + "'");
       changeMadeToSettings=true;
     }
     if (!settings.hasOwnProperty('starMadeFolder')) {
