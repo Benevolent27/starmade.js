@@ -493,11 +493,10 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   // #####  PLAYER MESSAGES  #####
   eventEmitter.on('message', function(message) { // Handle messages sent from players
     // Expects message to be a message type object
-    console.log("Message DETECTED from " + message.sender + " to " + message.receiver + ": " + message.text);
-
+    console.log("Message (type: " + message.type +") DETECTED from " + message.sender.name + " to " + message.receiver.name + ": " + message.text);
     if (message.text == settings["commandOperator"] + "command" ){
       console.log("!command found bitches!");
-      let mMessage="/server_message_to plain " + message.sender + " 'Melvin: What the fack do you want?'";
+      let mMessage="/server_message_to plain " + message.sender.name + " 'Melvin: What the fack do you want?'";
       server.stdin.write(mMessage.toString().trim() + "\n");
       // server.stdin.end();
     }
