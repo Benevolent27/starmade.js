@@ -7,11 +7,15 @@
 // var settings = setSettings();
 
 // This should ONLY ever be ran from the starmade.js script, never as itself, otherwise it's script requires won't load properly.
+if (require.main.filename == __filename){
+  console.error("This script should only ever be run by the starmade.js script!  Exiting!");
+  process.exit(1);
+}
+
+const fs = require('fs');
+const path = require('path');
 
 module.exports = function() {
-  const fs = require('fs');
-  const child = require('child_process');
-  const path = require('path');
   var mainFolder = path.dirname(require.main.filename);
   var binFolder  = path.join(mainFolder,"bin");
   var installAndRequire = require(path.join(binFolder, "installAndRequire.js")); // This is used to install missing NPM modules and then require them without messing up the require cache.
