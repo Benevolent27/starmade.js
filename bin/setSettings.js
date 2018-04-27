@@ -6,6 +6,7 @@
 // const setSettings = require("./bin/setSettings.js");
 // var settings = setSettings();
 
+// This should ONLY ever be ran from the starmade.js script, never as itself, otherwise it's script requires won't load properly.
 
 module.exports = function() {
   const fs = require('fs');
