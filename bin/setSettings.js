@@ -21,6 +21,18 @@ module.exports = function() {
   const isInvalidPath = installAndRequire("is-invalid-path"); // https://www.npmjs.com/package/is-invalid-path -- Not using the "is-valid-path" because my force require scripting won't work with it since it uses a non-standard path to it's scripts
   const mkdirp = installAndRequire("mkdirp"); // https://www.npmjs.com/package/mkdirp - Great for sync or async folder creation, creating all folders necessary up to the end folder
 
+  function isAlphaNumeric(testString){
+    return "/^[A-Za-z0-9]+$/".test(testString);
+  }
+  function isValidCommandOperator(testString){
+    // Command operators cannot be / characters, alphanumeric, blank, and must be 1 character
+
+    if (!testString || isAlphaNumeric(testString) || testString.indexOf("/") != -1 || testString.length > 1){
+      return false;
+    }
+    return true;
+  }
+
   function isRamValue(testVal) {
     let testTextArray=testVal.toString().toLowerCase().split("");
     if (/[0-9kmg]/.test(testTextArray.pop())){ // Check to see if the last value is a number, k, m, or g.  Pop also removes it from the array.
@@ -109,6 +121,14 @@ module.exports = function() {
         // console.log("Please specify a number to use as the port!");
       }
       console.log("Port set to: " + settings["port"]);
+      changeMadeToSettings=true;
+    }
+    if (!settings.hasOwnProperty('commandOperator')) {
+      if (settingsLoadedCheck == true) { console.log("Command Operator went AWOL?!"); }
+      console.log("What would you like your command operator to be?");
+      console.log("For example, if users type '!help' to receive help then '!' is the command operator.");
+      while (!isValidCommandOperator(settings["commandOperator"]=prompt("Default is '!':  "))){ console.log("Please specifiy a non-alphanumeric character!  Mkaythx!"); }
+      console.log("Command Operator set to: " + settings["commandOperator"]);
       changeMadeToSettings=true;
     }
     if (!settings.hasOwnProperty('starMadeFolder')) {
