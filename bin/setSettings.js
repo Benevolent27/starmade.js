@@ -103,6 +103,8 @@ module.exports = function() {
 
     // IF there was a settings.json file imported, ensure that all values are set, asking for any that do not exist.
     if (!settings.hasOwnProperty('javaMin')) {
+      // TODO: Add Protection so the person cannot set something ridiculous like 128 bytes.  Make MB the default if just a number is typed.
+      // Also add protection to ensure the min value is not higher than the max and that neither exceeds the RAM of the PC.  Perhaps add a warning if over 80% if this is possible.
       console.log("");
       if (settingsLoadedCheck == true) { console.log("Well that's funny, this ole setting seems to have been unset.."); }
       while (!isRamValue(settings["javaMin"]=prompt("Java MIN RAM to use? (Recommended: 512m or higher): "))){ console.log("Please specify a number!  Note: It can end in k, m, or g."); }
@@ -129,7 +131,8 @@ module.exports = function() {
       if (settingsLoadedCheck == true) { console.log("Command Operator went AWOL?!"); }
       console.log("What would you like your command operator to be?");
       console.log("For example, if users type '!help' to receive help then '!' is the command operator.");
-      while (!isValidCommandOperator(settings["commandOperator"]=prompt("Default is '!':  "))){ console.log("Please specifiy a non-alphanumeric character!  Mkaythx!"); }
+      console.log("Note:  The command operator MUST be a symbol, but it cannot be the '/' character since StarMade uses that.");
+      while (!isValidCommandOperator(settings["commandOperator"]=prompt("(Default='!'):  "))){ console.log("Please specifiy a non-alphanumeric character!  Mkaythx!"); }
       if (!settings["commandOperator"]){ settings["commandOperator"]="!"; } // If nothing was entered, set the default.
       console.log("Command Operator set to: '" + settings["commandOperator"] + "'");
       changeMadeToSettings=true;
