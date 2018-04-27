@@ -90,6 +90,9 @@ function sleep(ms){
   }
 }
 var patterns=require(path.join(binFolder, "patterns.js")); // Import the patterns that will be used to match to in-game events like deaths and messages.
+var starNetjs=require(path.join(binFolder, "starNet.js")); // needs testing
+var sqlQuery=require(path.join(binFolder, "sqlQuery.js")); // needs testing
+
 
 // #################################
 // ### NPM DOWNLOADABLE REQUIRES ###
@@ -457,17 +460,9 @@ function SqlQueryObj(sqlQuery){
   // Here is some pseudo code as I think outloud
   var getColumns=["one","Two","three"];
   var getData=[["blah","bleh","Blargh"],["blah","bleh","Blargh"],["blah","bleh","Blargh"]];
-  this.data=arrayFromAllColumnsAndAllData(getColumns,getData);
+  this.data=arrayFromColumnsAndAllData(getColumns,getData);
 }
-function mapFromColumnsAndDataSet(columnData,data){ // this assists the SQL query constructor
-  var tempMap=new Map();
-  for (let i=0;i<columnData.length;i++){
-    tempMap.set(columnData[i],data[i]);
-  }
-  return tempMap;
-}
-
-function arrayFromAllColumnsAndAllData(columnArray,dataArray){ // this assists the SQL query constructor
+function arrayFromColumnsAndAllData(columnArray,dataArray){ // this assists the SQL query constructor
   // dataArray should be an array of nested arrays
   var tempArray=[];
   for (let e=0;e<dataArray.length;e++){
@@ -475,6 +470,13 @@ function arrayFromAllColumnsAndAllData(columnArray,dataArray){ // this assists t
     tempArray.push(mapFromColumnsAndDataSet(columnArray,dataArray[e]));
   }
   return tempArray;
+}
+function mapFromColumnsAndDataSet(columnData,data){ // this assists the SQL query constructor
+  var tempMap=new Map();
+  for (let i=0;i<columnData.length;i++){
+    tempMap.set(columnData[i],data[i]);
+  }
+  return tempMap;
 }
 
 // New Methods needed:
