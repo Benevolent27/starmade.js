@@ -1212,7 +1212,7 @@ function getRandomAlphaNumericString(charLength){ // If no charlength given or i
 //   return new Promise((resolve) => setTimeout(resolve, ms));
 // }
 
-function copyObj(obj) { // From:  https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/forEach
+function copyObj(obj) { // This will create a new object from an existing one, rather than linking to the original.  From:  https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/forEach
   const copy = Object.create(Object.getPrototypeOf(obj)); // Ignore the ESLint warnings, it really doesn't know what it's talking about.  I looked into it, it's suggesting to use functions of Reflect that don't exist.
   const propNames = Object.getOwnPropertyNames(obj);
   propNames.forEach(function(name) {
@@ -1239,6 +1239,8 @@ function writeSettings() {
 function touch (file){ // This creates an empty file quickly.
   fs.closeSync(fs.openSync(file, 'w'));
 }
+
+// TODO: consolidate file deletion, there is literally no reason to have 2 delete functions.
 function simpleDelete (file) { // Simple delete which doesn't resolve paths nor break out of the scripting by throwing an error.  It also does not display anything unless there is an error.
   try {
     fs.unlinkSync(file);
@@ -1247,21 +1249,22 @@ function simpleDelete (file) { // Simple delete which doesn't resolve paths nor 
     console.error("File, " + file + ", cannot be deleted.");
   }
 }
-
 function ensureDelete (fileToDelete,options){
   // Resolves files to use main script path as root if given relative path.
   // Also throws an error if it cannot delete the file.
   // Default behavior is to be quiet, unless "quiet" is set to "false" from an options object.
-  var console={}; // This is to replace the functionality of console, JUST for this function
+  var console=console; // This is to replace the functionality of console, JUST for this function
   if (options) {
     if (options.hasOwnProperty("quiet")){
        if (options.quiet != false) {
-         console.log("Setting up scoped console to disable it.");
-         console.log=function(){ /* empty on purpose */ };
+         // console.log("Setting up scoped console to disable it.");
+         console={};
+         console.log=function(){ /* empty on purpose */ }; // This is really just an experiment for future reference with modifying console.log to see if it's possible to make an entire script quiet
          console.error=function(){ /* empty on purpose */ };
        }
     }
   } else {
+    console={};
     console.log=function(){ /* empty on purpose */ };
     console.error=function(){ /* empty on purpose */ };
   }
@@ -1393,6 +1396,8 @@ function preDownload(httpURL,fileToPlace){ // This function handles the pre-down
 }
 
 function testMatch(valToCheck) { // This function will be called on EVERY line the wrapper outputs to see if the line matches a known event or not.
+  // TODO: It would be much better to simply run the match, then forward for processing, rather than running a test and processing the matches against it.
+  // So really this should simply be replaced with a "getMatch" function
   if (includePatternRegex.test(valToCheck)){
     if (!excludePatternRegex.test(valToCheck)){
       return true;
@@ -1405,6 +1410,7 @@ function testMatch(valToCheck) { // This function will be called on EVERY line t
 }
 
 function spawnStarMadeInstallTo(pathToInstall,installerJar){  // This always requires the installerJar path because this will be offloaded to a require later.
+  // This needs to be able to use a Jar file or .exe file, depending on the OS.
   try {
     var starMadeInstallFolder=getSMInstallPath(pathToInstall);
   } catch (err) {
@@ -1436,6 +1442,7 @@ function spawnStarMadeInstallTo(pathToInstall,installerJar){  // This always req
 }
 
 function verifyInstall (pathToSMInstall){
+  // TODO: Add a more comprehensive check here.. Should at least check for a StarMade.jar file..
   try {
     var pathToUse=getSMInstallPath(pathToSMInstall);
   } catch (err) {
@@ -1492,6 +1499,7 @@ function getSMInstallPath(thePath){
 }
 
 async function getSuperAdminPassword(starMadeInstallPath){ // This will grab the superadmin password, setting it up and enabling it if not already.
+  // TODO: Offload this to a require
   // Load the server.cfg from install path
   var serverCfgFile=path.join(starMadeInstallPath,"StarMade","server.cfg");
   var serverCfgObj=ini.getFileAsObj(serverCfgFile);
@@ -1654,6 +1662,7 @@ writeLockFile(); // This is to prevent this script from running multiple times o
 // ### CREATE NEEDED FOLDERS  ###
 // ##############################
 
+ensureFolderExists(modFolder);
 ensureFolderExists(binFolder);
 ensureFolderExists(starMadeInstallFolder); // This is redundant to handle if the person deletes or moves their StarMade install folder.
 
@@ -1674,10 +1683,9 @@ asyncOperation("end");
 // ### Sync downloads/installs ### -- When async installs/downloads are finished, this function will be called.
 async function installDepsSync() {
   // ### Only syncronous installs here ### e.g. await installRoutine();
-  await spawnStarMadeInstallTo(settings["starMadeFolder"],starMadeInstaller);
-  await verifyInstall(settings["starMadeFolder"]);
-  // Check the super admin password and set up if not configured.
-  var superAdminPassword = await getSuperAdminPassword(settings["starMadeFolder"]);
+  await spawnStarMadeInstallTo(settings["starMadeFolder"],starMadeInstaller); // Does not create config files upon install.
+  await verifyInstall(settings["starMadeFolder"]); // Creates config files if they don't exist
+  var superAdminPassword = await getSuperAdminPassword(settings["starMadeFolder"]); // Check the super admin password and set up if not configured.
   console.debug("Using superAdminPassword: " + superAdminPassword); // Temporary, just for testing.  We don't want to print this to the screen normally.
 
   serverCfg = ini.getFileAsObj(starMadeServerConfigFile); // Import the server.cfg values to an object.  These should be the final values.  Any settings changes to the file should be completed before this is loaded.  Note that this KEEPS comments in the value!
