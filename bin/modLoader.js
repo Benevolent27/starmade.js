@@ -29,13 +29,13 @@ var installAndRequire = require(path.join(binFolder, "installAndRequire.js"));
 const makeDir=installAndRequire('make-dir');
 const decache=installAndRequire('decache');
 
-
+// ### CONSTRUCTORS ###
 function Mod(folderName){
   // This constructs the mod object that will store commands and other scripts.
   this.folder=path.join(modFolder,folderName);
   this.commands=getCommandsForMod(folderName); // This returns a map object that pairs each file to it's require, only loading valid requires and decaching any that don't pass
-  
 }
+
 function getMods(){
   return getFolders(modFolder); // Returns an array of the mod folders
 }
