@@ -10,7 +10,16 @@ const ini = installAndRequire('ini'); // https://www.npmjs.com/package/ini Impor
 //
 // TODO:
 // Handle /* and */ sort of comments if necessary (or whatever format is used by the StarMade devs).
-// getVariablesWhereValueEquals(iniObj,"whatever"); // Returns an array of all the variables that matched the value "whatever"
+// Test the getVariablesWhereValueEqualsString function and expand it so that it can use regex objects.
+// Create a iniVariableExists function.
+
+function iniVariableExists(iniObj,variableToTest){
+  if (typeof iniObj == "object" && typeof variableToTest == "string"){
+    return iniObj.hasOwnProperty(variableToTest);
+  } else {
+    throw new Error("ERROR: Invalid parameters given to iniVariableExists function!");
+  }
+}
 
 function getVariablesWhereValueEqualsString(iniObj,stringToMatch){
   // Code originally based on top answer here: https://stackoverflow.com/questions/921789/how-to-loop-through-a-plain-javascript-object-with-the-objects-as-members
@@ -142,5 +151,6 @@ module.exports={
   "getCommentFromStr":getIniCommentFromString,
   "remCommentFromStr":removeIniCommentsFromString,
   "changeValFromStr":changeIniValueFromString,
+  "varExists":iniVariableExists,
   "getVarsWhereVal":getVariablesWhereValueEqualsString
 }
