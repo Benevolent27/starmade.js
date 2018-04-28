@@ -38,7 +38,10 @@ function writeIniObjToIni(theObj,iniFileToWrite){ // This sync writes an ini obj
   return fs.writeFileSync(iniFileToWrite, ini.stringify(theObj));
 }
 function removeIniCommentsFromString(text){ // This removes comments from a string
-  return text.match(/^[^/#]*/).toString().trim();
+  // Next line is depreciated as it would see / as a comment, but it should only see double // as comments.
+  // return text.match(/^[^/#]*/).toString().trim();
+  return text.replace(/(#.*$)|([/]{2}.*$)/g,"").toString().trim(); // Does not preserve spaces in front or behind string.
+
 }
 function getIniValue(iniObj,variable){ // Rather than using removeIniComments on a specific value, this can be used to pull the value.  This is mostly for readability but also to handle errors.
   if (iniObj && variable){
