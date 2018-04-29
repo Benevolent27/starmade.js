@@ -6,11 +6,16 @@
 // const setSettings = require("./bin/setSettings.js");
 // var settings = setSettings();
 
+// This should ONLY ever be ran from the starmade.js script, never as itself, otherwise it's script requires won't load properly.
+if (require.main.filename == __filename){
+  console.error("This script should only ever be run by the starmade.js script!  Exiting!");
+  process.exit(1);
+}
+
+const fs = require('fs');
+const path = require('path');
 
 module.exports = function() {
-  const fs = require('fs');
-  const child = require('child_process');
-  const path = require('path');
   var mainFolder = path.dirname(require.main.filename);
   var binFolder  = path.join(mainFolder,"bin");
   var installAndRequire = require(path.join(binFolder, "installAndRequire.js")); // This is used to install missing NPM modules and then require them without messing up the require cache.
@@ -20,6 +25,20 @@ module.exports = function() {
   const prompt = installAndRequire("prompt-sync")({"sigint":true}); // https://www.npmjs.com/package/prompt-sync - This creates sync prompts and can have auto-complete capabilties.  The sigint true part makes it so pressing CTRL + C sends the normal SIGINT to the parent javascript process
   const isInvalidPath = installAndRequire("is-invalid-path"); // https://www.npmjs.com/package/is-invalid-path -- Not using the "is-valid-path" because my force require scripting won't work with it since it uses a non-standard path to it's scripts
   const mkdirp = installAndRequire("mkdirp"); // https://www.npmjs.com/package/mkdirp - Great for sync or async folder creation, creating all folders necessary up to the end folder
+
+  function isAlphaNumeric(testString){
+    return "/^[A-Za-z0-9]+$/".test(testString);
+  }
+  function isValidCommandOperator(testString){
+    // Command operators cannot be / characters, alphanumeric, blank, and must be 1 character
+
+    if (!testString){
+      return true;
+    } else if (isAlphaNumeric(testString) || testString.indexOf("/") != -1 || testString.length > 1){
+      return false;
+    }
+    return true;
+  }
 
   function isRamValue(testVal) {
     let testTextArray=testVal.toString().toLowerCase().split("");
@@ -89,6 +108,8 @@ module.exports = function() {
 
     // IF there was a settings.json file imported, ensure that all values are set, asking for any that do not exist.
     if (!settings.hasOwnProperty('javaMin')) {
+      // TODO: Add Protection so the person cannot set something ridiculous like 128 bytes.  Make MB the default if just a number is typed.
+      // Also add protection to ensure the min value is not higher than the max and that neither exceeds the RAM of the PC.  Perhaps add a warning if over 80% if this is possible.
       console.log("");
       if (settingsLoadedCheck == true) { console.log("Well that's funny, this ole setting seems to have been unset.."); }
       while (!isRamValue(settings["javaMin"]=prompt("Java MIN RAM to use? (Recommended: 512m or higher): "))){ console.log("Please specify a number!  Note: It can end in k, m, or g."); }
@@ -109,6 +130,16 @@ module.exports = function() {
         // console.log("Please specify a number to use as the port!");
       }
       console.log("Port set to: " + settings["port"]);
+      changeMadeToSettings=true;
+    }
+    if (!settings.hasOwnProperty('commandOperator')) {
+      if (settingsLoadedCheck == true) { console.log("Command Operator went AWOL?!"); }
+      console.log("What would you like your command operator to be?");
+      console.log("For example, if users type '!help' to receive help then '!' is the command operator.");
+      console.log("Note:  The command operator MUST be a symbol, but it cannot be the '/' character since StarMade uses that.");
+      while (!isValidCommandOperator(settings["commandOperator"]=prompt("(Default='!'):  "))){ console.log("Please specifiy a non-alphanumeric character!  Mkaythx!"); }
+      if (!settings["commandOperator"]){ settings["commandOperator"]="!"; } // If nothing was entered, set the default.
+      console.log("Command Operator set to: '" + settings["commandOperator"] + "'");
       changeMadeToSettings=true;
     }
     if (!settings.hasOwnProperty('starMadeFolder')) {

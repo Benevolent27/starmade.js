@@ -1,7 +1,5 @@
 
-// The structure of mod loading looks like this:
-
-// modFolder - commandFiles -
+// This is currently not finished.  I still need to
 
 console.log("Starting up..");
 
@@ -29,13 +27,13 @@ var installAndRequire = require(path.join(binFolder, "installAndRequire.js"));
 const makeDir=installAndRequire('make-dir');
 const decache=installAndRequire('decache');
 
-
+// ### CONSTRUCTORS ###
 function Mod(folderName){
   // This constructs the mod object that will store commands and other scripts.
   this.folder=path.join(modFolder,folderName);
   this.commands=getCommandsForMod(folderName); // This returns a map object that pairs each file to it's require, only loading valid requires and decaching any that don't pass
-  
 }
+
 function getMods(){
   return getFolders(modFolder); // Returns an array of the mod folders
 }
@@ -141,7 +139,7 @@ function getFiles(basePath){
   }
   return theFiles;
 }
-function filterJsFiles(inputArray){
+function filterJsFiles(inputArray){ // This can probably just be replaced with a .filter function.  Not sure why I thought this was necessary.
   console.debug("Filtering files..");
   var filteredResults=[];
   for (let i=0;i<inputArray.length;i++){
@@ -164,9 +162,8 @@ function mapRequire(basePath){
     // Test to ensure the script has the required exports of name and execute
     if (requireTemp.name && requireTemp.execute){
       returnMap.set(theScripts[i],requireTemp);
-      if (requireTemp.hasOwnProperty("description")){
-
-      }
+      // if (requireTemp.hasOwnProperty("description")){ // This might be to build a help array or something for commands.
+      // }
     } else {
       console.error("ERROR: Skipping invalid script found at: " + scriptPath);
       // decache the failed script to clear up memory

@@ -2,15 +2,16 @@
 
 // Design fundamentals:
 
-// SIMPLICITY
-// There should be the LEAST amount of input necessary from the user to get things going.
-// As much as can be automated should be, such as downloading all dependencies, like StarNet.jar or any modules automagically.
+// SIMPLICITY IN USE
+// Everything should be guided.  There should be the LEAST amount of input necessary from the user to get things going.
+// All dependencies should be downloaded automatically, like StarNet.jar or any modules automagically.  IMPORTANT:  If downloading a dependency, it is IMPORTANT to ensure that agreement to the third-party license of use is confirmed before downloading!
 // Any dependencies should be functional for LINUX, WINDOWS, AND MAC --> NO OS DEPENDENT MODULES.
 // Any information that can be grabbed should be grabbed automatically, such as the "SUPERADMINPASSWORD" from the starmade server.cfg file.
-// When information is missing, this scripting should ask the user and make changes wher needed (such as asking for and then changing the server.cfg file for the SUPERADMINPASSWORD).
+// When information is missing, this scripting should ask the user and make changes where needed (such as asking for the SUPERADMINPASSWORD if not set already and then setting it).
+// Assume a complete idiot is going to use this wrapper.  Everything should have safeguards to protect people from themselves.
 
 // No GUI  - NUFF SAID - TEXT CONSOLE FTW
-// The servers that should be using this should be headless, so if we want to create a "GUI", we should create it as a web-app with focus on security.  Express is great for this sort of thing:
+// The servers that should be using this should be headless, so if we want to create a GUI we should create it as a plugin web-app with focus on security.  Express is great for this sort of thing.
 
 // MODDABILITY
 // This wrapper will feature a high degree of moddability.  Everything will be event driven, so mods will be able to easily detect when events happen in game.
@@ -18,26 +19,28 @@
 // I want a rich tapestry of built in methods that can perform functions such as grabbing the current faction of a specific player.  These should be able to send commands to the server, retrieve the data, parse it, and whittle it down to what is needed.  Sql queries will get special attention here, allowing the output to be easily parsable by mod scripting.
 
 // DOCUMENTATION
-// As features are FINALIZED and then built, documentation should be done alongside it.
+// As features are FINALIZED, documentation should created.
 
 // NODE.JS JAVASCRIPT - MOSTLY NATIVE CODE
-// Code should be mostly native to node.js javascript, using outside tools the least possible.  All outside tools must be includable or downloadable and freely usable on supported OS's, including linux, windows, and macosx.
+// Code should be mostly native to node.js javascript using outside tools the least possible.  For example, downloading can be handled by javascript.  No needto use "wget" or similar tool.
+// Where outside tools are used:  They MUST be includable or downloadable and freely usable on supported OS's, including linux, windows, and macosx.
 
 // NPM "REQUIRES" ARE OK - NO NEED TO RE-INVENT WHEELS
 // Provided a NPM package seems stable enough, we can use them to expand the functionality of our scripting and decrease production time.  Care must be taken to ensure that performance isn't decreased significantly though.  -- NO GHETTO PACKAGES PLZ
 
 
-// Exit codes
+
+// ######################
+// ###   EXIT CODES   ###
+// ######################
+// 0: The script exited with no problems.
 // 1: Lock file existed. Possible other server running.  Cannot start.
-// 2: settings.json file did not contain all needed settings.
 // 4: StarNet.jar did not exist and download failed due to a socks error, such as a failed connection.
 // 5. StarNet.jar did not exist and download failed with HTTP response from webserver.  The HTTP error code will be available in the last line output by this script.
 
-// ##############################
-// ###    BUILT-IN REQUIRES   ###
-// ##############################
-
-// ### Built-in nodejs modules that should never need to be installed.
+// ############################
+// ###    NATIVE REQUIRES   ### - Built-in nodejs modules that should never need to be installed.
+// ############################
 const http   = require('http');
 const fs     = require('fs');
 const events = require('events');
@@ -47,8 +50,9 @@ const path   = require('path'); // This is needed to build file and directory pa
 // const stream   = require('stream'); // For creating streams.  Not used right now but may be later.
 
 // ### Main Vars ### - Don't change these
-var mainFolder      = path.dirname(require.main.filename); // This is where the starmade.js is.  I use this method instead of __filename because starmade.js might load itself
+var mainFolder      = path.dirname(require.main.filename); // This is where the starmade.js is.  I use this method instead of __filename because starmade.js might load itself or be started from another script
 var binFolder       = path.join(mainFolder,"bin");
+var modFolder       = path.join(mainFolder,"mods");
 var operations      = 0;
 var includePatterns = [];
 var excludePatterns = [];
@@ -85,44 +89,22 @@ function sleep(ms){
     console.error("ERROR: No parameter passed to sleep function!");
   }
 }
+var patterns=require(path.join(binFolder, "patterns.js")); // Import the patterns that will be used to match to in-game events like deaths and messages.
+var starNetjs=require(path.join(binFolder, "starNet.js")); // needs testing
+var sqlQuery=require(path.join(binFolder, "sqlQuery.js")); // needs testing
+var ini=require(path.join(binFolder,"iniHelper.js")); // This will replace the current functionality of ini by wrapping it and modifying the ini package so that it works correctly for starmade config files and ini files that use # characters.
 
 // #################################
 // ### NPM DOWNLOADABLE REQUIRES ###
 // #################################
 const makeDir=installAndRequire('make-dir'); // https://www.npmjs.com/package/make-dir This allows creating folders recursively if they do not exist, with either async or sync functionality.
 const treeKill=installAndRequire('tree-kill'); // https://www.npmjs.com/package/tree-kill To kill the server and any sub-processes
-// const decache = installAndRequire("decache"); // https://www.npmjs.com/package/decache - This is used to reload requires, such as reloading a json file or mod without having to restart the scripting.
-// const express = installAndRequire('express'); // https://www.npmjs.com/package/express Incredibly useful tool for serving web requests
-// const expressIpfilter = installAndRequire('express-ipfilter') // https://www.npmjs.com/package/express-ipfilter - This will be used to restrict only local IP's to access the RESTFul API, which is what other scripts will use to remote control this
-// const targz = installAndRequire('tar.gz'); // https://www.npmjs.com/package/tar.gz2 For gunzipping files,folders, and streams (including download streams)
-// const blessed = installAndRequire('blessed'); // https://www.npmjs.com/package/blessed Awesome terminal screen with boxes and all sorts of interesting things.  See here for examples:  https://github.com/yaronn/blessed-contrib/blob/master/README.md
-const ini = installAndRequire('ini'); // https://www.npmjs.com/package/ini Imports ini files as objects.  It's a bit wonky with # style comments (in that it removes them and all text that follows) and leaves // type comments, so I created some scripting to modify how it loads ini files and also created some functions to handle comments.
+const iniPackage = installAndRequire('ini'); // https://www.npmjs.com/package/ini Imports ini files as objects.  It's a bit wonky with # style comments (in that it removes them and all text that follows) and leaves // type comments, so I created some scripting to modify how it loads ini files and also created some functions to handle comments.
 const prompt = installAndRequire("prompt-sync")({"sigint":true}); // https://www.npmjs.com/package/prompt-sync This creates sync prompts and can have auto-complete capabilties.  The sigint true part makes it so pressing CTRL + C sends the normal SIGINT to the parent javascript process
 const Tail = installAndRequire('tail').Tail; // https://github.com/lucagrulla/node-tail/blob/master/README.md For following the server log.  I forgot that the console output does NOT have everything.  This is NOT a perfect solution because whenever file rotation occurs, there is a 1 second gap in coverage.  Argh.
 const exitHook = installAndRequire('exit-hook'); // https://github.com/sindresorhus/exit-hook Handles normal shutdowns, sigterm, sigint, and a "message=shutdown" event.  Good for ensuring the server gets shutdown.
-// const sleep=installAndRequire('system-sleep');  // https://github.com/jochemstoel/nodejs-system-sleep Allows sleeping WITHOUT using 100% of CPU ---  IMPORTANT:  Disabled because it has no license, which means it defaults to "full rights reserved", which means the code cannot be used, linked to, or included in any way
-// const deasync=installAndRequire('deasync'); // IMPORTANT:  Not gonna work because it requires a C++ compiler to be installed to work, since it uses node-gyp to compile some C++ file to do the actual sleeping - This is what system-sleep uses as it's basis, it actually has a sleep function built in AND has a MIT license, so we're good with that.  We can just use this instead to create a sleep function.  It can also be used to turn async functions and processes into sync ones.  Voila!  https://www.npmjs.com/package/deasync
-// const deasync-promise=installAndRequire('deasync-promise'); // IMPORTANT:  See above -- This can make working with promises a lot easier by making them syncronous.  Just keep in MIND that we don't want to use this unless it's in the startup routine where things MUST BE syncronous.  https://www.npmjs.com/package/deasync-promise
-// function sleep(ms){
-//   console.debug("Sleeping for " + ms + " milliseconds..");
-//   deasync.sleep(ms);
-// }
 
-// const sleepTest=installAndRequire('thread-sleep'); // This might be all well and good and stuff, but the use of node-pre-gyp still bothers me a bit.  It might be accurate, but the idea of compiling some C++ script just for sleep seems to be bit muuch to me, so I created my own simple script that uses spawnSync to introduce a sleep.
-// function sleep(ms){
-//   console.debug("Sleeping for " + ms + " milliseconds..");
-//   if (ms){
-//     if (isNaN(parseInt(ms))){
-//         console.error("ERROR: Invalid parameter passed to sleep function: " + ms);
-//     } else {
-//       sleepTest(parseInt(ms));
-//     }
-//   } else {
-//     console.error("ERROR: No parameter passed to sleep function!");
-//   }
-// }
-
-// ### Setting up submodules from requires.
+// ### Set up submodules from requires.
 var eventEmitter = new events.EventEmitter(); // This is for custom events
 
 // #####################
@@ -148,25 +130,404 @@ var ignoreLockFile            = false;
 var debug                     = false;
 var os                        = process.platform;
 var starMadeStarter;
+// TODO: Fix this to use the .exe file properly when doing installs.  Sure the Jar works, but might be a bad idea for some reason.
 // if (os=="win32"){
 //   starMadeStarter="StarMade-Starter.exe";
 // } else {
   starMadeStarter="StarMade-Starter.jar"; // This handles linux and macOSX
 // }
-var starMadeInstaller = path.join(binFolder,starMadeStarter);
-var starMadeInstallerURL = "http://files.star-made.org/" + starMadeStarter;
+var starMadeInstaller         = path.join(binFolder,starMadeStarter);
+var starMadeInstallerURL      = "http://files.star-made.org/" + starMadeStarter;
 // Windows: http://files.star-made.org/StarMade-starter.exe // Does not seem to actually work correctly with spawnSync and the -nogui option on windows.. Using the linux/macOSX jar installer does though!  wtf!
 // macosx: http://files.star-made.org/StarMade-Starter.jar
 // Linux: http://files.star-made.org/StarMade-Starter.jar
+// Patterns - This will be to detect things like connections, deaths, etc.  I'm pushing to an array so it's easier to add or remove patterns.
+var includePatternRegex       = patterns.includes();
+var excludePatternRegex       = patterns.excludes();
+
 
 
 
 // ###########################
-// ### Object Constructors ###
+// ### Object Constructors ### -- These are the objects that will be used by mods and throughout the scripting.
 // ###########################
-function playerObj(playerName){
-
+function MessageObj(sender,receiver,receiverType,message){
+  // Takes string values and converts to strings or objects of the correct types
+  this.sender=new PlayerObj(sender); // This should ALWAYS be a player sending a message
+  if (receiverType=="DIRECT"){ // This is a private message sent from one player to another
+    this.type="private";
+    this.receiver=new PlayerObj(receiver);
+  } else if (receiverType=="CHANNEL"){
+    this.type="channel";
+    this.receiver=new ChannelObj(receiver);
+  } else { // This should never happen, but hey maybe in the future they'll expand on the receiverTypes
+    this.receiver=receiver;
+    this.type=receiverType;
+    console.error("ERROR: Unknown Receiever type for message! Set receiver and type as string! " + receiverType);
+  }
+  this.text=message;
 }
+
+function ChannelObj(channelName){
+  var factionTest=new RegExp("^Faction-{0,1}[0-9]+");
+  if (channelName == "all"){
+    this.type="global";
+  } else if (factionTest.test(channelName)){
+    var getFactionNumber=new RegExp("-{0,1}[0-9]+$");
+    this.type="faction";
+    this.factionNumber=channelName.match(getFactionNumber);
+  } else {
+    this.type="named";
+  }
+  this.name=channelName;
+}
+
+function IPObj(ipAddressString,date){
+  this.address=ipAddressString;
+  // TODO: Add Info Methods:
+  // date - This will only be set if the IP is attached to a date somehow, such as when listing all the IP's for a player
+
+  // Action Methods:
+  // ban - PERM BAN
+  // banTemp(TimeInMinutes) - Temp Ban
+
+  // Optional:
+  // crawl(Num) - reveals all players who share the same IP.  If a Num is provided, then will crawl that level deep, gathering more IP's and ipcrawling those.
+}
+
+function SMName(smName){
+  this.name=smName;
+  // TODO: Add Info methods:
+
+  // Action methods:
+  // ban
+  // banTemp(Minutes)
+
+  // Using SQL queries:
+  // getNames - Returns an array of PlayerObj's for all the usernames associated with this registry account name
+}
+
+function PlayerObj(playerName){
+  if (playerName){
+    this.name=playerName;
+    // TODO: Add Info methods:
+    // smName - returns a SmNameObj
+    // ip - returns an IPObj with the player's last IP in it
+    // ips - returns an array of IPObj's with all unique IP's.  Also sets the "date" function for each one.
+    // faction - Returns the FactionObj of their faction
+    // currentEntity - Returns the EntityObj of the entity they are currently in
+    // battleModeSector - Returns the player's designated battlemode sector, which is unique to every player
+
+    // Action methods:
+    // kill - kills the player using "/kill_character [Name]"
+    // kick(reasonString) - kicks the player from the server.  ReasonString is optional.
+    // addToFaction([FactionObj/FactionNum]) -- Switches the player to a specific faction
+    // setFactionRank - Sets the player's rank within their current faction if they are in one.
+    // addAdmin - Adds this player as an admin to the server
+    // removeAdmin - Removes this player as an admin to the server
+    // addAdminDeniedCommand([One,or,more,commands]) - This can be an array or string.  If an array, it will cycle through the array, adding each denied command for the specific admin
+    // removeAdminDeniedCommand([One,or,more,commands]) - This can be an array or string.  If an array, it will cycle through the array, removing each denied command for the specific admin.  Uses: /remove_admin_denied_comand [PlayerName] [CommandToRemove]
+    // ban(true/false,ReasonString,Time) - true/false is whether to kick.  Time is in minutes.
+    // banAccount - Bans the player by their registry account - this is a PERM ban
+    // banAccountTemp(NumberInMinutes) - Bans the player by their registry account temporarily
+    // banPlayerName - Bans the player by their playername - this is a PERM ban
+    // banPlayerNameTemp(NumberInMinutes) - Bans the player by their playername temorarily
+    // banIP - Bans the player by IP - PERM BAN - My Notes: Might use "/ban_ip_by_playername [PlayerName]" or "/ban_ip 1.1.1.1" if that is unreliable
+    // banIPTemp(NumberInMinutes) - Bans player by IP - Temp - My Notes: Can use "/ban_ip_by_playername_temp [PlayerName] 1" or "/ban_ip_temp 1.1.1.1 1" if that is unreliable
+
+    // changeSector("[X],[Y],[Z]", SectorObj, or CoordsObj) - teleports the player to a specific sector
+    // changeSectorCopy("[X],[Y],[Z]", SectorObj, or CoordsObj) - teleports the player to a specific sector, leaving behind a copy of whatever entity they were in, duplicating it
+
+    // creativeMode(true/false) - Turns creative mode on or off for the player "/creative_mode player true/false"
+    // godMode(true/false) - Sets godmode to true or false for the player using /god_mode
+    // invisibilityMode(true/false) - Sets invisibility to true or false for the player using /invisibility_mode
+
+    // factionCreate(NewFactionNameString) - This creates a new faction and sets the player as the leader - I am unsure what the /faction_create command will do if a faction of the same name already exists, but I'm guessing it will just duplicate it.
+    // factionCreateAs(NewFactionNameString,FactionNum) - This creates a new faction with a specific faction number and sets the player as the leader - I am unsure what the /faction_create_as command will do if the faction number already exists..
+
+    // give(ElementNameString,Count) - Gives the player the number of blocks by element name - ONLY WORKS IF THE PLAYER IS ONLINE - Example: player.give("Power",10)
+    // giveID(ElementIDNum,Count) - Gives the player the number of blocks by element ID number - ONLY WORKS IF THE PLAYER IS ONLINE- Example: player.giveID(2,10)
+    // giveAllItems(Count) - Gives the player all blocks of a certain number
+    // giveCategoryItems(Count,categoryNameString) - Gives the player all blocks of a certain number by category
+    // giveCredits(Num) - Gives a certain number of credits to the player.  Will subtract if a negative number used.  Returns the new total credits the player has.
+
+    // giveGrapple - Gives the player a grapple gun
+    // giveGrappleOP - Gives the player an OP grapple gun
+    // giveHealWeapon
+    // giveLaserWeapon
+    // giveLaserWeaponOP
+    // giveMarkerWeapon
+    // giveTransporterMarkerWeapon
+    // givePowerSupplyWeapon
+    // giveRocketLauncher
+    // giveRocketLauncherOP
+    // giveSniperWeapon
+    // giveSniperWeaponOP
+    // giveTorchWeapon
+    // giveTorchWeaponOP
+
+    // giveLook(Count) - Gives the player a number of whatever block they are currently looking at
+    // giveSlot(Count) - Gives the player a number of whatever block they have selected on their hotbar
+    // giveMetaItem(String) - Gives the player a meta item based on it's name, such as recipe, log_book, helmet, build_prohibiter, etc.
+
+    // protect(smNameString/SMNameObj) - Sets this current player name to be protected under a specific registry account
+    // unprotect - This unsets registry protection for this player name - WARNING:  This will allow anyone to log in under this name in the future!
+
+    // serverMessage(MessageString,info/warning/error) - Sends a private message to this specific player.  If no method is specified "plain" is used, which shows up on the player's main chat.
+
+
+
+
+
+
+  } else {
+    throw new Error("ERROR: No playername provided to playerObj constructor!");
+  }
+}
+
+function EntityObj(uid){
+  // This should build the entity object based on the UID, adding the entity type if necessary to build the full UID
+  if (uid){
+    this.UID=uid; // Returns the UID as used with SQL queries, without the "ENTITY_SHIP_" whatever stuff.
+    // TODO: Add Info methods:
+    // faction - BROKEN RIGHT NOW AND CANNOT BE RESOLVED DUE TO SM PROBLEM WITH NOT UPDATING THE INFO PROPERLY -  When fixed, return the FactionObj of the current entity
+    // mass - returns the mass of the ship as a number
+    // blocks - returns the block count as a number
+    // lastModified - returns a lastModifiedObj which should include the correct obj for the type of entity that modified it last
+    // creator - returns a CreatorObj which should have info on what created the entity and the associated objects
+    // name - returns the name of the entity as a string
+    // fullUID - returns the FULL UID of the entity
+    // coords - returns a SectorObj of the sector the entity is currently in
+    // spacialCoords - returns a CoordsObj of the current spacial coords for the entity
+    // system - returns a SystemObj of the current system the entity is within
+    // isClaimPoint - returns boolean true/false value if the entity is the claim point for the system it is within
+    // attached - returns an array of attached PlayerObj's
+    // dockedUIDs - returns an array of docked EntityObj's
+    // orientation - Returns an array with 4 floating point numbers designating the orientation.  Example: [0.0,-0.7076546,0.0,0756464]
+    // loaded - Returns boolean true/false value determining if the ship is currently loaded or not
+
+    // Optional:
+    // chunks - returns an array of 2 arrays with minBB and maxBB chunks.  Example: [[-2,-2,-2],[2,2,2]]
+
+    // Info methos using SQL queries:
+    // sqlID - returns the SQL ID for the entity
+    // typeNum - Returns the type number, as designated by SQL query
+    // typeName - Returns the name for the type it is, such as "asteroid", "asteroidManaged", "planet", as per the SQL documentation project
+    // dockedTo - Returns the EntityObj for the entity this entity is currently docked to
+    // dockedToRoot - Returns the EntityObj for the root entity this entity is currently docked to
+
+    // Action methods:
+    // changeSector("[X],[Y],[Z]", SectorObj, or CoordsObj) - Teleports the entity (by UID) to a specific sector
+    // destroy - Destroys the ship, leaving docked entities (using /destroy_uid)
+    // destroyDocked - Destroys the ship and all docked entities (using /destroy_uid_docked)
+    // saveBlueprint(BlueprintNameString) - Saves the current entity as a blueprint name, returning a BlueprintObj.  Note:  There is currently NO WAY to delete blueprints in-game!  Also the BlueprintObj will likely only be valid once the save actually completes.
+
+    // shopRestock - Runs a /shop_restock_uid on the UID of the entity.  Only works if the entity IS a shop or has a shop module on it.  WARNING: It is recommended to ONLY use this on stick shops because base entities with shops on them get restocked with ALL items currently, including custom and depreciated blocks like gold bars and green dirt, etc.
+    // shopRestockFull - Runs a /shop_restock_full_uid on the UID of the entity.  Only works if the entity IS a shop or has a shop module on it.  WARNING: It is recommended to ONLY use this on stick shops because base entities with shops on them get restocked with ALL items currently, including custom and depreciated blocks like gold bars and green dirt, etc.
+
+    // Optional:
+    // destroyOnlyDocked - Can use sql queries to individually destroy only entities that have this entity as the root docking point or down the chain from it - would take some work and might be unreliable since it requires using /sql_query which only updates on force-saves and auto-saves
+    // serverMessage(MessageString,info/warning/error) - Sends a message to all online players that are currently attached to this entity.  If no method is specified "plain" is used, which shows up on the player's main chat.
+
+  } else {
+    throw new Error("ERROR: No UID provided to EntityObj constructor!");
+  }
+}
+function FactionObj(factionNumber){
+  this.number=factionNumber;
+  // TODO: Add Info methods:
+  // name - Get the name of the faction, returned as string
+  // description - Get the faction description.  This is harder than it sounds since the description gets all fubared in the return value since it can be multiple lines and it also might contain text that is a normal part of a response like { and } characters..  This is tricky.
+  // members([Num,Num2]) - Get the members of the faction, returned as an array of playerObj's.  An array of num values in an array can be provided to return only members of specific ranks (1-5)
+  // points - Get the faction points, returned as a number
+
+  // Action methods:
+  // setPoints - Set the faction points to a number and return the new points
+  // addPoints - Add a value to the faction points and return the new total -  Can allow negative numbers to subtract - might have an option for "strict" not to allow negatives
+  // subPoints - Remove a value of faction points and return the new total - Can allow negative numbers to add - might have an option for "strict" not to allow negatives
+
+  // factionModRelation([FactionObj/FactionNum],"enemy/ally/neutral")
+  // resetActivity - Resets activity flags for all members to inactive
+  // addMember([playerObj/playerNameString],(RankNum)) - Adds a member to the faction.  Ranknum is optional, default is 1.
+  // delMember([playerObj/playerNameString]) - Removes a player from the faction if they are in it.  Has to check the faction of the player.
+  // delete - Deletes the faction entirely
+  // edit([FactionName],[Description]) - Sets a new name and/or description for the faction.  If name or description are left blank, they are not changed.
+  // setIDForMember([playerObj/playerNameString]) - Uses the debug function, "faction_set_id_member", to set a player to the faction - WARNING: CAN HAVE DISASTEROUS CONSEQUENCES BUT IT DOES MOVE THE PLAYER WITHOUT TERMINATING THEIR PREVIOUS FACTION IF LEFT EMPTY
+
+
+  // For NPC factions ONLY:
+  // removeNPCFaction - Removes a NPC faction IF it is a NPC faction.  Uses "/npc_remove_faction -98944984"
+
+  //Optional:
+  // duplicate(Num) - This will create duplicate new open factions with fake names as the leaders with the same name as this faction (uses /faction_create_amount [Name] [Number])
+  // serverMessage(MessageString,info/warning/error) - Sends a message to all online players of this faction.  If no method is specified "plain" is used, which shows up on the player's main chat.
+}
+function SectorObj(x,y,z){
+  // TODO: Add Info methods:
+  // getChmod - to get the chmods of a sector returned as an array of +peace,+protected, etc.
+  // getChmodNum - To perform a SQL query to look up the chmod number
+  // getSystem - Returns a SystemObj
+
+  // Add Action Methods:
+  // setChmod - to set +peace, +noindications, etc.
+  // setChmodNum - to set the chmod for a sector based on the relevant input number (based on the SQL number representation)
+  // despawn(PartOfShipNameString) - Uses the /despawn_sector command to despawn ships that start with the string provided
+  // export(nameOfExportFileString) - This will send a /force_save command and then a /export_sector command of this sector.
+  // load(radiusNum/X,Y,Z/SectorObj/CoordsObj) - uses "/load_sector_range x y z x y z" to load the sector.  If a radius is given, then it loads that much of a radius around the sector.  If a second set of coordinates are given (or SectorObj/CoordsObj), then it loads a range between this sector and the one provided.
+  // populate - This will run the /populate_sector command on this sector (replenishes asteroids or planets I think?  Not sure.)
+  // repair - This will run a /repair_sector command on the sector.  NOTE:  This OFTEN has unintended consequences, including atually corrupting a sector or duplicating entities within the sector!
+
+  // spawnEntity(BlueprintString,NewShipNameString,FactionNumber/FactionObj,AIActiveBoolean,[spacialX,SpacialY,SpacialZ]/CoordsObj)
+  // - Spawns an entity somewhere within this sector.  Spacial coordinates are optional.  If no faction number is provided, 0 is used.  If AI active true/false value not given, true is used.
+  // - Uses: "/spawn_entity [BluePrintName] [NewShipName] X Y Z [FactionNumber] [AIActiveBoolean true/false]" OR "/spawn_entity_pos [BluePrintName] [NewShipName] X Y Z SpacialX SpacialY SpacialZ [FactionNumber] [AIActiveBoolean true/false]"
+  // - Returns an EntityObj of the newly spawned entity if successful, otherwise returns false.
+  this.x=x;
+  this.y=y;
+  this.y=z;
+  this.coords=new CoordsObj(x,y,z);
+  // This can be expanded to allow storing information, such as a description, if more than values than expected are given to the constructor
+  if (arguments.length > SectorObj.length){
+    var extraInfoArray=[];
+    for (let i=SectorObj.length-1;i<arguments.length;i++){
+      extraInfoArray.push(arguments[i]);
+    }
+    this.extraInfo=extraInfoArray;
+  }
+}
+function CoordsObj(x,y,z){
+  this.x=x;
+  this.y=y;
+  this.z=z;
+  // This can be expanded to allow storing information, such as a description, if more than values than expected are given to the constructor
+  if (arguments.length > CoordsObj.length){
+    var extraInfoArray=[];
+    for (let i=CoordsObj.length-1;i<arguments.length;i++){
+      extraInfoArray.push(arguments[i]);
+    }
+    this.extraInfo=extraInfoArray;
+  }
+}
+function SystemObj(x,y,z){
+  this.coords=new CoordsObj(x,y,z);
+  // TODO: Add Info methods:
+  // center - returns the center set of coordinates as a SectorObj
+  // type - returns the system type, so black hole, star, giant, double star, void
+
+  // Action Methods:
+  // load - Uses "/load_system x y z" to load the whole system.
+
+  // This can be expanded to allow storing information, such as a description, if more than values than expected are given to the constructor
+  if (arguments.length > SystemObj.length){
+    var extraInfoArray=[];
+    for (let i=SystemObj.length-1;i<arguments.length;i++){
+      extraInfoArray.push(arguments[i]);
+    }
+    this.extraInfo=extraInfoArray;
+  }
+}
+
+function SpawnObj(playerName,time){ // time is optional.  Current time is used if not provided.
+  if (!time){
+    this.time=Date.now();
+  } else if (isNaN(parseInt(time))){
+    console.error("ERROR: Invalid time given to SpawnObj constructor.  Expected epoch time!  Using current time instead!");
+    this.time=Date.now();
+  }
+  this.player=new PlayerObj(playerName);
+  // Right now there really are no console commands for spawn mechanics, but a separate object is used here in case there are in the future.
+}
+
+function BluePrintObj(bluePrintName){
+  this.name=bluePrintName;
+  // Info Methods to add:
+  // folder - Gets the path to the folder the blueprint is in
+
+  // Action Methods:
+  //
+}
+
+function SqlQueryObj(sqlQuery){
+  this.query=sqlQuery;
+  this.time=Date.now();
+  // This will be a rather complicated constructor, returning an array of objects or maps each with individual values
+  // This should return an error object if the query is invalid.
+  // This may need to run an outside script to function properly.
+
+  // TODO: Info
+  // columns - Returns an array of the columns returned
+  // data - returns an array of maps or objects containing the results.  Size will be 0 if no results were returned.
+
+  // Here is some pseudo code as I think outloud
+  var getColumns=["one","Two","three"];
+  var getData=[["blah","bleh","Blargh"],["blah","bleh","Blargh"],["blah","bleh","Blargh"]];
+  this.data=arrayFromColumnsAndAllData(getColumns,getData);
+}
+function arrayFromColumnsAndAllData(columnArray,dataArray){ // this assists the SQL query constructor
+  // dataArray should be an array of nested arrays
+  var tempArray=[];
+  for (let e=0;e<dataArray.length;e++){
+    // Working through each set of values from data
+    tempArray.push(mapFromColumnsAndDataSet(columnArray,dataArray[e]));
+  }
+  return tempArray;
+}
+function mapFromColumnsAndDataSet(columnData,data){ // this assists the SQL query constructor
+  var tempMap=new Map();
+  for (let i=0;i<columnData.length;i++){
+    tempMap.set(columnData[i],data[i]);
+  }
+  return tempMap;
+}
+
+// New Methods needed:
+// factionList() - Returns an array of all the factions as FactionObj's using "/faction_list".  Can be given a server object to run on that instance
+// factionlistMembers(FactionNum OR FactionObj) - Returns an array of all the members of a faction as PlayerObj's using "/faction_list_members [FactionNum]"
+// setFleetSpeed([ms])- Sets the speed fleets take to cross sector borders when unloaded with "/fleet_speed [ms]"
+// setFogOfWar(true/false) - sets fog of war on or off with "/fog_of_war true/false"
+// forceSave(TimeInSeconds) - initiates a forcesave with /force_save, TimeInSeconds is optional but it will wait that long before performing the action if specified
+// ignoreDockingArea(true/false) - uses /ignore_docking_area true/false
+// exportSector(FileToSave,[X,Y,Z]/SectorObj/CoordsObj)
+// importSector(ExportFileToUse,[X,Y,Z]/SectorObj/CoordsObj)
+// importSectorBulk(bulkExportFile.txt) - Uses a special text file from the starmade directory to import a bunch of sectors
+
+// listAdmins - Returns an array of PlayerObj's for all admins
+// listAdminDeniedCommands(playerName/PlayerObj) - Returns an array of all forbidden commands for the admin
+// listBannedAccounts - Returns an array of SMNameObj's
+// listBannedIPs - Returns an array of IPObj's for banned IP's
+// listBannedNames - Returns an array of PlayerObj's for banned names
+// ListWhitelistAccounts - Returns an array of SMNameObj's - Uses /list_whitelist_accounts
+// ListWhitelistIPs - Returns an array of IPObj's - Uses /list_whitelist_ip
+// ListWhitelistNames - Returns an array of PlayerObj's - Uses /list_whitelist_name
+
+
+// loadSystem([X,Y,Z]/SystemObj/CoordsObj) - Loads an entire system
+// loadSector([X,Y,Z]/SystemObj/CoordsObj) - Loads a sector
+// loadSectorRange(Radius,startCoords,endCoords) - Loads a sector range with either a radius or using a range between startCoords and endCoords, which can either be arrays with X,Y,Z values or SectorObj's/CoordsObj's
+// killPlayer(playerName/PlayerObj) - Uses /kill_character to kill a player
+
+// missileDefenseFriendlyFire(true/false) - Uses /missile_defense_friendly_fire to turn on or off
+
+// npcSpawnFaction(FactionNameString,FactionDescriptionString,NPCPresetFolderNameString,InitialGrowthInt) - Uses: /npc_spawn_faction [FactionName] [FactionDescription] [NPCFactionPresetFolderName] [InitialGrowthInt]
+// npcSpawnFactionTo(FactionNameString,FactionDescriptionString,NPCPresetFolderNameString,InitialGrowthInt,[X,Y,Z]/SectorObj/CoordsObj) - Users: /npc_spawn_faction_pos_fixed [FactionName] [FactionDescription] [NPCFactionPresetFolderName] [InitialGrowthInt] X Y Z
+// npcTurnAll - Forces a turn for all NPC factions
+
+// refreshServerMsg - Runs a /refresh_server_msg to refresh the server welcome message.
+
+// reconstructAABB - Runs the /restruct_aabb command, which apparently reconstructs all the AABBs of all object on the server (whatever that means)
+// sectorSize - Runs the "/sector_size 2000" command to set the current sector sizes for the server on the fly.  WARNING:  It is VERY DANGEROUS to lower sector sizes!
+// aiSimulation(true/false) - Turns AI simulation on or off.  Uses: /simulation_ai_enable true/false
+// clearSimulation - Clears all currently active AI simulation.  Uses: /simulation_clear_all
+
+
+// search - runs the /search command and returns a map object with ship names paired with SectorObj's.  It's .size property will be 0 if there were no results.
+
+// serverMessage(MessageString,info/warning/error) - Broadcasts a message to all online players.  If a method is not provided, it uses "plain" which shows on the player's main chat.  Uses: /server_message_broadcast plain/info/warning/error [Message]
+// serverMessageTo(PlayerName/PlayerObj,MessageString,info/warning/error) - Sends a personal message to a specific.  If a method is not provided, it uses "plain" which shows on the player's main chat.  Uses: /server_message_to plain/info/warning/error [PlayerName] [Message]
+
+// shutdown(TimeInSeconds,publicMessageString,CountdownMessageString) - No fields are required, but if no time is given, 10 seconds is default.  If a publicMessageString is given, an announcement is made to the public channel. If CountdownMessageString is provided, then a countdown starts with a message and 1 second before it ends, the actual shutdown is started.  This will allow the server to shut down without auto-restarting.
+
+// Optional: /list_control_Units
+
 
 
 
@@ -332,89 +693,6 @@ function isPidAlive(thePID){
 }
 
 
-// #####################
-// ###    PATTERNS   ###
-// #####################
-// Patterns - This will be to detect things like connections, deaths, etc.  I'm pushing to an array so it's easier to add or remove patterns.
-
-// Include Patterns
-includePatterns.push("^\\[SERVER\\] MAIN CORE STARTED DESTRUCTION"); // This is for ship overheats.  It was implemented with systems 2.0, but it's bugged.  It fires off not only when ships overheat but also when they are destroyed.
-includePatterns.push("^\\[SERVER\\]\\[SPAWN\\]");
-includePatterns.push("^\\[SERVER\\]\\[DISCONNECT\\]"); // Player disconnects
-includePatterns.push("^\\[PLAYER\\]\\[DEATH\\]");
-includePatterns.push("^\\[SERVER\\] PlS\\[");
-includePatterns.push("^\\[SERVER\\]\\[PLAYERMESSAGE\\]");
-includePatterns.push("^\\[CHANNELROUTER\\]"); // These are messages sent from players
-includePatterns.push("^\\[SERVER\\] Object Ship\\[");
-includePatterns.push("^\\[CHARACTER\\]\\[GRAVITY\\] # This is the main gravity change");
-includePatterns.push("^PlayerCharacter\\["); // # This handles killing creatures as a player as well as some wonky gravity changes.  I need to compare this to the main gravity changes to see if I should utilize it or not for that.
-includePatterns.push("^Ship\\[ "); // # This handles killing NPC creatures from a ship and possibly other things.. but I haven't seen anything else in the logs to indicate the "other things"
-includePatterns.push("^SpaceStation\\["); // # This handles killing NPC creatures from a station
-includePatterns.push("^AICharacter\\["); // # This handles NPC creature deaths from other NPC characters
-includePatterns.push("^Sector\\["); // # This handles NPC creature deaths via black hole or star damage
-includePatterns.push("^Planet[(]"); // # This handles NPC creature death via planet
-includePatterns.push("^ManagedAsteroid[(]"); // This handles NPC creature deaths via asteroids that have been modified in some way
-includePatterns.push("^\\[DEATH\\]");
-includePatterns.push("^\\[SPAWN\\]");
-includePatterns.push("^\\[BLUEPRINT\\]"); // Blueprint spawns, including admin spawns.  They can be separated.
-includePatterns.push("^\\[SEGMENTCONTROLLER\\] ENTITY");
-includePatterns.push("^\\[FACTION\\]");
-includePatterns.push("^\\[FACTIONMANAGER\\]");
-includePatterns.push("^\\[SHUTDOWN\\]");  // When the server shuts down naturally
-
-// Exclude Patterns
-excludePatterns.push("^\\[SERVER\\]\\[DISCONNECT\\] Client 'null'"); // These spam all over the damn place so we want to filter them out.
-excludePatterns.push("^\\[SERVER\\]\\[DISCONNECT\\] Client 'Info-Pinger \\(server-lists\\)'"); // Every time someone refreshes their server list from the main menu of the game, all servers have a message on their console.
-excludePatterns.push(".*Narrowphase of Sector.*");
-excludePatterns.push("^\\[BLUEPRINT\\]\\[SPAWNINDB\\]");
-
-// Event found!: Sector[24](2, 2, 1) Narrowphase of Sector[24](2, 2, 1) took: 40; Objects in physics context: 8Arguments: 1
-
-
-
-// Build the regex patterns into compact patterns.
-var includePatternRegexTemp="(" + includePatterns[0];
-for (var i=1;i<includePatterns.length;i++){ includePatternRegexTemp+="|" + includePatterns[i]; }
-includePatternRegexTemp+=")"
-var includePatternRegex=new RegExp(includePatternRegexTemp);
-// console.log("includePatternRegex: " + includePatternRegex + "\n");
-console.log("Include patterns loaded.");
-var excludePatternRegexTemp="(" + excludePatterns[0];
-for (let i=1;i<excludePatterns.length;i++){ excludePatternRegexTemp+="|" + excludePatterns[i]; }
-//for (let e=1;e<excludePatterns.length;e++){ excludePatternRegexTemp+="|" + excludePatterns[e]; }
-excludePatternRegexTemp+=")"
-var excludePatternRegex=new RegExp(excludePatternRegexTemp);
-// console.log("excludePatternRegex: " + excludePatternRegex + "\n");
-console.log("Exclude patterns loaded.");
-
-// console.log("Settings set: " + JSON.stringify(settings));
-
-// Obsolete - This section was originally to load the settings.json file and use "default" values just for testing, this has been replaced by the setSettings.js scripting.
-// try {
-//   settings = require("./settings.json");
-//   console.log("Imported settings values from settings.json.");
-// } catch (ex) {
-//     console.log("Settings.json file not found! Using default values");
-//     settings = { // This is a temporary fallback during testing.  In the future if there is no settings.json file, we'll run an install routine instead to set the values and write the file.
-//       "starMadeFolder": "/home/philip/Programs/StarMade/",
-//       "javaMin": "128m",
-//       "javaMax": "1024m",
-//       "port": "4242"
-//     };
-// }
-
-// Where is an existing StarMade folder
-// What port would you like to use?  (Default 4242):
-
-// Verify that all values are present and give an error if not enough settings are present.
-if (!settings.hasOwnProperty('starMadeFolder') ||
-  !settings.hasOwnProperty('javaMin') ||
-  !settings.hasOwnProperty('javaMax') ||
-  !settings.hasOwnProperty('port')){
-    console.error("ERROR: settings.json file did not contain needed configuration options!  Exiting!");
-    exitNow(2);
-  }
-
 // #########################
 // ###    SERVER START   ###
 // #########################
@@ -422,11 +700,12 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   console.log("Starting server..");
 
   // #####  PLAYER MESSAGES  #####
-  eventEmitter.on('message', function(message) { // Handle messages sent from players
-    console.log("Message DETECTED from " + message.sender + " to " + message.receiver + ": " + message.text);
-    if (message.text == "!command" ){
+  eventEmitter.on('message', function(messageObj) { // Handle messages sent from players
+    // Expects message to be a message type object
+    console.log("Message (type: " + messageObj.type +") DETECTED from " + messageObj.sender.name + " to " + messageObj.receiver.name + ": " + messageObj.text);
+    if (messageObj.text == settings["commandOperator"] + "command" ){
       console.log("!command found bitches!");
-      let mMessage="/server_message_to plain " + message.sender + " 'Melvin: What the fack do you want?'";
+      let mMessage="/server_message_to plain " + messageObj.sender.name + " 'Melvin: What the fack do you want?'";
       server.stdin.write(mMessage.toString().trim() + "\n");
       // server.stdin.end();
     }
@@ -529,13 +808,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
         console.log("receiver: " + receiver);
         console.log("receiverType: " + receiverType);
         console.log("message: " + message);
-        var messageObj={
-          "sender":       sender,
-          "receiver":     receiver,
-          "receiverType": receiverType,
-          "text":         message
-        }
-        eventEmitter.emit('message',messageObj);
+        eventEmitter.emit('message',new MessageObj(sender,receiver,receiverType,message));
 
       } else if (theArguments[0] == "[SERVER][SPAWN]" ) { // Player Spawns
 
@@ -907,109 +1180,8 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
 eventEmitter.on('asyncDone', installDepsSync);
 
 // ####################
-// ###  FUNCTIONS  ####
+// ###  FUNCTIONS  #### -- The standard practice for functions is first write in place, then make a multi-purpose function that handles what you need and can be used elsewhere, then bundle it in a require and change over functionality.  This is to keep the main script at a maintainable length and also have high re-usability value for code created.
 // ####################
-
-// ### INI Stuff ### -- These are helper functions for the Ini NPM package to ensure compatibility with StarMade's ini files
-// Note: in-place comments like /* whatever */ are not supported right now and are annoying and these need to die.
-function getIniFileAsObj(iniFile){ // This loads an ini file as an object
-  return ini.parse(fs.readFileSync(iniFile, 'utf-8' ).replace(/[#]/g,"\\#")); // We need to escape the # characters because otherwise the ini.parse removes them and all text that happens after them.. Annoying if we are preserving the comments!
-}
-function writeIniObjToIni(theObj,iniFileToWrite){ // This sync writes an ini object to an ini file
-  return fs.writeFileSync(iniFileToWrite, ini.stringify(theObj));
-}
-function removeIniComments(text){ // This removes comments from a string
-  return text.match(/^[^/#]*/).toString().trim();
-}
-function getIniValue(iniObj,variable){ // Rather than using removeIniComments on a specific value, this can be used to pull the value.  This is mostly for readability but also to handle errors.
-  if (iniObj && variable){
-    // TODO This needs to use typeof to determine that iniObj is, in fact, an object rather than undefined or something else.
-    if (iniObj.hasOwnProperty(variable)){
-      return removeIniComments(iniObj[variable]);
-    } else {
-      console.error("ERROR: Invalid variable in Ini object - does not exist!");
-      return new Error("ERROR: Invalid variable in Ini object (" + iniObj.constructor.name + ") - does not exist!");
-    }
-  } else {
-    throw new Error("ERROR:  Insufficient parameters given to getIniValue!")
-  }
-}
-function changeIniValue(iniObj,iniVariable,newIniValue){
-  // This function will change an ini object's variable to have a new value, preserving comments
-  // Example of usage:  changeIniObjValue(iniObject,"theVariable","New Words and such")
-  if (typeof iniObj == 'object' && typeof iniVariable == 'string' && typeof newIniValue == 'string'){
-    try {
-      iniObj[iniVariable]=changeIniValueFromString(iniObj[iniVariable],newIniValue);
-      return true;
-    } catch (err) {
-      console.error("ERROR:  Problem while changing variable of Ini object!");
-      return false;
-    }
-  } else {
-    console.error("ERROR: Not enough arguments given to changeIniObjValue!");
-    return false
-  }
-}
-function renameIniVariable(iniObj,oldVar,newVar){
-  if (typeof iniObj == "object" && typeof oldVar == "string" && typeof newVar == "string"){
-    if (oldVar == newVar){
-      return false; // Cannot rename because the oldVar is the same as the new!  Not technically an error, but a sloppy call.
-    } else if (iniObj.hasOwnProperty(oldVar)){
-        iniObj[newVar]=iniObj[oldVar]; // Assign the old variable to the new
-        Reflect.deleteProperty(iniObj,oldVar); // Delete the old variable in an ESLinter friendly way
-        return true; // Indicate we did something, yay!
-    } else {
-      return new Error("ERROR: Object did not have property, '" + oldVar + "'!")
-    }
-  } else {
-    return new Error("ERROR: Invalid parameters given to function renameIniVariable!");
-  }
-}
-
-function getIniComment(iniObj,iniVariable){
-  if (typeof iniObj == 'object' && typeof iniVariable == 'string'){
-    if (iniObj.hasOwnProperty(iniVariable)){
-      return getIniCommentFromString(iniObj[iniVariable]);
-    } else {
-      return new Error("ERROR: Object, '" + iniObj.constructor.name + "' did not have property, '" + iniVariable + "'!")
-    }
-  } else {
-    return new Error("ERROR: Insufficient parameters given to getIniComment!");
-  }
-}
-function getIniCommentFromString(text,commentSymbols){ // Gets just the comment from a string excerpt from an Ini obj.  Comment symbols are optional.
-    var commentSymbolsToUse;
-    if (commentSymbols){
-      commentSymbolsToUse=commentSymbols;
-    } else {
-      commentSymbolsToUse=["//","#"]; // By default we are going to be reading from ini files that use // or # as their comments.
-    }
-    var regexArray=[];
-    for (let i=0;i<commentSymbolsToUse.length;i++){
-      regexArray.push(new RegExp(" *" + commentSymbolsToUse[i] + "+(.+)")); // Preserves spaces in front of the comment
-    }
-    var valToBeat="";
-    for (let e=0;e<regexArray.length;e++){
-      // console.log("Working with regex pattern: " + regexArray[e]);
-      if (regexArray[e].exec(text)){
-        if (!valToBeat){
-          valToBeat=regexArray[e].exec(text)[0];
-        } else if (valToBeat.length < regexArray[e].exec(text)[0].length){
-          valToBeat=regexArray[e].exec(text)[0];
-        }
-      }
-    }
-    return valToBeat;
-}
-function changeIniValueFromString(stringWComments,newVal){
-    // This function takes the existing value + comment, changing the value and returns it with the comment
-    if (stringWComments && newVal){
-      return newVal + getIniCommentFromString(stringWComments);
-    }
-    throw new Error("ERROR: Please specify a string from an ini object and a new value to replace the old one with!");
-}
-// ### end INI STUFF ###
-
 
 function isAlphaNumeric(testString){
   return "/^[A-Za-z0-9]+$/".test(testString);
@@ -1040,7 +1212,7 @@ function getRandomAlphaNumericString(charLength){ // If no charlength given or i
 //   return new Promise((resolve) => setTimeout(resolve, ms));
 // }
 
-function copyObj(obj) { // From:  https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/forEach
+function copyObj(obj) { // This will create a new object from an existing one, rather than linking to the original.  From:  https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/forEach
   const copy = Object.create(Object.getPrototypeOf(obj)); // Ignore the ESLint warnings, it really doesn't know what it's talking about.  I looked into it, it's suggesting to use functions of Reflect that don't exist.
   const propNames = Object.getOwnPropertyNames(obj);
   propNames.forEach(function(name) {
@@ -1067,6 +1239,8 @@ function writeSettings() {
 function touch (file){ // This creates an empty file quickly.
   fs.closeSync(fs.openSync(file, 'w'));
 }
+
+// TODO: consolidate file deletion, there is literally no reason to have 2 delete functions.
 function simpleDelete (file) { // Simple delete which doesn't resolve paths nor break out of the scripting by throwing an error.  It also does not display anything unless there is an error.
   try {
     fs.unlinkSync(file);
@@ -1075,21 +1249,22 @@ function simpleDelete (file) { // Simple delete which doesn't resolve paths nor 
     console.error("File, " + file + ", cannot be deleted.");
   }
 }
-
 function ensureDelete (fileToDelete,options){
   // Resolves files to use main script path as root if given relative path.
   // Also throws an error if it cannot delete the file.
-  // Default behavior is to be quite, unless "quiet" is set to "false" from an options object.
-  var console={};
+  // Default behavior is to be quiet, unless "quiet" is set to "false" from an options object.
+  var console=console; // This is to replace the functionality of console, JUST for this function
   if (options) {
     if (options.hasOwnProperty("quiet")){
        if (options.quiet != false) {
-         console.log("Setting up scoped console to disable it.");
-         console.log=function(){ /* empty on purpose */ };
+         // console.log("Setting up scoped console to disable it.");
+         console={};
+         console.log=function(){ /* empty on purpose */ }; // This is really just an experiment for future reference with modifying console.log to see if it's possible to make an entire script quiet
          console.error=function(){ /* empty on purpose */ };
        }
     }
   } else {
+    console={};
     console.log=function(){ /* empty on purpose */ };
     console.error=function(){ /* empty on purpose */ };
   }
@@ -1221,6 +1396,8 @@ function preDownload(httpURL,fileToPlace){ // This function handles the pre-down
 }
 
 function testMatch(valToCheck) { // This function will be called on EVERY line the wrapper outputs to see if the line matches a known event or not.
+  // TODO: It would be much better to simply run the match, then forward for processing, rather than running a test and processing the matches against it.
+  // So really this should simply be replaced with a "getMatch" function
   if (includePatternRegex.test(valToCheck)){
     if (!excludePatternRegex.test(valToCheck)){
       return true;
@@ -1233,6 +1410,7 @@ function testMatch(valToCheck) { // This function will be called on EVERY line t
 }
 
 function spawnStarMadeInstallTo(pathToInstall,installerJar){  // This always requires the installerJar path because this will be offloaded to a require later.
+  // This needs to be able to use a Jar file or .exe file, depending on the OS.
   try {
     var starMadeInstallFolder=getSMInstallPath(pathToInstall);
   } catch (err) {
@@ -1264,6 +1442,7 @@ function spawnStarMadeInstallTo(pathToInstall,installerJar){  // This always req
 }
 
 function verifyInstall (pathToSMInstall){
+  // TODO: Add a more comprehensive check here.. Should at least check for a StarMade.jar file..
   try {
     var pathToUse=getSMInstallPath(pathToSMInstall);
   } catch (err) {
@@ -1320,11 +1499,12 @@ function getSMInstallPath(thePath){
 }
 
 async function getSuperAdminPassword(starMadeInstallPath){ // This will grab the superadmin password, setting it up and enabling it if not already.
+  // TODO: Offload this to a require
   // Load the server.cfg from install path
   var serverCfgFile=path.join(starMadeInstallPath,"StarMade","server.cfg");
-  var serverCfgObj=getIniFileAsObj(serverCfgFile);
-  var superAdminPassword=removeIniComments(serverCfgObj["SUPER_ADMIN_PASSWORD"]);
-  var superAdminPasswordEnabled=removeIniComments(serverCfgObj["SUPER_ADMIN_PASSWORD_USE"]);
+  var serverCfgObj=ini.getFileAsObj(serverCfgFile);
+  var superAdminPassword=ini.getVal(serverCfgObj,"SUPER_ADMIN_PASSWORD");
+  var superAdminPasswordEnabled=ini.getVal(serverCfgObj,"SUPER_ADMIN_PASSWORD_USE");
   if (superAdminPasswordEnabled){ // Only perform .toLowerCase() if the value exists to avoid crashing the script.
     superAdminPasswordEnabled=superAdminPasswordEnabled.toLowerCase();
   }
@@ -1342,20 +1522,20 @@ async function getSuperAdminPassword(starMadeInstallPath){ // This will grab the
     } else { console.log("Alrighty then.  I'll just use what you provided!") };
     await sleep(2000);
     // serverCfgObj["SUPER_ADMIN_PASSWORD"]=keepIniComment(serverCfgObj["SUPER_ADMIN_PASSWORD"],newSuperAdminPassword);
-    changeIniValue(serverCfgObj,"SUPER_ADMIN_PASSWORD",newSuperAdminPassword);
+    ini.setVal(serverCfgObj,"SUPER_ADMIN_PASSWORD",newSuperAdminPassword);
     if (superAdminPasswordEnabled == "false") {
       console.log("Super Admin Password was disabled, enabling!");
       // serverCfgObj["SUPER_ADMIN_PASSWORD_USE"]=keepIniComment(serverCfgObj["SUPER_ADMIN_PASSWORD_USE"],"true");
-      changeIniValue(serverCfgObj,"SUPER_ADMIN_PASSWORD_USE","true");
+      ini.setVal(serverCfgObj,"SUPER_ADMIN_PASSWORD_USE","true");
     }
-    writeIniObjToIni(serverCfgObj,serverCfgFile);
+    ini.writeObjToFile(serverCfgObj,serverCfgFile);
   } else if (superAdminPasswordEnabled != "true"){ // Enable super admin password if it was disabled for some reason.
     console.log("Super Admin Password was disabled, enabling!");
     // serverCfgObj["SUPER_ADMIN_PASSWORD_USE"]=keepIniComment(serverCfgObj["SUPER_ADMIN_PASSWORD_USE"],"true");
-    changeIniValue(serverCfgObj,"SUPER_ADMIN_PASSWORD_USE","true");
-    writeIniObjToIni(serverCfgObj,serverCfgFile);
+    ini.setVal(serverCfgObj,"SUPER_ADMIN_PASSWORD_USE","true");
+    ini.writeObjToFile(serverCfgObj,serverCfgFile);
   }
-  return removeIniComments(serverCfgObj["SUPER_ADMIN_PASSWORD"]);
+  return ini.getVal(serverCfgObj,"SUPER_ADMIN_PASSWORD");
 }
 
 function addServerPID (serverPID){
@@ -1482,6 +1662,7 @@ writeLockFile(); // This is to prevent this script from running multiple times o
 // ### CREATE NEEDED FOLDERS  ###
 // ##############################
 
+ensureFolderExists(modFolder);
 ensureFolderExists(binFolder);
 ensureFolderExists(starMadeInstallFolder); // This is redundant to handle if the person deletes or moves their StarMade install folder.
 
@@ -1502,21 +1683,13 @@ asyncOperation("end");
 // ### Sync downloads/installs ### -- When async installs/downloads are finished, this function will be called.
 async function installDepsSync() {
   // ### Only syncronous installs here ### e.g. await installRoutine();
-  await spawnStarMadeInstallTo(settings["starMadeFolder"],starMadeInstaller);
-  await verifyInstall(settings["starMadeFolder"]);
-
-  // Check the super admin password and set up if not configured.
-  var superAdminPassword = await getSuperAdminPassword(settings["starMadeFolder"]);
+  await spawnStarMadeInstallTo(settings["starMadeFolder"],starMadeInstaller); // Does not create config files upon install.
+  await verifyInstall(settings["starMadeFolder"]); // Creates config files if they don't exist
+  var superAdminPassword = await getSuperAdminPassword(settings["starMadeFolder"]); // Check the super admin password and set up if not configured.
   console.debug("Using superAdminPassword: " + superAdminPassword); // Temporary, just for testing.  We don't want to print this to the screen normally.
 
-  serverCfg = getIniFileAsObj(starMadeServerConfigFile); // Import the server.cfg values to an object.  These should be the final values.  Any settings changes to the file should be completed before this is loaded.  Note that this KEEPS comments in the value!
-  // Use Ini functions to handle the the ini object:
-  // Get a value + comments: serverCfg["WHATEVER"]
-  // Get an individual value WITHOUT comment:  getIniValue(serverCfg,"whatever");
-  // Get JUST the comment: getIniComment(servercfg,"whatever");
-  // Change an individual value PRESERVING comments: changeIniValue(serverCfg,"Variable","New Value");
-  // Rename a Variable: renameIniVariable(serverCfg,"oldVar","newVar");
-  // Write ini object to disk: writeObjToIni(serverCfg,starMadeServerCfgFile);
+  serverCfg = ini.getFileAsObj(starMadeServerConfigFile); // Import the server.cfg values to an object.  These should be the final values.  Any settings changes to the file should be completed before this is loaded.  Note that this KEEPS comments in the value!
+  // Use Ini functions from the iniHelperjs to handle the the ini object.  See bottom of the file for the full list.
 
   if (serverCfg){
     console.log("Server config loaded: " + starMadeServerConfigFile);
