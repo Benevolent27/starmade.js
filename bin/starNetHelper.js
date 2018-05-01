@@ -40,7 +40,11 @@ if (require.main.filename == __filename){ // This is so it only runs based on ar
       theResult=getEntityValue(theArguments[0],theArguments[1]);
       console.log("Result: " + theResult);
     } else {
-      theResult=starNet("/ship_info_uid " + theArguments[0]);
+      if (theArguments[2]){
+        theResult=starNet("/ship_info_uid " + theArguments[0] + " " + new Error("Thanks")); // This is to create malformed requests for testing purposes.
+      } else {
+        theResult=starNet("/ship_info_uid " + theArguments[0]);
+      }
       // ENTITY_SHIP_Hello_There
       if (theResult){
         // console.log("Result found: ");
@@ -49,7 +53,7 @@ if (require.main.filename == __filename){ // This is so it only runs based on ar
         console.debug("Starting Mapify on results..");
         var theMap=mapifyEntityInfoUIDString(theResult);
         if (theMap){
-          console.log("Map output: ")
+          console.log("\nMap output: ")
           // console.dir(theMap);
           for (let key of theMap.keys()){
             // console.log("Key length: " + key.length);
@@ -69,30 +73,33 @@ if (require.main.filename == __filename){ // This is so it only runs based on ar
             }
             console.log("Key: " + key + tabCount1 + "\tVal: " + theMap.get(key) + tabCount2 + "\ttypeof: " + theType);
           }
-          console.log("\nJust DatabaseEntry: ");
-          // console.dir(theMap.get("DatabaseEntry"));
-          // console.log("\nKey types of values:");
-          for (let key of theMap.get("DatabaseEntry").keys()){
-            let tabCount1=key.length > 10?"":"\t";
+          if (theMap.has("DatabaseEntry")){
+            console.log("\n\nDatabaseEntry Values: ");
+            // console.dir(theMap.get("DatabaseEntry"));
+            // console.log("\nKey types of values:");
+            for (let key of theMap.get("DatabaseEntry").keys()){
+              let tabCount1=key.length > 10?"":"\t";
 
-            let theVal=theMap.get("DatabaseEntry").get(key);
-            let theType=typeof theMap.get("DatabaseEntry").get(key);
-            if (theType == "object"){
-              if (Array.isArray(theMap.get("DatabaseEntry").get(key))){
-                theType="array";
+              let theVal=theMap.get("DatabaseEntry").get(key);
+              let theType=typeof theMap.get("DatabaseEntry").get(key);
+              if (theType == "object"){
+                if (Array.isArray(theMap.get("DatabaseEntry").get(key))){
+                  theType="array";
+                }
+              }
+              console.log("Key: " + key + tabCount1 + " \tType: " + theType + "\t Value: " + theMap.get("DatabaseEntry").get(key));
+              if (theType=="array"){
+                theVal.forEach(function(val){
+                  let tabCount2="";
+                  if (val.toString().length < 4){
+                    tabCount2="\t";
+                  }
+                  console.log("\tSubvalue: " + val + tabCount2 + " \tType: " + typeof val);
+                });
               }
             }
-            console.log("Key: " + key + tabCount1 + " \tType: " + theType + "\t Value: " + theMap.get("DatabaseEntry").get(key));
-            if (theType=="array"){
-              theVal.forEach(function(val){
-                let tabCount2="";
-                if (val.toString().length < 4){
-                  tabCount2="\t";
-                }
-                console.log("\tSubvalue: " + val + tabCount2 + " \tType: " + typeof val);
-              });
-            }
-
+          } else {
+            console.log("No DatabaseEntry found.");
           }
         }
       }
@@ -215,9 +222,11 @@ function mapifyEntityInfoUIDString(responseStr){
     console.debug("Using responseStr: " + responseStr);
     var results=responseStr.split("\n");
     console.debug("Results found!");
-    var loadedValueReg=new RegExp("^RETURN: [[]SERVER, [a-zA-Z()-]+: .+");
-    var entityNotExistReg=new RegExp("RETURN: [[]SERVER, UID also");
-    var entityNotExistInDBReg=new RegExp("RETURN: [[]SERVER, UID Not");
+    var loadedValueReg=new RegExp("^RETURN: \\[SERVER, [a-zA-Z()-]+: .+");
+    var entityNotExistReg=new RegExp("RETURN: \\[SERVER, UID also");
+    var entityNotExistInDBReg=new RegExp("RETURN: \\[SERVER, UID Not");
+    var malformedRequestReg=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] \\[ERROR\\]");
+
     var returnMap=new Map();
     // Cycle through all the lines, populating the object with each value.
     for (let i=0;i<results.length;i++){
@@ -245,7 +254,12 @@ function mapifyEntityInfoUIDString(responseStr){
           returnMap.set("existsInDB",false);
       } else if (entityNotExistReg.test(results[i])){
         returnMap.set("exists",false);
+      } else if (malformedRequestReg.test(results[i])){
+        console.error("ERROR: Malformed request!")
+        returnMap.set("malformedRequest",true);
+        break;
       } else {
+        console.log("Setting type to: " + results[i]);
         // This should only ever fire off for the last line, which might say something like "Ship" or "Station"
         // We need to ignore the line that will be "END; Admin command execution ended"
         let testVal=cleanRegularValue(results[i]);
@@ -268,6 +282,7 @@ function getEntityValue(uidOrShipObj,valueString){
   // The secondary goal is to make it so this can pull values from the DatabaseEntry if loaded info is not available, without having to load the sector.
   // The tertiary goal is to load a sector prior to trying to pull the value if the ship is currently not loaded.
   var shipNotExistMsg="Ship does not appear to exist!  Cannot get value of '" + valueString + "'!"
+  var malformedRequestMsg="ERROR: Could not get value, '" + valueString + "' because the request was malformed!";
   var uidToUse;
   var returnVal;
   if (typeof uidOrShipObj == "object"){
@@ -300,7 +315,12 @@ function getEntityValue(uidOrShipObj,valueString){
         returnVal=resultMap.get("DatabaseEntry").get(nameMap[valueString]);
         console.log("Ship not loaded.  Translated query of '" + valueString + "' to the DatabaseEntry value, '" + nameMap[valueString] + "'.");
       } else { // If it doesn't exist in the DB, then there is no way to load the ship, even if it exists but is not in the database yet, so we are forced to return undefined.
-        console.log(shipNotExistMsg);
+        if (resultMap.get("malformedRequest")){
+          console.log(malformedRequestMsg);
+        } else {
+          console.log(shipNotExistMsg);
+        }
+
       }
     } else {
       // If the entity is not loaded and the value doesn't translate to a DatabaseEntry value, then let's try loading the sector before returning it.
@@ -327,6 +347,8 @@ function getEntityValue(uidOrShipObj,valueString){
           starNet("/load_sector_range " + theSectorString + " " + theSectorString);
           returnVal=getEntityValue(uidToUse,valueString); // Try again till successful.  This will cause an infinite loop while the sector is unloaded.
         }
+      } else if (resultMap.get("malformedRequest")){
+          console.log(malformedRequestMsg);
       } else {
         console.log(shipNotExistMsg);
       }
