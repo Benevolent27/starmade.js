@@ -275,6 +275,22 @@ function mapifyEntityInfoUIDString(responseStr){
   }
 }
 
+function ShipInfoUidObj(uidOrShipObj){
+  var uidToUse;
+  if (typeof uidOrShipObj == "object"){
+    if (uidOrShipObj.hasOwnProperty("uid")){ // This grabs the UID of a ship object that might be fed to this function
+      uidToUse=uidOrShipObj["uid"];
+    }
+  } else if (typeof uidOrShipObj == "string"){
+    uidToUse=uidOrShipObj;
+  }
+  if (uidToUse){
+    var starNetResult=starNet("/ship_info_uid " + uidToUse)
+    return mapifyEntityInfoUIDString(starNetResult);
+  } else {
+    throw new Error("ERROR: Invalid parameters given to 'ShipInfoUIDObj'!");
+  }
+}
 
 
 function getEntityValue(uidOrShipObj,valueString){
@@ -314,17 +330,13 @@ function getEntityValue(uidOrShipObj,valueString){
       if (resultMap.get("existsInDB") == true){
         returnVal=resultMap.get("DatabaseEntry").get(nameMap[valueString]);
         console.log("Ship not loaded.  Translated query of '" + valueString + "' to the DatabaseEntry value, '" + nameMap[valueString] + "'.");
-      } else { // If it doesn't exist in the DB, then there is no way to load the ship, even if it exists but is not in the database yet, so we are forced to return undefined.
-        if (resultMap.get("malformedRequest")){
+      } else if (resultMap.get("malformedRequest" == true)){
           console.log(malformedRequestMsg);
-        } else {
-          console.log(shipNotExistMsg);
-        }
-
+      } else {
+        console.log(shipNotExistMsg);
+        // If it doesn't exist in the DB, then there is no way to load the ship, even if it exists but is not in the database yet, so we are forced to return undefined.
       }
-    } else {
-      // If the entity is not loaded and the value doesn't translate to a DatabaseEntry value, then let's try loading the sector before returning it.
-      if (resultMap.get("existsInDB") == true){
+    } else if (resultMap.get("existsInDB") == true){
         // console.log("Ship not loaded. Returning value from DatabaseEntry.");
         let theSector=resultMap.get("DatabaseEntry").get("sectorPos");
         let theSectorString;
@@ -337,7 +349,7 @@ function getEntityValue(uidOrShipObj,valueString){
               theSectorString=theSector[i].toString();
             }
           } else {
-            // invalid coordinates were found
+            // invalid coordinates were found, so break out of the loop and allow the script to return undefined.
             tryAgain=false;
             break;
           }
@@ -347,11 +359,10 @@ function getEntityValue(uidOrShipObj,valueString){
           starNet("/load_sector_range " + theSectorString + " " + theSectorString);
           returnVal=getEntityValue(uidToUse,valueString); // Try again till successful.  This will cause an infinite loop while the sector is unloaded.
         }
-      } else if (resultMap.get("malformedRequest")){
-          console.log(malformedRequestMsg);
-      } else {
-        console.log(shipNotExistMsg);
-      }
+    } else if (resultMap.get("malformedRequest")){
+        console.error(malformedRequestMsg);
+    } else {
+      console.error(shipNotExistMsg);
     }
     return returnVal; // Returns undefined if no value was present.
   } else {
@@ -486,6 +497,8 @@ function getEntityValueOLD(uidOrShipObj,valueString){ // This was my first attem
   }
 }
 module.exports={
-  "mapifyEntityInfoUIDString":mapifyEntityInfoUIDString,
-  "getCoordsAndReturnNumArray":getCoordsAndReturnNumArray
+  "mapifyShipInfoUIDString":mapifyEntityInfoUIDString,
+  "getCoordsAndReturnNumArray":getCoordsAndReturnNumArray,
+  "getEntityValue":getEntityValue,
+  "ShipInfoUidObj":ShipInfoUidObj
 }
