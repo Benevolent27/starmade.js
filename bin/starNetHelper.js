@@ -2,7 +2,21 @@ var path=require('path');
 var binFolder=path.resolve(__dirname,"../bin/");
 var starNet=require(path.join(binFolder,"starNet.js"));
 
-var nameMap={ // This is for mapping LOADED values from DatabaseEntry values when using the /entity_info_uid command to get equivalent data
+// TODO: Add support for if a person inputs a UID for a ship that does not exist.  Perhaps add an "exists" value and set to true if data is retrieved, false if not.
+// Example for a ship that does not exist:  node starNet.js "/ship_info_uid ENTITY_SHIP_Hello_There34"
+// RETURN: [SERVER, Loaded: false, 0]
+// RETURN: [SERVER, UID Not Found in DB: ENTITY_SHIP_Hello_There34; checking unsaved objects, 0]
+// RETURN: [SERVER, UID also not found in unsaved objects, 0]
+// RETURN: [SERVER, END; Admin command execution ended, 0]
+
+// TODO: Add support for malformed requests.  Example: node starNet.js "/ship_info_uid ENTITY_SHIP_Hello_There34 blah"
+// RETURN: [SERVER, [ADMIN COMMAND] [ERROR] you need to provide the full UID (e.g. ENTITY_SHIP_RESTOFUID), 0]
+// RETURN: [SERVER, END; Admin command execution ended, 0]
+
+// TODO: Fix it so "type" is only set IF it finds a valid type value..  I'll need to check the values for all entity types that might appear.
+
+
+var nameMap={ // This is for mapping LOADED values to DatabaseEntry values, since these values can be safely pulled instead of having to load the sector the entity is in.
   "LastModified":"lastModifier",
   "Creator":"spawner",
   "Sector":"sectorPos",
@@ -202,14 +216,21 @@ function mapifyEntityInfoUIDString(responseStr){
     var results=responseStr.split("\n");
     console.debug("Results found!");
     var loadedValueReg=new RegExp("^RETURN: [[]SERVER, [a-zA-Z()-]+: .+");
+    var entityNotExistReg=new RegExp("RETURN: [[]SERVER, UID also");
+    var entityNotExistInDBReg=new RegExp("RETURN: [[]SERVER, UID Not");
     var returnMap=new Map();
     // Cycle through all the lines, populating the object with each value.
     for (let i=0;i<results.length;i++){
       console.debug("Working on result: " + results[i]);
       if (/^RETURN: \[SERVER, Loaded: [a-zA-Z]+/.test(results[i])){ // This is treated specially because it's the only value that should be a boolean
-        returnMap.set("loaded",toBoolean(cleanRegularValue(results[i]).replace(/^Loaded: /,"").toString()));
+        let loadedVal=toBoolean(cleanRegularValue(results[i]).replace(/^Loaded: /,"").toString());
+        returnMap.set("loaded",loadedVal);
+        if (loadedVal == true){
+          returnMap.set("exists",true);
+        }
       } else if (/^RETURN: \[SERVER, DatabaseEntry \[/.test(results[i])){  // This is only for the DatabaseEntry line, which needs to be treated specially to produce a DatabaseEntry map
         returnMap.set("DatabaseEntry", mapifyDatabaseEntry(results[i]));
+        returnMap.set("existsInDB",true);
       } else if (loadedValueReg.test(results[i])){ // This applies to values like "Sector"
           let cleanedVal=cleanRegularValue(results[i]); // This should look something like "Name: Hello_There"
           var tempArray=cleanedVal.split(": "); // This should preserve spaces preceding or trailing the "name" of a ship
@@ -220,6 +241,10 @@ function mapifyEntityInfoUIDString(responseStr){
             tempArray[1]=getCoordsAndReturnNumArray(tempArray[1],4); // 4 values are expected, so the getCoords needs to know this to match properly
           }
           returnMap.set(tempArray[0],tempArray[1]);
+      } else if (entityNotExistInDBReg.test(results[i])){
+          returnMap.set("existsInDB",false);
+      } else if (entityNotExistReg.test(results[i])){
+        returnMap.set("exists",false);
       } else {
         // This should only ever fire off for the last line, which might say something like "Ship" or "Station"
         // We need to ignore the line that will be "END; Admin command execution ended"
@@ -242,6 +267,7 @@ function getEntityValue(uidOrShipObj,valueString){
   // The goal of this is to find a value without creating a full map of everything, stopping once the value is found, so it is as efficient as possible.
   // The secondary goal is to make it so this can pull values from the DatabaseEntry if loaded info is not available, without having to load the sector.
   // The tertiary goal is to load a sector prior to trying to pull the value if the ship is currently not loaded.
+  var shipNotExistMsg="Ship does not appear to exist!  Cannot get value of '" + valueString + "'!"
   var uidToUse;
   var returnVal;
   if (typeof uidOrShipObj == "object"){
@@ -267,30 +293,42 @@ function getEntityValue(uidOrShipObj,valueString){
       returnVal=resultMap.get("loaded");
     } else if (nameMap.hasOwnProperty(valueString)){
       // If the ship is not loaded, but a database entry exists, we should be able return that value
-      console.log("Ship not loaded.  Translated query of '" + valueString + "' to '" + nameMap[valueString] + "'.");
-      returnVal=resultMap.get("DatabaseEntry").get(nameMap[valueString]);
-    } else {
-      // If the sector is not loaded and the value doesn't translate to a DatabaseEntry value, then let's try loading the sector before returning it.
-      let theSector=resultMap.get("DatabaseEntry").get("sectorPos");
-      let theSectorString;
-      var tryAgain=true;
-      for (let i=0;i<theSector.length;i++){
-        if (typeof theSector[i] == "number"){
-          if (theSectorString){
-            theSectorString+=" " + theSector[i].toString();
-          } else {
-            theSectorString=theSector[i].toString();
-          }
-        } else {
-          // invalid coordinates were found
-          tryAgain=false;
-          break;
-        }
+      // console.dir(resultMap);
+      // resultMap.existsInDB // will only be true if DatabaseEntry was found
+      // resultMap.exists // Will only be true if data was found besides the "loaded" value
+      if (resultMap.get("existsInDB") == true){
+        returnVal=resultMap.get("DatabaseEntry").get(nameMap[valueString]);
+        console.log("Ship not loaded.  Translated query of '" + valueString + "' to the DatabaseEntry value, '" + nameMap[valueString] + "'.");
+      } else { // If it doesn't exist in the DB, then there is no way to load the ship, even if it exists but is not in the database yet, so we are forced to return undefined.
+        console.log(shipNotExistMsg);
       }
-      if (tryAgain==true){
-        console.log("Value only available when sector is loaded.  Loading sector, " + theSectorString + ", and trying again.." + new Date());
-        starNet("/load_sector_range " + theSectorString + " " + theSectorString);
-        returnVal=getEntityValue(uidToUse,valueString); // Try again till successful.  This will cause an infinite loop while the sector is unloaded.
+    } else {
+      // If the entity is not loaded and the value doesn't translate to a DatabaseEntry value, then let's try loading the sector before returning it.
+      if (resultMap.get("existsInDB") == true){
+        // console.log("Ship not loaded. Returning value from DatabaseEntry.");
+        let theSector=resultMap.get("DatabaseEntry").get("sectorPos");
+        let theSectorString;
+        var tryAgain=true;
+        for (let i=0;i<theSector.length;i++){
+          if (typeof theSector[i] == "number"){
+            if (theSectorString){
+              theSectorString+=" " + theSector[i].toString();
+            } else {
+              theSectorString=theSector[i].toString();
+            }
+          } else {
+            // invalid coordinates were found
+            tryAgain=false;
+            break;
+          }
+        }
+        if (tryAgain==true){
+          console.log("Value only available when sector is loaded.  Loading sector, " + theSectorString + ", and trying again.." + new Date());
+          starNet("/load_sector_range " + theSectorString + " " + theSectorString);
+          returnVal=getEntityValue(uidToUse,valueString); // Try again till successful.  This will cause an infinite loop while the sector is unloaded.
+        }
+      } else {
+        console.log(shipNotExistMsg);
       }
     }
     return returnVal; // Returns undefined if no value was present.
