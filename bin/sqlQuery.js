@@ -11,12 +11,12 @@ if (__filename == require.main.filename){ // Only run starnet with command line 
   if (clArguments){
     for (let i=0;i<clArguments.length;i++){
       // console.log("Running starnet on argument: " + clArguments[i]);
-      var theQuery=getSQLquery(clArguments[i]);
+      var theQuery=clArguments[i];
       console.log("Running with query: " + theQuery);
-      var theResults=starNet(theQuery);
+      var theResults=new SqlQueryObj(theQuery);
       console.log("Results:");
-      // console.dir(theResults);
-      console.dir(arrayFromColumnsAndAllData(theResults["columns"],theResults["data"]));
+      console.dir(theResults);
+      // console.dir(arrayFromColumnsAndAllData(theResults["columns"],theResults["data"]));
     }
   }
 }
@@ -30,24 +30,40 @@ function SqlQueryObj(sqlQuery){
   // this.query="/sql_query \"" + sqlQuery + "\"";
   this.query=getSQLquery(sqlQuery);
   this.time=Date.now();
-  // This will be a rather complicated constructor, returning an array of objects or maps each with individual values
-  // This should return an error object if the query is invalid.
-  // This may need to run an outside script to function properly.
 
-  // TODO: Info
-  // columns - Returns an array of the columns returned
-  // data - returns an array of maps or objects containing the results.  Size will be 0 if no results were returned.
-
-  // Here is some pseudo code as I think outloud
-  // var getColumns=["one","Two","three"];
-  // var getData=[["blah","bleh","Blargh"],["blah","bleh","Blargh"],["blah","bleh","Blargh"]];
-
-  var theResults=starNet(theQuery);
+  // console.log("Running SQL query: " + theQuery);
+  var resultsStr=starNet(theQuery);
+  // console.log("Raw results: " + resultsStr);
+  var tempArray=[];
+  tempArray=resultsStr.split("\n");
+  // console.log("\nBefore Trimming: ");
+  // console.dir(tempArray);
+  // Trim the top
+  while (tempArray.length > 0 && !(/^RETURN: \[SERVER, SQL#/).test(tempArray[0])){
+    tempArray.shift();
+  }
+  // Trim the bottom
+  while (tempArray.length > 0 && !(/^RETURN: \[SERVER, SQL#/).test(tempArray[tempArray.length-1])){
+    tempArray.pop();
+  }
+  for (let i=0;i<tempArray.length;i++){
+    tempArray[i]=tempArray[i].replace(/(^RETURN: \[SERVER, SQL#[0-9]+: ")|(", 0\]$)/g,"").split('";"');
+  }
+  var theResults=new ReturnObj(tempArray);
   if (theResults){
-    this.data=arrayFromColumnsAndAllData(theResults["columns"],theResults["data"]);
+    this.dataMap=mapifyColumnsAndAllData(theResults["columns"],theResults["data"]);
+    this.columns=theResults["columns"];
+    this.data=theResults["data"];
   }
 }
-function arrayFromColumnsAndAllData(columnArray,dataArray){ // this assists the SQL query constructor
+
+function ReturnObj(theArray){
+  var tempArray=theArray;
+  this.columns=tempArray.shift();
+  this.data=tempArray;
+}
+
+function mapifyColumnsAndAllData(columnArray,dataArray){ // this assists the SQL query constructor
   // dataArray should be an array of nested arrays
   var tempArray=[];
   for (let e=0;e<dataArray.length;e++){
@@ -63,6 +79,12 @@ function mapFromColumnsAndDataSet(columnData,data){ // this assists the SQL quer
   }
   return tempMap;
 }
+
+module.exports={ // I have no idea if this will work or not..
+  SqlQueryObj,
+  mapifyColumnsAndAllData:mapifyColumnsAndAllData
+};
+
 
 // Temporary just to show results
 // process.on('exit', function(){
