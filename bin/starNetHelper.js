@@ -2,16 +2,20 @@ var path=require('path');
 var binFolder=path.resolve(__dirname,"../bin/");
 var starNet=require(path.join(binFolder,"starNet.js"));
 
+// The goal of this import is to provide all the functions needed for object methods
+// Done:
+// /ship_info_uid [UID]
+
 // Example ship UID: ENTITY_SHIP_Hello_There
 
-// TODO: Add support for if a person inputs a UID for a ship that does not exist.  Perhaps add an "exists" value and set to true if data is retrieved, false if not.
+// TODO- DONE: Add support for if a person inputs a UID for a ship that does not exist.  Perhaps add an "exists" value and set to true if data is retrieved, false if not.
 // Example for a ship that does not exist:  node starNet.js "/ship_info_uid ENTITY_SHIP_Hello_There34"
 // RETURN: [SERVER, Loaded: false, 0]
 // RETURN: [SERVER, UID Not Found in DB: ENTITY_SHIP_Hello_There34; checking unsaved objects, 0]
 // RETURN: [SERVER, UID also not found in unsaved objects, 0]
 // RETURN: [SERVER, END; Admin command execution ended, 0]
 
-// TODO: Add support for malformed requests.  Example: node starNet.js "/ship_info_uid ENTITY_SHIP_Hello_There34 blah"
+// TODO - DONE: Add support for malformed requests.  Example: node starNet.js "/ship_info_uid ENTITY_SHIP_Hello_There34 blah"
 // RETURN: [SERVER, [ADMIN COMMAND] [ERROR] you need to provide the full UID (e.g. ENTITY_SHIP_RESTOFUID), 0]
 // RETURN: [SERVER, END; Admin command execution ended, 0]
 
