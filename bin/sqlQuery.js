@@ -1,6 +1,5 @@
 
 const path=require('path');
-const child=require('child_process');
 
 var binFolder=path.resolve(__dirname);
 var starNet=require(path.resolve(binFolder,"starNet.js"));
@@ -20,9 +19,8 @@ if (__filename == require.main.filename){ // Only run starnet with command line 
     }
   }
 }
-var lineCount=0;
 
-function getSQLquery(query){
+function getSQLquery(query){ // This will preprocess a query so that it should work with starNet.js to run correctly.
   return "/sql_query \"" + query + "\"";
 }
 function SqlQueryObj(sqlQuery){
