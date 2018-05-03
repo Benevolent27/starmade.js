@@ -221,10 +221,8 @@ function getInit() {
 
 getInit();
 function unloadModCommands(mod){
+  // TODO: Figure out how I want all this organized so it can be loaded or unloaded at will
   var theMod=commandsMap.get(mod);
-
-
-
 }
 
 
