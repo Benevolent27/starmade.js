@@ -1,6 +1,8 @@
 var path=require('path');
 var binFolder=path.resolve(__dirname,"../bin/");
 var starNet=require(path.join(binFolder,"starNet.js"));
+var objHelper=require(path.join(binFolder,"objectHelper.js"));
+
 
 // The goal of this import is to provide all the functions needed for object methods
 // Done:
@@ -115,23 +117,7 @@ if (require.main.filename == __filename){ // This is so it only runs based on ar
   }
 }
 
-
-
-function toBoolean(input){ // The main purpose of this function is to convert strings of "false" to literal false, rather than them being returned as truthy.
-  console.debug("Testing for Boolean: " + input);
-  return input=="false" ? false : Boolean(input);
-}
-
-function toNumIfPossible(input){
-  var output=Number(input);
-  if (isNaN(output)){
-    return input;
-  }
-  return output;
-}
-
-
-function mapifyDatabaseEntry(databaseEntryStr){
+function mapifyDatabaseEntry(databaseEntryStr){ // This will always return a map.  Options, such as returning an object should only be done when assembling and returning values
   // Takes a string, which is the line containing a "DatabaseEntry" set of data and returns a map
   var theLine;
   var tempArray=[];
@@ -150,9 +136,9 @@ function mapifyDatabaseEntry(databaseEntryStr){
         if (key == "sectorPos" || key == "pos" || key == "minPos" || key == "maxPos"){
           tempMap.set(key,getCoordsAndReturnNumArray(tempMap.get(key)));
         } else if (key == "type" || key == "seed" || key == "faction" || key == "creatorID"){
-          tempMap.set(key,toNumIfPossible(tempMap.get(key)));
+          tempMap.set(key,objHelper.toNumIfPossible(tempMap.get(key)));
         } else if (key == "touched"){
-          tempMap.set(key,toBoolean(tempMap.get(key)));
+          tempMap.set(key,objHelper.toBoolean(tempMap.get(key)));
         }
       }
       return tempMap;
@@ -204,7 +190,7 @@ function getCoordsAndReturnNumArray(inputStr,numsExpected){ // If no
     if (tempStr){ // tempStr will be null if no match was found.
       returnArray=tempStr.toString().split(", "); // match returns an object, so we set it to a string first, then split it for the desired array.
       for (let i=0;i<returnArray.length;i++){ // Convert all strings and any E values to decimal before we return the array
-        returnArray[i]=toNumIfPossible(returnArray[i]);
+        returnArray[i]=objHelper.toNumIfPossible(returnArray[i]);
       }
       return returnArray;
     } else {
@@ -215,12 +201,21 @@ function getCoordsAndReturnNumArray(inputStr,numsExpected){ // If no
   }
 }
 
-function mapifyEntityInfoUIDString(responseStr){
+function mapifyEntityInfoUIDString(responseStr,options){ // options are optional.  Allows a setting to return objects instead of maps, which are easier to write to a .json file if nested.
   // The goal here is to take the response of a /entity_info_uid command and turn it into an Map object with nested values
   // Special considerations:
   // The last line is the "type"
   // The DatabaseEntry value will be processed into a map of it's own and nested
   // entries that are expected to be arrays will be processed into arrays (such as Sector and MinBB values)
+  var returnType="map"; // This is the default
+  if (typeof options == "object"){
+    if (options.hasOwnProperty("objType")){
+      if (options.objType == "object"){
+        returnType="object"
+      }
+    }
+  }
+
   console.debug("Starting mapify!");
   if (typeof responseStr == "string"){
     console.debug("Using responseStr: " + responseStr);
@@ -236,13 +231,18 @@ function mapifyEntityInfoUIDString(responseStr){
     for (let i=0;i<results.length;i++){
       console.debug("Working on result: " + results[i]);
       if (/^RETURN: \[SERVER, Loaded: [a-zA-Z]+/.test(results[i])){ // This is treated specially because it's the only value that should be a boolean
-        let loadedVal=toBoolean(cleanRegularValue(results[i]).replace(/^Loaded: /,"").toString());
+        let loadedVal=objHelper.toBoolean(cleanRegularValue(results[i]).replace(/^Loaded: /,"").toString());
         returnMap.set("loaded",loadedVal);
         if (loadedVal == true){
           returnMap.set("exists",true);
         }
       } else if (/^RETURN: \[SERVER, DatabaseEntry \[/.test(results[i])){  // This is only for the DatabaseEntry line, which needs to be treated specially to produce a DatabaseEntry map
-        returnMap.set("DatabaseEntry", mapifyDatabaseEntry(results[i]));
+        if (returnType == "object"){
+          returnMap.set("DatabaseEntry", objHelper.strMapToObj(mapifyDatabaseEntry(results[i]))); // Coerce into an object if return value is set to an object
+        } else {
+          returnMap.set("DatabaseEntry", mapifyDatabaseEntry(results[i]));
+        }
+
         returnMap.set("existsInDB",true);
       } else if (loadedValueReg.test(results[i])){ // This applies to values like "Sector"
           let cleanedVal=cleanRegularValue(results[i]); // This should look something like "Name: Hello_There"
@@ -273,13 +273,17 @@ function mapifyEntityInfoUIDString(responseStr){
 
       }
     }
-    return returnMap; // Returns undefined if no value was present.
+    if (returnType == "object"){
+      return objHelper.strMapToObj(returnMap); // Coerce into an object
+    } else {
+      return returnMap; // Returns undefined if no value was present.
+    }
   } else {
     throw new Error("ERROR: Invalid parameters given to getEntity function!");
   }
 }
 
-function ShipInfoUidObj(uidOrShipObj){
+function ShipInfoUidObj(uidOrShipObj,options){ // options are optional and are merely passed to mapifyEntityInfoUIDString
   var uidToUse;
   if (typeof uidOrShipObj == "object"){
     if (uidOrShipObj.hasOwnProperty("uid")){ // This grabs the UID of a ship object that might be fed to this function
@@ -290,17 +294,27 @@ function ShipInfoUidObj(uidOrShipObj){
   }
   if (uidToUse){
     var starNetResult=starNet("/ship_info_uid " + uidToUse)
-    return mapifyEntityInfoUIDString(starNetResult);
+    return mapifyEntityInfoUIDString(starNetResult,options);
   } else {
     throw new Error("ERROR: Invalid parameters given to 'ShipInfoUIDObj'!");
   }
 }
 
 
-function getEntityValue(uidOrShipObj,valueString){
+function getEntityValue(uidOrShipObj,valueString,options){ // Options are optional.  Allows setting the return type for DataBaseEntry to an object
   // The goal of this is to find a value without creating a full map of everything, stopping once the value is found, so it is as efficient as possible.
   // The secondary goal is to make it so this can pull values from the DatabaseEntry if loaded info is not available, without having to load the sector.
   // The tertiary goal is to load a sector prior to trying to pull the value if the ship is currently not loaded.
+
+  var returnType="map"; // This only affects DataBaseEntry.  Everything else are objects, arrays, numbers, or strings by default.
+  if (typeof options == "object"){
+    if (options.hasOwnProperty("objectType")){
+      if (options.objectType == "object"){
+        returnType="object"
+      }
+    }
+  }
+
   var shipNotExistMsg="Ship does not appear to exist!  Cannot get value of '" + valueString + "'!"
   var malformedRequestMsg="ERROR: Could not get value, '" + valueString + "' because the request was malformed!";
   var uidToUse;
@@ -324,29 +338,31 @@ function getEntityValue(uidOrShipObj,valueString){
     if (resultMap.get("loaded") == true){
       // If no value existed, this will be returned as undefined.  An exception is made for "faction" because this will likely be included by Schema shortly
       if (valueString == "faction"){
-          returnVal=resultMap.get("DatabaseEntry").get("faction");
+          returnVal=resultMap.get("DatabaseEntry").get("faction"); // This is a special exception since it can only be found here.
       } else {
         returnVal=resultMap.get(valueString);
+        // A special exception needs to be made for DatabaseEntry, because we will either return it in it's native form as a map, or turn it into an object if directed to do so.
+        if (valueString == "DatabaseEntry" && returnType == "object"){
+          returnVal=objHelper.strMapToObj(returnVal);
+        }
       }
       // If no value existed, this will be returned as undefined.
     } else if (valueString == "loaded"){ // This should always be present, provided the ship existed.
       returnVal=resultMap.get("loaded");
-    } else if (nameMap.hasOwnProperty(valueString)){
-      // If the ship is not loaded, but a database entry exists, we should be able return that value
-      // console.dir(resultMap);
+    } else if (nameMap.hasOwnProperty(valueString)){ // Return the database entry (when available) if the ship isn't loaded
       // resultMap.existsInDB // will only be true if DatabaseEntry was found
       // resultMap.exists // Will only be true if data was found besides the "loaded" value
       if (resultMap.get("existsInDB") == true){
         returnVal=resultMap.get("DatabaseEntry").get(nameMap[valueString]);
-        console.log("Ship not loaded.  Translated query of '" + valueString + "' to the DatabaseEntry value, '" + nameMap[valueString] + "'.");
+        // console.log("Ship not loaded.  Translated query of '" + valueString + "' to the DatabaseEntry value, '" + nameMap[valueString] + "'.");
       } else if (resultMap.get("malformedRequest" == true)){
-          console.log(malformedRequestMsg);
+          console.error(malformedRequestMsg);
       } else {
-        console.log(shipNotExistMsg);
+        console.error(shipNotExistMsg);
         // If it doesn't exist in the DB, then there is no way to load the ship, even if it exists but is not in the database yet, so we are forced to return undefined.
       }
     } else if (resultMap.get("existsInDB") == true){
-        // console.log("Ship not loaded. Returning value from DatabaseEntry.");
+        // Ship was not loaded and value does not exist in the DataBaseEntry, so let's try loading the sector and pull the value
         let theSector=resultMap.get("DatabaseEntry").get("sectorPos");
         let theSectorString;
         var tryAgain=true;
@@ -364,9 +380,11 @@ function getEntityValue(uidOrShipObj,valueString){
           }
         }
         if (tryAgain==true){
-          console.debug("Value only available when sector is loaded.  Loading sector, " + theSectorString + ", and trying again.." + new Date());
+          // console.debug("Value only available when sector is loaded.  Loading sector, " + theSectorString + ", and trying again.." + new Date());
           starNet("/load_sector_range " + theSectorString + " " + theSectorString);
-          returnVal=getEntityValue(uidToUse,valueString); // Try again till successful.  This will cause an infinite loop while the sector is unloaded.
+          returnVal=getEntityValue(uidToUse,valueString); // Try again till successful.  This will cause an infinite loop while the sector is unloaded, but will not run again if the command fails.
+          // If the entity loads and no value is present, 'undefined' will be returned.  This is intended.
+          // The reason we try loading the sector is for futureproofing.
         }
     } else if (resultMap.get("malformedRequest")){
         console.error(malformedRequestMsg);

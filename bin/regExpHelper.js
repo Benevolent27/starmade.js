@@ -1,0 +1,30 @@
+
+var uidPrefixes=["ENTITY_SHOP_","ENTITY_SPACESTATION_","ENTITY_FLOATINGROCK_","ENTITY_PLANET_","ENTITY_SHIP_","ENTITY_FLOATINGROCKMANAGED_","ENTITY_CREATURE_","ENTITY_PLANETCORE_","ENTITY_PLAYERCHARACTER_","ENTITY_PLAYERSTATE_"];
+var uidPrefixesRegExp=createMultiRegExpFromArray(uidPrefixes,"^");
+function createMultiRegExpFromArray(inputArray,prefix,suffix){
+  // This will cycle through an array of values and create regex patterns that searches for each value.  Adding a prefix or suffix is optional.
+  var returnVal;
+  var prefixToUse=prefix ? prefix : ""; // We are setting it to "" because we don't want the word "undefined" to appear in the regex patterns and we would want to avoid having to create a complicated if/then/else tree if we can help it.
+  var suffixToUse=suffix ? suffix : "";
+  for (let i=0;i<inputArray.length;i++){
+    if (returnVal){
+      returnVal+="|" + prefixToUse + inputArray[i] + suffixToUse;
+    } else {
+      returnVal=prefixToUse + inputArray[i] + suffixToUse;
+    }
+  }
+  return new RegExp(returnVal);
+}
+
+if (require.main.filename == __filename){ // This is so it only runs based on arguments IF being ran by itself and not being required into another script.  This is for testing purposes.
+  var theArguments=process.argv.slice(2);
+  if (theArguments[0]){
+    console.log(theArguments[0] + " result: " + uidPrefixesRegExp.test(theArguments[0]));
+  } else {
+    console.log("No test value given!");
+  }
+}
+module.exports={
+  "uidPrefixesReg":uidPrefixesRegExp,
+  "createMultiRegFromArray": createMultiRegExpFromArray
+}

@@ -50,8 +50,8 @@ function SqlQueryObj(sqlQuery){
   var theResults=new ReturnObj(tempArray);
   if (theResults){
     this.dataMap=mapifyColumnsAndAllData(theResults["columns"],theResults["data"]);
-    this.columns=theResults["columns"];
-    this.data=theResults["data"];
+    // this.columns=theResults["columns"];
+    // this.data=theResults["data"];
   }
 }
 
