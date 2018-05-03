@@ -64,7 +64,7 @@ function ReturnObj(theArray){
 }
 
 function mapifyColumnsAndAllData(columnArray,dataArray){ // this assists the SQL query constructor
-  // dataArray should be an array of nested arrays
+  // dataArray should be an array of nested arrays, which each individual result
   var tempArray=[];
   for (let e=0;e<dataArray.length;e++){
     // Working through each set of values from data
