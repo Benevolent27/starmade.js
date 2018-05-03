@@ -2,6 +2,8 @@ var path=require('path');
 var binFolder=path.resolve(__dirname,"../bin/");
 var starNet=require(path.join(binFolder,"starNet.js"));
 
+// Example ship UID: ENTITY_SHIP_Hello_There
+
 // TODO: Add support for if a person inputs a UID for a ship that does not exist.  Perhaps add an "exists" value and set to true if data is retrieved, false if not.
 // Example for a ship that does not exist:  node starNet.js "/ship_info_uid ENTITY_SHIP_Hello_There34"
 // RETURN: [SERVER, Loaded: false, 0]
@@ -111,14 +113,19 @@ if (require.main.filename == __filename){ // This is so it only runs based on ar
 
 
 
-
-
-
-
 function toBoolean(input){ // The main purpose of this function is to convert strings of "false" to literal false, rather than them being returned as truthy.
   console.debug("Testing for Boolean: " + input);
   return input=="false" ? false : Boolean(input);
 }
+
+function toNumIfPossible(input){
+  var output=Number(input);
+  if (isNaN(output)){
+    return input;
+  }
+  return output;
+}
+
 
 function mapifyDatabaseEntry(databaseEntryStr){
   // Takes a string, which is the line containing a "DatabaseEntry" set of data and returns a map
@@ -165,13 +172,6 @@ function cleanRegularValue(inputStr){
   } else {
     throw new Error("ERROR: Invalid input given to cleanRegularValue function!  Expected a string!");
   }
-}
-function toNumIfPossible(input){
-  var output=Number(input);
-  if (isNaN(output)){
-    return input;
-  }
-  return output;
 }
 
 function getCoordsAndReturnNumArray(inputStr,numsExpected){ // If no
@@ -259,11 +259,11 @@ function mapifyEntityInfoUIDString(responseStr){
         returnMap.set("malformedRequest",true);
         break;
       } else {
-        console.log("Setting type to: " + results[i]);
         // This should only ever fire off for the last line, which might say something like "Ship" or "Station"
         // We need to ignore the line that will be "END; Admin command execution ended"
         let testVal=cleanRegularValue(results[i]);
         if (testVal != "END; Admin command execution ended"){
+          // console.log("Setting type to: " + results[i]);
           returnMap.set("type",testVal);
         }
 
@@ -318,7 +318,12 @@ function getEntityValue(uidOrShipObj,valueString){
     // console.log("\nJust because, here's the nameMap:");
     // console.dir(nameMap);
     if (resultMap.get("loaded") == true){
-      returnVal=resultMap.get(valueString);
+      // If no value existed, this will be returned as undefined.  An exception is made for "faction" because this will likely be included by Schema shortly
+      if (valueString == "faction"){
+          returnVal=resultMap.get("DatabaseEntry").get("faction");
+      } else {
+        returnVal=resultMap.get(valueString);
+      }
       // If no value existed, this will be returned as undefined.
     } else if (valueString == "loaded"){ // This should always be present, provided the ship existed.
       returnVal=resultMap.get("loaded");
@@ -355,7 +360,7 @@ function getEntityValue(uidOrShipObj,valueString){
           }
         }
         if (tryAgain==true){
-          console.log("Value only available when sector is loaded.  Loading sector, " + theSectorString + ", and trying again.." + new Date());
+          console.debug("Value only available when sector is loaded.  Loading sector, " + theSectorString + ", and trying again.." + new Date());
           starNet("/load_sector_range " + theSectorString + " " + theSectorString);
           returnVal=getEntityValue(uidToUse,valueString); // Try again till successful.  This will cause an infinite loop while the sector is unloaded.
         }
@@ -370,132 +375,6 @@ function getEntityValue(uidOrShipObj,valueString){
   }
 }
 
-
-
-
-function getEntityValueOLD(uidOrShipObj,valueString){ // This was my first attempt at an efficient script to grab values, but it may not be needed if the existing function that maps everything out is fast enough.
-  // The goal of this is to find a value without creating a full map of everything, stopping once the value is found, so it is as efficient as possible.
-  // The secondary goal is to make it so this can pull values from the DatabaseEntry if loaded info is not available, without having to load the sector.
-  // The tertiary goal is to load a sector prior to trying to pull the value if the ship is currently not loaded.
-  var uidToUse;
-  if (typeof uidOrShipObj == "object"){
-    if (uidOrShipObj.hasOwnProperty("uid")){ // This grabs the UID of a ship object that might be fed to this function
-      uidToUse=uidOrShipObj["uid"];
-    }
-  } else if (typeof uidOrShipObj == "string"){
-    uidToUse=uidOrShipObj;
-  }
-
-  if (typeof uidToUse == "string" && typeof valueString == "string"){
-    var results=starNet("/ship_info_uid \"" + uidToUse + "\"").toString().split("\n");
-    var loadedValueReg=new RegExp("^RETURN: [[]SERVER, " + valueString + ": .+");
-    var loadedValueRegRem=new RegExp("^RETURN: [[]SERVER, " + valueString);
-    var remEndSpamLoaded=new RegExp(", [0-9][]]$"); // This is to remove the end spam
-    // var remEndSpamUnloaded=new RegExp("[]], [0-9][]]$"); // This is to remove the end spam
-    var loaded;
-    var returnVal;
-    var theLine;
-    var tempArray=[];
-    var tempMap=new Map();
-    for (let i=0;i<results.length && !returnVal;i++){ // Cycle through all the lines, but stop once we have the value we want.
-      if (loaded == "" || typeof loaded == "undefined" || loaded === null){
-        // loaded=results[i].match(/Loaded: [a-zA-Z]+/);
-        // if (loaded){ // Gotta do .replace ONLY if a match is found, otherwise it might throw an error.
-        if (/Loaded: [a-zA-Z]+/.test(results[i])){
-          loaded=toBoolean(results[i].replace(/^Loaded: /,"").toString());
-        }
-        // If the ship was loaded or unloaded, the var should now be true or false
-      } else if (loaded == true){
-        if (loadedValueReg.test(results[i])){ // If the line matches the value we want, process it.
-          returnVal=returnVal.replace(loadedValueRegRem,"").toString(); // Remove the front spam
-          returnVal=returnVal.replace(remEndSpamLoaded,"").toString(); // Remove the end spam
-        }
-        // Entity is loaded, great, we can probabably get the value just fine.  We will NOT want to use the DatabaseEntry value since this can be out of date, as it is only updated every force/auto-save.
-        // Example:
-        // RETURN: [SERVER, Loaded: true, 0]
-        // RETURN: [SERVER, DatabaseEntry [uid=ENTITY_SHIP_Hello_There, sectorPos=(2, 2, 2), type=5, seed=0, lastModifier=, spawner=ENTITY_PLAYERSTATE_Benevolent27, realName=Hello_There, touched=true, faction=0, pos=(12.566267, -6.259417, 1.6619873), minPos=(-2, -2, -2), maxPos=(2, 2, 2), creatorID=0], 0]
-        // RETURN: [SERVER, Attached: [], 0]
-        // RETURN: [SERVER, DockedUIDs: , 0]
-        // RETURN: [SERVER, Blocks: 0, 0]
-        // RETURN: [SERVER, Mass: 0.01, 0]
-        // RETURN: [SERVER, LastModified: , 0]
-        // RETURN: [SERVER, Creator: ENTITY_PLAYERSTATE_Benevolent27, 0]
-        // RETURN: [SERVER, Sector: 139 -> Sector[139](2, 2, 2), 0]
-        // RETURN: [SERVER, Name: Hello_There, 0]
-        // RETURN: [SERVER, UID: ENTITY_SHIP_Hello_There, 0]
-        // RETURN: [SERVER, MinBB(chunks): (-2, -2, -2), 0]
-        // RETURN: [SERVER, MaxBB(chunks): (2, 2, 2), 0]
-        // RETURN: [SERVER, Local-Pos: (12.566267, -6.259417, 1.6619873), 0]
-        // RETURN: [SERVER, Orientation: (0.0, -0.70710677, 0.0, 0.70710677), 0]
-        // RETURN: [SERVER, Ship, 0]
-        // RETURN: [SERVER, END; Admin command execution ended, 0]
-
-      } else if (loaded == false){
-        // Entity is NOT loaded, so we need to rely on a database request block of text which does NOT contain all values, such as blocks and weight.
-        // This is a bit more complicated, because potential values needed to be returned may have commas in them, yet are also terminated by commas.. So how to know where it's value stops if it has commas?
-        if ("/^RETURN: [[]SERVER, DatabaseEntry /".test(results[i])){ // This ensures we are only going to do work on the database entry line
-          theLine=results[i].replace(/^RETURN: [[]SERVER, DatabaseEntry \[/,"").toString(); // remove the database entry value
-          theLine=theLine.replace(/\], [0-9]\]$/,"").toString(); // Remove the end spam
-          tempArray=theLine.split(/, (?=[a-zA-Z])/); // This uses a lookahead to only match to commas that have a letter value following it.  This is to avoid splitting values that contain arrays or numbers or coordinate values.
-          for (let i=0;i<tempArray.length;i++){ // Preprocess the array to split each value by = characters
-            tempArray[i]=tempArray[i].split("=");
-          }
-          tempMap=new Map(tempArray.map((x) => x.split("="))); // This splits each individual value of the array by a "=" symbol and then converts the array to a map to allow getting the values easily.
-          // Example Map:
-          // Map {
-          //   'uid' => 'ENTITY_SHIP_Hello_There',
-          //   'sectorPos' => '(2, 2, 2)',
-          //   'type' => '5',
-          //   'seed' => '0',
-          //   'lastModifier' => '',
-          //   'spawner' => 'ENTITY_PLAYERSTATE_Benevolent27',
-          //   'realName' => 'Hello_There',
-          //   'touched' => 'true',
-          //   'faction' => '0',
-          //   'pos' => '(12.566267, -6.259417, 1.6619873)',
-          //   'minPos' => '(-2, -2, -2)',
-          //   'maxPos' => '(2, 2, 2)',
-          //   'creatorID' => '0' }
-
-          //  Since we're using the database entry values (simply because they are available), we can return SOME values for an unloaded ship, but not others.
-          if (nameMap.hasOwnProperty(valueString)){
-            returnVal=tempMap.get(nameMap[valueString]);
-          }
-
-        }
-
-        // Example:
-        // RETURN: [SERVER, Loaded: false, 0]
-        // RETURN: [SERVER, DatabaseEntry [uid=ENTITY_SHIP_Hello_There, sectorPos=(2, 2, 2), type=5, seed=0, lastModifier=, spawner=ENTITY_PLAYERSTATE_Benevolent27, realName=Hello_There, touched=true, faction=0, pos=(12.566267, -6.259417, 1.6619873), minPos=(-2, -2, -2), maxPos=(2, 2, 2), creatorID=0], 0]
-        //RETURN: [SERVER, END; Admin command execution ended, 0]
-      }
-
-      // The values returned from a DatabaseEntry do NOT have a complete set of corresponding values back and forth, below is are the values mapped back and forth where possible:
-      // Loaded Info / DatabaseEntry Info
-      // Attached - [none]
-      // DockedUIDs - [none]
-      // Blocks - [none]
-      // Mass - [none]
-      // LastModified - lastModifier
-      // Creator - spawner
-      // Sector - SectorPos
-      // Name - realName
-      // UID - uid
-      // MinBB(chunks) - minPos
-      // MaxBB(chunks) - maxPos
-      // Local-Pos - pos
-      // Orientation - [none]
-      // [none] - type
-      // [none] - seed
-      // [none] - touched
-      // [none] - faction
-
-    }
-    return returnVal; // Returns undefined if no value was present.
-  } else {
-    throw new Error("ERROR: Invalid parameters given to getEntity function!");
-  }
-}
 module.exports={
   "mapifyShipInfoUIDString":mapifyEntityInfoUIDString,
   "getCoordsAndReturnNumArray":getCoordsAndReturnNumArray,
