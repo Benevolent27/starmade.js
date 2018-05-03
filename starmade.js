@@ -54,8 +54,6 @@ var mainFolder      = path.dirname(require.main.filename); // This is where the 
 var binFolder       = path.join(mainFolder,"bin");
 var modFolder       = path.join(mainFolder,"mods");
 var operations      = 0;
-var includePatterns = [];
-var excludePatterns = [];
 var serversRunning  = 0; // This is to count the server's running to manage the exit function and kill them when this main script dies.
 var lockFileObj = { // This will be used for the lock file, so if another instance of the script runs, it can parse the file and check PIDs, making decisions on what to do.
   "mainPID": process.pid,
@@ -90,9 +88,11 @@ function sleep(ms){
   }
 }
 var patterns=require(path.join(binFolder, "patterns.js")); // Import the patterns that will be used to match to in-game events like deaths and messages.
-var starNetjs=require(path.join(binFolder, "starNet.js")); // needs testing
+var starNet=require(path.join(binFolder, "starNet.js")); // needs testing
+var starNetHelper=require(path.join(binFolder, "starNetHelper.js")); // needs testing
 var sqlQuery=require(path.join(binFolder, "sqlQuery.js")); // needs testing
 var ini=require(path.join(binFolder,"iniHelper.js")); // This will replace the current functionality of ini by wrapping it and modifying the ini package so that it works correctly for starmade config files and ini files that use # characters.
+
 
 // #################################
 // ### NPM DOWNLOADABLE REQUIRES ###
@@ -125,8 +125,8 @@ var starMadeJar               = path.join(starMadeInstallFolder,"StarMade.jar");
 var starNetJar                = path.join(binFolder,"StarNet.jar");
 var starMadeServerConfigFile  = path.join(starMadeInstallFolder,"server.cfg");
 var serverCfg                 = {}; // getIniFileAsObj('./server.cfg'); // I'm only declaring an empty array here initially because we don't want to try and load it till we are sure the install has been completed
-var forceStart                = false; // Having this set to true will make the script kill any existing scripts and servers and then start with no prompt.
-var ignoreLockFile            = false;
+var forceStart                = false; // Having this set to true will make the script kill any existing scripts and servers and then start without asking the user.
+var ignoreLockFile            = false; // If this is set to true, it will behave as though the lock file does not exist, and will replace it when it starts again.  WARNING:  If any servers are running in the background, this will duplicate trying to run the server, which will fail because an existing serve is running.
 var debug                     = false;
 var os                        = process.platform;
 var starMadeStarter;
@@ -144,6 +144,22 @@ var starMadeInstallerURL      = "http://files.star-made.org/" + starMadeStarter;
 // Patterns - This will be to detect things like connections, deaths, etc.  I'm pushing to an array so it's easier to add or remove patterns.
 var includePatternRegex       = patterns.includes();
 var excludePatternRegex       = patterns.excludes();
+var uidPrefixes=["ENTITY_SHOP_","ENTITY_SPACESTATION_","ENTITY_FLOATINGROCK_","ENTITY_PLANET_","ENTITY_SHIP_","ENTITY_FLOATINGROCKMANAGED_","ENTITY_CREATURE_","ENTITY_PLANETCORE_","ENTITY_PLAYERCHARACTER_","ENTITY_PLAYERSTATE_"];
+var uidPrefixesRegExp=createMultiRegExpFromArray(uidPrefixes,"^");
+function createMultiRegExpFromArray(inputArray,prefix,suffix){
+  // This will cycle through an array of values and create regex patterns that searches for each value.  Adding a prefix or suffix is optional.
+  var returnVal;
+  var prefixToUse=prefix ? prefix : ""; // We are setting it to "" because we don't want the word "undefined" to appear in the regex patterns and we would want to avoid having to create a complicated if/then/else tree if we can help it.
+  var suffixToUse=suffix ? suffix : "";
+  for (let i=0;i<inputArray.length;i++){
+    if (returnVal){
+      returnVal+="|" + prefixToUse + inputArray[i] + suffixToUse;
+    } else {
+      returnVal=prefixToUse + inputArray[i] + suffixToUse;
+    }
+  }
+  return new RegExp(returnVal);
+}
 
 
 
@@ -285,10 +301,15 @@ function PlayerObj(playerName){
   }
 }
 
-function EntityObj(uid){
+function toBoolean(input){ // The main purpose of this function is to convert strings of "false" to literal false, rather than them being returned as truthy.
+  return input=="false" ? false : Boolean(input);
+}
+
+function EntityObj(fullUID){
   // This should build the entity object based on the UID, adding the entity type if necessary to build the full UID
-  if (uid){
-    this.UID=uid; // Returns the UID as used with SQL queries, without the "ENTITY_SHIP_" whatever stuff.
+  if (fullUID){
+    this.UID=fullUID.replace(uidPrefixesRegExp,"").toString(); // Returns the UID as used with SQL queries, without the "ENTITY_SHIP_" whatever stuff.
+    this.fullUID=fullUID;
     // TODO: Add Info methods:
     // faction - BROKEN RIGHT NOW AND CANNOT BE RESOLVED DUE TO SM PROBLEM WITH NOT UPDATING THE INFO PROPERLY -  When fixed, return the FactionObj of the current entity
     // mass - returns the mass of the ship as a number
