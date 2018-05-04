@@ -72,6 +72,9 @@ console.debug=function (vals,sleepTime) { // for only displaying text when the -
 // ### SCRIPT REQUIRES ###
 // #######################
 // path.resolve below builds the full path to "./bin/setSettings.js" in such a way that is compatible with both windows and linux/macosx, since it doesn't use / or \ characters.
+var miscHelper=require(path.join(binFolder,"miscHelpers.js"));
+var requireBin=miscHelper["requireBin"]; // Simplifies requiring scripts from the bin folder..yes I am this lazy.
+var objectCreator=requireBin("objectCreator.js");
 var setSettings = require(path.join(binFolder, "setSettings.js")); // This will confirm the settings.json file is created and the install folder is set up.
 var installAndRequire = require(path.join(binFolder, "installAndRequire.js")); // This is used to install missing NPM modules and then require them without messing up the require cache with modules not found (which blocks requiring them till an app restart).
 var mySleep = require(path.join(binFolder, "mySleep.js")); // Only accurate for 100ms or higher wait times.
@@ -104,8 +107,16 @@ const prompt = installAndRequire("prompt-sync")({"sigint":true}); // https://www
 const Tail = installAndRequire('tail').Tail; // https://github.com/lucagrulla/node-tail/blob/master/README.md For following the server log.  I forgot that the console output does NOT have everything.  This is NOT a perfect solution because whenever file rotation occurs, there is a 1 second gap in coverage.  Argh.
 const exitHook = installAndRequire('exit-hook'); // https://github.com/sindresorhus/exit-hook Handles normal shutdowns, sigterm, sigint, and a "message=shutdown" event.  Good for ensuring the server gets shutdown.
 
-// ### Set up submodules from requires.
+// ### Set up submodules and aliases from requires.
 var eventEmitter = new events.EventEmitter(); // This is for custom events
+
+// Object aliases
+var SqlQueryObj=objectCreator.SqlQueryObj;
+var EntityObj=objectCreator.EntityObj;
+var SectorObj=objectCreator.SectorObj;
+var CoordsObj=objectCreator.CoordsObj;
+var FactionObj=objectCreator.FactionObj;
+
 
 // #####################
 // ###    SETTINGS   ###
@@ -301,133 +312,6 @@ function PlayerObj(playerName){
   }
 }
 
-function toBoolean(input){ // The main purpose of this function is to convert strings of "false" to literal false, rather than them being returned as truthy.
-  return input=="false" ? false : Boolean(input);
-}
-
-function EntityObj(fullUID){
-  // This should build the entity object based on the UID, adding the entity type if necessary to build the full UID
-  if (fullUID){
-    this.UID=fullUID.replace(uidPrefixesRegExp,"").toString(); // Returns the UID as used with SQL queries, without the "ENTITY_SHIP_" whatever stuff.
-    this.fullUID=fullUID;
-    // TODO: Add Info methods:
-    // faction - BROKEN RIGHT NOW AND CANNOT BE RESOLVED DUE TO SM PROBLEM WITH NOT UPDATING THE INFO PROPERLY -  When fixed, return the FactionObj of the current entity
-    // mass - returns the mass of the ship as a number
-    // blocks - returns the block count as a number
-    // lastModified - returns a lastModifiedObj which should include the correct obj for the type of entity that modified it last
-    // creator - returns a CreatorObj which should have info on what created the entity and the associated objects
-    // name - returns the name of the entity as a string
-    // fullUID - returns the FULL UID of the entity
-    // coords - returns a SectorObj of the sector the entity is currently in
-    // spacialCoords - returns a CoordsObj of the current spacial coords for the entity
-    // system - returns a SystemObj of the current system the entity is within
-    // isClaimPoint - returns boolean true/false value if the entity is the claim point for the system it is within
-    // attached - returns an array of attached PlayerObj's
-    // dockedUIDs - returns an array of docked EntityObj's
-    // orientation - Returns an array with 4 floating point numbers designating the orientation.  Example: [0.0,-0.7076546,0.0,0756464]
-    // loaded - Returns boolean true/false value determining if the ship is currently loaded or not
-
-    // Optional:
-    // chunks - returns an array of 2 arrays with minBB and maxBB chunks.  Example: [[-2,-2,-2],[2,2,2]]
-
-    // Info methos using SQL queries:
-    // sqlID - returns the SQL ID for the entity
-    // typeNum - Returns the type number, as designated by SQL query
-    // typeName - Returns the name for the type it is, such as "asteroid", "asteroidManaged", "planet", as per the SQL documentation project
-    // dockedTo - Returns the EntityObj for the entity this entity is currently docked to
-    // dockedToRoot - Returns the EntityObj for the root entity this entity is currently docked to
-
-    // Action methods:
-    // changeSector("[X],[Y],[Z]", SectorObj, or CoordsObj) - Teleports the entity (by UID) to a specific sector
-    // destroy - Destroys the ship, leaving docked entities (using /destroy_uid)
-    // destroyDocked - Destroys the ship and all docked entities (using /destroy_uid_docked)
-    // saveBlueprint(BlueprintNameString) - Saves the current entity as a blueprint name, returning a BlueprintObj.  Note:  There is currently NO WAY to delete blueprints in-game!  Also the BlueprintObj will likely only be valid once the save actually completes.
-
-    // shopRestock - Runs a /shop_restock_uid on the UID of the entity.  Only works if the entity IS a shop or has a shop module on it.  WARNING: It is recommended to ONLY use this on stick shops because base entities with shops on them get restocked with ALL items currently, including custom and depreciated blocks like gold bars and green dirt, etc.
-    // shopRestockFull - Runs a /shop_restock_full_uid on the UID of the entity.  Only works if the entity IS a shop or has a shop module on it.  WARNING: It is recommended to ONLY use this on stick shops because base entities with shops on them get restocked with ALL items currently, including custom and depreciated blocks like gold bars and green dirt, etc.
-
-    // Optional:
-    // destroyOnlyDocked - Can use sql queries to individually destroy only entities that have this entity as the root docking point or down the chain from it - would take some work and might be unreliable since it requires using /sql_query which only updates on force-saves and auto-saves
-    // serverMessage(MessageString,info/warning/error) - Sends a message to all online players that are currently attached to this entity.  If no method is specified "plain" is used, which shows up on the player's main chat.
-
-  } else {
-    throw new Error("ERROR: No UID provided to EntityObj constructor!");
-  }
-}
-function FactionObj(factionNumber){
-  this.number=factionNumber;
-  // TODO: Add Info methods:
-  // name - Get the name of the faction, returned as string
-  // description - Get the faction description.  This is harder than it sounds since the description gets all fubared in the return value since it can be multiple lines and it also might contain text that is a normal part of a response like { and } characters..  This is tricky.
-  // members([Num,Num2]) - Get the members of the faction, returned as an array of playerObj's.  An array of num values in an array can be provided to return only members of specific ranks (1-5)
-  // points - Get the faction points, returned as a number
-
-  // Action methods:
-  // setPoints - Set the faction points to a number and return the new points
-  // addPoints - Add a value to the faction points and return the new total -  Can allow negative numbers to subtract - might have an option for "strict" not to allow negatives
-  // subPoints - Remove a value of faction points and return the new total - Can allow negative numbers to add - might have an option for "strict" not to allow negatives
-
-  // factionModRelation([FactionObj/FactionNum],"enemy/ally/neutral")
-  // resetActivity - Resets activity flags for all members to inactive
-  // addMember([playerObj/playerNameString],(RankNum)) - Adds a member to the faction.  Ranknum is optional, default is 1.
-  // delMember([playerObj/playerNameString]) - Removes a player from the faction if they are in it.  Has to check the faction of the player.
-  // delete - Deletes the faction entirely
-  // edit([FactionName],[Description]) - Sets a new name and/or description for the faction.  If name or description are left blank, they are not changed.
-  // setIDForMember([playerObj/playerNameString]) - Uses the debug function, "faction_set_id_member", to set a player to the faction - WARNING: CAN HAVE DISASTEROUS CONSEQUENCES BUT IT DOES MOVE THE PLAYER WITHOUT TERMINATING THEIR PREVIOUS FACTION IF LEFT EMPTY
-
-
-  // For NPC factions ONLY:
-  // removeNPCFaction - Removes a NPC faction IF it is a NPC faction.  Uses "/npc_remove_faction -98944984"
-
-  //Optional:
-  // duplicate(Num) - This will create duplicate new open factions with fake names as the leaders with the same name as this faction (uses /faction_create_amount [Name] [Number])
-  // serverMessage(MessageString,info/warning/error) - Sends a message to all online players of this faction.  If no method is specified "plain" is used, which shows up on the player's main chat.
-}
-function SectorObj(x,y,z){
-  // TODO: Add Info methods:
-  // getChmod - to get the chmods of a sector returned as an array of +peace,+protected, etc.
-  // getChmodNum - To perform a SQL query to look up the chmod number
-  // getSystem - Returns a SystemObj
-
-  // Add Action Methods:
-  // setChmod - to set +peace, +noindications, etc.
-  // setChmodNum - to set the chmod for a sector based on the relevant input number (based on the SQL number representation)
-  // despawn(PartOfShipNameString) - Uses the /despawn_sector command to despawn ships that start with the string provided
-  // export(nameOfExportFileString) - This will send a /force_save command and then a /export_sector command of this sector.
-  // load(radiusNum/X,Y,Z/SectorObj/CoordsObj) - uses "/load_sector_range x y z x y z" to load the sector.  If a radius is given, then it loads that much of a radius around the sector.  If a second set of coordinates are given (or SectorObj/CoordsObj), then it loads a range between this sector and the one provided.
-  // populate - This will run the /populate_sector command on this sector (replenishes asteroids or planets I think?  Not sure.)
-  // repair - This will run a /repair_sector command on the sector.  NOTE:  This OFTEN has unintended consequences, including atually corrupting a sector or duplicating entities within the sector!
-
-  // spawnEntity(BlueprintString,NewShipNameString,FactionNumber/FactionObj,AIActiveBoolean,[spacialX,SpacialY,SpacialZ]/CoordsObj)
-  // - Spawns an entity somewhere within this sector.  Spacial coordinates are optional.  If no faction number is provided, 0 is used.  If AI active true/false value not given, true is used.
-  // - Uses: "/spawn_entity [BluePrintName] [NewShipName] X Y Z [FactionNumber] [AIActiveBoolean true/false]" OR "/spawn_entity_pos [BluePrintName] [NewShipName] X Y Z SpacialX SpacialY SpacialZ [FactionNumber] [AIActiveBoolean true/false]"
-  // - Returns an EntityObj of the newly spawned entity if successful, otherwise returns false.
-  this.x=x;
-  this.y=y;
-  this.y=z;
-  this.coords=new CoordsObj(x,y,z);
-  // This can be expanded to allow storing information, such as a description, if more than values than expected are given to the constructor
-  if (arguments.length > SectorObj.length){
-    var extraInfoArray=[];
-    for (let i=SectorObj.length-1;i<arguments.length;i++){
-      extraInfoArray.push(arguments[i]);
-    }
-    this.extraInfo=extraInfoArray;
-  }
-}
-function CoordsObj(x,y,z){
-  this.x=x;
-  this.y=y;
-  this.z=z;
-  // This can be expanded to allow storing information, such as a description, if more than values than expected are given to the constructor
-  if (arguments.length > CoordsObj.length){
-    var extraInfoArray=[];
-    for (let i=CoordsObj.length-1;i<arguments.length;i++){
-      extraInfoArray.push(arguments[i]);
-    }
-    this.extraInfo=extraInfoArray;
-  }
-}
 function SystemObj(x,y,z){
   this.coords=new CoordsObj(x,y,z);
   // TODO: Add Info methods:
@@ -467,38 +351,6 @@ function BluePrintObj(bluePrintName){
   //
 }
 
-function SqlQueryObj(sqlQuery){
-  this.query=sqlQuery;
-  this.time=Date.now();
-  // This will be a rather complicated constructor, returning an array of objects or maps each with individual values
-  // This should return an error object if the query is invalid.
-  // This may need to run an outside script to function properly.
-
-  // TODO: Info
-  // columns - Returns an array of the columns returned
-  // data - returns an array of maps or objects containing the results.  Size will be 0 if no results were returned.
-
-  // Here is some pseudo code as I think outloud
-  var getColumns=["one","Two","three"];
-  var getData=[["blah","bleh","Blargh"],["blah","bleh","Blargh"],["blah","bleh","Blargh"]];
-  this.data=arrayFromColumnsAndAllData(getColumns,getData);
-}
-function arrayFromColumnsAndAllData(columnArray,dataArray){ // this assists the SQL query constructor
-  // dataArray should be an array of nested arrays
-  var tempArray=[];
-  for (let e=0;e<dataArray.length;e++){
-    // Working through each set of values from data
-    tempArray.push(mapFromColumnsAndDataSet(columnArray,dataArray[e]));
-  }
-  return tempArray;
-}
-function mapFromColumnsAndDataSet(columnData,data){ // this assists the SQL query constructor
-  var tempMap=new Map();
-  for (let i=0;i<columnData.length;i++){
-    tempMap.set(columnData[i],data[i]);
-  }
-  return tempMap;
-}
 
 // New Methods needed:
 // factionList() - Returns an array of all the factions as FactionObj's using "/faction_list".  Can be given a server object to run on that instance
