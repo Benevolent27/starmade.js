@@ -1,3 +1,5 @@
+const util=require('util');
+
 function mapToJson(map) {
     return JSON.stringify([...map]);
 }
@@ -39,6 +41,19 @@ function getObjType(theObj){ // This will return the name of the constructor fun
   }
 }
 
+function colorize(input){ // This uses inspect from util to add ANSI color codes to objects, strings, etc.  It should only be used for output to a user, not when storing values anywhere.
+  return util.inspect(input,{colors:true});
+}
+
+function addNumToErrorObj(errorObj,number){
+  // This adds an errno value to an existing error object
+  // Example: addNumToErrorObj(new Error("This would normally have 0 as errno"),2)
+  var returnObj=errorObj;
+  returnObj["errno"]=number;
+  return returnObj;
+}
+
+
 module.exports={
   mapToJson,
   jsonToMap,
@@ -46,5 +61,8 @@ module.exports={
   objToStrMap,
   toBoolean,
   toNumIfPossible,
-  getObjType
+  getObjType,
+  "type":getObjType,
+  colorize,
+  addNumToErrorObj
 };
