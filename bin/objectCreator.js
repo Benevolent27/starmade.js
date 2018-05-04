@@ -1,4 +1,6 @@
 
+// This script assists with creating all custom object types used by the wrapper.
+
 // Requires
 const path=require('path');
 const binFolder=path.resolve(__dirname,"../bin/");
