@@ -72,43 +72,35 @@ console.debug=function (vals,sleepTime) { // for only displaying text when the -
 // ### SCRIPT REQUIRES ###
 // #######################
 // path.resolve below builds the full path to "./bin/setSettings.js" in such a way that is compatible with both windows and linux/macosx, since it doesn't use / or \ characters.
-var miscHelper=require(path.join(binFolder,"miscHelpers.js"));
-var requireBin=miscHelper["requireBin"]; // Simplifies requiring scripts from the bin folder..yes I am this lazy.
-var objectCreator=requireBin("objectCreator.js");
-var setSettings = require(path.join(binFolder, "setSettings.js")); // This will confirm the settings.json file is created and the install folder is set up.
-var installAndRequire = require(path.join(binFolder, "installAndRequire.js")); // This is used to install missing NPM modules and then require them without messing up the require cache with modules not found (which blocks requiring them till an app restart).
-var mySleep = require(path.join(binFolder, "mySleep.js")); // Only accurate for 100ms or higher wait times.
-function sleep(ms){
-  console.debug("Sleeping for " + ms + " milliseconds..");
-  if (ms){
-    if (isNaN(parseInt(ms))){
-        console.error("ERROR: Invalid parameter passed to sleep function: " + ms);
-    } else {
-      mySleep(parseInt(ms));
-    }
-  } else {
-    console.error("ERROR: No parameter passed to sleep function!");
-  }
-}
-var patterns=require(path.join(binFolder, "patterns.js")); // Import the patterns that will be used to match to in-game events like deaths and messages.
-var starNet=require(path.join(binFolder, "starNet.js")); // needs testing
-var starNetHelper=require(path.join(binFolder, "starNetHelper.js")); // needs testing
-var sqlQuery=require(path.join(binFolder, "sqlQuery.js")); // needs testing
-var ini=require(path.join(binFolder,"iniHelper.js")); // This will replace the current functionality of ini by wrapping it and modifying the ini package so that it works correctly for starmade config files and ini files that use # characters.
-var obj=require(path.join(binFolder,"objectHelper.js")); // This includes assistance handling of custom objects and conversions
+var miscHelper        = require(path.join(binFolder,"miscHelpers.js"));
+var requireBin        = miscHelper["requireBin"]; // Simplifies requiring scripts from the bin folder..yes I am this lazy.
+var objectCreator     = requireBin("objectCreator.js");
+var setSettings       = requireBin("setSettings.js"); // This will confirm the settings.json file is created and the install folder is set up.
+var installAndRequire = requireBin("installAndRequire.js"); // This is used to install missing NPM modules and then require them without messing up the require cache with modules not found (which blocks requiring them till an app restart).
+var sleep             = requireBin("mySleep.js").softSleep; // Only accurate for 100ms or higher wait times.
+var patterns          = requireBin("patterns.js"); // Import the patterns that will be used to match to in-game events like deaths and messages.
+var starNet           = requireBin("starNet.js"); // needs testing
+var starNetHelper     = requireBin("starNetHelper.js"); // needs testing
+var sqlQuery          = requireBin("sqlQuery.js"); // needs testing
+var ini               = requireBin("iniHelper.js"); // This will replace the current functionality of ini by wrapping it and modifying the ini package so that it works correctly for starmade config files and ini files that use # characters.
+var obj               = requireBin("objectHelper.js"); // This includes assistance handling of custom objects and conversions
+var regExpHelper      = requireBin("regExpHelper.js"); // Contains common patterns, arrays, and pattern functions needed for the wrapper.
 
 // #################################
 // ### NPM DOWNLOADABLE REQUIRES ###
 // #################################
-const makeDir=installAndRequire('make-dir'); // https://www.npmjs.com/package/make-dir This allows creating folders recursively if they do not exist, with either async or sync functionality.
-const treeKill=installAndRequire('tree-kill'); // https://www.npmjs.com/package/tree-kill To kill the server and any sub-processes
-const iniPackage = installAndRequire('ini'); // https://www.npmjs.com/package/ini Imports ini files as objects.  It's a bit wonky with # style comments (in that it removes them and all text that follows) and leaves // type comments, so I created some scripting to modify how it loads ini files and also created some functions to handle comments.
-const prompt = installAndRequire("prompt-sync")({"sigint":true}); // https://www.npmjs.com/package/prompt-sync This creates sync prompts and can have auto-complete capabilties.  The sigint true part makes it so pressing CTRL + C sends the normal SIGINT to the parent javascript process
-const Tail = installAndRequire('tail').Tail; // https://github.com/lucagrulla/node-tail/blob/master/README.md For following the server log.  I forgot that the console output does NOT have everything.  This is NOT a perfect solution because whenever file rotation occurs, there is a 1 second gap in coverage.  Argh.
-const exitHook = installAndRequire('exit-hook'); // https://github.com/sindresorhus/exit-hook Handles normal shutdowns, sigterm, sigint, and a "message=shutdown" event.  Good for ensuring the server gets shutdown.
+const makeDir         = installAndRequire('make-dir'); // https://www.npmjs.com/package/make-dir This allows creating folders recursively if they do not exist, with either async or sync functionality.
+const treeKill        = installAndRequire('tree-kill'); // https://www.npmjs.com/package/tree-kill To kill the server and any sub-processes
+const iniPackage      = installAndRequire('ini'); // https://www.npmjs.com/package/ini Imports ini files as objects.  It's a bit wonky with # style comments (in that it removes them and all text that follows) and leaves // type comments, so I created some scripting to modify how it loads ini files and also created some functions to handle comments.
+const prompt          = installAndRequire("prompt-sync")({"sigint":true}); // https://www.npmjs.com/package/prompt-sync This creates sync prompts and can have auto-complete capabilties.  The sigint true part makes it so pressing CTRL + C sends the normal SIGINT to the parent javascript process
+const Tail            = installAndRequire('tail').Tail; // https://github.com/lucagrulla/node-tail/blob/master/README.md For following the server log.  I forgot that the console output does NOT have everything.  This is NOT a perfect solution because whenever file rotation occurs, there is a 1 second gap in coverage.  Argh.
+const exitHook        = installAndRequire('exit-hook'); // https://github.com/sindresorhus/exit-hook Handles normal shutdowns, sigterm, sigint, and a "message=shutdown" event.  Good for ensuring the server gets shutdown.
 
 // ### Set up submodules and aliases from requires.
 var eventEmitter = new events.EventEmitter(); // This is for custom events
+var isPidAlive = miscHelper.isPidAlive;
+var uidPrefixesRegExp=regExpHelper.uidPrefixesRegExp;
+var uidPrefixes=regExpHelper.uidPrefixes;
 
 // Object aliases
 var SqlQueryObj=objectCreator.SqlQueryObj;
@@ -116,6 +108,8 @@ var EntityObj=objectCreator.EntityObj;
 var SectorObj=objectCreator.SectorObj;
 var CoordsObj=objectCreator.CoordsObj;
 var FactionObj=objectCreator.FactionObj;
+var MessageObj=objectCreator.MessageObj;
+
 
 
 // #####################
@@ -155,22 +149,7 @@ var starMadeInstallerURL      = "http://files.star-made.org/" + starMadeStarter;
 // Patterns - This will be to detect things like connections, deaths, etc.  I'm pushing to an array so it's easier to add or remove patterns.
 var includePatternRegex       = patterns.includes();
 var excludePatternRegex       = patterns.excludes();
-var uidPrefixes=["ENTITY_SHOP_","ENTITY_SPACESTATION_","ENTITY_FLOATINGROCK_","ENTITY_PLANET_","ENTITY_SHIP_","ENTITY_FLOATINGROCKMANAGED_","ENTITY_CREATURE_","ENTITY_PLANETCORE_","ENTITY_PLAYERCHARACTER_","ENTITY_PLAYERSTATE_"];
-var uidPrefixesRegExp=createMultiRegExpFromArray(uidPrefixes,"^");
-function createMultiRegExpFromArray(inputArray,prefix,suffix){
-  // This will cycle through an array of values and create regex patterns that searches for each value.  Adding a prefix or suffix is optional.
-  var returnVal;
-  var prefixToUse=prefix ? prefix : ""; // We are setting it to "" because we don't want the word "undefined" to appear in the regex patterns and we would want to avoid having to create a complicated if/then/else tree if we can help it.
-  var suffixToUse=suffix ? suffix : "";
-  for (let i=0;i<inputArray.length;i++){
-    if (returnVal){
-      returnVal+="|" + prefixToUse + inputArray[i] + suffixToUse;
-    } else {
-      returnVal=prefixToUse + inputArray[i] + suffixToUse;
-    }
-  }
-  return new RegExp(returnVal);
-}
+
 
 
 // New Methods needed:
@@ -374,15 +353,6 @@ if (fs.existsSync(lockFile) && ignoreLockFile == false){
   } catch (err) {
     console.error("ERROR:  There was a problem renaming the server.lck file to server.lck.bak!");
     throw err; // This should only ever happen if a directory was created called server.lck.bak or if the person doesn't have delete rights on the folder..
-  }
-}
-
-function isPidAlive(thePID){
-  try {
-    process.kill(thePID,0);
-    return true;
-  } catch (err) {
-    return false;
   }
 }
 
