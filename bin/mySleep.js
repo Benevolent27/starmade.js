@@ -52,4 +52,33 @@ function mySleep(ms){
     throw new Error("No number value given to mySleep!");
   }
 }
-module.exports=mySleep;
+function softSleep(ms){ // mySleep throws errors if an invalid number is given.  This function is to soften it's default behavior.
+  console.debug("Sleeping for " + ms + " milliseconds..");
+  if (ms){
+    if (isNaN(parseInt(ms))){
+        console.error("ERROR: Invalid parameter passed to sleep function: " + ms);
+    } else {
+      mySleep(parseInt(ms));
+    }
+  } else {
+    console.error("ERROR: No parameter passed to sleep function!");
+  }
+}
+
+// function mainFunc(ms,options){
+//   if (options.hasOwnProperty("soft")){
+//     if (options.soft==true){
+//       softSleep(ms);
+//     } else {
+//       mySleep(ms);
+//     }
+//   } else {
+//     mySleep(ms);
+//   }
+//   return true;
+// }
+
+module.exports={
+  "sleep":mySleep,
+  "softSleep":softSleep
+}
