@@ -448,6 +448,25 @@ function verifyResponse(input){ // input should be a full starNet.js response st
   return false;
 }
 
+function detectSuccess(input){ // input should be a full starNet.js response as a string
+  // This will look for "RETURN: [SERVER, [ADMIN COMMAND] [SUCCESS]" and return true if found.
+  // Commands that use this formatting include:
+  // /sector_chmod
+  // Note: Not all commands return the same kind of success message, so this will ONLY work for specific commands.
+  // TODO: Add more success type messages here as I come accross them.
+  var theReg=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] \\[SUCCESS\\]")
+  var inputArray=input.split("\n");
+  var returnVal=false;
+  for (let i=0;i<inputArray.length && returnVal==false;i++){
+    if (theReg.test(inputArray[i])){
+      returnVal=true;
+    }
+  }
+  if (returnVal == false){
+    console.error("ERROR: " + input);
+  }
+  return returnVal;
+}
 
 module.exports={
   "mapifyShipInfoUIDString":mapifyEntityInfoUIDString,
@@ -456,5 +475,6 @@ module.exports={
   "ShipInfoUidObj":ShipInfoUidObj,
   verifyResponse,
   detectError,
-  detectRan
+  detectRan,
+  detectSuccess
 }
