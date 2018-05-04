@@ -12,6 +12,7 @@ var starNetHelper = requireBin("starNetHelper.js");
 var sqlQuery      = requireBin("sqlQuery.js");
 var objHelper     = requireBin("objectHelper.js");
 var regExpHelper  = requireBin("regExpHelper.js");
+var ini           = requireBin("iniHelper.js");
 
 // var starNet=require(path.join(binFolder,"starNet.js"));
 // var starNetHelper=require(path.join(binFolder,"starNetHelper.js"));
@@ -20,60 +21,54 @@ var regExpHelper  = requireBin("regExpHelper.js");
 // var regExpHelper=require(path.join(binFolder,"regExpHelper.js"));
 
 // Set up aliases
-var colorMe                = objHelper["colorize"];
+var colorize                = objHelper["colorize"];
 var stripFullUIDtoUID      = regExpHelper["stripFullUIDtoUID"]; // Function that removes text like ENTITY_SHIP_ and ENTITY_PLANET_ from the beginning of a full UID so it can be used to perform SQL queries on UID
 var typeOfObj              = objHelper.type; // Gets the prototype name of an object, so instead of using "typeof", which returns "object" for things like arrays and SectorObj's, etc, this will return their object name instead.
 var SqlQueryObj            = sqlQuery.SqlQueryObj;
 const toNum                = objHelper.toNumIfPossible;
 var sectorProtectionsArray = regExpHelper.sectorProtections; // This should include all the possible protections a sector can have.
-var verifyStarNetResponse  = starNetHelper.verifyResponse;
-var starNetVerified        = starNetHelper.starNetVerified;
-
-// Set up variables
-
+var verifyStarNetResponse  = starNetHelper.verifyResponse; // This can be used to perform a verification on a StarMade response without consuming the response
+var starNetVerified        = starNetHelper.starNetVerified; // If the response does not verify, this consumes the response and throws an error instead
+var copyArray              = objHelper.copyArray;
 
 // Set up prototypes for constructors, such as replacing .toString() functionality with a default value.  Prototypes will not appear as a regular key.
 SectorObj.prototype.toString = function(){ return this.coords.toString() };
 CoordsObj.prototype.toString = function(){ return this.x.toString() + " " + this.y.toString() + " " + this.z.toString() };
 EntityObj.prototype.toString = function(){ return this.fullUID.toString() };
 
-
-// starNet("/load_sector_range 2 2 2 2 2 2");
-// var testObj=new starNetHelp.ShipInfoUidObj("ENTITY_SHIP_Hello_There");
-// console.log("\nDisplaying object (size: " + testObj.size + "):");
-// console.dir(testObj);
-//
-//
-// console.log("\nWhat is SqlQuery?");
-// console.dir(sqlQuery);
-//
-// var sqlQueryObj=new sqlQuery.SqlQueryObj("SELECT * FROM PUBLIC.SECTORS WHERE X=2 AND Y=2 AND Z=2;");
-// console.log("\nSql query: ");
-// console.dir(sqlQueryObj);
-//
-// var shipBlocks=starNetHelp.getEntityValue("ENTITY_SHIP_Hello_There","Blocks");
-// console.log("\nBlocks: " + shipBlocks);
-
-// function colorMe(input){
-//   return require('util').inspect(input,{colors:true});
-// }
-
 //  #######################
 //  ###     TESTING     ###
 //  #######################
-// EntityObj tests
+
+if (__filename == require.main.filename){ // Only run the arguments IF this script is being run by itself and NOT as a require.
+
+  var clArgs=process.argv.slice(2);
+  var testSuit={
+    sectorTests1:sectorTests,
+    sectorTests2:sectorTests2,
+    sectorTests3:sectorTests3,
+    entityObjTests:entityObjTests,
+    starNetHelperTests:starNetHelperTests
+  }
+  if (testSuit.hasOwnProperty(clArgs[0])){
+    console.log("Running test suit: " + clArgs[0]);
+    testSuit[clArgs[0]](clArgs[1]);
+  } else {
+    console.log("Test suit does not exist: " + clArgs[0]);
+  }
+}
 function entityObjTests(){
   var theShip=new EntityObj("ENTITY_SHIP_Hello_There");
-  console.log("My ship is named: " + colorMe(theShip.name()));
-  console.log("Is my ship loaded?: " + colorMe(theShip.loaded()));
-  console.log("It has a default value of: " + colorMe(theShip.toString()));
-  console.log("It has a total block count of: " + colorMe(theShip.blocks()));
-  console.log("It is currently in sector: " + colorMe(theShip.sector().toString()));
-  console.log("And its very strange orientation coords are: " + colorMe(theShip.orientation()));
+  console.log("My ship is named: " + colorize(theShip.name()));
+  console.log("Is my ship loaded?: " + colorize(theShip.loaded()));
+  console.log("It has a default value of: " + colorize(theShip.toString()));
+  console.log("It has a total block count of: " + colorize(theShip.blocks()));
+  console.log("It is currently in sector: " + colorize(theShip.sector().toString()));
+  console.log("And its very strange orientation coords are: " + colorize(theShip.orientation()));
   console.log("And here's all the data, mapified:");
   console.dir(theShip.dataMap());
   console.log("And here's all the data as an object:");
-  console.log(colorMe(theShip.dataObj()));
+  console.log(colorize(theShip.dataObj()));
 
 
   console.log("New entityObj: ");
@@ -84,12 +79,12 @@ function entityObjTests(){
   Object.keys(theShip).forEach(function(key){
     if (theShip.hasOwnProperty(key)){ // This is to filter out prototype values
       if (typeof theShip[key] == "object"){
-        process.stdout.write(key + ": (type: " + getObjType(theShip[key]) + ") ");
+        process.stdout.write(key + ": (type: " + typeOfObj(theShip[key]) + ") ");
         console.log(theShip[key]);
       } else if (typeof theShip[key] == "function"){
         let tempVal=theShip[key]();
         if (typeof tempVal == "object"){
-          process.stdout.write(key + ": (type: " + getObjType(tempVal) + ") ");
+          process.stdout.write(key + ": (type: " + typeOfObj(tempVal) + ") ");
           console.log(tempVal);
         } else if (typeof tempVal == "string"){
           console.log(key + ": " + tempVal);
@@ -106,9 +101,6 @@ function entityObjTests(){
   console.log("UID: " + theShip.UID);
   console.log("fullUID: " + theShip.fullUID);
 }
-
-// SectorObj tests
-sectorTests();
 function sectorTests(){
   var theSector=new SectorObj(2,2,2);
   var chmodResults;
@@ -183,16 +175,90 @@ function sectorTests(){
   // console.log("Attempt at - noindications: " + chmodResults);
   return true;
 }
+function sectorTests2(){
+  var theSector=new SectorObj(2,2,2);
+  console.log("Resetting for start:");
+  theSector.setChmodNum(0);
+  console.log("Performing test 1");
+  var test1time=sectorTestHelper2(theSector);
+  console.log("Resetting..");
+  theSector.setChmodNum(0);
+  console.log("Performing test 2");
+  var test2time=sectorTestHelper2(theSector,{forcesave:true});
+  console.log("Test 1 time: " + test1time + " test 2 time: " + test2time);
+}
+function sectorTests3(){
+  var theSector=new SectorObj(2,2,2);
+  console.log("Resetting for start:");
+  theSector.setChmodNum(0);
+  console.log("Performing test 1");
+  var test1time=sectorTestHelper3(theSector);
+  console.log("Resetting..");
+  theSector.setChmodNum(0);
+  console.log("Performing test 2");
+  var test2time=sectorTestHelper3(theSector,{forcesave:true});
+  console.log("Test 1 time: " + test1time + " test 2 time: " + test2time);
+}
+
+function starNetHelperTests(){
+  starNet("/load_sector_range 2 2 2 2 2 2");
+  var testObj=new starNetHelper.ShipInfoUidObj("ENTITY_SHIP_Hello_There");
+  console.log("\nDisplaying object (size: " + testObj.size + "):");
+  console.dir(testObj);
+  console.log("\nWhat is SqlQuery?");
+  console.dir(sqlQuery);
+
+  var sqlQueryObj=new sqlQuery.SqlQueryObj("SELECT * FROM PUBLIC.SECTORS WHERE X=2 AND Y=2 AND Z=2;");
+  console.log("\nSql query: ");
+  console.dir(sqlQueryObj);
+
+  var shipBlocks=starNetHelper.getEntityValue("ENTITY_SHIP_Hello_There","Blocks");
+  console.log("\nBlocks: " + shipBlocks);
+}
+
+function sectorTestHelper3(theSector,options){
+    var startTime=Date.now();
+    var randomNum=0;
+    for (let i=1;i<=50;i++){
+      randomNum=Math.floor(Math.random()*64);
+      sectorTestHelper(theSector,randomNum,options);
+    }
+    sectorTestHelper(theSector,50,options); // These should be super fast since no changes are needed.
+    sectorTestHelper(theSector,50,options);
+    var timeDifference=colorize(Math.round((Date.now() - startTime) / 1000));
+    console.log("Total time: " + timeDifference + " seconds.");
+    return timeDifference;
+}
 
 
-
+function sectorTestHelper2(theSector,options){
+    var startTime=Date.now();
+    for (let i=1;i<=50;i++){
+      sectorTestHelper(theSector,i,options);
+    }
+    sectorTestHelper(theSector,50,options); // These should be super fast since no changes are needed.
+    sectorTestHelper(theSector,50,options);
+    var timeDifference=colorize(Math.round((Date.now() - startTime) / 1000));
+    console.log("Total time: " + timeDifference + " seconds.");
+    return timeDifference;
+}
+function sectorTestHelper(sectorObj,inputNum,options){
+  // console.log("\nSetting sector, '" + sectorObj.toString() + "', to chmod number: " + inputNum + " Values need to be: " + decodeChmodNum(inputNum));
+  sectorObj.setChmodNum(inputNum,options);
+  // starNet("/force_save");
+  // console.log("New Chmod Num: " + sectorObj.getChmodNum() + " Chmods: " + sectorObj.getChmodArray());
+}
 
 // TESTING END
 
 function ServerObj(starMadeInstallFolder,javaArgs){
   // The goal here is to have this object be the root of running server based commands, such as force_save, shutdown, etc.
   // Information like the port, path to starmade, etc, should appear in here.
+
+  // TODO:  This should do all the installation, verification, spawning, etc, necessary to get this spawn up and running and then add it's PID to the lock file.
   this.spawn=spawn("java",javaArgs,{"cwd": starMadeInstallFolder});
+  this.cfgFile=path.join(starMadeInstallFolder,"server.cfg");
+  this.cfg=ini.getFileAsObj(this.cfgFile);
 }
 
 function MessageObj(sender,receiver,receiverType,message){
@@ -211,7 +277,6 @@ function MessageObj(sender,receiver,receiverType,message){
   }
   this.text=message;
 }
-
 function ChannelObj(channelName){
   var factionTest=new RegExp("^Faction-{0,1}[0-9]+");
   if (channelName == "all"){
@@ -225,20 +290,20 @@ function ChannelObj(channelName){
   }
   this.name=channelName;
 }
-
 function IPObj(ipAddressString,date){
   this.address=ipAddressString;
+  if (date){
+    this.date=date;
+  }
   // TODO: Add Info Methods:
   // date - This will only be set if the IP is attached to a date somehow, such as when listing all the IP's for a player
 
   // Action Methods:
-  // ban - PERM BAN
-  // banTemp(TimeInMinutes) - Temp Ban
+  // ban(time) - PERM BAN if no time given, otherwise a temp ban
 
   // Optional:
   // crawl(Num) - reveals all players who share the same IP.  If a Num is provided, then will crawl that level deep, gathering more IP's and ipcrawling those.
 }
-
 function SMName(smName){
   this.name=smName;
   // TODO: Add Info methods:
@@ -250,7 +315,6 @@ function SMName(smName){
   // Using SQL queries:
   // getNames - Returns an array of PlayerObj's for all the usernames associated with this registry account name
 }
-
 function PlayerObj(playerName){
   if (playerName){
     this.name=playerName;
@@ -323,7 +387,6 @@ function PlayerObj(playerName){
     throw new Error("ERROR: No playername provided to playerObj constructor!");
   }
 }
-
 function SystemObj(x,y,z){
   this.coords=new CoordsObj(x,y,z);
   // TODO: Add Info methods:
@@ -342,7 +405,6 @@ function SystemObj(x,y,z){
     this.extraInfo=extraInfoArray;
   }
 }
-
 function SpawnObj(playerName,time){ // time is optional.  Current time is used if not provided.
   if (!time){
     this.time=Date.now();
@@ -353,7 +415,6 @@ function SpawnObj(playerName,time){ // time is optional.  Current time is used i
   this.player=new PlayerObj(playerName);
   // Right now there really are no console commands for spawn mechanics, but a separate object is used here in case there are in the future.
 }
-
 function BluePrintObj(bluePrintName){
   this.name=bluePrintName;
   // Info Methods to add:
@@ -362,8 +423,6 @@ function BluePrintObj(bluePrintName){
   // Action Methods:
   //
 }
-
-
 function FactionObj(factionNumber){
   this.number=factionNumber;
   // TODO: Add Info methods:
@@ -396,8 +455,6 @@ function FactionObj(factionNumber){
 
 function SectorObj(x,y,z){
   // TODO: Add Info methods:
-  // getChmod - to get the chmods of a sector returned as an array of +peace,+protected, etc.
-  // getChmodNum - To perform a SQL query to look up the chmod number
   // getSystem - Returns a SystemObj
 
   // Add Action Methods:
@@ -412,8 +469,12 @@ function SectorObj(x,y,z){
   // - Spawns an entity somewhere within this sector.  Spacial coordinates are optional.  If no faction number is provided, 0 is used.  If AI active true/false value not given, true is used.
   // - Uses: "/spawn_entity [BluePrintName] [NewShipName] X Y Z [FactionNumber] [AIActiveBoolean true/false]" OR "/spawn_entity_pos [BluePrintName] [NewShipName] X Y Z SpacialX SpacialY SpacialZ [FactionNumber] [AIActiveBoolean true/false]"
   // - Returns an EntityObj of the newly spawned entity if successful, otherwise returns false.
+
+  // TODO: add alternative inputs, such as "x y z" or "[x,y,z]" or a coordinates object
+
   if (typeof x == "number" && typeof y == "number" && typeof z == "number"){
     this.coords=new CoordsObj(x,y,z);
+    this.toArray=function(){ this.coords.toArray() };
     this.load=function(){
       // This returns "true" if the command ran, false for anything else, such as if the server was down.
       let theResponse=starNet("/load_sector_range " + this.coords.toString() + " " + this.coords.toString());
@@ -429,8 +490,10 @@ function SectorObj(x,y,z){
     };
     this.getChmodNum=function(){
       return getChmodNum(this.coords);
+    };
+    this.setChmodNum=function(newNum,options){ // Only has 1 option, which is to do a forcesave and then intelligently add/remove chmod values rather than the default of bruteforcing adding all needed and removing all unneeded.
+      return sectorSetChmodNum(this.coords,newNum,options);
     }
-
 
 
     // This can be expanded to allow storing information, such as a description, if more than values than expected are given to the constructor
@@ -451,6 +514,7 @@ function CoordsObj(x,y,z){
   this.x=x;
   this.y=y;
   this.z=z;
+  this.coords=function(){ return new CoordsObj(x,y,z) }; // This is to allow a sectorObj to gracefully morph into a CoordsObj and for a CoordsObj to be duplicated and then possibly modified.
   this.toArray=function(){ return [this.x, this.y, this.z]; }
   // this.string=x.toString() + " " + y.toString() + " "+ z.toString();
   // This can be expanded to allow storing information, such as a description, if more than values than expected are given to the constructor
@@ -463,7 +527,6 @@ function CoordsObj(x,y,z){
   }
   // this.toString=function(){ return this.string };
 }
-
 function EntityObj(fullUID){
   // This builds an entity object based on the full UID
   // This can be used for ships and stations.  Please use PlanetObj for planets and AsteroidObj for asteroids.
@@ -533,7 +596,7 @@ function EntityObj(fullUID){
   }
 }
 
-
+// Regular Functions
 function getChmodNum(sectorObjArrayOrString){
   // This performs a sql query and returns the protections number for a sector as a number
   // Input can be a SectorObj,CoordsObj, Array of 3 numbers, or a string with a space or comma separating each value.  The preferred type is a SectorObj
@@ -612,28 +675,27 @@ function decodeChmodNum(num){ // A number should be provided, but a number as a 
     throw new Error("ERROR: Invalid input given to function, decodeChmodNum!  Expected a number!");
   }
 }
-
-
-function sectorSetChmod(coordsObj,val){ // val can be a string or an array of strings
+function sectorSetChmod(coordsObj,stringOrArray){ // val can be a string or an array of strings
   // This can be used to set multiple chmod values at the same time
   // Simple example:  sectorSetChmod(mySectorObj,"+ protected"); // This sets the sector number from mySectorObj to add protected, returning true or false depending on the success.
   // Using Array: sectorSetChmod(mySectorObj,["+ protected","- peace","- noindications"]); // This will cycle through the array and set each chmod, and then will return an array of true/false values corresponding to each string given.
   // Note that when false values are given, it simply means the chmod failed, but does not give a reason why.  For example, if "+ nonsense" is given, it will return false.  If the server is down and StarNet.jar couldn't connect, it will also return false.
   // Handling false values is up to the script invoking this function.
-  let theType=objHelper.getObjType(val);
+  let theType=objHelper.getObjType(stringOrArray);
+  console.log("Setting chmod values for: " + stringOrArray);
   // console.log("sectorSetChmod running!");
   if (theType == "string"){
     // console.log("Setting " + val + " for sector: " + coordsObj.toString());
-    let theValLower=val.toLowerCase();
+    let theValLower=stringOrArray.toLowerCase();
     let theCommand="/sector_chmod " + coordsObj.toString() + " " + theValLower;
     return starNetHelper.detectSuccess(starNet(theCommand));
-  } else if (theType == "array"){
+  } else if (theType == "Array"){
     var resultsArray=[];
-    for (let i=0;i<val.length;i++){
-      let theSubType=objHelper.getObjType(val[i]);
+    for (let i=0;i<stringOrArray.length;i++){
+      let theSubType=objHelper.getObjType(stringOrArray[i]);
       if (theSubType == "string"){
-        let theValLower=val.toLowerCase();
-        resultsArray.push(starNetHelper.detectSuccess(starNet("/sector_chmod " + coordsObj.toString() + theValLower)));
+        let theValLower=stringOrArray[i].toLowerCase();
+        resultsArray.push(starNetHelper.detectSuccess(starNet("/sector_chmod " + coordsObj.toString() + " " + theValLower)));
       } else {
         resultsArray.push(false);
       }
@@ -644,10 +706,126 @@ function sectorSetChmod(coordsObj,val){ // val can be a string or an array of st
   }
 }
 
+
+function sectorSetChmodNum(coordsOrSectorObj,newChmodNum,options){ // Options are optional.
+  // There are two strategies we can use here:
+  // 1. We can do a force save, then pull the existing values and only add or remove the ones needed.  This way will display an annoying auto-save popup for everyone everytime it runs, but will be faster.
+  // 2. We can brute force things and always perform the positive of what is being added and remove any other values not desired.  This way is slow, but no annoying popup for everyone.  This is the default.
+  // Example to use force safe:  sectorSetChmodNum(coordsObj,25,{forcesave:true})
+  var forceSave=false;
+  if (typeof options == "object"){ // Parse the options
+    if (options.hasOwnProperty("forcesave")){
+      if (options["forcesave"] === true){ // We only want to enable it if it is exactly set to true, not a truthy value
+        forceSave=true;
+      }
+    }
+  }
+  var theCoords=coordsOrSectorObj.toString();
+  var arrayToUse=[];
+
+  if (forceSave == true){
+    // try {
+      starNetVerified("/force_save");
+      var currentChmodNum=getChmodNum(coordsOrSectorObj);
+      arrayToUse=getProtectionsDifferentialString(currentChmodNum,newChmodNum);
+    // } catch (error) {
+    //   console.error("Unable to set chmod for sector, " + theCoords + ", to protection number, " + newChmodNum + "!");
+    //   console.error("Error message: " + error.message);
+    // }
+  } else {
+    // brute force it.  It's the only option that won't have globally annoying consequences, even if it is a bit slow.
+    arrayToUse=buildChmodStringFromNum(newChmodNum);
+  }
+  if (arrayToUse.length > 0){ // If the array is empty, it means no changes were needed
+    return sectorSetChmod(theCoords,arrayToUse);
+  } else {
+    return [true]; // Since no changes were needed, we can just return an array with a single true value to indicate success
+  }
+}
+function buildChmodStringFromNum(newChmodNum){
+  var outputArray=[];
+  var chmodValuesToGive=decodeChmodNum(newChmodNum);
+  var chmodValuesToRemove=getInverseProtectionsArrayFromNum(newChmodNum);
+  for (let i=0;i<chmodValuesToGive.length;i++){
+    outputArray.push("+ " + chmodValuesToGive[i]);
+  }
+  for (let e=0;e<chmodValuesToRemove.length;e++){
+    outputArray.push("- " + chmodValuesToRemove[e]);
+  }
+  return outputArray;
+}
+
+
+function getProtectionsDifferentialString(currentProtectNum,newProtectNum){ // The current sector protection number and what the new number should be
+  var currentProtection=decodeChmodNum(currentProtectNum);
+
+  var whatItNeeds=decodeChmodNum(newProtectNum);
+  var whatItDoesntNeed=getInverseProtectionsArrayFromArray(whatItNeeds); // These are all the values it should not have
+
+  var whatItNeedsAdded=subArrayFromAnother(currentProtection,whatItNeeds); // This ensures we're only adding what it needs
+  var whatItNeedsRemoved=findSameFromTwoArrays(currentProtection,whatItDoesntNeed); // This ensures we're only removing a chmod it already has
+
+  // TODO: Finish this.
+  var outputArray=[];
+  for (let i=0;i<whatItNeedsAdded.length;i++){
+    outputArray.push("+ " + whatItNeedsAdded[i]);
+  }
+  for (let i=0;i<whatItNeedsRemoved.length;i++){
+    outputArray.push("- " + whatItNeedsRemoved[i]);
+  }
+  return outputArray; // An array of strings, ready for chmodding
+}
+
+function findSameFromTwoArrays(arrayOne,arrayTwo){ // This compares two arrays, outputting a new array of shared values
+  var outputArray=[];
+  for (let i=0;i<arrayOne.length;i++){
+    if (arrayTwo.indexOf(arrayOne[i]) !== -1){
+      outputArray.push(arrayOne[i]);
+    }
+  }
+  return outputArray;
+}
+
+function getInverseProtectionsArrayFromNum(num){
+    var array=decodeChmodNum(num);
+    return getInverseProtectionsArrayFromArray(array);
+}
+function getInverseProtectionsArrayFromArray(arrayToInvert,baseProtectionsArray){ // baseProtectionsArray is optional.  This is used to whittle down based on pre-existing protections, scheduling for removal.
+  var arrayToUse=[];
+  if (baseProtectionsArray){
+    arrayToUse=copyArray(baseProtectionsArray);
+  } else {
+    arrayToUse=copyArray(regExpHelper.sectorProtections);
+  }
+  return subArrayFromAnother(arrayToInvert,arrayToUse);
+}
+
+function subArrayFromAnother(arrayToSubtract,arrayToSubtractFrom){
+  var outputArray=copyArray(arrayToSubtractFrom);
+  var indexNum;
+  for (let i=0;i<arrayToSubtract.length;i++){
+    indexNum=outputArray.indexOf(arrayToSubtract[i]);
+    if (indexNum !== -1){
+      outputArray.splice(indexNum,1);
+    }
+  }
+  return outputArray;
+}
+// TODO: Create a function that gives a specific protection a value based on the sectorProtections array.
+// TODO: Create a function that converts an array of protection names to a total number
+
 module.exports={
+  ServerObj,
   SqlQueryObj,
   EntityObj,
   SectorObj,
   CoordsObj,
-  FactionObj
+  FactionObj,
+  MessageObj,
+  ChannelObj,
+  IPObj,
+  SMName,
+  SystemObj,
+  SpawnObj,
+  BluePrintObj
 }
