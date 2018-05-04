@@ -121,7 +121,7 @@
         "no-else-return": "off",
         "no-empty-function": "error",
         "no-eq-null": "error",
-        "no-eval": "error",
+        "no-eval": "warn",
         "no-extend-native": "error",
         "no-extra-bind": "error",
         "no-extra-label": "error",
