@@ -468,11 +468,28 @@ function detectSuccess(input){ // input should be a full starNet.js response as 
   return returnVal;
 }
 
+function starNetVerified(string){ // Takes a string command
+  // This should probably no be used on longer sort of responses because it has to parse through every line
+  if (typeof string == "string"){
+    var starNetResult=starNet(string);
+    if (verifyResponse(starNetResult)){
+      return starNetResult;
+    } else {
+      throw new Error("Could not verify StarNet command ran successfully: " + string);
+    }
+  } else {
+    throw new Error("Invalid parameters given to starNetVerified function!");
+  }
+  // Returns the result of the command if it verifies, meaning it ran AND there were no java errors.  This does not guarantee the command was successful, like when a person gives an invalid amount of parameters.
+}
+
+
 module.exports={
   "mapifyShipInfoUIDString":mapifyEntityInfoUIDString,
   "getCoordsAndReturnNumArray":getCoordsAndReturnNumArray,
   "getEntityValue":getEntityValue,
   "ShipInfoUidObj":ShipInfoUidObj,
+  starNetVerified,
   verifyResponse,
   detectError,
   detectRan,
