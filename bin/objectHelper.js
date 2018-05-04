@@ -55,6 +55,14 @@ function addNumToErrorObj(errorObj,number){
   return returnObj;
 }
 
+function copyArray(inputArray){ // This outputs a copy of an array rather than linking one array to another, which is what "var whatever = oldArray" seems to do in Javascript
+  var outputArray=[];
+  for (let i=0;i<inputArray.length;i++){
+    outputArray.push(inputArray[i]);
+  }
+  return outputArray;
+}
+
 
 module.exports={
   mapToJson,
@@ -66,5 +74,6 @@ module.exports={
   getObjType,
   "type":getObjType,
   colorize,
-  addNumToErrorObj
+  addNumToErrorObj,
+  copyArray
 };
