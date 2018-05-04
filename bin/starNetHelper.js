@@ -242,7 +242,6 @@ function mapifyEntityInfoUIDString(responseStr,options){ // options are optional
         } else {
           returnMap.set("DatabaseEntry", mapifyDatabaseEntry(results[i]));
         }
-
         returnMap.set("existsInDB",true);
       } else if (loadedValueReg.test(results[i])){ // This applies to values like "Sector"
           let cleanedVal=cleanRegularValue(results[i]); // This should look something like "Name: Hello_There"
@@ -397,9 +396,65 @@ function getEntityValue(uidOrShipObj,valueString,options){ // Options are option
   }
 }
 
+function detectRan(input){ // This only checks the last line of a starNet response to see if it ran.  It does not determine errors.
+  // This is intended to be used ONLY for commands which have no other response, such as the "/load_sector_range" command.  If the server is down and the command fails, this will return false.
+  // Only FULL starNet.js responses should be fed to this function.
+  // Returns true if the command ran (even if invalid parameters were given)
+  var theArray=input.split("\n");
+  var theLastVal=theArray[theArray.length - 1];
+  var theReg=new RegExp("^RETURN: \\[SERVER, END; Admin command execution ended, [0-9]\\]");
+  if (theReg.test(theLastVal)){
+    return true;
+  }
+  return false;
+}
+
+function detectError(input){ // Input should be a string.
+  // This will scan through a starNet response for a 'java.net' line, which should only ever appear when there is an error, such as failure to connect to the server.
+  // This function is not intended to be ran on every starNet response.  It can be used to parse individual lines or the whole response.
+  // Returns true if there was an error, otherwise false.
+  var theReg=new RegExp("^java.net.");
+  var theArray=input.split("\n"); // If a string is provided, then this simply turns it into an array
+  var returnVal=false;
+  for (let i=0;i<theArray.length;i++){
+    if (theReg.test(theArray[i])){
+      returnVal=true;
+      break;
+    }
+  }
+  return returnVal;
+  // Example of an error connecting due to the server not running:
+  // java.net.ConnectException: Connection refused (Connection refused)
+  //          at java.net.PlainSocketImpl.socketConnect(Native Method)
+  //          at java.net.AbstractPlainSocketImpl.doConnect(AbstractPlainSocketImpl.java:350)
+  //          at java.net.AbstractPlainSocketImpl.connectToAddress(AbstractPlainSocketImpl.java:206)
+  //          at java.net.AbstractPlainSocketImpl.connect(AbstractPlainSocketImpl.java:188)
+  //          at java.net.SocksSocketImpl.connect(SocksSocketImpl.java:392)
+  //          at java.net.Socket.connect(Socket.java:589)
+  //          at java.net.Socket.connect(Socket.java:538)
+  //          at java.net.Socket.<init>(Socket.java:434)
+  //          at java.net.Socket.<init>(Socket.java:211)
+  //         at util.StarMadeNetUtil.executeAdminCommand(StarMadeNetUtil.java:122)
+  //         at gui.StarNet.main(StarNet.java:32)
+}
+
+function verifyResponse(input){ // input should be a full starNet.js response string
+  // This only checks if there was a java error and that the command actually ran.
+  // This does NOT check to verify the command was successful, as the success response can vary from command to command.
+  // detectRan should probably be preferred for commands that give no response to a command, such as a /sector_save or /load_sector_range to avoid unnecessary computation.
+  if (detectError(input) == false && detectRan(input)){
+    return true;
+  }
+  return false;
+}
+
+
 module.exports={
   "mapifyShipInfoUIDString":mapifyEntityInfoUIDString,
   "getCoordsAndReturnNumArray":getCoordsAndReturnNumArray,
   "getEntityValue":getEntityValue,
-  "ShipInfoUidObj":ShipInfoUidObj
+  "ShipInfoUidObj":ShipInfoUidObj,
+  verifyResponse,
+  detectError,
+  detectRan
 }
