@@ -1,4 +1,12 @@
 
+// This script should be where all common regExp patterns are stored.
+// TODO: Add verifiers functions and patterns for:
+// verifying entity names (no disallowed symbols or spaces at beginning/end)
+// full uid checker
+// convert to full UID, using a SQL query on a UID to add it if needed.
+
+var playerPrefixes=["ENTITY_PLAYERCHARACTER_","ENTITY_PLAYERSTATE_"];
+
 var uidPrefixes=["ENTITY_SHOP_","ENTITY_SPACESTATION_","ENTITY_FLOATINGROCK_","ENTITY_PLANET_","ENTITY_SHIP_","ENTITY_FLOATINGROCKMANAGED_","ENTITY_CREATURE_","ENTITY_PLANETCORE_","ENTITY_PLAYERCHARACTER_","ENTITY_PLAYERSTATE_"];
 var uidPrefixesRegExp=createMultiRegExpFromArray(uidPrefixes,"^");
 function createMultiRegExpFromArray(inputArray,prefix,suffix){
@@ -16,6 +24,16 @@ function createMultiRegExpFromArray(inputArray,prefix,suffix){
   return new RegExp(returnVal);
 }
 
+function stripFullUIDtoUID(input){
+  return input.replace(uidPrefixesRegExp,"").toString();
+}
+
+function isPlayerUID(inputStr){ // This checks a full UID to see if it follows the pattern of a player's UID
+  // Note this will return false if given a player name.
+  const playerPrefixesRegExp=createMultiRegExpFromArray(playerPrefixes,"^");
+  return playerPrefixesRegExp.test(inputStr);
+}
+
 if (require.main.filename == __filename){ // This is so it only runs based on arguments IF being ran by itself and not being required into another script.  This is for testing purposes.
   var theArguments=process.argv.slice(2);
   if (theArguments[0]){
@@ -25,6 +43,9 @@ if (require.main.filename == __filename){ // This is so it only runs based on ar
   }
 }
 module.exports={
+  uidPrefixes,
+  stripFullUIDtoUID,
+  isPlayerUID,
   "uidPrefixesReg":uidPrefixesRegExp,
   "createMultiRegFromArray": createMultiRegExpFromArray
 }
