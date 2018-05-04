@@ -2,26 +2,40 @@
 // This script assists with creating all custom object types used by the wrapper.
 
 // Requires
-const path=require('path');
-const binFolder=path.resolve(__dirname,"../bin/");
-var starNet=require(path.join(binFolder,"starNet.js"));
-var starNetHelper=require(path.join(binFolder,"starNetHelper.js"));
-var sqlQuery=require(path.join(binFolder,"sqlQuery.js"));
-var objHelper=require(path.join(binFolder,"objectHelper.js"));
-var regExpHelper=require(path.join(binFolder,"regExpHelper.js"));
+const path        = require('path');
+const binFolder   = path.resolve(__dirname,"../bin/");
+const spawn       = require('child_process').spawn;
+var miscHelper    = require(path.join(binFolder,"miscHelpers.js"));
+var requireBin    = miscHelper["requireBin"];
+var starNet       = requireBin("starNet.js");
+var starNetHelper = requireBin("starNetHelper.js");
+var sqlQuery      = requireBin("sqlQuery.js");
+var objHelper     = requireBin("objectHelper.js");
+var regExpHelper  = requireBin("regExpHelper.js");
+
+// var starNet=require(path.join(binFolder,"starNet.js"));
+// var starNetHelper=require(path.join(binFolder,"starNetHelper.js"));
+// var sqlQuery=require(path.join(binFolder,"sqlQuery.js"));
+// var objHelper=require(path.join(binFolder,"objectHelper.js"));
+// var regExpHelper=require(path.join(binFolder,"regExpHelper.js"));
 
 // Set up aliases
-var colorMe=objHelper["colorize"];
-var stripFullUIDtoUID=regExpHelper["stripFullUIDtoUID"]; // Function that removes text like ENTITY_SHIP_ and ENTITY_PLANET_ from the beginning of a full UID so it can be used to perform SQL queries on UID
-var typeOfObj=objHelper.type; // Gets the prototype name of an object, so instead of using "typeof", which returns "object" for things like arrays and SectorObj's, etc, this will return their object name instead.
-var SqlQueryObj=sqlQuery.SqlQueryObj;
+var colorMe                = objHelper["colorize"];
+var stripFullUIDtoUID      = regExpHelper["stripFullUIDtoUID"]; // Function that removes text like ENTITY_SHIP_ and ENTITY_PLANET_ from the beginning of a full UID so it can be used to perform SQL queries on UID
+var typeOfObj              = objHelper.type; // Gets the prototype name of an object, so instead of using "typeof", which returns "object" for things like arrays and SectorObj's, etc, this will return their object name instead.
+var SqlQueryObj            = sqlQuery.SqlQueryObj;
+const toNum                = objHelper.toNumIfPossible;
+var sectorProtectionsArray = regExpHelper.sectorProtections; // This should include all the possible protections a sector can have.
+var verifyStarNetResponse  = starNetHelper.verifyResponse;
+var starNetVerified        = starNetHelper.starNetVerified;
+
 // Set up variables
 
 
 // Set up prototypes for constructors, such as replacing .toString() functionality with a default value.  Prototypes will not appear as a regular key.
-SectorObj.prototype.toString=function(){ return this.coords.toString() };
-CoordsObj.prototype.toString=function(){ return this.x.toString() + " " + this.y.toString() + " " + this.z.toString() };
-EntityObj.prototype.toString=function(){ return this.fullUID.toString() };
+SectorObj.prototype.toString = function(){ return this.coords.toString() };
+CoordsObj.prototype.toString = function(){ return this.x.toString() + " " + this.y.toString() + " " + this.z.toString() };
+EntityObj.prototype.toString = function(){ return this.fullUID.toString() };
 
 
 // starNet("/load_sector_range 2 2 2 2 2 2");
@@ -48,67 +62,307 @@ EntityObj.prototype.toString=function(){ return this.fullUID.toString() };
 //  ###     TESTING     ###
 //  #######################
 // EntityObj tests
-var theShip=new EntityObj("ENTITY_SHIP_Hello_There");
-console.log("My ship is named: " + colorMe(theShip.name()));
-console.log("Is my ship loaded?: " + colorMe(theShip.loaded()));
-console.log("It has a default value of: " + colorMe(theShip.toString()));
-console.log("It has a total block count of: " + colorMe(theShip.blocks()));
-console.log("It is currently in sector: " + colorMe(theShip.sector().toString()));
-console.log("And its very strange orientation coords are: " + colorMe(theShip.orientation()));
-//
-// console.log("And here's all the data, mapified:");
-// console.dir(theShip.dataMap());
+function entityObjTests(){
+  var theShip=new EntityObj("ENTITY_SHIP_Hello_There");
+  console.log("My ship is named: " + colorMe(theShip.name()));
+  console.log("Is my ship loaded?: " + colorMe(theShip.loaded()));
+  console.log("It has a default value of: " + colorMe(theShip.toString()));
+  console.log("It has a total block count of: " + colorMe(theShip.blocks()));
+  console.log("It is currently in sector: " + colorMe(theShip.sector().toString()));
+  console.log("And its very strange orientation coords are: " + colorMe(theShip.orientation()));
+  console.log("And here's all the data, mapified:");
+  console.dir(theShip.dataMap());
+  console.log("And here's all the data as an object:");
+  console.log(colorMe(theShip.dataObj()));
 
-console.log("And here's all the data as an object:");
-console.log(colorMe(theShip.dataObj()));
 
+  console.log("New entityObj: ");
+  console.dir(theShip);
+  console.log("\n");
+  console.log("Ship faction number: " + theShip.faction().number);
 
-// console.log("New entityObj: ");
-// console.dir(theShip);
-// console.log("\n");
-// console.log("Ship faction number: " + theShip.faction().number);
+  Object.keys(theShip).forEach(function(key){
+    if (theShip.hasOwnProperty(key)){ // This is to filter out prototype values
+      if (typeof theShip[key] == "object"){
+        process.stdout.write(key + ": (type: " + getObjType(theShip[key]) + ") ");
+        console.log(theShip[key]);
+      } else if (typeof theShip[key] == "function"){
+        let tempVal=theShip[key]();
+        if (typeof tempVal == "object"){
+          process.stdout.write(key + ": (type: " + getObjType(tempVal) + ") ");
+          console.log(tempVal);
+        } else if (typeof tempVal == "string"){
+          console.log(key + ": " + tempVal);
+        } else {
+          console.dir(tempVal);
+        }
+        // console.log(key + ": " + theShip[key]());
+      } else if (typeof theShip[key] == "string"){
+        console.log(key + ": " + theShip[key]);
+      }
+    }
+  });
 
-// Object.keys(theShip).forEach(function(key){
-//   if (theShip.hasOwnProperty(key)){ // This is to filter out prototype values
-//     if (typeof theShip[key] == "object"){
-//       process.stdout.write(key + ": (type: " + getObjType(theShip[key]) + ") ");
-//       console.log(theShip[key]);
-//     } else if (typeof theShip[key] == "function"){
-//       let tempVal=theShip[key]();
-//       if (typeof tempVal == "object"){
-//         process.stdout.write(key + ": (type: " + getObjType(tempVal) + ") ");
-//         console.log(tempVal);
-//       } else if (typeof tempVal == "string"){
-//         console.log(key + ": " + tempVal);
-//       } else {
-//         console.dir(tempVal);
-//       }
-//       // console.log(key + ": " + theShip[key]());
-//     } else if (typeof theShip[key] == "string"){
-//       console.log(key + ": " + theShip[key]);
-//     }
-//   }
-// });
-
-// console.log("UID: " + theShip.UID);
-// console.log("fullUID: " + theShip.fullUID);
-
+  console.log("UID: " + theShip.UID);
+  console.log("fullUID: " + theShip.fullUID);
+}
 
 // SectorObj tests
-// var theSector=new SectorObj(2,2,2);
-// var chmodResults=theSector.setChmod("+ peace");
-// console.log("Atttempt to set peace: " + chmodResults);
-// chmodResults=theSector.setChmod("- peace");
-// console.log("Attempt to remove peace: " + chmodResults);
-// chmodResults=theSector.setChmod("- frakkin");
-// console.log("Attempt at a bullshit change: " + chmodResults);
-// chmodResults=theSector.setChmod("+ noindications");
-// console.log("Attempt at + noindications: " + chmodResults);
-// chmodResults=theSector.setChmod("- noindications");
-// console.log("Attempt at - noindications: " + chmodResults);
+sectorTests();
+function sectorTests(){
+  var theSector=new SectorObj(2,2,2);
+  var chmodResults;
+  console.log("Start:");
+  console.log("Protection Num: " + theSector.getChmodNum() + " Protections: " + theSector.getChmodArray());
+
+  chmodResults=theSector.setChmod("- peace");
+  console.log("-Peace Result: " + chmodResults);
+  starNet("/force_save");
+  console.log("Protection Num: " + theSector.getChmodNum() + " Protections: " + theSector.getChmodArray());
+
+  chmodResults=theSector.setChmod("- protected");
+  console.log("-Protected Result: " + chmodResults);
+  starNet("/force_save");
+  console.log("Protection Num: " + theSector.getChmodNum() + " Protections: " + theSector.getChmodArray());
+
+  chmodResults=theSector.setChmod("+ peace");
+  console.log("Result: " + chmodResults);
+  starNet("/force_save");
+  console.log("Protection Num: " + theSector.getChmodNum() + " Protections: " + theSector.getChmodArray());
+
+  chmodResults=theSector.setChmod("+ protected");
+  console.log("Result: " + chmodResults);
+  starNet("/force_save");
+  console.log("Protection Num: " + theSector.getChmodNum() + " Protections: " + theSector.getChmodArray());
+
+  chmodResults=theSector.setChmod("+ nofploss");
+  console.log("+ nofploss Result: " + chmodResults);
+  starNet("/force_save");
+  console.log("Protection Num: " + theSector.getChmodNum() + " Protections: " + theSector.getChmodArray());
+
+  chmodResults=theSector.setChmod("+ noindications");
+  console.log("+ noindications Result: " + chmodResults);
+  starNet("/force_save");
+  console.log("Protection Num: " + theSector.getChmodNum() + " Protections: " + theSector.getChmodArray());
+
+  chmodResults=theSector.setChmod("+ noexit");
+  console.log("+ noexit Result: " + chmodResults);
+  starNet("/force_save");
+  console.log("Protection Num: " + theSector.getChmodNum() + " Protections: " + theSector.getChmodArray());
+
+  chmodResults=theSector.setChmod("+ noenter");
+  console.log("+ noenter Result: " + chmodResults);
+  starNet("/force_save");
+  console.log("Protection Num: " + theSector.getChmodNum() + " Protections: " + theSector.getChmodArray());
+
+  chmodResults=theSector.setChmod("- noexit");
+  console.log("- noexit Result: " + chmodResults);
+  starNet("/force_save");
+  console.log("Protection Num: " + theSector.getChmodNum() + " Protections: " + theSector.getChmodArray());
+
+  chmodResults=theSector.setChmod("- noindications");
+  console.log("- noindications Result: " + chmodResults);
+  starNet("/force_save");
+  console.log("Protection Num: " + theSector.getChmodNum() + " Protections: " + theSector.getChmodArray());
+
+  chmodResults=theSector.setChmod("- noenter");
+  console.log("- noenter Result: " + chmodResults);
+  starNet("/force_save");
+  console.log("Protection Num: " + theSector.getChmodNum() + " Protections: " + theSector.getChmodArray());
+
+  chmodResults=theSector.setChmod("- nofploss");
+  console.log("- nofploss Result: " + chmodResults);
+  starNet("/force_save");
+  console.log("Protection Num: " + theSector.getChmodNum() + " Protections: " + theSector.getChmodArray());
+
+  chmodResults=theSector.setChmod("- frakkin");
+  console.log("Attempt at a bullshit change: " + chmodResults);
+  // chmodResults=theSector.setChmod("+ noindications");
+  // console.log("Attempt at + noindications: " + chmodResults);
+  // chmodResults=theSector.setChmod("- noindications");
+  // console.log("Attempt at - noindications: " + chmodResults);
+  return true;
+}
+
+
 
 
 // TESTING END
+
+function ServerObj(starMadeInstallFolder,javaArgs){
+  // The goal here is to have this object be the root of running server based commands, such as force_save, shutdown, etc.
+  // Information like the port, path to starmade, etc, should appear in here.
+  this.spawn=spawn("java",javaArgs,{"cwd": starMadeInstallFolder});
+}
+
+function MessageObj(sender,receiver,receiverType,message){
+  // Takes string values and converts to strings or objects of the correct types
+  this.sender=new PlayerObj(sender); // This should ALWAYS be a player sending a message
+  if (receiverType=="DIRECT"){ // This is a private message sent from one player to another
+    this.type="private";
+    this.receiver=new PlayerObj(receiver);
+  } else if (receiverType=="CHANNEL"){
+    this.type="channel";
+    this.receiver=new ChannelObj(receiver);
+  } else { // This should never happen, but hey maybe in the future they'll expand on the receiverTypes
+    this.receiver=receiver;
+    this.type=receiverType;
+    console.error("ERROR: Unknown Receiever type for message! Set receiver and type as string! " + receiverType);
+  }
+  this.text=message;
+}
+
+function ChannelObj(channelName){
+  var factionTest=new RegExp("^Faction-{0,1}[0-9]+");
+  if (channelName == "all"){
+    this.type="global";
+  } else if (factionTest.test(channelName)){
+    var getFactionNumber=new RegExp("-{0,1}[0-9]+$");
+    this.type="faction";
+    this.factionNumber=channelName.match(getFactionNumber);
+  } else {
+    this.type="named";
+  }
+  this.name=channelName;
+}
+
+function IPObj(ipAddressString,date){
+  this.address=ipAddressString;
+  // TODO: Add Info Methods:
+  // date - This will only be set if the IP is attached to a date somehow, such as when listing all the IP's for a player
+
+  // Action Methods:
+  // ban - PERM BAN
+  // banTemp(TimeInMinutes) - Temp Ban
+
+  // Optional:
+  // crawl(Num) - reveals all players who share the same IP.  If a Num is provided, then will crawl that level deep, gathering more IP's and ipcrawling those.
+}
+
+function SMName(smName){
+  this.name=smName;
+  // TODO: Add Info methods:
+
+  // Action methods:
+  // ban
+  // banTemp(Minutes)
+
+  // Using SQL queries:
+  // getNames - Returns an array of PlayerObj's for all the usernames associated with this registry account name
+}
+
+function PlayerObj(playerName){
+  if (playerName){
+    this.name=playerName;
+    // TODO: Add Info methods:
+    // smName - returns a SmNameObj
+    // ip - returns an IPObj with the player's last IP in it
+    // ips - returns an array of IPObj's with all unique IP's.  Also sets the "date" function for each one.
+    // faction - Returns the FactionObj of their faction
+    // currentEntity - Returns the EntityObj of the entity they are currently in
+    // battleModeSector - Returns the player's designated battlemode sector, which is unique to every player
+
+    // Action methods:
+    // kill - kills the player using "/kill_character [Name]"
+    // kick(reasonString) - kicks the player from the server.  ReasonString is optional.
+    // addToFaction([FactionObj/FactionNum]) -- Switches the player to a specific faction
+    // setFactionRank - Sets the player's rank within their current faction if they are in one.
+    // addAdmin - Adds this player as an admin to the server
+    // removeAdmin - Removes this player as an admin to the server
+    // addAdminDeniedCommand([One,or,more,commands]) - This can be an array or string.  If an array, it will cycle through the array, adding each denied command for the specific admin
+    // removeAdminDeniedCommand([One,or,more,commands]) - This can be an array or string.  If an array, it will cycle through the array, removing each denied command for the specific admin.  Uses: /remove_admin_denied_comand [PlayerName] [CommandToRemove]
+    // ban(true/false,ReasonString,Time) - true/false is whether to kick.  Time is in minutes.
+    // banAccount - Bans the player by their registry account - this is a PERM ban
+    // banAccountTemp(NumberInMinutes) - Bans the player by their registry account temporarily
+    // banPlayerName - Bans the player by their playername - this is a PERM ban
+    // banPlayerNameTemp(NumberInMinutes) - Bans the player by their playername temorarily
+    // banIP - Bans the player by IP - PERM BAN - My Notes: Might use "/ban_ip_by_playername [PlayerName]" or "/ban_ip 1.1.1.1" if that is unreliable
+    // banIPTemp(NumberInMinutes) - Bans player by IP - Temp - My Notes: Can use "/ban_ip_by_playername_temp [PlayerName] 1" or "/ban_ip_temp 1.1.1.1 1" if that is unreliable
+
+    // changeSector("[X],[Y],[Z]", SectorObj, or CoordsObj) - teleports the player to a specific sector
+    // changeSectorCopy("[X],[Y],[Z]", SectorObj, or CoordsObj) - teleports the player to a specific sector, leaving behind a copy of whatever entity they were in, duplicating it
+
+    // creativeMode(true/false) - Turns creative mode on or off for the player "/creative_mode player true/false"
+    // godMode(true/false) - Sets godmode to true or false for the player using /god_mode
+    // invisibilityMode(true/false) - Sets invisibility to true or false for the player using /invisibility_mode
+
+    // factionCreate(NewFactionNameString) - This creates a new faction and sets the player as the leader - I am unsure what the /faction_create command will do if a faction of the same name already exists, but I'm guessing it will just duplicate it.
+    // factionCreateAs(NewFactionNameString,FactionNum) - This creates a new faction with a specific faction number and sets the player as the leader - I am unsure what the /faction_create_as command will do if the faction number already exists..
+
+    // give(ElementNameString,Count) - Gives the player the number of blocks by element name - ONLY WORKS IF THE PLAYER IS ONLINE - Example: player.give("Power",10)
+    // giveID(ElementIDNum,Count) - Gives the player the number of blocks by element ID number - ONLY WORKS IF THE PLAYER IS ONLINE- Example: player.giveID(2,10)
+    // giveAllItems(Count) - Gives the player all blocks of a certain number
+    // giveCategoryItems(Count,categoryNameString) - Gives the player all blocks of a certain number by category
+    // giveCredits(Num) - Gives a certain number of credits to the player.  Will subtract if a negative number used.  Returns the new total credits the player has.
+
+    // giveGrapple - Gives the player a grapple gun
+    // giveGrappleOP - Gives the player an OP grapple gun
+    // giveHealWeapon
+    // giveLaserWeapon
+    // giveLaserWeaponOP
+    // giveMarkerWeapon
+    // giveTransporterMarkerWeapon
+    // givePowerSupplyWeapon
+    // giveRocketLauncher
+    // giveRocketLauncherOP
+    // giveSniperWeapon
+    // giveSniperWeaponOP
+    // giveTorchWeapon
+    // giveTorchWeaponOP
+
+    // giveLook(Count) - Gives the player a number of whatever block they are currently looking at
+    // giveSlot(Count) - Gives the player a number of whatever block they have selected on their hotbar
+    // giveMetaItem(String) - Gives the player a meta item based on it's name, such as recipe, log_book, helmet, build_prohibiter, etc.
+
+    // protect(smNameString/SMNameObj) - Sets this current player name to be protected under a specific registry account
+    // unprotect - This unsets registry protection for this player name - WARNING:  This will allow anyone to log in under this name in the future!
+
+    // serverMessage(MessageString,info/warning/error) - Sends a private message to this specific player.  If no method is specified "plain" is used, which shows up on the player's main chat.
+
+  } else {
+    throw new Error("ERROR: No playername provided to playerObj constructor!");
+  }
+}
+
+function SystemObj(x,y,z){
+  this.coords=new CoordsObj(x,y,z);
+  // TODO: Add Info methods:
+  // center - returns the center set of coordinates as a SectorObj
+  // type - returns the system type, so black hole, star, giant, double star, void
+
+  // Action Methods:
+  // load - Uses "/load_system x y z" to load the whole system.
+
+  // This can be expanded to allow storing information, such as a description, if more than values than expected are given to the constructor
+  if (arguments.length > SystemObj.length){
+    var extraInfoArray=[];
+    for (let i=SystemObj.length-1;i<arguments.length;i++){
+      extraInfoArray.push(arguments[i]);
+    }
+    this.extraInfo=extraInfoArray;
+  }
+}
+
+function SpawnObj(playerName,time){ // time is optional.  Current time is used if not provided.
+  if (!time){
+    this.time=Date.now();
+  } else if (isNaN(parseInt(time))){
+    console.error("ERROR: Invalid time given to SpawnObj constructor.  Expected epoch time!  Using current time instead!");
+    this.time=Date.now();
+  }
+  this.player=new PlayerObj(playerName);
+  // Right now there really are no console commands for spawn mechanics, but a separate object is used here in case there are in the future.
+}
+
+function BluePrintObj(bluePrintName){
+  this.name=bluePrintName;
+  // Info Methods to add:
+  // folder - Gets the path to the folder the blueprint is in
+
+  // Action Methods:
+  //
+}
+
 
 function FactionObj(factionNumber){
   this.number=factionNumber;
@@ -140,79 +394,6 @@ function FactionObj(factionNumber){
   // serverMessage(MessageString,info/warning/error) - Sends a message to all online players of this faction.  If no method is specified "plain" is used, which shows up on the player's main chat.
 }
 
-function getChmodNum(sectorObjArrayOrString){
-  // This performs a sql query and returns the protections number for a sector as a number
-  // Input can be a SectorObj, Array of 3 numbers, or a string with a space or comma separating each value
-  // Example inputs:
-  // mySectorObj
-  // 2,2,2
-  // 2 2 2
-  // [2,2,2]
-  var returnNum=0;
-  var coordsToUse=[];
-  // Preprocess the input since it can be 3 different types of values
-  if (typeOfObj(sectorObjArrayOrString)=="SectorObj"){
-    coordsToUse=sectorObjArrayOrString.coords.toArray();
-  } else if (typeof sectorObjArrayOrString == "string") {
-    if (sectorObjArrayOrString.indexOf(" ")){
-      coordsToUse=sectorObjArrayOrString.trim().split(" ");
-    } else if (sectorObjArrayOrString.indexOf(",")){
-      coordsToUse=sectorObjArrayOrString.trim().split(",");
-    } else {
-      throw new Error("ERROR: Invalid string given to function, getChmodNum!");
-    }
-  } else if (typeOfObj(sectorObjArrayOrString)=="Array"){
-    if (sectorObjArrayOrString.length == 3){
-      coordsToUse=sectorObjArrayOrString;
-      // I could keep checking each value in the array to ensure they are numbers and throw an error if not.. but meh.
-    } else {
-      throw new Error("ERROR: Invalid array given to getChmodNum function!  Expected an array of 3 numbers!");
-    }
-  } else {
-    throw new Error("ERROR: Invalid input given to getChmodNum function!  Expected a SectorObj, coordinates string, or array of 3 numbers!");
-  }
-  if (coordsToUse.length == 3){
-    var theQuery="SELECT PROTECTION WHERE X=" + coordsToUse[0] + " AND Y=" + coordsToUse[1] + " AND Z=" + coordsToUse[2] + ";";
-    var theQueryResult=new SqlQueryObj(theQuery);
-    if (theQueryResult[0]){ // If there were no results, it means the sector is not in the HSQL database and should have a default protection value of 0
-      if (theQueryResult[0].has("PROTECTION")){ // if there was an entry, there SHOULD be a PROTECTION value, but just in case, let's check for it.
-        returnNum=theQueryResult[0].get("PROTECTION");
-      }
-    }
-  } else {
-    throw new Error("ERROR: Invalid number of coordinates given to function, getChmodNum! Coordinates given: " + coordsToUse.length);
-  }
-  return returnNum;
-}
-function decodeChmodNum(num){
-  // This converts a chmod number value from a sql query to an array of strings, such as ["peace","protected","noindications"].  Values are always returned in an array, even if only a single protection is in the number.  A 0 number will return an empty array.
-  if (typeof num == "number"){
-    var theNum=num;
-    var returnArray=[];
-    var protections=["nofploss","noindications","noexit","noenter","protected","peace"]; // If a new sector chmod value comes out, it can be added to the end of the beginning of this array.
-    var numberOfProtections=protections.length;
-    var exponentValue=numberOfProtections - 1;
-    var highestValue=Math.pow(2,exponentValue);  // The "highestValue" is what each potential value in the array represents, starting with the first value in the array
-    var highestTotal=Math.pow(2,numberOfProtections);
-    if (num <= highestTotal && num > 0){ // Valid numbers can only be lower/equal to the highest total or larger than 0
-      for (let i=0;i<protections.length && theNum > 0;i++){
-        if (theNum >= highestValue){
-          returnArray.push(protections[i]);
-          theNum -= highestValue
-        }
-        highestValue /= 2; // Halve it!
-      }
-    } else if (theNum > highestTotal){
-      console.error("ERROR: Number given to decodeChmodNum function was too large!  It should be no more than " + highestTotal + "!")
-    } else if (theNum < 0){
-      console.error("ERROR: Number given to decodeChmodNum function was too small!  It should always be an integer larger than 0!");
-    }
-    return returnArray;
-  } else {
-    throw new Error("ERROR: Invalid input given to function, decodeChmodNum!  Expected a number!");
-  }
-}
-
 function SectorObj(x,y,z){
   // TODO: Add Info methods:
   // getChmod - to get the chmods of a sector returned as an array of +peace,+protected, etc.
@@ -220,7 +401,6 @@ function SectorObj(x,y,z){
   // getSystem - Returns a SystemObj
 
   // Add Action Methods:
-  // setChmod - to set +peace, +noindications, etc.
   // setChmodNum - to set the chmod for a sector based on the relevant input number (based on the SQL number representation)
   // despawn(PartOfShipNameString) - Uses the /despawn_sector command to despawn ships that start with the string provided
   // export(nameOfExportFileString) - This will send a /force_save command and then a /export_sector command of this sector.
@@ -244,6 +424,12 @@ function SectorObj(x,y,z){
       // Example vals:  "+ peace" or "- protected"
       return sectorSetChmod(this.coords,val)
     };
+    this.getChmodArray=function(){
+      return decodeChmodNum(getChmodNum(this.coords))
+    };
+    this.getChmodNum=function(){
+      return getChmodNum(this.coords);
+    }
 
 
 
@@ -310,6 +496,11 @@ function EntityObj(fullUID){
     this["dataMap"]=function(){ return new starNetHelper.ShipInfoUidObj(this.fullUID) };
     this["dataObj"]=function(){ return new starNetHelper.ShipInfoUidObj(this.fullUID,{"objType":"object"}) };
 
+
+    this.load=function(){
+      // This returns "true" if the command ran, false for anything else, such as if the server was down.
+      return this.sector().load();
+    };
     // this.toString=function(){ return this.fullUID.toString() }; // This is visible as an element, so really we should set the prototype outside of the constructor.
 
     // TODO: Add Info methods:
@@ -341,6 +532,87 @@ function EntityObj(fullUID){
     throw new Error("ERROR: No UID provided to EntityObj constructor!");
   }
 }
+
+
+function getChmodNum(sectorObjArrayOrString){
+  // This performs a sql query and returns the protections number for a sector as a number
+  // Input can be a SectorObj,CoordsObj, Array of 3 numbers, or a string with a space or comma separating each value.  The preferred type is a SectorObj
+  // Example inputs:
+  // mySectorObj
+  // 2,2,2
+  // 2 2 2
+  // [2,2,2]
+  var returnNum=0;
+  var coordsToUse=[];
+  // Preprocess the input since it can be 3 different types of values
+  const trueType=typeOfObj(sectorObjArrayOrString);
+  if (trueType=="SectorObj"){
+    coordsToUse=sectorObjArrayOrString.coords.toArray();
+  } else if (trueType=="CoordsObj"){
+    coordsToUse=sectorObjArrayOrString.toArray();
+  } else if (typeof sectorObjArrayOrString == "string") {
+    if (sectorObjArrayOrString.indexOf(" ")){
+      coordsToUse=sectorObjArrayOrString.trim().split(" ");
+    } else if (sectorObjArrayOrString.indexOf(",")){
+      coordsToUse=sectorObjArrayOrString.trim().split(",");
+    } else {
+      throw new Error("ERROR: Invalid string given to function, getChmodNum!");
+    }
+  } else if (trueType=="Array"){ // TODO: Test to ensure "Array" is returned and not "array"
+    if (sectorObjArrayOrString.length == 3){
+      coordsToUse=sectorObjArrayOrString;
+      // I could keep checking each value in the array to ensure they are numbers and throw an error if not.. but meh.
+    } else {
+      throw new Error("ERROR: Invalid array given to getChmodNum function!  Expected an array of 3 numbers!");
+    }
+  } else {
+    throw new Error("ERROR: Invalid input given to getChmodNum function!  Expected a SectorObj, coordinates string, or array of 3 numbers!");
+  }
+  // console.log("Using coords: " + coordsToUse);
+  if (coordsToUse.length == 3){
+    var theQuery="SELECT PROTECTION FROM PUBLIC.SECTORS WHERE X=" + coordsToUse[0] + " AND Y=" + coordsToUse[1] + " AND Z=" + coordsToUse[2] + ";";
+    var theQueryResult=new SqlQueryObj(theQuery);
+    // console.log("sqlquery result:");
+    // console.dir(theQueryResult);
+    if (theQueryResult["error"] == false){ // If there were no results, it means the sector is not in the HSQL database and should have a default protection value of 0
+      if (theQueryResult["mapArray"][0].has("PROTECTION")){ // if there was an entry, there SHOULD be a PROTECTION value, but just in case, let's check for it.
+        returnNum=theQueryResult["mapArray"][0].get("PROTECTION");
+        // console.log("Number found: " + returnNum);
+      }
+    }
+  } else {
+    throw new Error("ERROR: Invalid number of coordinates given to function, getChmodNum! Coordinates given: " + coordsToUse.length);
+  }
+  return toNum(returnNum);
+}
+function decodeChmodNum(num){ // A number should be provided, but a number as a string should be coerced into a number.
+  // This converts a chmod number value from a sql query to an array of strings, such as ["peace","protected","noindications"].  Values are always returned in an array, even if only a single protection is in the number.  A 0 number will return an empty array.
+  var theNum=toNum(num);
+  if (typeof theNum == "number"){
+    var returnArray=[];
+    var numberOfProtections=sectorProtectionsArray.length;
+    var exponentValue=numberOfProtections - 1;
+    var highestValue=Math.pow(2,exponentValue);  // The "highestValue" is what each potential value in the array represents, starting with the first value in the array
+    var highestTotal=Math.pow(2,numberOfProtections);
+    if (num <= highestTotal && num > 0){ // Valid numbers can only be lower/equal to the highest total or larger than 0
+      for (let i=0;i<sectorProtectionsArray.length && theNum > 0;i++){
+        if (theNum >= highestValue){
+          returnArray.push(sectorProtectionsArray[i]);
+          theNum -= highestValue
+        }
+        highestValue /= 2; // Halve it!
+      }
+    } else if (theNum > highestTotal){
+      console.error("ERROR: Number given to decodeChmodNum function was too large!  It should be no more than " + highestTotal + "!")
+    } else if (theNum < 0){
+      console.error("ERROR: Number given to decodeChmodNum function was too small!  It should always be an integer larger than 0!");
+    }
+    return returnArray;
+  } else {
+    throw new Error("ERROR: Invalid input given to function, decodeChmodNum!  Expected a number!");
+  }
+}
+
 
 function sectorSetChmod(coordsObj,val){ // val can be a string or an array of strings
   // This can be used to set multiple chmod values at the same time
