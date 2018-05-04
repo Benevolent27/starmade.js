@@ -92,7 +92,7 @@ var starNet=require(path.join(binFolder, "starNet.js")); // needs testing
 var starNetHelper=require(path.join(binFolder, "starNetHelper.js")); // needs testing
 var sqlQuery=require(path.join(binFolder, "sqlQuery.js")); // needs testing
 var ini=require(path.join(binFolder,"iniHelper.js")); // This will replace the current functionality of ini by wrapping it and modifying the ini package so that it works correctly for starmade config files and ini files that use # characters.
-
+var obj=require(path.join(binFolder,"objectHelper.js")); // This includes assistance handling of custom objects and conversions
 
 // #################################
 // ### NPM DOWNLOADABLE REQUIRES ###
