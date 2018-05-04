@@ -1,5 +1,13 @@
 
-// This is currently not finished.  I still need to
+// This is currently not finished.  It builds the main map cache for commands but doesn't handle other scripts.
+
+
+// TODO: Build command cache with pointers to the requires that contain them.
+// TODO: Add support for other script types besides commands.  Formulate the structure for how these are ran.
+// Initial ideas:  Each script can have a few sections of scripting.
+// "onLoad" will be ran when the wrapper itself is running (after dependencies are installed) and will have a global scope.
+// "init" will be ran AFTER the server is started.  This is where all the server.on("playerDeath") type calls should be done.
+// TODO: Add support for detecting zip/bz.gz files in the mods folder, and unzipping them to their respective folders
 
 console.log("Starting up..");
 
