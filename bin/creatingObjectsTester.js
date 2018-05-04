@@ -1,15 +1,22 @@
+
+// Requires
 const path=require('path');
 const binFolder=path.resolve(__dirname,"../bin/");
 var starNet=require(path.join(binFolder,"starNet.js"));
 var starNetHelper=require(path.join(binFolder,"starNetHelper.js"));
-var sqlQuery=require(path.join(binFolder,"./sqlQuery.js"));
+var sqlQuery=require(path.join(binFolder,"sqlQuery.js"));
 var objHelper=require(path.join(binFolder,"objectHelper.js"));
+var regExpHelper=require(path.join(binFolder,"regExpHelper.js"));
 
+// Set up aliases
+var colorMe=objHelper["colorize"];
+var stripFullUIDtoUID=regExpHelper["stripFullUIDtoUID"]; // Function that removes text like ENTITY_SHIP_ and ENTITY_PLANET_ from the beginning of a full UID so it can be used to perform SQL queries on UID
+var typeOfObj=objHelper.type; // Gets the prototype name of an object, so instead of using "typeof", which returns "object" for things like arrays and SectorObj's, etc, this will return their object name instead.
+var SqlQueryObj=sqlQuery.SqlQueryObj;
 // Set up variables
-var uidPrefixes=["ENTITY_SHOP_","ENTITY_SPACESTATION_","ENTITY_FLOATINGROCK_","ENTITY_PLANET_","ENTITY_SHIP_","ENTITY_FLOATINGROCKMANAGED_","ENTITY_CREATURE_","ENTITY_PLANETCORE_","ENTITY_PLAYERCHARACTER_","ENTITY_PLAYERSTATE_"];
-var uidPrefixesRegExp=createMultiRegExpFromArray(uidPrefixes,"^");
 
-// Set up prototypes for constructors, such as replacing .toString() functionality with a default value.
+
+// Set up prototypes for constructors, such as replacing .toString() functionality with a default value.  Prototypes will not appear as a regular key.
 SectorObj.prototype.toString=function(){ return this.coords.toString() };
 CoordsObj.prototype.toString=function(){ return this.x.toString() + " " + this.y.toString() + " " + this.z.toString() };
 EntityObj.prototype.toString=function(){ return this.fullUID.toString() };
@@ -31,21 +38,27 @@ EntityObj.prototype.toString=function(){ return this.fullUID.toString() };
 // var shipBlocks=starNetHelp.getEntityValue("ENTITY_SHIP_Hello_There","Blocks");
 // console.log("\nBlocks: " + shipBlocks);
 
-// TESTING BEGIN
+// function colorMe(input){
+//   return require('util').inspect(input,{colors:true});
+// }
+
+//  #######################
+//  ###     TESTING     ###
+//  #######################
 // EntityObj tests
 var theShip=new EntityObj("ENTITY_SHIP_Hello_There");
-console.log("My ship is named: " + theShip.name());
-console.log("Is my ship loaded?: " + theShip.loaded());
-console.log("It has a default value of: " + theShip.toString());
-console.log("It has a total block count of: " + theShip.blocks());
-console.log("It is currently in sector: " + theShip.sector().toString());
-console.log("And it's very strange orientation coords are: " + theShip.orientation())
+console.log("My ship is named: " + colorMe(theShip.name()));
+console.log("Is my ship loaded?: " + colorMe(theShip.loaded()));
+console.log("It has a default value of: " + colorMe(theShip.toString()));
+console.log("It has a total block count of: " + colorMe(theShip.blocks()));
+console.log("It is currently in sector: " + colorMe(theShip.sector().toString()));
+console.log("And its very strange orientation coords are: " + colorMe(theShip.orientation()));
 //
 // console.log("And here's all the data, mapified:");
 // console.dir(theShip.dataMap());
 
 console.log("And here's all the data as an object:");
-console.dir(theShip.dataObj());
+console.log(colorMe(theShip.dataObj()));
 
 
 // console.log("New entityObj: ");
@@ -95,31 +108,6 @@ console.dir(theShip.dataObj());
 
 // TESTING END
 
-
-
-function createMultiRegExpFromArray(inputArray,prefix,suffix){
-  // This will cycle through an array of values and create regex patterns that searches for each value.  Adding a prefix or suffix is optional.
-  var returnVal;
-  var prefixToUse=prefix ? prefix : ""; // We are setting it to "" because we don't want the word "undefined" to appear in the regex patterns and we would want to avoid having to create a complicated if/then/else tree if we can help it.
-  var suffixToUse=suffix ? suffix : "";
-  for (let i=0;i<inputArray.length;i++){
-    if (returnVal){
-      returnVal+="|" + prefixToUse + inputArray[i] + suffixToUse;
-    } else {
-      returnVal=prefixToUse + inputArray[i] + suffixToUse;
-    }
-  }
-  return new RegExp(returnVal);
-}
-
-// function getObjType(theObj){ // This will return the name of the constructor function that created the object
-//   if (typeof theObj == "object"){
-//     return theObj.constructor.name; // This is apparently a deeply flawed method, but fuck it, it works for now.  Source:  https://stackoverflow.com/questions/332422/how-do-i-get-the-name-of-an-objects-type-in-javascript
-//   } else { // If it is NOT an object, then we should just return whatever type it is.
-//     return typeof theObj;
-//   }
-// }
-
 function FactionObj(factionNumber){
   this.number=factionNumber;
   // TODO: Add Info methods:
@@ -150,41 +138,76 @@ function FactionObj(factionNumber){
   // serverMessage(MessageString,info/warning/error) - Sends a message to all online players of this faction.  If no method is specified "plain" is used, which shows up on the player's main chat.
 }
 
-function detectSuccess(input){ // This will look for "RETURN: [SERVER, [ADMIN COMMAND] [SUCCESS]" and return true if found.
-  var theReg=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] \\[SUCCESS\\]")
-  var inputArray=input.split("\n");
-  var returnVal=false;
-  for (let i=0;i<inputArray.length && returnVal==false;i++){
-    if (theReg.test(inputArray[i])){
-      returnVal=true;
+function getChmodNum(sectorObjArrayOrString){
+  // This performs a sql query and returns the protections number for a sector as a number
+  // Input can be a SectorObj, Array of 3 numbers, or a string with a space or comma separating each value
+  // Example inputs:
+  // mySectorObj
+  // 2,2,2
+  // 2 2 2
+  // [2,2,2]
+  var returnNum=0;
+  var coordsToUse=[];
+  // Preprocess the input since it can be 3 different types of values
+  if (typeOfObj(sectorObjArrayOrString)=="SectorObj"){
+    coordsToUse=sectorObjArrayOrString.coords.toArray();
+  } else if (typeof sectorObjArrayOrString == "string") {
+    if (sectorObjArrayOrString.indexOf(" ")){
+      coordsToUse=sectorObjArrayOrString.trim().split(" ");
+    } else if (sectorObjArrayOrString.indexOf(",")){
+      coordsToUse=sectorObjArrayOrString.trim().split(",");
+    } else {
+      throw new Error("ERROR: Invalid string given to function, getChmodNum!");
     }
+  } else if (typeOfObj(sectorObjArrayOrString)=="Array"){
+    if (sectorObjArrayOrString.length == 3){
+      coordsToUse=sectorObjArrayOrString;
+      // I could keep checking each value in the array to ensure they are numbers and throw an error if not.. but meh.
+    } else {
+      throw new Error("ERROR: Invalid array given to getChmodNum function!  Expected an array of 3 numbers!");
+    }
+  } else {
+    throw new Error("ERROR: Invalid input given to getChmodNum function!  Expected a SectorObj, coordinates string, or array of 3 numbers!");
   }
-  if (returnVal == false){
-    console.error("ERROR: " + input);
-  }
-  return returnVal;
-}
-
-function sectorSetChmod(coordsObj,val){
-  let theType=objHelper.getObjType(val);
-  console.log("sectorSetChmod running!");
-  if (theType == "string"){
-    console.log("Setting " + val + " for sector: " + coordsObj.toString());
-    let theValLower=val.toLowerCase();
-    let theCommand="/sector_chmod " + coordsObj.toString() + " " + theValLower;
-    return detectSuccess(starNet(theCommand));
-  } else if (theType == "array"){
-    var resultsArray=[];
-    for (let i=0;i<val.length;i++){
-      let theSubType=objHelper.getObjType(val[i]);
-      if (theSubType == "string"){
-        let theValLower=val.toLowerCase();
-        resultsArray.push(detectSuccess(starNet("/sector_chmod " + coordsObj.toString() + theValLower)));
+  if (coordsToUse.length == 3){
+    var theQuery="SELECT PROTECTION WHERE X=" + coordsToUse[0] + " AND Y=" + coordsToUse[1] + " AND Z=" + coordsToUse[2] + ";";
+    var theQueryResult=new SqlQueryObj(theQuery);
+    if (theQueryResult[0]){ // If there were no results, it means the sector is not in the HSQL database and should have a default protection value of 0
+      if (theQueryResult[0].has("PROTECTION")){ // if there was an entry, there SHOULD be a PROTECTION value, but just in case, let's check for it.
+        returnNum=theQueryResult[0].get("PROTECTION");
       }
     }
-    return resultsArray;
   } else {
-    return new Error("Invalid sector chmod value given!");
+    throw new Error("ERROR: Invalid number of coordinates given to function, getChmodNum! Coordinates given: " + coordsToUse.length);
+  }
+  return returnNum;
+}
+function decodeChmodNum(num){
+  // This converts a chmod number value from a sql query to an array of strings, such as ["peace","protected","noindications"].  Values are always returned in an array, even if only a single protection is in the number.  A 0 number will return an empty array.
+  if (typeof num == "number"){
+    var theNum=num;
+    var returnArray=[];
+    var protections=["nofploss","noindications","noexit","noenter","protected","peace"]; // If a new sector chmod value comes out, it can be added to the end of the beginning of this array.
+    var numberOfProtections=protections.length;
+    var exponentValue=numberOfProtections - 1;
+    var highestValue=Math.pow(2,exponentValue);  // The "highestValue" is what each potential value in the array represents, starting with the first value in the array
+    var highestTotal=Math.pow(2,numberOfProtections);
+    if (num <= highestTotal && num > 0){ // Valid numbers can only be lower/equal to the highest total or larger than 0
+      for (let i=0;i<protections.length && theNum > 0;i++){
+        if (theNum >= highestValue){
+          returnArray.push(protections[i]);
+          theNum -= highestValue
+        }
+        highestValue /= 2; // Halve it!
+      }
+    } else if (theNum > highestTotal){
+      console.error("ERROR: Number given to decodeChmodNum function was too large!  It should be no more than " + highestTotal + "!")
+    } else if (theNum < 0){
+      console.error("ERROR: Number given to decodeChmodNum function was too small!  It should always be an integer larger than 0!");
+    }
+    return returnArray;
+  } else {
+    throw new Error("ERROR: Invalid input given to function, decodeChmodNum!  Expected a number!");
   }
 }
 
@@ -209,7 +232,16 @@ function SectorObj(x,y,z){
   // - Returns an EntityObj of the newly spawned entity if successful, otherwise returns false.
   if (typeof x == "number" && typeof y == "number" && typeof z == "number"){
     this.coords=new CoordsObj(x,y,z);
-    this.setChmod=function(val){ return sectorSetChmod(this.coords,val) };
+    this.load=function(){
+      // This returns "true" if the command ran, false for anything else, such as if the server was down.
+      let theResponse=starNet("/load_sector_range " + this.coords.toString() + " " + this.coords.toString());
+      return starNetHelper.detectRan(theResponse);
+    };
+    this.setChmod=function(val){ // val should be a string
+      // This will return true if it was a success, false otherwise.
+      // Example vals:  "+ peace" or "- protected"
+      return sectorSetChmod(this.coords,val)
+    };
 
 
 
@@ -231,6 +263,7 @@ function CoordsObj(x,y,z){
   this.x=x;
   this.y=y;
   this.z=z;
+  this.toArray=function(){ return [this.x, this.y, this.z]; }
   // this.string=x.toString() + " " + y.toString() + " "+ z.toString();
   // This can be expanded to allow storing information, such as a description, if more than values than expected are given to the constructor
   if (arguments.length > CoordsObj.length){
@@ -243,14 +276,10 @@ function CoordsObj(x,y,z){
   // this.toString=function(){ return this.string };
 }
 
-function stripFullUIDtoUID(input){
-  return input.replace(uidPrefixesRegExp,"").toString();
-}
-
 function EntityObj(fullUID){
-  // This should build the entity object based on the UID, adding the entity type if necessary to build the full UID
+  // This builds an entity object based on the full UID
+  // This can be used for ships and stations.  Please use PlanetObj for planets and AsteroidObj for asteroids.
   if (fullUID){
-    // this["UID"]=fullUID.replace(uidPrefixesRegExp,"").toString(); // Returns the UID as used with SQL queries, without the "ENTITY_SHIP_" whatever stuff.
     this["UID"]=stripFullUIDtoUID(fullUID); // Returns the UID as used with SQL queries, without the "ENTITY_SHIP_" whatever stuff.
     this["fullUID"]=fullUID;
     this["loaded"]=function(){ return starNetHelper.getEntityValue(this.fullUID,"loaded") };
@@ -287,9 +316,6 @@ function EntityObj(fullUID){
     // attached - returns an array of attached PlayerObj's
     // dockedUIDs - returns an array of docked EntityObj's
 
-    // Optional:
-    // chunks - returns an array of 2 arrays with minBB and maxBB chunks.  Example: [[-2,-2,-2],[2,2,2]]
-
     // Info methos using SQL queries:
     // typeNum - Returns the type number, as designated by SQL query
     // typeName - Returns the name for the type it is, such as "asteroid", "asteroidManaged", "planet", as per the SQL documentation project
@@ -312,4 +338,42 @@ function EntityObj(fullUID){
   } else {
     throw new Error("ERROR: No UID provided to EntityObj constructor!");
   }
+}
+
+function sectorSetChmod(coordsObj,val){ // val can be a string or an array of strings
+  // This can be used to set multiple chmod values at the same time
+  // Simple example:  sectorSetChmod(mySectorObj,"+ protected"); // This sets the sector number from mySectorObj to add protected, returning true or false depending on the success.
+  // Using Array: sectorSetChmod(mySectorObj,["+ protected","- peace","- noindications"]); // This will cycle through the array and set each chmod, and then will return an array of true/false values corresponding to each string given.
+  // Note that when false values are given, it simply means the chmod failed, but does not give a reason why.  For example, if "+ nonsense" is given, it will return false.  If the server is down and StarNet.jar couldn't connect, it will also return false.
+  // Handling false values is up to the script invoking this function.
+  let theType=objHelper.getObjType(val);
+  // console.log("sectorSetChmod running!");
+  if (theType == "string"){
+    // console.log("Setting " + val + " for sector: " + coordsObj.toString());
+    let theValLower=val.toLowerCase();
+    let theCommand="/sector_chmod " + coordsObj.toString() + " " + theValLower;
+    return starNetHelper.detectSuccess(starNet(theCommand));
+  } else if (theType == "array"){
+    var resultsArray=[];
+    for (let i=0;i<val.length;i++){
+      let theSubType=objHelper.getObjType(val[i]);
+      if (theSubType == "string"){
+        let theValLower=val.toLowerCase();
+        resultsArray.push(starNetHelper.detectSuccess(starNet("/sector_chmod " + coordsObj.toString() + theValLower)));
+      } else {
+        resultsArray.push(false);
+      }
+    }
+    return resultsArray;
+  } else {
+    return new Error("Invalid sector chmod value given!");
+  }
+}
+
+module.exports={
+  SqlQueryObj,
+  EntityObj,
+  SectorObj,
+  CoordsObj,
+  FactionObj
 }
