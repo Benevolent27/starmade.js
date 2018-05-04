@@ -52,13 +52,14 @@ function getSQLquery(query){ // This will preprocess a query so that it should w
 function SqlQueryObj(sqlQuery){
   this.query=sqlQuery;
   this.time=Date.now();
+  // console.log("Running sql query: " + sqlQuery);
   this.mapArray=[]; // This is modified later in the script, but declared here in case there is an error.
   var resultsStr=starNet(getSQLquery(sqlQuery));
   if (verifyResponse(resultsStr) == false){
     // There was an error of some kind
     this.error=addNumToErrorObj(new Error("StarNet command failed!"),2);
   } else {
-    var tempArray=[];
+    var tempArray=[]; // Let's clean up the results so it only contains the relevant SQL lines
     tempArray=resultsStr.split("\n");
     // console.log("\nBefore Trimming: ");
     // console.dir(tempArray);
@@ -74,30 +75,34 @@ function SqlQueryObj(sqlQuery){
       tempArray[i]=tempArray[i].replace(/(^RETURN: \[SERVER, SQL#[0-9]+: ")|(", 0\]$)/g,"").split('";"');
     }
     var theResults=new ReturnObj(tempArray); // Splits the 2 part array into an object
-    if (theResults){
-      if (theResults["columns"].length > 0){
-        // Even if there are no results found, a valid SQL query ALWAYS returns the columns
-        // TODO: Test to ensure queries with 0 responses are correctly put together.
-        this.error=false;
-        this.mapArray=mapifyColumnsAndAllData(theResults["columns"],theResults["data"]);
-        this.objArray=function(){
-          var returnArray=[];
-          for (let i=0;i<this.mapArray.length;i++){
-            returnArray.push(objHelper.strMapToObj(this.mapArray[i]));
-          }
-          return returnArray;
-        };
-        this.columns=theResults["columns"];
-        // I'm changing this to be a value rather than function, because it occured to me that if there are 0 results, the map should be empty
-        // this.columns=function(){
-        //   var returnArray=[];
-        //   if (this.mapArray.length > 0){
-        //     returnArray=[...this.mapArray[0].keys()];
-        //   }
-        //   return returnArray;
-        // }
+    if (theResults){ // There should always be a result array, unless some unspeakably horribly thing happens
+      if (theResults["columns"]){ // columns should ALWAYS return, even as an empty array, unless some unspeakably horrible thing happens
+        if (theResults["columns"].length > 0){
+          // Even if there are no results found, a valid SQL query ALWAYS returns the columns
+          this.error=false;
+          this.mapArray=mapifyColumnsAndAllData(theResults["columns"],theResults["data"]);
+          this.objArray=function(){
+            var returnArray=[];
+            for (let i=0;i<this.mapArray.length;i++){
+              returnArray.push(objHelper.strMapToObj(this.mapArray[i]));
+            }
+            return returnArray;
+          };
+          this.columns=theResults["columns"];
+          // I'm changing this to be a value rather than function, because it occured to me that if there are 0 results, the map should be empty
+          // this.columns=function(){
+          //   var returnArray=[];
+          //   if (this.mapArray.length > 0){
+          //     returnArray=[...this.mapArray[0].keys()];
+          //   }
+          //   return returnArray;
+          // }
+        } else {
+          // If there were 0 columns, then it means the sql query was invalid.
+          this.error=addNumToErrorObj(new Error("Invalid SQL query!"),1);
+        }
       } else {
-        // If there were 0 columns, then it means the sql query was invalid.
+        // If the columns field is undefined then, then it means the sql query was invalid.
         this.error=addNumToErrorObj(new Error("Invalid SQL query!"),1);
       }
       // this.columns=theResults["columns"];
@@ -108,7 +113,12 @@ function SqlQueryObj(sqlQuery){
 
 function ReturnObj(theArray){ // This simply shifts a 2 part array into an object.  This can probably be obsoleted, but meh.
   var tempArray=theArray;
-  this.columns=tempArray.shift();
+  var tempColumns=tempArray.shift(); // This will return undefined if there was no value
+  if (tempColumns){
+    this.columns=tempColumns;
+  } else {
+    this.columns=[]; // Since there were no values, there were no columns
+  }
   this.data=tempArray;
 }
 
