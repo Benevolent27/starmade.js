@@ -5,4 +5,16 @@ function requireBin(scriptFile){
   return require(path.join(binFolder,scriptFile));
 }
 
-module.exports={requireBin};
+function isPidAlive(thePID){
+  try {
+    process.kill(thePID,0);
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+
+module.exports={
+  requireBin,
+  isPidAlive
+};
