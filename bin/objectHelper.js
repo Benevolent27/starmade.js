@@ -1,3 +1,5 @@
+
+// These are helper functions to assist with objects and values.  New objects are not created here.  See the "objectCreator.js" file for that.
 const util=require('util');
 
 function mapToJson(map) {
