@@ -39,7 +39,6 @@ EntityObj.prototype.toString = function(){ return this.fullUID.toString() };
 //  #######################
 //  ###     TESTING     ###
 //  #######################
-
 if (__filename == require.main.filename){ // Only run the arguments IF this script is being run by itself and NOT as a require.
 
   var clArgs=process.argv.slice(2);
@@ -55,6 +54,14 @@ if (__filename == require.main.filename){ // Only run the arguments IF this scri
     testSuit[clArgs[0]](clArgs[1]);
   } else {
     console.log("Test suit does not exist: " + clArgs[0]);
+    console.log("Available tests:");
+    for (let key in testSuit){
+      if (testSuit.hasOwnProperty(key)){
+        console.log("- " + key);
+      }
+    }
+    console.log("\nTo run an individual test, include it as the first argument.");
+    console.log("Example:  node objectCreator.js sectorTests1");
   }
 }
 function entityObjTests(){
@@ -199,7 +206,6 @@ function sectorTests3(){
   var test2time=sectorTestHelper3(theSector,{forcesave:true});
   console.log("Test 1 time: " + test1time + " test 2 time: " + test2time);
 }
-
 function starNetHelperTests(){
   starNet("/load_sector_range 2 2 2 2 2 2");
   var testObj=new starNetHelper.ShipInfoUidObj("ENTITY_SHIP_Hello_There");
@@ -215,7 +221,6 @@ function starNetHelperTests(){
   var shipBlocks=starNetHelper.getEntityValue("ENTITY_SHIP_Hello_There","Blocks");
   console.log("\nBlocks: " + shipBlocks);
 }
-
 function sectorTestHelper3(theSector,options){
     var startTime=Date.now();
     var randomNum=0;
@@ -229,8 +234,6 @@ function sectorTestHelper3(theSector,options){
     console.log("Total time: " + timeDifference + " seconds.");
     return timeDifference;
 }
-
-
 function sectorTestHelper2(theSector,options){
     var startTime=Date.now();
     for (let i=1;i<=50;i++){
@@ -248,7 +251,6 @@ function sectorTestHelper(sectorObj,inputNum,options){
   // starNet("/force_save");
   // console.log("New Chmod Num: " + sectorObj.getChmodNum() + " Chmods: " + sectorObj.getChmodArray());
 }
-
 // TESTING END
 
 function ServerObj(starMadeInstallFolder,javaArgs){
