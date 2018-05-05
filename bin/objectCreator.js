@@ -338,12 +338,23 @@ function ipBan(ipAddress,minutes){ // minutes are optional.  A perm ban is appli
   }
 }
 
+function ipUnBan(ipAddress){
+  if (ipAddress){
+    var ipToUse=ipAddress.toString(); // This allows ipObj's to be fed in, and this should translate to an ip string.
+    return checkSuccess2(starNetVerified("/unban_ip " + ipToUse)); // This will return false if the ip is not found in the blacklist
+  } else {
+    throw new Error("No ipAddress given to function, 'ipUnBan'!");
+  }
+}
+
+
 function IPObj(ipAddressString,date){
   this.address=ipAddressString;
   if (date){
     this.date=date;
   }
   this.ban=function(minutes){ return ipBan(this.address,minutes) };
+  this.unban=function(){ return ipUnBan(this.address) };
   // TODO: Add Info Methods:
   // date - This will only be set if the IP is attached to a date somehow, such as when listing all the IP's for a player
 
