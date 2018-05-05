@@ -21,7 +21,7 @@ var ini           = requireBin("iniHelper.js");
 // var regExpHelper=require(path.join(binFolder,"regExpHelper.js"));
 
 // Set up aliases
-var colorize                = objHelper["colorize"];
+var colorize               = objHelper["colorize"];
 var stripFullUIDtoUID      = regExpHelper["stripFullUIDtoUID"]; // Function that removes text like ENTITY_SHIP_ and ENTITY_PLANET_ from the beginning of a full UID so it can be used to perform SQL queries on UID
 var typeOfObj              = objHelper.type; // Gets the prototype name of an object, so instead of using "typeof", which returns "object" for things like arrays and SectorObj's, etc, this will return their object name instead.
 var SqlQueryObj            = sqlQuery.SqlQueryObj;
@@ -30,11 +30,14 @@ var sectorProtectionsArray = regExpHelper.sectorProtections; // This should incl
 var verifyStarNetResponse  = starNetHelper.verifyResponse; // This can be used to perform a verification on a StarMade response without consuming the response
 var starNetVerified        = starNetHelper.starNetVerified; // If the response does not verify, this consumes the response and throws an error instead
 var copyArray              = objHelper.copyArray;
+var toNumIfPossible        = objHelper.toNumIfPossible;
 
 // Set up prototypes for constructors, such as replacing .toString() functionality with a default value.  Prototypes will not appear as a regular key.
 SectorObj.prototype.toString = function(){ return this.coords.toString() };
 CoordsObj.prototype.toString = function(){ return this.x.toString() + " " + this.y.toString() + " " + this.z.toString() };
 EntityObj.prototype.toString = function(){ return this.fullUID.toString() };
+IPObj.prototype.toString = function(){ return this.address };
+IPObj.prototype.toArray = function(){ return this.address.split(".") };
 
 //  #######################
 //  ###     TESTING     ###
@@ -292,11 +295,55 @@ function ChannelObj(channelName){
   }
   this.name=channelName;
 }
+function checkSuccess2(input){
+  // This takes a starNet.jar output string and checks for the success message.
+  //RETURN: [SERVER, [ADMIN COMMAND] successfully
+  // This is used for /ban and /unban commands
+  if (input === false){ return false }; // if a "false" boolean is fed to it, it will simply return that.  This allows it to have other checks nested inside the input
+  var theReg=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] successfully");
+  return checkForLine(input,theReg);
+}
+function checkForLine(input,regExp){
+  // This is designed to look through starNet responses for a specific regExp on every line and return true if at least one instance of the pattern is found
+  // This should be used mostly for verifying if there were errors or successes
+  if (typeof input == "string" && regExp){
+    var theArray=input.split("\n");
+    for (let i = 0;i < theArray.length;i++) {
+      if (regExp.test(theArray[i])){
+        return true;
+      }
+    }
+    return false;
+  }
+  throw new Error("Invalid parameters given to 'checkForLine' function!");
+}
+
+function ipBan(ipAddress,minutes){ // minutes are optional.  A perm ban is applied if none provided.
+  if (ipAddress){
+    var ipToUse=ipAddress.toString(); // This allows ipObj's to be fed in, and this should translate to an ip string.
+    if (minutes){
+      var minutesNum=toNumIfPossible(minutes);
+      if (typeof minutesNum == "number"){
+        return checkSuccess2(starNetVerified("/ban_ip_temp " + ipToUse + " " + minutesNum));
+      } else {
+        // invalid minutes given
+        throw new Error("Invalid minutes specified!");
+      }
+    } else {
+      // no minutes provided, so perform a perm ban
+      return checkSuccess2(starNetVerified("/ban_ip " + ipToUse));
+    }
+  } else {
+    throw new Error("No ipAddress given to function, 'ipBan'!");
+  }
+}
+
 function IPObj(ipAddressString,date){
   this.address=ipAddressString;
   if (date){
     this.date=date;
   }
+  this.ban=function(minutes){ return ipBan(this.address,minutes) };
   // TODO: Add Info Methods:
   // date - This will only be set if the IP is attached to a date somehow, such as when listing all the IP's for a player
 
