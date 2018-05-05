@@ -63,6 +63,21 @@ function copyArray(inputArray){ // This outputs a copy of an array rather than l
   return outputArray;
 }
 
+function isObjHasPropAndEquals(obj,property,valueCheck){
+  if (typeof obj == "object"){
+    return objHasPropAndEquals(obj,property,valueCheck);
+  }
+  return false;
+}
+
+function objHasPropAndEquals(obj,property,valueCheck){
+  if (obj.hasOwnProperty(property)){
+    if (obj[property] === valueCheck){
+      return true;
+    }
+  }
+  return false;
+}
 
 module.exports={
   mapToJson,
@@ -75,5 +90,7 @@ module.exports={
   "type":getObjType,
   colorize,
   addNumToErrorObj,
-  copyArray
+  copyArray,
+  isObjHasPropAndEquals, // Checks if input is an object, has a property, and that property strictly equals a value
+  objHasPropAndEquals // For when you have many property checks and you've already ensured what is being fed is an object
 };
