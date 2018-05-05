@@ -8,10 +8,14 @@ var binFolder=path.resolve(__dirname);
 var starNetJar=path.join(binFolder,"StarNet.jar");
 var settings=require(path.resolve(__dirname,"../settings.json"));
 var ini=require(path.join(binFolder,"iniHelper.js"));
-var starmadeServerCfg=path.join(settings["starMadeFolder"],"StarMade","server.cfg");
+var objHelper=require(path.join(binFolder,"objectHelper.js"));
 
+
+var starmadeServerCfg=path.join(settings["starMadeFolder"],"StarMade","server.cfg");
 var starMadeServerCfgObj=ini.getFileAsObj(starmadeServerCfg);
 var superAdminPassword=ini.getVal(starMadeServerCfgObj,"SUPER_ADMIN_PASSWORD");
+
+module.debug=false;
 
 if (__filename == require.main.filename){ // Only run the arguments IF this script is being run by itself and NOT as a require.
   var clArguments=process.argv.slice(2);
@@ -30,6 +34,8 @@ if (__filename == require.main.filename){ // Only run the arguments IF this scri
 }
 
 function runStarNet(command){
+  // This is an attempt at making an async type function.  You can't capture the output from it, it's just for display purposes only.
+  // This sort of formula can be used though to write the data to a stream and process it that way as it comes in.  This is would be useful for SQL queries that can get rather large.
   if (command){
     var results=child.spawn("java",["-jar",starNetJar,"127.0.0.1:" + settings["port"],superAdminPassword,command],{"cwd":binFolder});
     results.stdout.on('data',function(data){
@@ -40,24 +46,18 @@ function runStarNet(command){
     });
   }
 }
-function runStarNetReturn(command){
-  var outputArray=[];
+function runStarNetReturn(command,options){
+  // Options are passed as an array.  Eg. {debug:true}
+  var debug=false;
+  if (module.debug){
+    debug=true;
+  } else if (objHelper.isObjHasPropAndEquals(options,"debug",true)){ // checks if any value was passed as an object, if it has a property "debug", and if that property strictly equals true
+    debug=true
+  }
   if (command){
     var results=child.spawnSync("java",["-jar",starNetJar,"127.0.0.1:" + settings["port"],superAdminPassword,command],{"cwd":binFolder});
+    if (debug == true){ process.stdout.write(results.stderr.toString()); }
     return results.stderr.toString().trim();
-    // var tempArray=results.stderr.toString().split("\n");
-    // // Trim the top
-    // while (tempArray.length > 0 && !"/^RETURN: \SERVER, SQL#/".test(tempArray[0])){
-    //   tempArray.shift();
-    // }
-    // // Trim the bottom
-    // while (tempArray.length > 0 && !"/^RETURN: [SERVER, SQL#/".test(tempArray[tempArray.length-1])){
-    //   tempArray.pop();
-    // }
-    // for (let i=0;i<tempArray.length;i++){
-    //   tempArray[i]=tempArray[i].replace(/(^RETURN: \[SERVER, SQL#[0-9]+: ")|(", 0\]$)/g,"").split('";"');
-    // }
-    // return new ReturnObj(tempArray);
   }
   return false;
 }

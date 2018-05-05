@@ -42,16 +42,19 @@ IPObj.prototype.toArray = function(){ return this.address.split(".") };
 //  #######################
 //  ###     TESTING     ###
 //  #######################
+var testSuit={ // This is used to match a command line argument to an element to then run a specific test function
+  sectorTests1:sectorTests,
+  sectorTests2:sectorTests2,
+  sectorTests3:sectorTests3,
+  entityObjTests:entityObjTests,
+  starNetHelperTests:starNetHelperTests,
+  ipObjTests:ipObjTests
+}
+
 if (__filename == require.main.filename){ // Only run the arguments IF this script is being run by itself and NOT as a require.
 
   var clArgs=process.argv.slice(2);
-  var testSuit={
-    sectorTests1:sectorTests,
-    sectorTests2:sectorTests2,
-    sectorTests3:sectorTests3,
-    entityObjTests:entityObjTests,
-    starNetHelperTests:starNetHelperTests
-  }
+
   if (testSuit.hasOwnProperty(clArgs[0])){
     console.log("Running test suit: " + clArgs[0]);
     testSuit[clArgs[0]](clArgs[1]);
@@ -254,6 +257,20 @@ function sectorTestHelper(sectorObj,inputNum,options){
   // starNet("/force_save");
   // console.log("New Chmod Num: " + sectorObj.getChmodNum() + " Chmods: " + sectorObj.getChmodArray());
 }
+function ipObjTests(){
+  var myIPObj=new IPObj("7.7.7.7",Date.now(),{debug:true});
+  console.log("Created IPObj");
+  console.log("myIPObj.address: " + myIPObj.address);
+  console.log("myIPObj.time: " + myIPObj.time);
+  console.log("myIPObj.toString(): " + myIPObj.toString());
+  console.log("myIPObj.toArray(): " + myIPObj.toArray());
+  console.log("myIPObj.ban(60) result: " + myIPObj.ban(60));
+  console.log("myIPObj.unban() result: " + myIPObj.unban());
+  console.log("myIPObj.ban() result: " + myIPObj.ban());
+  console.log("myIPObj.unban() result: " + myIPObj.unban());
+
+
+}
 // TESTING END
 
 function ServerObj(starMadeInstallFolder,javaArgs){
@@ -324,6 +341,7 @@ function ipBan(ipAddress,minutes){ // minutes are optional.  A perm ban is appli
     if (minutes){
       var minutesNum=toNumIfPossible(minutes);
       if (typeof minutesNum == "number"){
+        console.log("Banning IP, '" + ipAddress + "' for " + minutesNum + " minutes.");
         return checkSuccess2(starNetVerified("/ban_ip_temp " + ipToUse + " " + minutesNum));
       } else {
         // invalid minutes given
@@ -331,6 +349,7 @@ function ipBan(ipAddress,minutes){ // minutes are optional.  A perm ban is appli
       }
     } else {
       // no minutes provided, so perform a perm ban
+      console.log("PERMANENT banning IP, '" + ipAddress + "'!");
       return checkSuccess2(starNetVerified("/ban_ip " + ipToUse));
     }
   } else {
@@ -338,23 +357,24 @@ function ipBan(ipAddress,minutes){ // minutes are optional.  A perm ban is appli
   }
 }
 
-function ipUnBan(ipAddress){
+function ipUnBan(ipAddress,options){ // options are optional and should be an object.
   if (ipAddress){
     var ipToUse=ipAddress.toString(); // This allows ipObj's to be fed in, and this should translate to an ip string.
-    return checkSuccess2(starNetVerified("/unban_ip " + ipToUse)); // This will return false if the ip is not found in the blacklist
+    console.log("Unbanning IP: " + ipAddress);
+    return checkSuccess2(starNetVerified("/unban_ip " + ipToUse,options)); // This will return false if the ip is not found in the blacklist
   } else {
     throw new Error("No ipAddress given to function, 'ipUnBan'!");
   }
 }
 
 
-function IPObj(ipAddressString,date){
+function IPObj(ipAddressString,date,options){ // Example:  var myIPObj = new IpObj("192.0.0.100",Date.now());  Options is optional and should be an object, which is passed to commands.  Right now only {debug:true} is supported.
   this.address=ipAddressString;
   if (date){
     this.date=date;
   }
-  this.ban=function(minutes){ return ipBan(this.address,minutes) };
-  this.unban=function(){ return ipUnBan(this.address) };
+  this.ban=function(minutes){ return ipBan(this.address,minutes,options) };
+  this.unban=function(){ return ipUnBan(this.address,options) };
   // TODO: Add Info Methods:
   // date - This will only be set if the IP is attached to a date somehow, such as when listing all the IP's for a player
 

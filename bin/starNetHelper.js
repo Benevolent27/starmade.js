@@ -468,10 +468,11 @@ function detectSuccess(input){ // input should be a full starNet.js response as 
   return returnVal;
 }
 
-function starNetVerified(string){ // Takes a string command
+function starNetVerified(string,options){ // Takes a string command.  Options are optional
+  // Options right now include displaying the result on screen by giving "{debug:true}" as an option
   // This should probably no be used on longer sort of responses because it has to parse through every line
   if (typeof string == "string"){
-    var starNetResult=starNet(string);
+    var starNetResult=starNet(string,options);
     if (verifyResponse(starNetResult)){
       return starNetResult;
     } else {
