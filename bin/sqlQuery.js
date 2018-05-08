@@ -1,15 +1,20 @@
+module.exports={ // top exporting to allow circular dependencies to work.
+  SqlQueryObj, // DO NOT USE THE OBJECT DIRECTLY FROM THIS FILE, USE THE objectCreator.js script for that to avoid unsupported circular dependencies, since that script uses export injection to provide this object.
+  mapifyColumnsAndAllData // This takes an array with columns, and another array with all the data, spitting out an array of maps
+};
+
 
 const path=require('path');
 
-var binFolder=path.resolve(__dirname);
-var starNet=require(path.resolve(binFolder,"starNet.js"));
-var objHelper=require(path.resolve(binFolder,"objectHelper.js"));
-var starNetHelper=require(path.resolve(binFolder,"starNetHelper.js"));
+const binFolder=path.resolve(__dirname);
+const starNet=require(path.resolve(binFolder,"starNet.js"));
+const objHelper=require(path.resolve(binFolder,"objectHelper.js"));
+const starNetHelper=require(path.resolve(binFolder,"starNetHelper.js"));
 
 // TODO: Set up the check where if there are no columns returned, the query must have been invalid
 // Set up aliases
-var verifyResponse=starNetHelper["verifyResponse"]; // This checks to make sure there was no error anywhere and that the command executed
-var addNumToErrorObj=objHelper["addNumToErrorObj"];
+const verifyResponse=starNetHelper["verifyResponse"]; // This checks to make sure there was no error anywhere and that the command executed
+const addNumToErrorObj=objHelper["addNumToErrorObj"];
 
 // Set up prototype modifiers
 
@@ -139,8 +144,3 @@ function mapFromColumnsAndDataSet(columnArray,dataArray){ // this assists the SQ
   }
   return tempMap;
 }
-
-module.exports={
-  SqlQueryObj,
-  mapifyColumnsAndAllData
-};
