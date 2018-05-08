@@ -418,7 +418,8 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
     console.error("ERROR: Could not spawn server!")
     if (err.message) { console.error("Error Message: " + err.message.toString()); }
     if (err.code) { console.error("Error Code: " + err.code.toString()); }
-    exitNow(130);
+    process.exitCode=130;
+    throw new Error("Server spawn fail.");
   }
   var tailOptions = {
     "fsWatchOptions": {"persistent": false},
@@ -688,13 +689,43 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
     serversRunning--;
     delServerPID(server.pid); // This updates the lock file
     if (code){
+      process.exitCode=code;
       if (code.message){
           console.log('Server instance exited with message: ' + code.message.toString());
       }
       console.log('Server instance exited with code: ' + code.toString());
     }
+    console.log("Here's some listener listings:");
+    console.log("process:");
+    console.dir(process.listeners());
+
+    console.log("server:");
+    console.dir(server.listeners());
+
+    console.log("eventEmitter:");
+    console.dir(eventEmitter.listeners());
+
+    console.log("serverTail:");
+    console.dir(serverTail.listeners());
+
+
+
+    console.log("Shutting down server log tail..");
     serverTail.unwatch();
-    exitNow(code); // This is temporary, we don't necessarily want to kill the wrapper when the process dies.  For example, maybe we want to respawn it?  Ya know?!
+    // server.stdin.end();
+    console.log("Removing listeners..");
+    // serverTail.removeAllListeners();
+    // server.removeAllListeners();
+
+    // eventEmitter.removeAllListeners();
+    // process.stdin.removeAllListeners();
+    // process.removeAllListeners(); // We don't want to do this because this removes the exit hooks.
+    // process.stdout.removeAllListeners();
+
+    // TODO: This needs to be obsoleted.  At this point in the script, we should NOT have force it to shut down.
+    // exitNow(code); // This is temporary, we don't necessarily want to kill the wrapper when the process dies.  For example, maybe we want to respawn it?  Ya know?!
+    process.exit(); // This is necessary for now because something is holding up the natural exit of the script
+
   });
   server.on('error', function (code) {
     // This runs is the java process could not start for some reason.
@@ -703,7 +734,9 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
         console.log('Error Message: ' + code.message.toString());
     }
     console.log('Exit code: ' + code.toString());
-    exitNow(code); // This is temporary, we don't necessarily want to kill the wrapper when the process dies.
+    process.exitCode=code;
+    throw new Error("Server launch fail!");
+    // exitNow(code); // This is temporary, we don't necessarily want to kill the wrapper when the process dies.
   });
 
 
@@ -850,7 +883,6 @@ eventEmitter.on('asyncDone', installDepsSync);
 function isAlphaNumeric(testString){
   return "/^[A-Za-z0-9]+$/".test(testString);
 }
-
 function getRandomAlphaNumericString(charLength){ // If no charlength given or it is invalid, it will output 10 and throw an error message. // Original code from: https://stackoverflow.com/questions/1349404/generate-random-string-characters-in-javascript
   var text = "";
   var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -947,14 +979,15 @@ function ensureDelete (fileToDelete,options){
   }
 }
 
-function exitNow(code) { // TODO: stop using an exit function.  Since other require scripts might facilitate an exit, we really shouldn't use a function to perform exits any longer.
-  // TODO: Delete the lock file deletion text, as the functionality has changed.
-  // We should not delete the lock file, but simply leave it for the next run.  It SHOULD have the correct PID's added/removed as servers are added or removed.
-  // console.log("Deleting lock file.");
-  // simpleDelete(lockFile);
-  console.log("Exiting main script with exit code: " + code);
-  process.exit(code);
-}
+// Obsoleting this by using process.errorCode=Num; and then throwing an error if an immediate shutdown is required.
+// function exitNow(code) { // TODO: stop using an exit function.  Since other require scripts might facilitate an exit, we really shouldn't use a function to perform exits any longer.
+//   // TODO: Delete the lock file deletion text, as the functionality has changed.
+//   // We should not delete the lock file, but simply leave it for the next run.  It SHOULD have the correct PID's added/removed as servers are added or removed.
+//   // console.log("Deleting lock file.");
+//   // simpleDelete(lockFile);
+//   console.log("Exiting main script with exit code: " + code);
+//   process.exit(code);
+// }
 
 
 var operationMessages=[]; // This is unused for now, but it can be used to see the operations that completed and their order if they were named.
@@ -1131,6 +1164,7 @@ function writeLockFile(){
   // lockFileWriteObj.end();
   console.log("Writing to lock file..");
   fs.writeFileSync(lockFile,JSON.stringify(lockFileObj, null, 4));
+  console.log("Done!");
 }
 
 function countActiveLockFilePids(lockFileObject){
@@ -1151,49 +1185,6 @@ function countActiveLockFilePids(lockFileObject){
     }
   }
   return count;
-}
-
-function waitAndThenKill(mSeconds,thePID,options){ // options are optional.  This can be used on any PID as a sync function
-  // By default this will send a SIGKILL signal to the PID if it has not ended within the specified timeout
-  // options example:
-  // {
-  //    interval:'2',
-  //    sigType:'SIGTERM'
-  // }
-  var mSecondsCount=0;
-  var intervalVar=1000;
-  var sigType="SIGKILL";
-  if (mSeconds && thePID){
-    if (options){
-      if (options.hasOwnProperty("interval")){
-        intervalVar=options["interval"];
-      }
-      if (options.hasOwnProperty("sigType")){
-        sigType=options["sigType"];
-      }
-    }
-    if (isPidAlive(thePID)){
-      process.stdout.write("\nWaiting for process to die.");
-      while (isPidAlive(thePID) && mSecondsCount < mSeconds){
-        sleep(intervalVar);
-        process.stdout.write(".");
-        mSecondsCount+=intervalVar;
-      }
-      process.stdout.write("\n");
-      if (isPidAlive(thePID)){
-        console.log("PID (" + thePID + ") still alive after waiting " + mSecondsCount + " milliseconds!  Killing it with: " + sigType);
-        process.kill(thePID,sigType);
-      } else if (mSecondsCount>0){
-          console.log("PID (" + thePID + ") died of natural causes after " + mSecondsCount + " milliseconds.  No need to send a " + sigType + " signal to it.  Phew!");
-      } else {
-        console.log("PID (" + thePID + ") died of natural causes.  No need to send a " + sigType + " signal to it.  Phew!");
-      }
-    } else {
-      console.log("Process already died on it's own!  GREAT!  :D");
-    }
-  } else {
-    throw new Error("Insufficient parameters given to waitAndThenSigKill function!");
-  }
 }
 
 
