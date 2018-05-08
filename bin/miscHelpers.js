@@ -1,13 +1,18 @@
 module.exports={ // Always put module.exports at the top so circular dependencies work correctly.
   requireBin,
   isPidAlive,
-  smartSpawnSync // This allows executing a jar file or .exe file with the same spawn command, specifying arguments to use and ignoring any java arguments provided if it's not a jar file.
+  smartSpawnSync, // This allows executing a jar file or .exe file with the same spawn command, specifying arguments to use and ignoring any java arguments provided if it's not a jar file.
+  ensureFolderExists
 };
 
-const path=require('path');
-const http=require('http');
-const binFolder=path.resolve(__dirname,"../bin/");
+const path              = require('path');
+const http              = require('http');
+const fs                = require('fs');
+const binFolder         = path.resolve(__dirname,"../bin/");
 // const objectCreator=require(path.join(binFolder,"objectCreator.js"));
+const installAndRequire = requireBin("installAndRequire");
+const makeDir           = installAndRequire('make-dir'); // https://www.npmjs.com/package/make-dir This allows creating folders recursively if they do not exist, with either async or sync functionality.
+
 
 // TESTING BEGIN
 if (__filename == require.main.filename){ // Only run the arguments IF this script is being run by itself and NOT as a require.
@@ -31,13 +36,35 @@ if (__filename == require.main.filename){ // Only run the arguments IF this scri
     console.log("Example:  node miscHelpers.js downloadToString");
   }
 }
-
 function isPidAliveTest(){
   console.log("Is this process alive? " + isPidAlive(process.pid));
 }
 // TESTING END
 
 // The FUNCTIONS
+function ensureFolderExists (folderPath){ // Returns true if the folder exists or if it can be created and then exists, otherwise throws an error.
+  let resolvedFolderPath=path.resolve(folderPath); // Using resolve to ensure the path is specified in the right way for the OS.  Resolve tack on the current working directory to make it a full path if needed, which may NOT be the same as the folder starmade.js is in because this is meant to be a general purpose function and not necessarily tied to the starmade.js script.
+  try {
+    fs.accessSync(resolvedFolderPath,fs.constants.F_OK);  //  Check if the path can be seen.
+      if (fs.statSync(resolvedFolderPath).isFile()) { // Check if it is a file
+        let theError = new Error("Cannot create folder!  File already exists at this path!  Please delete or move: '" + resolvedFolderPath);
+        throw theError;
+      } else if (fs.statSync(resolvedFolderPath).isFIFO()) {
+        let theError = new Error("Cannot create folder!  Named Pipe already exists at this path!  Please delete or move: '" + resolvedFolderPath);
+        throw theError;
+      } else { return true; } // it might be a symlink, but I don't know how to check if it's symlinked to a file or folder, so let's just assume it is fine.
+  } catch (err) {
+    console.log("Folder not found, creating: " + folderPath);
+    try {
+      makeDir.sync(folderPath); // This will create the folder and any inbetween needed, but requires the make-dir module.
+      return true;
+    } catch (error) {
+      console.error("ERROR: Unable to create folder: " + folderPath);
+      throw error; // Forward the error given by makeDir and throw it.
+    }
+  }
+}
+
 function smartSpawnSync(executible,argumentsArray,optionsObject,javaArgumentsArray){
   // This script will run a .jar file with java, and anything else directly
 

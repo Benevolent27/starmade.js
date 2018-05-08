@@ -956,29 +956,6 @@ function exitNow(code) { // TODO: stop using an exit function.  Since other requ
   process.exit(code);
 }
 
-function ensureFolderExists (folderPath){ // Returns true if the folder exists or if it can be created and then exists, otherwise throws an error.
-  let resolvedFolderPath=path.resolve(folderPath); // Using resolve to ensure the path is specified in the right way for the OS.  Resolve tack on the current working directory to make it a full path if needed, which may NOT be the same as the folder starmade.js is in because this is meant to be a general purpose function and not necessarily tied to the starmade.js script.
-  try {
-    fs.accessSync(resolvedFolderPath,fs.constants.F_OK);  //  Check if the path can be seen.
-      if (fs.statSync(resolvedFolderPath).isFile()) { // Check if it is a file
-        let theError = new Error("Cannot create folder!  File already exists at this path!  Please delete or move: '" + resolvedFolderPath);
-        throw theError;
-      } else if (fs.statSync(resolvedFolderPath).isFIFO()) {
-        let theError = new Error("Cannot create folder!  Named Pipe already exists at this path!  Please delete or move: '" + resolvedFolderPath);
-        throw theError;
-      } else { return true; } // it might be a symlink, but I don't know how to check if it's symlinked to a file or folder, so let's just assume it is fine.
-  } catch (err) {
-    console.log("Folder not found, creating: " + folderPath);
-    try {
-      // fs.mkdirSync(folderPath);  // This will only create the folder IF no other folders between need to be created, using the nodejs built in fs.
-      makeDir.sync(folderPath); // This will create the folder and any inbetween needed, but requires the make-dir module.
-      return true;
-    } catch (error) {
-      console.error("ERROR: Unable to create folder: " + folderPath);
-      throw error; // Forward the error given by makeDir and throw it.
-    }
-  }
-}
 
 var operationMessages=[]; // This is unused for now, but it can be used to see the operations that completed and their order if they were named.
 function asyncOperation(val){ // This controls when the start operation occurs.  All file reads, downloads, installs, etc, must be completed before this will trigger the "ready" event.
@@ -1025,7 +1002,7 @@ function preDownload(httpURL,fileToPlace){ // This function handles the pre-down
     }
   } else { // If the file does not exist, let's download it.
     console.log("Downloading '" + baseFileToPlace + "' from: " + httpURL);
-    ensureFolderExists(baseDirForFile); // ensure the directory the file needs to be placed in exists before trying to write to the file.
+    miscHelpers.ensureFolderExists(baseDirForFile); // ensure the directory the file needs to be placed in exists before trying to write to the file.
     var file = fs.createWriteStream(tempFileToPlace); // Open up a write stream to the temporary file.  We are using a temporary file to ensure the file will only exist at the target IF the download is a success and the file write finishes.
     try {
       var request = http.get(httpURL, function(response) {
@@ -1242,9 +1219,9 @@ writeLockFile(); // This is to prevent this script from running multiple times o
 // ### CREATE NEEDED FOLDERS  ###
 // ##############################
 
-ensureFolderExists(modFolder);
-ensureFolderExists(binFolder);
-ensureFolderExists(starMadeInstallFolder); // This is redundant to handle if the person deletes or moves their StarMade install folder.
+miscHelpers.ensureFolderExists(modFolder);
+miscHelpers.ensureFolderExists(binFolder);
+miscHelpers.ensureFolderExists(starMadeInstallFolder); // This is redundant to handle if the person deletes or moves their StarMade install folder.
 
 // ###################################
 // ### DEPENDENCIES AND DOWNLOADS  ###
