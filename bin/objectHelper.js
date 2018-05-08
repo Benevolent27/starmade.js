@@ -1,4 +1,3 @@
-
 // These are helper functions to assist with objects and values.  New objects are not created here.  See the "objectCreator.js" file for that.
 
 module.exports={ // Always put module.exports at the top so circular dependencies work correctly.
@@ -7,15 +6,15 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   strMapToObj,
   objToStrMap,
   toBoolean,
-  toNumIfPossible,
-  getObjType,
-  "type":getObjType,
-  colorize,
-  addNumToErrorObj,
-  copyArray,
-  isArrayAllEqualTo,
+  toNumIfPossible, // This converts a value to a number if possible, otherwise returns the value back.
+  getObjType, // This checks the object.constructor.name value for any object.  All constructor names should be capitalized.  Otherwise returns the typeof value, which should be lowercase.
+  "type":getObjType, // This is just an alias.. not sure why I did this..
+  colorize, // This adds ANSI values to colorize text
+  addNumToErrorObj, // This adds an errno element to an error object equal to the number specified.
+  copyArray, // This copies an array rather than linking a value to the same array.
+  isArrayAllEqualTo, // Compares all values in an array to a single value.  This is used to process arrays of true/false values, where each value indicates a success or failure of an individual operation.
   subArrayFromAnother, // Subtracts any values that exist in one array from another.
-  findSameFromTwoArrays,
+  findSameFromTwoArrays, // Finds whatever values exist in both arrays
   isObjHasPropAndEquals, // Checks if input is an object, has a property, and that property strictly equals a value
   objHasPropAndEquals // For when you have many property checks and you've already ensured what is being fed is an object
 };
@@ -48,7 +47,11 @@ function objToStrMap(obj) {
     return strMap;
 }
 function toBoolean(input){ // The main purpose of this function is to convert strings of "false" to literal false, rather than them being returned as truthy.
-  return input=="false" ? false : Boolean(input);
+  if (input){ // First try a truthy
+    return input=="false" ? false : Boolean(input); // Interpret a "false" string as false, otherwise convert to Boolean
+  } else {
+    return false;
+  }
 }
 function toNumIfPossible(input){
   var output=Number(input);
