@@ -1,6 +1,29 @@
 
 // These are helper functions to assist with objects and values.  New objects are not created here.  See the "objectCreator.js" file for that.
+
+module.exports={ // Always put module.exports at the top so circular dependencies work correctly.
+  mapToJson,
+  jsonToMap,
+  strMapToObj,
+  objToStrMap,
+  toBoolean,
+  toNumIfPossible,
+  getObjType,
+  "type":getObjType,
+  colorize,
+  addNumToErrorObj,
+  copyArray,
+  isArrayAllEqualTo,
+  subArrayFromAnother, // Subtracts any values that exist in one array from another.
+  findSameFromTwoArrays,
+  isObjHasPropAndEquals, // Checks if input is an object, has a property, and that property strictly equals a value
+  objHasPropAndEquals // For when you have many property checks and you've already ensured what is being fed is an object
+};
+
 const util=require('util');
+const path=require('path');
+const binFolder=path.resolve(__dirname,"../bin/");
+
 
 function mapToJson(map) {
     return JSON.stringify([...map]);
@@ -37,7 +60,7 @@ function toNumIfPossible(input){
 
 function getObjType(theObj){ // This will return the name of the constructor function that created the object
   if (typeof theObj == "object"){
-    return theObj.constructor.name; // This is apparently a deeply flawed method, but fuck it, it works for now.  Source:  https://stackoverflow.com/questions/332422/how-do-i-get-the-name-of-an-objects-type-in-javascript
+    return theObj.constructor.name; // This is apparently a flawed method, but fuck it, it works for now.  Source:  https://stackoverflow.com/questions/332422/how-do-i-get-the-name-of-an-objects-type-in-javascript
   } else { // If it is NOT an object, then we should just return whatever type it is.
     return typeof theObj;
   }
@@ -79,18 +102,44 @@ function objHasPropAndEquals(obj,property,valueCheck){
   return false;
 }
 
-module.exports={
-  mapToJson,
-  jsonToMap,
-  strMapToObj,
-  objToStrMap,
-  toBoolean,
-  toNumIfPossible,
-  getObjType,
-  "type":getObjType,
-  colorize,
-  addNumToErrorObj,
-  copyArray,
-  isObjHasPropAndEquals, // Checks if input is an object, has a property, and that property strictly equals a value
-  objHasPropAndEquals // For when you have many property checks and you've already ensured what is being fed is an object
-};
+function subArrayFromAnother(arrayToSubtract,arrayToSubtractFrom){
+  var outputArray=copyArray(arrayToSubtractFrom);
+  var indexNum;
+  for (let i=0;i<arrayToSubtract.length;i++){
+    indexNum=outputArray.indexOf(arrayToSubtract[i]);
+    if (indexNum !== -1){
+      outputArray.splice(indexNum,1);
+    }
+  }
+  return outputArray;
+}
+function findSameFromTwoArrays(arrayOne,arrayTwo){ // This compares two arrays, outputting a new array of shared values
+  var outputArray=[];
+  for (let i=0;i<arrayOne.length;i++){
+    if (arrayTwo.indexOf(arrayOne[i]) !== -1){
+      outputArray.push(arrayOne[i]);
+    }
+  }
+  return outputArray;
+}
+
+function isArrayAllEqualTo(inputArray,valueToCompare){
+  // This is useful for when multiple operations are performed by a function and an array of results is returned.
+  // Example of use:
+  // if (isArrayAllEqualTo(resultsArray,true)){
+  //     console.log("Looks like everything worked!")
+  // } else {
+  //     console.log("Oh no, something failed!");
+  // }
+
+  if (getObjType(inputArray) == "Array"){
+    for (let i=0;i<inputArray.length;i++){
+      if (inputArray[0] !== valueToCompare){
+        return false;
+      }
+    }
+    return true;
+  } else {
+    throw new Error("Invalid input given to function, isArrayAll!  inputArray was not an array!");
+  }
+}

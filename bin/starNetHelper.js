@@ -1,3 +1,15 @@
+module.exports={ // Always put module.exports at the top so circular dependencies work correctly.
+  mapifyShipInfoUIDString,
+  getCoordsAndReturnNumArray,
+  getEntityValue,
+  ShipInfoUidObj,
+  starNetVerified,
+  verifyResponse,
+  detectError,
+  detectRan,
+  detectSuccess
+}
+
 var path=require('path');
 var binFolder=path.resolve(__dirname,"../bin/");
 var starNet=require(path.join(binFolder,"starNet.js"));
@@ -59,7 +71,7 @@ if (require.main.filename == __filename){ // This is so it only runs based on ar
         // console.dir(theResult);
 
         console.debug("Starting Mapify on results..");
-        var theMap=mapifyEntityInfoUIDString(theResult);
+        var theMap=mapifyShipInfoUIDString(theResult);
         if (theMap){
           console.log("\nMap output: ")
           // console.dir(theMap);
@@ -201,7 +213,7 @@ function getCoordsAndReturnNumArray(inputStr,numsExpected){ // If no
   }
 }
 
-function mapifyEntityInfoUIDString(responseStr,options){ // options are optional.  Allows a setting to return objects instead of maps, which are easier to write to a .json file if nested.
+function mapifyShipInfoUIDString(responseStr,options){ // options are optional.  Allows a setting to return objects instead of maps, which are easier to write to a .json file if nested.
   // The goal here is to take the response of a /entity_info_uid command and turn it into an Map object with nested values
   // Special considerations:
   // The last line is the "type"
@@ -293,7 +305,7 @@ function ShipInfoUidObj(uidOrShipObj,options){ // options are optional and are m
   }
   if (uidToUse){
     var starNetResult=starNet("/ship_info_uid " + uidToUse)
-    return mapifyEntityInfoUIDString(starNetResult,options);
+    return mapifyShipInfoUIDString(starNetResult,options);
   } else {
     throw new Error("ERROR: Invalid parameters given to 'ShipInfoUIDObj'!");
   }
@@ -329,7 +341,7 @@ function getEntityValue(uidOrShipObj,valueString,options){ // Options are option
   if (typeof uidToUse == "string" && typeof valueString == "string"){
     const results=starNet("/ship_info_uid \"" + uidToUse + "\"");
     // console.log("Results found: " + results);
-    var resultMap=mapifyEntityInfoUIDString(results);
+    var resultMap=mapifyShipInfoUIDString(results);
     // console.log("\nMapify result:");
     // console.dir(resultMap);
     // console.log("\nJust because, here's the nameMap:");
@@ -482,17 +494,4 @@ function starNetVerified(string,options){ // Takes a string command.  Options ar
     throw new Error("Invalid parameters given to starNetVerified function!");
   }
   // Returns the result of the command if it verifies, meaning it ran AND there were no java errors.  This does not guarantee the command was successful, like when a person gives an invalid amount of parameters.
-}
-
-
-module.exports={
-  "mapifyShipInfoUIDString":mapifyEntityInfoUIDString,
-  "getCoordsAndReturnNumArray":getCoordsAndReturnNumArray,
-  "getEntityValue":getEntityValue,
-  "ShipInfoUidObj":ShipInfoUidObj,
-  starNetVerified,
-  verifyResponse,
-  detectError,
-  detectRan,
-  detectSuccess
 }

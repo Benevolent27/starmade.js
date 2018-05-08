@@ -1,16 +1,35 @@
 
 // This script assists with creating all custom object types used by the wrapper.
 
+module.exports={ // Always put module.exports at the top so circular dependencies work correctly.
+  ServerObj,
+  SqlQueryObj,
+  EntityObj,
+  SectorObj,
+  CoordsObj,
+  FactionObj,
+  MessageObj,
+  ChannelObj,
+  IPObj,
+  SMName,
+  SystemObj,
+  SpawnObj,
+  BluePrintObj,
+  RemoteServer
+}
+
+
 // Requires
 const path        = require('path');
 const binFolder   = path.resolve(__dirname,"../bin/");
 const spawn       = require('child_process').spawn;
+const http        = require('http');
 var miscHelper    = require(path.join(binFolder,"miscHelpers.js"));
 var requireBin    = miscHelper["requireBin"];
 var starNet       = requireBin("starNet.js");
 var starNetHelper = requireBin("starNetHelper.js");
 var sqlQuery      = requireBin("sqlQuery.js");
-var objHelper     = requireBin("objectHelper.js");
+var objectHelper  = requireBin("objectHelper.js");
 var regExpHelper  = requireBin("regExpHelper.js");
 var ini           = requireBin("iniHelper.js");
 
@@ -21,16 +40,18 @@ var ini           = requireBin("iniHelper.js");
 // var regExpHelper=require(path.join(binFolder,"regExpHelper.js"));
 
 // Set up aliases
-var colorize               = objHelper["colorize"];
+var colorize               = objectHelper["colorize"];
 var stripFullUIDtoUID      = regExpHelper["stripFullUIDtoUID"]; // Function that removes text like ENTITY_SHIP_ and ENTITY_PLANET_ from the beginning of a full UID so it can be used to perform SQL queries on UID
-var typeOfObj              = objHelper.type; // Gets the prototype name of an object, so instead of using "typeof", which returns "object" for things like arrays and SectorObj's, etc, this will return their object name instead.
+var getObjType              = objectHelper.getObjType; // Gets the prototype name of an object, so instead of using "typeof", which returns "object" for things like arrays and SectorObj's, etc, this will return their object name instead.
 var SqlQueryObj            = sqlQuery.SqlQueryObj;
-const toNum                = objHelper.toNumIfPossible;
+const toNum                = objectHelper.toNumIfPossible;
 var sectorProtectionsArray = regExpHelper.sectorProtections; // This should include all the possible protections a sector can have.
 var verifyStarNetResponse  = starNetHelper.verifyResponse; // This can be used to perform a verification on a StarMade response without consuming the response
 var starNetVerified        = starNetHelper.starNetVerified; // If the response does not verify, this consumes the response and throws an error instead
-var copyArray              = objHelper.copyArray;
-var toNumIfPossible        = objHelper.toNumIfPossible;
+var copyArray              = objectHelper.copyArray;
+var toNumIfPossible        = objectHelper.toNumIfPossible;
+var subArrayFromAnother    = objectHelper.subArrayFromAnother;
+var findSameFromTwoArrays = objectHelper.findSameFromTwoArrays;
 
 // Set up prototypes for constructors, such as replacing .toString() functionality with a default value.  Prototypes will not appear as a regular key.
 SectorObj.prototype.toString = function(){ return this.coords.toString() };
@@ -42,17 +63,18 @@ IPObj.prototype.toArray = function(){ return this.address.split(".") };
 //  #######################
 //  ###     TESTING     ###
 //  #######################
-var testSuit={ // This is used to match a command line argument to an element to then run a specific test function
-  sectorTests1:sectorTests,
-  sectorTests2:sectorTests2,
-  sectorTests3:sectorTests3,
-  entityObjTests:entityObjTests,
-  starNetHelperTests:starNetHelperTests,
-  ipObjTests:ipObjTests
-}
+
 
 if (__filename == require.main.filename){ // Only run the arguments IF this script is being run by itself and NOT as a require.
-
+  var testSuit={ // This is used to match a command line argument to an element to then run a specific test function
+    sectorTests1:sectorTests,
+    sectorTests2:sectorTests2,
+    sectorTests3:sectorTests3,
+    entityObjTests:entityObjTests,
+    starNetHelperTests:starNetHelperTests,
+    ipObjTests:ipObjTests,
+    getServerListTest: getServerListTest
+  }
   var clArgs=process.argv.slice(2);
 
   if (testSuit.hasOwnProperty(clArgs[0])){
@@ -92,12 +114,12 @@ function entityObjTests(){
   Object.keys(theShip).forEach(function(key){
     if (theShip.hasOwnProperty(key)){ // This is to filter out prototype values
       if (typeof theShip[key] == "object"){
-        process.stdout.write(key + ": (type: " + typeOfObj(theShip[key]) + ") ");
+        process.stdout.write(key + ": (type: " + getObjType(theShip[key]) + ") ");
         console.log(theShip[key]);
       } else if (typeof theShip[key] == "function"){
         let tempVal=theShip[key]();
         if (typeof tempVal == "object"){
-          process.stdout.write(key + ": (type: " + typeOfObj(tempVal) + ") ");
+          process.stdout.write(key + ": (type: " + getObjType(tempVal) + ") ");
           console.log(tempVal);
         } else if (typeof tempVal == "string"){
           console.log(key + ": " + tempVal);
@@ -268,9 +290,25 @@ function ipObjTests(){
   console.log("myIPObj.unban() result: " + myIPObj.unban());
   console.log("myIPObj.ban() result: " + myIPObj.ban());
   console.log("myIPObj.unban() result: " + myIPObj.unban());
+  console.log("Attempting to unban the IP again, which should fail:");
+  console.log("myIPObj.unban() result: " + myIPObj.unban());
 
 
 }
+function getServerListTest(){
+  console.log("Test result: ");
+  getServerListArray(showResponseCallback);
+}
+function showResponseCallback(error,output){ // This is a helper function for testing purposes.  It shows any error or output when it's used as a callback function.
+  if (error){
+    console.error("Error: " + error.toString());
+  }
+  if (output){
+    console.log("output: ");
+    console.dir(output);
+  }
+}
+
 // TESTING END
 
 function ServerObj(starMadeInstallFolder,javaArgs){
@@ -323,7 +361,7 @@ function checkSuccess2(input){
 function checkForLine(input,regExp){
   // This is designed to look through starNet responses for a specific regExp on every line and return true if at least one instance of the pattern is found
   // This should be used mostly for verifying if there were errors or successes
-  if (typeof input == "string" && regExp){
+  if (typeof input == "string" && getObjType(regExp) == "RegExp"){
     var theArray=input.split("\n");
     for (let i = 0;i < theArray.length;i++) {
       if (regExp.test(theArray[i])){
@@ -334,7 +372,6 @@ function checkForLine(input,regExp){
   }
   throw new Error("Invalid parameters given to 'checkForLine' function!");
 }
-
 function ipBan(ipAddress,minutes){ // minutes are optional.  A perm ban is applied if none provided.
   if (ipAddress){
     var ipToUse=ipAddress.toString(); // This allows ipObj's to be fed in, and this should translate to an ip string.
@@ -356,7 +393,6 @@ function ipBan(ipAddress,minutes){ // minutes are optional.  A perm ban is appli
     throw new Error("No ipAddress given to function, 'ipBan'!");
   }
 }
-
 function ipUnBan(ipAddress,options){ // options are optional and should be an object.
   if (ipAddress){
     var ipToUse=ipAddress.toString(); // This allows ipObj's to be fed in, and this should translate to an ip string.
@@ -367,12 +403,35 @@ function ipUnBan(ipAddress,options){ // options are optional and should be an ob
   }
 }
 
-
-function IPObj(ipAddressString,date,options){ // Example:  var myIPObj = new IpObj("192.0.0.100",Date.now());  Options is optional and should be an object, which is passed to commands.  Right now only {debug:true} is supported.
-  this.address=ipAddressString;
-  if (date){
-    this.date=date;
+function createDateObjIfPossible(input){ // Takes either a date string that "new Date" can turn into an object, passes along a Date object fed to it, or returns false if no new Date could be created.
+  if (typeof input != "undefined" && input != "" && getObjType(input) != "Null"){ // if an input is nulled out using null, it actually appears as an "object" to typeof
+    if (getObjType(input) == "Date"){
+      return input; // If the input was already a Date object, just return it
+    } else {
+      try{
+        return new Date(input);
+      } catch(err) {
+        return false;  // Returns false if creating the data object failed.
+      }
+    }
   }
+  return false; // Returns false if no input given
+}
+
+function IPObj(ipAddressString,date,options){
+  // Example:  var myIPObj = new IpObj("192.0.0.100",Date.now());
+  // ipAddressString should look something like "7.7.7.7"
+  // date can be a string that "new Date()" can turn into an object or can be a Date object.  It's easier to debug if you create the date object yourself and then pass it here, so if there are any issues, the stack trace will point to the place where the bad string is attempted to be converted to a Date object.
+  // Options is optional and should be an object, which is passed to subcommands.  Right now only {debug:true} is supported.
+
+  this.address=ipAddressString;
+  if (typeof date != "undefined"){ // We're using typeof because we don't want to do a truthy assessment
+    var possibleDate=createDateObjIfPossible(date);  // Returns false if no information given or invalid information.  Returns a date object if given a date object.
+    if (!possibleDate){
+      console.error("Unable to use date information given when creating new IpObj for IP, " + ipAddressString + "! Invalid date information: " + date);
+    }
+  }
+  if (possibleDate){ this.date = possibleDate } // If date information is given, but it is invalid, it will NOT be included in this object.
   this.ban=function(minutes){ return ipBan(this.address,minutes,options) };
   this.unban=function(){ return ipUnBan(this.address,options) };
   // TODO: Add Info Methods:
@@ -399,6 +458,27 @@ function PlayerObj(playerName){
   if (playerName){
     this.name=playerName;
     // TODO: Add Info methods:
+
+    // Example from "/player_info Benevolent27":
+    // RETURN: [SERVER, [PL] LOGIN: [time=Thu Apr 26 21:28:51 EDT 2018, ip=/127.0.0.1, starmadeName=], 0] // var myDate=new Date("Thu Apr 26 21:28:51 EDT 2018");   Then to display in local time:  myDate.toLocaleString())  or to grab epoch:  myDate.getTime()
+    // RETURN: [SERVER, [PL] LOGIN: [time=Thu Apr 26 21:34:10 EDT 2018, ip=/127.0.0.1, starmadeName=], 0]
+    // RETURN: [SERVER, [PL] LOGIN: [time=Thu Apr 26 21:36:20 EDT 2018, ip=/127.0.0.1, starmadeName=], 0]
+    // RETURN: [SERVER, [PL] LOGIN: [time=Thu Apr 26 23:18:35 EDT 2018, ip=/127.0.0.1, starmadeName=], 0]
+    // RETURN: [SERVER, [PL] LOGIN: [time=Sun Apr 29 00:27:53 EDT 2018, ip=/127.0.0.1, starmadeName=], 0]
+    // RETURN: [SERVER, [PL] LOGIN: [time=Thu May 03 04:07:48 EDT 2018, ip=/127.0.0.1, starmadeName=], 0]
+    // RETURN: [SERVER, [PL] PERSONAL-TEST-SECTOR: (2147483615, 16, 2147483615), 0]
+    // RETURN: [SERVER, [PL] PERSONAL-BATTLE_MODE-SECTOR: (2147483615, 16, 2147483615), 0]
+    // RETURN: [SERVER, [PL] CONTROLLING-POS: <not spawned>, 0]
+    // RETURN: [SERVER, [PL] CONTROLLING: <not spawned>, 0]
+    // RETURN: [SERVER, [PL] SECTOR: (2, 2, 2), 0]
+    // RETURN: [SERVER, [PL] FACTION: null, 0]
+    // RETURN: [SERVER, [PL] CREDITS: 50000, 0]
+    // RETURN: [SERVER, [PL] UPGRADED: false, 0]
+    // RETURN: [SERVER, [PL] SM-NAME: null, 0]
+    // RETURN: [SERVER, [PL] IP: null, 0]
+    // RETURN: [SERVER, [PL] Name: Benevolent27, 0]
+    // RETURN: [SERVER, END; Admin command execution ended, 0]
+
     // smName - returns a SmNameObj
     // ip - returns an IPObj with the player's last IP in it
     // ips - returns an array of IPObj's with all unique IP's.  Also sets the "date" function for each one.
@@ -485,13 +565,17 @@ function SystemObj(x,y,z){
     this.extraInfo=extraInfoArray;
   }
 }
-function SpawnObj(playerName,time){ // time is optional.  Current time is used if not provided.
-  if (!time){
-    this.time=Date.now();
-  } else if (isNaN(parseInt(time))){
-    console.error("ERROR: Invalid time given to SpawnObj constructor.  Expected epoch time!  Using current time instead!");
-    this.time=Date.now();
-  }
+function SpawnObj(playerName,date){ // date is optional.  Current time is used if not provided.
+  var possibleDate;
+  if (typeof date == "undefined"){ // We're using typeof because we don't want to do a truthy assessment
+    possibleDate = new Date(Date.now())
+  } else {
+    possibleDate=createDateObjIfPossible(date);  // Returns false if no information given or invalid information.  Returns a date object if given a date object.
+    if (!possibleDate){
+      console.error("Unable to use date information given when creating new SpawnObj for player, " + playerName + "! Invalid date information: " + date);
+    }
+  }; // Creates a new date object with the current time.  Date.now() might not be necessary, since a plain "new Date()" seems to use current itme.
+  if (possibleDate){ this.date = possibleDate } // If date information is given, but it is invalid, it will NOT be included in this object.
   this.player=new PlayerObj(playerName);
   // Right now there really are no console commands for spawn mechanics, but a separate object is used here in case there are in the future.
 }
@@ -566,13 +650,20 @@ function SectorObj(x,y,z){
       return sectorSetChmod(this.coords,val)
     };
     this.getChmodArray=function(){
+      // This really should do a force save before pulling the values.. wish there was a way to do it silently..
       return decodeChmodNum(getChmodNum(this.coords))
     };
     this.getChmodNum=function(){
+      // This really should do a force save before pulling the values.. wish there was a way to do it silently..
       return getChmodNum(this.coords);
     };
     this.setChmodNum=function(newNum,options){ // Only has 1 option, which is to do a forcesave and then intelligently add/remove chmod values rather than the default of bruteforcing adding all needed and removing all unneeded.
-      return sectorSetChmodNum(this.coords,newNum,options);
+      var chmodResults=sectorSetChmodNum(this.coords,newNum,options);
+      if (!objectHelper.isArrayAllEqualTo(chmodResults,true)){ // The return value should be an array of true/false values.  If any of them were not true (false), it means something failed.
+        console.error("Error setting one of the chmod values for " + this.coords + " with values for chmod number, " + newNum + "!");
+      }
+      return chmodResults;
+
     }
 
 
@@ -675,6 +766,44 @@ function EntityObj(fullUID){
     throw new Error("ERROR: No UID provided to EntityObj constructor!");
   }
 }
+function RemoteServer(ip,domain,port){
+  this.ip=new IPObj(ip);
+  this.domain=domain;
+  this.port=port;
+}
+
+function getServerListArray(cb){
+  var fileURL="http://files-origin.star-made.org/serverlist"
+  // This is intended to download
+  var rawData="";
+  try {
+    var request = http.get(fileURL, function(response) {
+      // console.log("Status Code: " + response.statusCode);
+      // When the file is downloaded with the "http.get" method, it returns an object from which you can get the HTTP status code.
+      // 200 means it was successfully downloaded, anything else is a failure.  Such as 404.
+      var error=null;
+      var returnArray=[];
+      if (response.statusCode != 200){
+         error=new Error("Response from HTTP server: " + response.statusMessage);
+      }
+      response.on('data', function(chunk){ rawData+=chunk });
+      response.on('end', function() {
+        if (rawData){
+          returnArray=rawData.trim().split("\n"); // Trim to remove any extra \n at the end so the last values won't be undefined.
+          returnArray.forEach(function(val,index){
+            returnArray[index]=returnArray[index].split(",");
+          });
+          returnArray.forEach(function(val,index){
+            returnArray[index]=new RemoteServer(...returnArray[index]);
+          });
+        }
+        cb(error,returnArray)
+      });
+    });
+  } catch (err){ return cb(err,rawData) }
+  return request;
+}
+
 
 // Regular Functions
 function getChmodNum(sectorObjArrayOrString){
@@ -688,7 +817,7 @@ function getChmodNum(sectorObjArrayOrString){
   var returnNum=0;
   var coordsToUse=[];
   // Preprocess the input since it can be 3 different types of values
-  const trueType=typeOfObj(sectorObjArrayOrString);
+  const trueType=getObjType(sectorObjArrayOrString);
   if (trueType=="SectorObj"){
     coordsToUse=sectorObjArrayOrString.coords.toArray();
   } else if (trueType=="CoordsObj"){
@@ -761,7 +890,7 @@ function sectorSetChmod(coordsObj,stringOrArray){ // val can be a string or an a
   // Using Array: sectorSetChmod(mySectorObj,["+ protected","- peace","- noindications"]); // This will cycle through the array and set each chmod, and then will return an array of true/false values corresponding to each string given.
   // Note that when false values are given, it simply means the chmod failed, but does not give a reason why.  For example, if "+ nonsense" is given, it will return false.  If the server is down and StarNet.jar couldn't connect, it will also return false.
   // Handling false values is up to the script invoking this function.
-  let theType=objHelper.getObjType(stringOrArray);
+  let theType=objectHelper.getObjType(stringOrArray);
   console.log("Setting chmod values for: " + stringOrArray);
   // console.log("sectorSetChmod running!");
   if (theType == "string"){
@@ -772,7 +901,7 @@ function sectorSetChmod(coordsObj,stringOrArray){ // val can be a string or an a
   } else if (theType == "Array"){
     var resultsArray=[];
     for (let i=0;i<stringOrArray.length;i++){
-      let theSubType=objHelper.getObjType(stringOrArray[i]);
+      let theSubType=objectHelper.getObjType(stringOrArray[i]);
       if (theSubType == "string"){
         let theValLower=stringOrArray[i].toLowerCase();
         resultsArray.push(starNetHelper.detectSuccess(starNet("/sector_chmod " + coordsObj.toString() + " " + theValLower)));
@@ -785,12 +914,10 @@ function sectorSetChmod(coordsObj,stringOrArray){ // val can be a string or an a
     return new Error("Invalid sector chmod value given!");
   }
 }
-
-
 function sectorSetChmodNum(coordsOrSectorObj,newChmodNum,options){ // Options are optional.
   // There are two strategies we can use here:
-  // 1. We can do a force save, then pull the existing values and only add or remove the ones needed.  This way will display an annoying auto-save popup for everyone everytime it runs, but will be faster.
-  // 2. We can brute force things and always perform the positive of what is being added and remove any other values not desired.  This way is slow, but no annoying popup for everyone.  This is the default.
+  // 1. We can do a force save, pulling the existing values for the sector and only add or remove the ones needed.  This way will display an annoying auto-save popup for everyone everytime it runs, but will be slightly faster.
+  // 2. We can brute force things, adding and removing chmod values to match the exact ones it should have.  This is slower, but there is no annoying popup for everyone.  This is the default behavior.
   // Example to use force safe:  sectorSetChmodNum(coordsObj,25,{forcesave:true})
   var forceSave=false;
   if (typeof options == "object"){ // Parse the options
@@ -814,15 +941,17 @@ function sectorSetChmodNum(coordsOrSectorObj,newChmodNum,options){ // Options ar
     // }
   } else {
     // brute force it.  It's the only option that won't have globally annoying consequences, even if it is a bit slow.
-    arrayToUse=buildChmodStringFromNum(newChmodNum);
+    arrayToUse=getChmodArrayFromNum(newChmodNum);
   }
   if (arrayToUse.length > 0){ // If the array is empty, it means no changes were needed
-    return sectorSetChmod(theCoords,arrayToUse);
+    return sectorSetChmod(theCoords,arrayToUse); // This returns an array of true/false values, each determining the success or failure of a chmod
   } else {
     return [true]; // Since no changes were needed, we can just return an array with a single true value to indicate success
   }
 }
-function buildChmodStringFromNum(newChmodNum){
+function getChmodArrayFromNum(newChmodNum){ // This outputs the chmod values for a chmod number as an array, including values it should have and subtracting values it should NOT have
+  // Example: [ "+ protected","+ peace","- nofploss","- noindications","- noexit","- noenter" ]
+  // This kind of array can be fed directly to the sectorSetChmod function.
   var outputArray=[];
   var chmodValuesToGive=decodeChmodNum(newChmodNum);
   var chmodValuesToRemove=getInverseProtectionsArrayFromNum(newChmodNum);
@@ -834,18 +963,12 @@ function buildChmodStringFromNum(newChmodNum){
   }
   return outputArray;
 }
-
-
 function getProtectionsDifferentialString(currentProtectNum,newProtectNum){ // The current sector protection number and what the new number should be
   var currentProtection=decodeChmodNum(currentProtectNum);
-
   var whatItNeeds=decodeChmodNum(newProtectNum);
   var whatItDoesntNeed=getInverseProtectionsArrayFromArray(whatItNeeds); // These are all the values it should not have
-
   var whatItNeedsAdded=subArrayFromAnother(currentProtection,whatItNeeds); // This ensures we're only adding what it needs
   var whatItNeedsRemoved=findSameFromTwoArrays(currentProtection,whatItDoesntNeed); // This ensures we're only removing a chmod it already has
-
-  // TODO: Finish this.
   var outputArray=[];
   for (let i=0;i<whatItNeedsAdded.length;i++){
     outputArray.push("+ " + whatItNeedsAdded[i]);
@@ -855,17 +978,6 @@ function getProtectionsDifferentialString(currentProtectNum,newProtectNum){ // T
   }
   return outputArray; // An array of strings, ready for chmodding
 }
-
-function findSameFromTwoArrays(arrayOne,arrayTwo){ // This compares two arrays, outputting a new array of shared values
-  var outputArray=[];
-  for (let i=0;i<arrayOne.length;i++){
-    if (arrayTwo.indexOf(arrayOne[i]) !== -1){
-      outputArray.push(arrayOne[i]);
-    }
-  }
-  return outputArray;
-}
-
 function getInverseProtectionsArrayFromNum(num){
     var array=decodeChmodNum(num);
     return getInverseProtectionsArrayFromArray(array);
@@ -880,32 +992,5 @@ function getInverseProtectionsArrayFromArray(arrayToInvert,baseProtectionsArray)
   return subArrayFromAnother(arrayToInvert,arrayToUse);
 }
 
-function subArrayFromAnother(arrayToSubtract,arrayToSubtractFrom){
-  var outputArray=copyArray(arrayToSubtractFrom);
-  var indexNum;
-  for (let i=0;i<arrayToSubtract.length;i++){
-    indexNum=outputArray.indexOf(arrayToSubtract[i]);
-    if (indexNum !== -1){
-      outputArray.splice(indexNum,1);
-    }
-  }
-  return outputArray;
-}
 // TODO: Create a function that gives a specific protection a value based on the sectorProtections array.
 // TODO: Create a function that converts an array of protection names to a total number
-
-module.exports={
-  ServerObj,
-  SqlQueryObj,
-  EntityObj,
-  SectorObj,
-  CoordsObj,
-  FactionObj,
-  MessageObj,
-  ChannelObj,
-  IPObj,
-  SMName,
-  SystemObj,
-  SpawnObj,
-  BluePrintObj
-}

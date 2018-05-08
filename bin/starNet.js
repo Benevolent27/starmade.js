@@ -1,6 +1,8 @@
 
 // This script can be run independently or as a require for another script.  It returns all results as STDOUT.
 
+module.exports=runStarNetReturn;  // Always put module.exports at the top so circular dependencies work correctly.
+
 const path=require('path');
 const child=require('child_process');
 
@@ -66,5 +68,3 @@ function ReturnObj(theArray){
   this.columns=tempArray.shift();
   this.data=tempArray;
 }
-
-module.exports=runStarNetReturn;
