@@ -72,19 +72,20 @@ console.debug=function (vals,sleepTime) { // for only displaying text when the -
 // ### SCRIPT REQUIRES ###
 // #######################
 // path.resolve below builds the full path to "./bin/setSettings.js" in such a way that is compatible with both windows and linux/macosx, since it doesn't use / or \ characters.
-var miscHelper        = require(path.join(binFolder,"miscHelpers.js"));
-var requireBin        = miscHelper["requireBin"]; // Simplifies requiring scripts from the bin folder..yes I am this lazy.
-var objectCreator     = requireBin("objectCreator.js");
-var setSettings       = requireBin("setSettings.js"); // This will confirm the settings.json file is created and the install folder is set up.
-var installAndRequire = requireBin("installAndRequire.js"); // This is used to install missing NPM modules and then require them without messing up the require cache with modules not found (which blocks requiring them till an app restart).
-var sleep             = requireBin("mySleep.js").softSleep; // Only accurate for 100ms or higher wait times.
-var patterns          = requireBin("patterns.js"); // Import the patterns that will be used to match to in-game events like deaths and messages.
-var starNet           = requireBin("starNet.js"); // needs testing
-var starNetHelper     = requireBin("starNetHelper.js"); // needs testing
-var sqlQuery          = requireBin("sqlQuery.js"); // needs testing
-var ini               = requireBin("iniHelper.js"); // This will replace the current functionality of ini by wrapping it and modifying the ini package so that it works correctly for starmade config files and ini files that use # characters.
-var obj               = requireBin("objectHelper.js"); // This includes assistance handling of custom objects and conversions
-var regExpHelper      = requireBin("regExpHelper.js"); // Contains common patterns, arrays, and pattern functions needed for the wrapper.
+const miscHelpers       = require(path.join(binFolder,"miscHelpers.js"));
+const requireBin        = miscHelpers["requireBin"]; // Simplifies requiring scripts from the bin folder..yes I am this lazy.
+const objectCreator     = requireBin("objectCreator.js");
+const setSettings       = requireBin("setSettings.js"); // This will confirm the settings.json file is created and the install folder is set up.
+const installAndRequire = requireBin("installAndRequire.js"); // This is used to install missing NPM modules and then require them without messing up the require cache with modules not found (which blocks requiring them till an app restart).
+const sleep             = requireBin("mySleep.js").softSleep; // Only accurate for 100ms or higher wait times.
+const patterns          = requireBin("patterns.js"); // Import the patterns that will be used to match to in-game events like deaths and messages.
+const starNet           = requireBin("starNet.js"); // needs testing
+const starNetHelper     = requireBin("starNetHelper.js"); // needs testing
+const sqlQuery          = requireBin("sqlQuery.js"); // needs testing
+const ini               = requireBin("iniHelper.js"); // This will replace the current functionality of ini by wrapping it and modifying the ini package so that it works correctly for starmade config files and ini files that use # characters.
+const obj               = requireBin("objectHelper.js"); // This includes assistance handling of custom objects and conversions
+const regExpHelper      = requireBin("regExpHelper.js"); // Contains common patterns, arrays, and pattern functions needed for the wrapper.
+const smInstallHelpers = requireBin("smInstallHelpers.js");
 
 // #################################
 // ### NPM DOWNLOADABLE REQUIRES ###
@@ -97,19 +98,19 @@ const Tail            = installAndRequire('tail').Tail; // https://github.com/lu
 const exitHook        = installAndRequire('exit-hook'); // https://github.com/sindresorhus/exit-hook Handles normal shutdowns, sigterm, sigint, and a "message=shutdown" event.  Good for ensuring the server gets shutdown.
 
 // ### Set up submodules and aliases from requires.
-var eventEmitter = new events.EventEmitter(); // This is for custom events
-var isPidAlive = miscHelper.isPidAlive;
-var uidPrefixesRegExp=regExpHelper.uidPrefixesRegExp;
-var uidPrefixes=regExpHelper.uidPrefixes;
+var eventEmitter      = new events.EventEmitter(); // This is for custom events
+var isPidAlive        = miscHelpers.isPidAlive;
+var uidPrefixesRegExp = regExpHelper.uidPrefixesRegExp;
+var uidPrefixes       = regExpHelper.uidPrefixes;
 
 // Object aliases
-var SqlQueryObj=objectCreator.SqlQueryObj;
-var EntityObj=objectCreator.EntityObj;
-var SectorObj=objectCreator.SectorObj;
-var CoordsObj=objectCreator.CoordsObj;
-var FactionObj=objectCreator.FactionObj;
-var MessageObj=objectCreator.MessageObj;
-
+var SqlQueryObj    = objectCreator.SqlQueryObj;
+var EntityObj      = objectCreator.EntityObj;
+var SectorObj      = objectCreator.SectorObj;
+var CoordsObj      = objectCreator.CoordsObj;
+var FactionObj     = objectCreator.FactionObj;
+var MessageObj     = objectCreator.MessageObj;
+var smartSpawnSync = miscHelpers.smartSpawnSync; // This allows executing a jar file or .exe file with the same spawn command, specifying arguments to use
 
 
 // #####################
@@ -129,10 +130,10 @@ var starMadeInstallFolder     = path.join(settings["starMadeFolder"],"StarMade")
 var starMadeJar               = path.join(starMadeInstallFolder,"StarMade.jar");
 var starNetJar                = path.join(binFolder,"StarNet.jar");
 var starMadeServerConfigFile  = path.join(starMadeInstallFolder,"server.cfg");
-var serverCfg                 = {}; // getIniFileAsObj('./server.cfg'); // I'm only declaring an empty array here initially because we don't want to try and load it till we are sure the install has been completed
+var serverCfg                 = {}; // I'm only declaring an empty array here initially because we don't want to try and load it till we are sure the install has been completed
 var forceStart                = false; // Having this set to true will make the script kill any existing scripts and servers and then start without asking the user.
-var ignoreLockFile            = false; // If this is set to true, it will behave as though the lock file does not exist, and will replace it when it starts again.  WARNING:  If any servers are running in the background, this will duplicate trying to run the server, which will fail because an existing serve is running.
-var debug                     = false;
+var ignoreLockFile            = false; // If this is set to true, it will behave as though the lock file does not exist, and will replace it when it starts again.  WARNING:  If any servers are running in the background, this will duplicate trying to run the server, which will fail because an existing server might already be running.
+var debug                     = false; // This enables debug messages
 var os                        = process.platform;
 var starMadeStarter;
 // TODO: Fix this to use the .exe file properly when doing installs.  Sure the Jar works, but might be a bad idea for some reason.
@@ -141,7 +142,7 @@ var starMadeStarter;
 // } else {
   starMadeStarter="StarMade-Starter.jar"; // This handles linux and macOSX
 // }
-var starMadeInstaller         = path.join(binFolder,starMadeStarter);
+var starMadeInstallerFile         = path.join(binFolder,starMadeStarter);
 var starMadeInstallerURL      = "http://files.star-made.org/" + starMadeStarter;
 // Windows: http://files.star-made.org/StarMade-starter.exe // Does not seem to actually work correctly with spawnSync and the -nogui option on windows.. Using the linux/macOSX jar installer does though!  wtf!
 // macosx: http://files.star-made.org/StarMade-Starter.jar
@@ -947,9 +948,11 @@ function ensureDelete (fileToDelete,options){
   }
 }
 
-function exitNow(code) {
-  console.log("Deleting lock file.");
-  simpleDelete(lockFile);
+function exitNow(code) { // TODO: stop using an exit function.  Since other require scripts might facilitate an exit, we really shouldn't use a function to perform exits any longer.
+  // TODO: Delete the lock file deletion text, as the functionality has changed.
+  // We should not delete the lock file, but simply leave it for the next run.  It SHOULD have the correct PID's added/removed as servers are added or removed.
+  // console.log("Deleting lock file.");
+  // simpleDelete(lockFile);
   console.log("Exiting main script with exit code: " + code);
   process.exit(code);
 }
@@ -1034,18 +1037,18 @@ function preDownload(httpURL,fileToPlace){ // This function handles the pre-down
           response.pipe(file);
         } else {
           console.error("Error downloading file, '" + baseFileToPlace + "'!  HTTP Code: " + response.statusCode);
+          process.exitCode=5;
           throw new Error("Response from HTTP server: " + response.statusMessage);
-          // exitNow(5);
         };
       });
       request.on('error', (e) => {
+        process.exitCode=4;
         throw new Error(`problem with request: ${e.message}`);
-        // exitNow(4);
       });
     } catch (err) { // If there was any trouble connecting to the server, then hopefully this will catch those errors and exit the wrapper.
       console.log("ERROR:  Failed to download, '" + httpURL + "'!");
+      process.exitCode=4;
       throw err;
-      // exitNow(4);
     }
     file.on('finish', function() {
       file.close();
@@ -1061,7 +1064,7 @@ function preDownload(httpURL,fileToPlace){ // This function handles the pre-down
 
 function testMatch(valToCheck) { // This function will be called on EVERY line the wrapper outputs to see if the line matches a known event or not.
   // TODO: It would be much better to simply run the match, then forward for processing, rather than running a test and processing the matches against it.
-  // So really this should simply be replaced with a "getMatch" function
+  // So really this should simply be replaced with a "getMatch" function which only returns the line if it matches
   if (includePatternRegex.test(valToCheck)){
     if (!excludePatternRegex.test(valToCheck)){
       return true;
@@ -1073,94 +1076,8 @@ function testMatch(valToCheck) { // This function will be called on EVERY line t
   }
 }
 
-function spawnStarMadeInstallTo(pathToInstall,installerJar){  // This always requires the installerJar path because this will be offloaded to a require later.
-  // This needs to be able to use a Jar file or .exe file, depending on the OS.
-  try {
-    var starMadeInstallFolder=getSMInstallPath(pathToInstall);
-  } catch (err) {
-    throw new Error("No path to SM install provided!  Cannot spawn server install!");  // This is a bit harsh, but hey we will need to ensure the config files are generated.
-  }
-  var starMadeJarFile=path.join(starMadeInstallFolder,"StarMade.jar");
-  if (fs.existsSync(starMadeJarFile)){ // Check if the starmade jar file exists. Install StarMade to the installer path if not.
-    console.log("Found StarMade install at: " + starMadeInstallFolder);
-  } else {
-    console.log("Spawning StarMade Install to: " + starMadeInstallFolder);
-    console.debug("Using Spawner Jar: " + installerJar);
-    console.debug("Using CWD: " + pathToInstall);
-    var smInstallerProcess=child.spawnSync("java",["-jar",installerJar,"-nogui"],{"cwd": pathToInstall}); // Use pathToInstall because it will create the /StarMade folder.
-    console.log("Install PID: " + smInstallerProcess.pid);
-    if (smInstallerProcess.status && smInstallerProcess.status != 0){ // Installer exited with a non-zero exit code
-      console.error("ERROR: StarMade install failed!  Path: " + starMadeInstallFolder);
-      if (smInstallerProcess.signal){  // Installer was killed!
-        console.error("ERROR INFO: Install process was killed! Exit code (" + smInstallerProcess.status + ") and signal (" + smInstallerProcess.signal + ")!");
-      } else {  // Installer exited on it's own with an error code
-        console.error("ERROR INFO: Failed to spawn the StarMade install! Failed with exit code (" + smInstallerProcess.status + ").");
-      }
-      if (smInstallerProcess.stderr){ console.error("Install Error output: " + smInstallerProcess.stderr); }
-      exitNow(35); // Exit the main script, since we cannot run a wrapper without an install.
-    } else {
-      console.log("Spawned StarMade install successfully to: " + starMadeInstallFolder);
-      generateConfigFiles(starMadeInstallFolder); // After every install, we should generate config files/folders.  We don't verify the install because the installation itself should have produced a verified install.
-    }
-  }
-}
 
-function verifyInstall (pathToSMInstall){
-  // TODO: Add a more comprehensive check here.. Should at least check for a StarMade.jar file..
-  try {
-    var pathToUse=getSMInstallPath(pathToSMInstall);
-  } catch (err) {
-    throw new Error("No path to SM install provided!  Cannot verify install!");  // This is a bit harsh, but hey we will need to ensure the config files are generated.
-  }
-  var starMadeServerCfg=path.join(pathToUse,"server.cfg");
-  console.log("Verifying install..");
-  if (fs.existsSync(starMadeServerCfg)){ // Right now our "verification" is pretty simple.  Just check for the server.cfg file.  This can be expanded on later if needed to verify all preloaded configs and needed folders exist.
-    console.log("server.cfg file found..")
-  } else { // If the install does not verify, then we'll need to repair it.
-    generateConfigFiles(pathToUse); // Right now the "repair" is just to generate config files, but later if we have checks to actually verify the install and it's missing things like the StarMade.jar file, we'll need to run a repair install
-  }
-}
 
-function generateConfigFiles (pathToSMInstall){
-  // If StarMAde install files and folders don't exist, we can actually run the StarMade.jar file with an invalid argument and it will generate config files/folders and then exit.
-  // IMPORTANT:  This method may not be future-proof!
-  try {
-    var pathToUse=getSMInstallPath(pathToSMInstall);
-  } catch (err) {
-    throw new Error("No path to SM install provided!  Cannot generate config files!");  // This is a bit harsh, but hey we will need to ensure the config files are generated.
-  }
-  var starMadeJarFile=path.join(pathToUse,"StarMade.jar");
-  console.log("Generating config files..");
-  var createConfigFilesSpawn;
-  if (os=="win32"){
-    createConfigFilesSpawn=child.spawnSync("java",["-Xincgc","-Xshare:off","-jar",starMadeJarFile,"-nonsense4534"],{"cwd": pathToUse});  // Starting the StarMade.jar file with an invalid argument will generate the config files and then exit with a 0 exit code.  This may very well not be future proof!
-  } else {
-    createConfigFilesSpawn=child.spawnSync("java",["-jar",starMadeJarFile,"-nonsense4534"],{"cwd": pathToUse});  // Starting the StarMade.jar file with an invalid argument will generate the config files and then exit with a 0 exit code.  This may very well not be future proof!
-  }
-
-  console.log("PID: " + createConfigFilesSpawn.pid);
-  if (createConfigFilesSpawn.status && createConfigFilesSpawn.status != 0){ // temporary instance of the StarMade.jar with a non-zero exit code.  This might happen if there isn't enough RAM available or some other error when running it.
-    console.error("ERROR: Failed to generate config files to folder: " + pathToUse);
-    if (createConfigFilesSpawn.signal){  // Instance of StarMade was killed!
-      console.error("ERROR INFO: Temporary StarMade Instance killed! Exit code (" + createConfigFilesSpawn.status + ") and signal (" + createConfigFilesSpawn.signal + ").");
-    } else {  // Installer exited on it's own with an error code
-      console.error("ERROR INFO: Temporary StarMade Instance exited with error code (" + createConfigFilesSpawn.status + ").");
-    }
-    if (createConfigFilesSpawn.stderr){ console.error("Error output: " + createConfigFilesSpawn.stderr); }
-    exitNow(35); // Exit the main script, since we cannot run a wrapper without a valid install.
-  } else { console.log("Config files and folders generated successfully to: " + pathToUse); }
-}
-
-function getSMInstallPath(thePath){
-  if (!thePath) {
-    throw new Error("No path provided!"); // It is expected that anywhere this function is used, the error will be handled and a custom error given instead.
-  }
-  var pathToUse=thePath;
-  if (!thePath.match(/StarMade$/)){ // This is to allow the install path OR the full path to the StarMade install folder to be used.
-    pathToUse=path.join(thePath, "StarMade");
-  }
-  return pathToUse;
-}
 
 async function getSuperAdminPassword(starMadeInstallPath){ // This will grab the superadmin password, setting it up and enabling it if not already.
   // TODO: Offload this to a require
@@ -1340,15 +1257,15 @@ console.log("Ensuring all dependencies are downloaded or installed..");
 // ### Async downloads/installs that have no dependencies ### -- This sub-section is for all installs/downloads that can be done asynchronously to occur as quickly as possible.
 asyncOperation("start"); // This prevents the first async function from starting the wrapper if it finishes before the next one starts.
 preDownload(starNetJarURL,starNetJar); // This function handles the asyncronous downloads and starts the sync event when finished.
-preDownload(starMadeInstallerURL,starMadeInstaller); // When setting the install path for StarMade, we should have handled the terms and conditions, so it should be ok to download it.
+preDownload(starMadeInstallerURL,starMadeInstallerFile); // When setting the install path for StarMade, we should have handled the terms and conditions, so it should be ok to download it.
 asyncOperation("end");
 
 
 // ### Sync downloads/installs ### -- When async installs/downloads are finished, this function will be called.
 async function installDepsSync() {
   // ### Only syncronous installs here ### e.g. await installRoutine();
-  await spawnStarMadeInstallTo(settings["starMadeFolder"],starMadeInstaller); // Does not create config files upon install.
-  await verifyInstall(settings["starMadeFolder"]); // Creates config files if they don't exist
+  await smInstallHelpers.spawnStarMadeInstallTo(settings["starMadeFolder"],starMadeInstallerFile); // Does not create config files upon install.
+  await smInstallHelpers.verifyInstall(settings["starMadeFolder"]); // Creates config files if they don't exist
   var superAdminPassword = await getSuperAdminPassword(settings["starMadeFolder"]); // Check the super admin password and set up if not configured.
   console.debug("Using superAdminPassword: " + superAdminPassword); // Temporary, just for testing.  We don't want to print this to the screen normally.
 
