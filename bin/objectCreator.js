@@ -3,7 +3,7 @@
 
 module.exports={ // Always put module.exports at the top so circular dependencies work correctly.
   ServerObj,
-  // SqlQueryObj, // This cannot  be defined here because it comes from a require
+  // SqlQueryObj, // This cannot be defined here because it comes from a require.  It must be injected AFTER being required.
   EntityObj,
   SectorObj,
   CoordsObj,
@@ -15,34 +15,36 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   SystemObj,
   SpawnObj,
   BluePrintObj,
-  RemoteServer
+  RemoteServer,
+  LockFile
 }
 
 // Requires
-const path          = require('path');
-const binFolder     = path.resolve(__dirname,"../bin/");
-const spawn         = require('child_process').spawn;
-const http          = require('http');
-const miscHelper    = require(path.join(binFolder,"miscHelpers.js"));
-const requireBin    = miscHelper["requireBin"];
-const sqlQuery      = requireBin("sqlQuery.js");
+const fs                   = require('fs');
+const path                 = require('path');
+const mainFolder           = path.dirname(require.main.filename); // This should be where the starmade.js is, regardless of wherever this is required from.
+const binFolder            = path.resolve(__dirname,"../bin/");
+const spawn                = require('child_process').spawn;
+const http                 = require('http');
+const requireBin           = miscHelpers["requireBin"];
+const sqlQuery             = requireBin("sqlQuery.js");
 module.exports.SqlQueryObj = sqlQuery.SqlQueryObj; // Module injections should occur as quickly as possible to allow circular dependencies to function properly
-const starNet       = requireBin("starNet.js");
-const starNetHelper = requireBin("starNetHelper.js");
-const objectHelper  = requireBin("objectHelper.js");
-const regExpHelper  = requireBin("regExpHelper.js");
-const ini           = requireBin("iniHelper.js");
-var setSettings     = requireBin("setSettings2.js"); // This will confirm the settings.json file is created and the install folder is set up.
+const miscHelpers          = requireBin("miscHelpers.js");
+const starNet              = requireBin("starNet.js");
+const starNetHelper        = requireBin("starNetHelper.js");
+const objectHelper         = requireBin("objectHelper.js");
+const regExpHelper         = requireBin("regExpHelper.js");
+const ini                  = requireBin("iniHelper.js");
+var setSettings            = requireBin("setSettings2.js"); // This will confirm the settings.json file is created and the install folder is set up.
+const installAndRequire    = requireBin("installAndRequire.js");
 
+// NPM installable requires
+const treeKill      = installAndRequire('tree-kill'); // https://www.npmjs.com/package/tree-kill To kill the server and any sub-processes
+const isInvalidPath = installAndRequire("is-invalid-path"); // https://www.npmjs.com/package/is-invalid-path -- Not using the "is-valid-path" because my force require scripting won't work with it since it uses a non-standard path to it's scripts
 
+var lockFile   = path.join(mainFolder,"server.lck");
 
-// var starNet=require(path.join(binFolder,"starNet.js"));
-// var starNetHelper=require(path.join(binFolder,"starNetHelper.js"));
-// var sqlQuery=require(path.join(binFolder,"sqlQuery.js"));
-// var objHelper=require(path.join(binFolder,"objectHelper.js"));
-// var regExpHelper=require(path.join(binFolder,"regExpHelper.js"));
-
-// Set up aliases
+// Aliases for requires - These are set up for readability
 const colorize              = objectHelper["colorize"];
 const stripFullUIDtoUID     = regExpHelper["stripFullUIDtoUID"]; // Function that removes text like ENTITY_SHIP_ and ENTITY_PLANET_ from the beginning of a full UID so it can be used to perform SQL queries on UID
 const getObjType            = objectHelper.getObjType; // Gets the prototype name of an object, so instead of using "typeof", which returns "object" for things like arrays and SectorObj's, etc, this will return their object name instead.
@@ -376,8 +378,10 @@ function ChannelObj(channelName){
     this.type="global";
   } else if (factionTest.test(channelName)){
     var getFactionNumber=new RegExp("-{0,1}[0-9]+$");
+
     this.type="faction";
-    this.factionNumber=channelName.match(getFactionNumber);
+    this.factionNumber=toNumIfPossible(channelName.match(getFactionNumber).toString());
+    this.faction=new FactionObj(this.factionNumber);
   } else {
     this.type="named";
   }
@@ -731,12 +735,167 @@ function EntityObj(fullUID){
     throw new Error("ERROR: No UID provided to EntityObj constructor!");
   }
 }
+
 function RemoteServer(ip,domain,port){
   this.ip=new IPObj(ip);
   this.domain=domain;
   this.port=port;
 }
 
+function LockFile(pathToLockFile){
+  // Example uses:
+  // new LockFile("myNewLockFile.lck")
+  // new LockFile("/full/path/to/lockFile.lck")
+  // new LockFile(); // Loads the default lock file
+  var theLockFile;
+  if (pathToLockFile){
+    if (isInvalidPath(pathToLockFile)){
+      throw new Error("Unable to create LockFile object!  Invalid path to lock file provided: " + theLockFile);
+    }
+    theLockFile=path.resolve(mainFolder,pathToLockFile); // Resolve to use the main folder as the default path if a full path is not provided.
+  } else { // if no lock file provided, use the default, which should be in the same folder as starmade.js
+    theLockFile=lockFile;
+  }
+
+  var defaultData={
+    "mainPID": process.pid,
+    "serverSpawnPIDs": []
+  };
+  this.dirName=path.dirname(theLockFile);
+  this.fileName=theLockFile;
+  this.getData=function(){ // This will update the data property and return a new read
+    if (fs.existsSync(theLockFile)){ // If it exists, return the data, otherwise return false.
+      var readData=JSON.parse(fs.readFileSync(lockFile));
+      this.data=readData;
+      return readData;
+    } else { // Make no changes if it did not exist.
+      return false;
+    }
+  }
+  this.write=function(theDataToWrite){ // theDataToWrite is optional and replaces the data found from this.data.
+    // This returns true or false depending on if the write succeeded
+    miscHelpers.ensureFolderExists(this.dirName);
+    try {
+      if (theDataToWrite){
+        fs.writeFileSync(this.fileName,JSON.stringify(theDataToWrite, null, 4));
+      } else {
+        fs.writeFileSync(this.fileName,JSON.stringify(this.data, null, 4));
+      }
+      return true;
+    } catch (error){
+      return error;
+    }
+  }
+  // Set up the data and new property
+  var grabData=this.getData();
+  if (grabData == false){ // file didn't exist
+    this.new=true;
+    var writeResult=this.write(defaultData); // generate a new lock file with default data
+    if (writeResult != true){  // If not a success, forward the error thrown by the write operation.
+      console.error("Unable to write default data to new lock file!");
+      throw writeResult;
+    }
+    this.data=defaultData;
+  } else {
+    this.new=false;
+    // verify that the imported data actually has appropriate values and create them where they do not exist.
+
+    this.data=grabData;
+  }
+  // Add functions to add and remove server pids
+  this.addServerPid=function(thePID){ // this updates the "data" property of this object and writes it to the file
+    var thePIDtoUse=objectHelper.toNumIfPossible(thePID);
+    var thePidsArray=this.data.serverSpawnPIDs;
+    if (thePidsArray.indexOf(thePIDtoUse) == -1){ // The PID is not in the array
+      this.data.serverSpawnPIDs.push(thePIDtoUse);
+      let writeResult=this.write();
+      if (writeResult != true){
+        console.error("Unable to write to lock file when adding PID!");
+        throw writeResult;
+      }
+      return true;
+    }
+    return false; // Could not add the PID because it already existed
+  }
+  this.delServerPid=function(thePID){ // this updates the "data" property of this object and writes it to the file
+    var thePIDtoUse=objectHelper.toNumIfPossible(thePID);
+    var thePidsArray=this.data.serverSpawnPIDs;
+    var thePIDIndex=thePidsArray.indexOf(thePIDtoUse);
+    if (thePIDIndex != -1){ // The PID is in the array
+      this.data.serverSpawnPIDs.splice(thePIDIndex,1);
+      let writeResult=this.write();
+      if (writeResult != true){
+        console.error("Unable to write to lock file when deleting PID: " + thePIDtoUse);
+        throw writeResult;
+      }
+      return true;
+    }
+    return false; // Could not add the PID because it already existed
+  }
+  this.deleteFile=function(){
+    console.log("Deleting lock file!");
+    try{
+      fs.unlinkSync(this.fileName);
+      console.log("Blamo!");
+    } catch (err){
+      throw new Error("Unable to delete lock file!  Please ensure you have access to delete it this file: " + this.fileName);
+    }
+  }
+  this.countAlivePids = function(){
+    // This should return true if any of the PIDs are alive, otherwise false.
+    var count=0;
+    if (this.data.hasOwnProperty("mainPID")){
+      if (this.data["mainPID"]){
+        if (miscHelpers.isPidAlive(this.data["mainPID"])) {
+          count++
+        }
+      }
+    }
+    if (this.data.hasOwnProperty("serverSpawnPIDs")){
+      var serverPIDs=this.data["serverSpawnPIDs"];
+      for (let i=0;i<serverPIDs.length;i++){
+        if (miscHelpers.isPidAlive(serverPIDs[i])){
+          count++
+        }
+      }
+    }
+    return count;
+  }
+  this.getAlivePids=function(){
+    // This should return true if any of the PIDs are alive, otherwise false.
+    var returnArray=[];
+    if (this.data.hasOwnProperty("mainPID")){
+      if (this.data["mainPID"]){
+        if (miscHelpers.isPidAlive(this.data["mainPID"])) {
+          returnArray.push(this.data["mainPID"]);
+        }
+      }
+    }
+    if (this.data.hasOwnProperty("serverSpawnPIDs")){
+      var serverPIDs=this.data["serverSpawnPIDs"];
+      for (let i=0;i<serverPIDs.length;i++){
+        if (miscHelpers.isPidAlive(serverPIDs[i])){
+          returnArray.push(serverPIDs[i]);
+        }
+      }
+    }
+    return returnArray;
+  }
+  this.killAlivePidsExceptThisProcess=function(){ // We never want to send a kill command to our own process, that would just be dumb
+    var alivePidsArray=this.getAlivePids();
+    // alivePidsArray.forEach(function(val,index){
+    for (let i=0;i<alivePidsArray.length;i++){
+      var pidToKill=toNumIfPossible(alivePidsArray[i]);
+      if (pidToKill != process.pid){
+        console.log("Killing PID: " + pidToKill);
+        treeKill(pidToKill, 'SIGTERM');
+        miscHelpers.waitAndThenKill(300000,pidToKill); // Gives up to 5 minutes before sending a kill signal
+      }
+    };
+  }
+}
+
+// Array generators
 function getServerListArray(cb){ // This must be provided with a callback function that has standard error first handling.  Example:  cb(err,response)
   var fileURL="http://files-origin.star-made.org/serverlist"  // This is where the server list is currently.
   var rawData="";
@@ -770,6 +929,7 @@ function getServerListArray(cb){ // This must be provided with a callback functi
 
 
 // Support Functions
+
 function ipBan(ipAddress,minutes){ // minutes are optional.  A perm ban is applied if none provided.
   if (ipAddress){
     var ipToUse=ipAddress.toString(); // This allows ipObj's to be fed in, and this should translate to an ip string.
