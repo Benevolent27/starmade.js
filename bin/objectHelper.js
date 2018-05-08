@@ -12,6 +12,7 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   colorize, // This adds ANSI values to colorize text
   addNumToErrorObj, // This adds an errno element to an error object equal to the number specified.
   copyArray, // This copies an array rather than linking a value to the same array.
+  copyObj,
   isArrayAllEqualTo, // Compares all values in an array to a single value.  This is used to process arrays of true/false values, where each value indicates a success or failure of an individual operation.
   subArrayFromAnother, // Subtracts any values that exist in one array from another.
   findSameFromTwoArrays, // Finds whatever values exist in both arrays
@@ -23,6 +24,15 @@ const util=require('util');
 const path=require('path');
 const binFolder=path.resolve(__dirname,"../bin/");
 
+function copyObj(obj) { // This will create a new object from an existing one, rather than linking to the original.  From:  https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/forEach
+  const copy = Object.create(Object.getPrototypeOf(obj)); // Ignore the ESLint warnings, it really doesn't know what it's talking about.  I looked into it, it's suggesting to use functions of Reflect that don't exist.
+  const propNames = Object.getOwnPropertyNames(obj);
+  propNames.forEach(function(name) {
+    const desc = Object.getOwnPropertyDescriptor(obj, name);
+    Object.defineProperty(copy, name, desc);
+  });
+  return copy;
+}
 
 function mapToJson(map) {
     return JSON.stringify([...map]);
