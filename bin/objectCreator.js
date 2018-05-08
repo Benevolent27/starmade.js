@@ -15,13 +15,14 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   SystemObj,
   SpawnObj,
   BluePrintObj,
-  RemoteServer,
-  LockFile
+  RemoteServer: RemoteServerObj,
+  LockFileObj
 }
 
 // Requires
 const fs                   = require('fs');
 const path                 = require('path');
+const events = require('events');
 const mainFolder           = path.dirname(require.main.filename); // This should be where the starmade.js is, regardless of wherever this is required from.
 const binFolder            = path.resolve(__dirname,"../bin/");
 const spawn                = require('child_process').spawn;
@@ -78,7 +79,8 @@ if (__filename == require.main.filename){ // Only run the arguments IF this scri
     entityObjTests:entityObjTests,
     starNetHelperTests:starNetHelperTests,
     ipObjTests:ipObjTests,
-    getServerListTest: getServerListTest
+    getServerListTest: getServerListTest,
+    lockFileTest
   }
   var clArgs=process.argv.slice(2);
 
@@ -304,6 +306,12 @@ function getServerListTest(){
   console.log("Test result: ");
   getServerListArray(showResponseCallback);
 }
+function lockFileTest(){
+  var lockFileObj=new LockFileObj("justTesting.lck");
+  console.log("Created new lock file object:");
+  console.dir(lockFileObj);
+}
+
 function showResponseCallback(error,output){ // This is a helper function for testing purposes.  It shows any error or output when it's used as a callback function.
   if (error){
     console.error("Error: " + error.toString());
@@ -316,8 +324,11 @@ function showResponseCallback(error,output){ // This is a helper function for te
 
 // TESTING END
 
-function ServerObj(configurationName){ // configurationName is the name of the server from the settings.json file under the section "servers".  All configuration values specific to that name will be created if they don't exist alrady.
+function ServerObj(configurationName,lockFileObj){
+  // configurationName is the name of the server from the settings.json file under the section "servers".
+  // All configuration values specific to that name will be created if they don't exist alrady.
   // The goal here is to have this object be the root of running server based commands, such as force_save, shutdown, etc.
+
   // TODO:  This should do all the installation, verification, spawning, etc, necessary to get this spawn up and running and then add it's PID to the lock file.
 
   // Should this create a new server entry in the master settings file if configurationName is blank?  Or should it use default settings?  Hmm..
@@ -337,6 +348,10 @@ function ServerObj(configurationName){ // configurationName is the name of the s
   this.cfgFile=path.join(this.settings["starMadeInstallFolder"],"server.cfg");
   this.cfg=function(){ return ini.getFileAsObj(this.cfgFile) }; // This generates a new ini file object each time it's ran
 
+  this.event=new new events.EventEmitter(); // This is for custom events
+  if (getObjType(lockFileObj) == "LockFileObj"){ // Only set the lock file if it's provided.
+    this.lockFile=lockFileObj;
+  }
   // Perform any install needed
 
 
@@ -736,17 +751,17 @@ function EntityObj(fullUID){
   }
 }
 
-function RemoteServer(ip,domain,port){
+function RemoteServerObj(ip,domain,port){
   this.ip=new IPObj(ip);
   this.domain=domain;
   this.port=port;
 }
 
-function LockFile(pathToLockFile){
+function LockFileObj(pathToLockFile){
   // Example uses:
-  // new LockFile("myNewLockFile.lck")
-  // new LockFile("/full/path/to/lockFile.lck")
-  // new LockFile(); // Loads the default lock file
+  // new LockFileObj("myNewLockFile.lck")
+  // new LockFileObj("/full/path/to/lockFile.lck")
+  // new LockFileObj(); // Loads the default lock file
   var theLockFile;
   if (pathToLockFile){
     if (isInvalidPath(pathToLockFile)){
@@ -917,7 +932,7 @@ function getServerListArray(cb){ // This must be provided with a callback functi
             returnArray[index]=returnArray[index].split(",");
           });
           returnArray.forEach(function(val,index){
-            returnArray[index]=new RemoteServer(...returnArray[index]);
+            returnArray[index]=new RemoteServerObj(...returnArray[index]);
           });
         }
         cb(error,returnArray)
