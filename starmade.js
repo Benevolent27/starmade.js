@@ -92,7 +92,7 @@ const smInstallHelpers = requireBin("smInstallHelpers.js");
 // #################################
 const makeDir         = installAndRequire('make-dir'); // https://www.npmjs.com/package/make-dir This allows creating folders recursively if they do not exist, with either async or sync functionality.
 const treeKill        = installAndRequire('tree-kill'); // https://www.npmjs.com/package/tree-kill To kill the server and any sub-processes
-const iniPackage      = installAndRequire('ini'); // https://www.npmjs.com/package/ini Imports ini files as objects.  It's a bit wonky with # style comments (in that it removes them and all text that follows) and leaves // type comments, so I created some scripting to modify how it loads ini files and also created some functions to handle comments.
+// const iniPackage      = installAndRequire('ini'); // https://www.npmjs.com/package/ini Imports ini files as objects.  It's a bit wonky with # style comments (in that it removes them and all text that follows) and leaves // type comments, so I created some scripting to modify how it loads ini files and also created some functions to handle comments.
 const prompt          = installAndRequire("prompt-sync")({"sigint":true}); // https://www.npmjs.com/package/prompt-sync This creates sync prompts and can have auto-complete capabilties.  The sigint true part makes it so pressing CTRL + C sends the normal SIGINT to the parent javascript process
 const Tail            = installAndRequire('tail').Tail; // https://github.com/lucagrulla/node-tail/blob/master/README.md For following the server log.  I forgot that the console output does NOT have everything.  This is NOT a perfect solution because whenever file rotation occurs, there is a 1 second gap in coverage.  Argh.
 const exitHook        = installAndRequire('exit-hook'); // https://github.com/sindresorhus/exit-hook Handles normal shutdowns, sigterm, sigint, and a "message=shutdown" event.  Good for ensuring the server gets shutdown.
@@ -100,8 +100,6 @@ const exitHook        = installAndRequire('exit-hook'); // https://github.com/si
 // ### Set up submodules and aliases from requires.
 var eventEmitter      = new events.EventEmitter(); // This is for custom events
 var isPidAlive        = miscHelpers.isPidAlive;
-var uidPrefixesRegExp = regExpHelper.uidPrefixesRegExp;
-var uidPrefixes       = regExpHelper.uidPrefixes;
 
 // Object aliases
 var SqlQueryObj    = objectCreator.SqlQueryObj;
@@ -110,7 +108,7 @@ var SectorObj      = objectCreator.SectorObj;
 var CoordsObj      = objectCreator.CoordsObj;
 var FactionObj     = objectCreator.FactionObj;
 var MessageObj     = objectCreator.MessageObj;
-var smartSpawnSync = miscHelpers.smartSpawnSync; // This allows executing a jar file or .exe file with the same spawn command, specifying arguments to use
+
 
 
 // #####################
@@ -137,6 +135,7 @@ var debug                     = false; // This enables debug messages
 var os                        = process.platform;
 var starMadeStarter;
 // TODO: Fix this to use the .exe file properly when doing installs.  Sure the Jar works, but might be a bad idea for some reason.
+// Note that I SHOULD be able to re-enable this, but I need to ensure the starMadeStarter is not ran directly anywhere and instead uses the helper function, "smartSpawnSync" from miscHelpers.js
 // if (os=="win32"){
 //   starMadeStarter="StarMade-Starter.exe";
 // } else {
