@@ -3,7 +3,7 @@
 
 module.exports={ // Always put module.exports at the top so circular dependencies work correctly.
   ServerObj,
-  SqlQueryObj,
+  // SqlQueryObj, // This cannot  be defined here because it comes from a require
   EntityObj,
   SectorObj,
   CoordsObj,
@@ -18,7 +18,6 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   RemoteServer
 }
 
-
 // Requires
 const path          = require('path');
 const binFolder     = path.resolve(__dirname,"../bin/");
@@ -26,9 +25,10 @@ const spawn         = require('child_process').spawn;
 const http          = require('http');
 const miscHelper    = require(path.join(binFolder,"miscHelpers.js"));
 const requireBin    = miscHelper["requireBin"];
+const sqlQuery      = requireBin("sqlQuery.js");
+module.exports.SqlQueryObj = sqlQuery.SqlQueryObj; // Module injections should occur as quickly as possible to allow circular dependencies to function properly
 const starNet       = requireBin("starNet.js");
 const starNetHelper = requireBin("starNetHelper.js");
-const sqlQuery      = requireBin("sqlQuery.js");
 const objectHelper  = requireBin("objectHelper.js");
 const regExpHelper  = requireBin("regExpHelper.js");
 const ini           = requireBin("iniHelper.js");
