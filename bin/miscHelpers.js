@@ -2,7 +2,8 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   requireBin,
   isPidAlive,
   smartSpawnSync, // This allows executing a jar file or .exe file with the same spawn command, specifying arguments to use and ignoring any java arguments provided if it's not a jar file.
-  ensureFolderExists
+  ensureFolderExists,
+  waitAndThenKill
 };
 
 const path              = require('path');
@@ -12,7 +13,7 @@ const binFolder         = path.resolve(__dirname,"../bin/");
 // const objectCreator=require(path.join(binFolder,"objectCreator.js"));
 const installAndRequire = requireBin("installAndRequire");
 const makeDir           = installAndRequire('make-dir'); // https://www.npmjs.com/package/make-dir This allows creating folders recursively if they do not exist, with either async or sync functionality.
-
+const sleep             = requireBin("mySleep.js").softSleep;
 
 // TESTING BEGIN
 if (__filename == require.main.filename){ // Only run the arguments IF this script is being run by itself and NOT as a require.
@@ -111,5 +112,48 @@ function isPidAlive(thePID){
     return true;
   } catch (err) {
     return false;
+  }
+}
+
+function waitAndThenKill(mSeconds,thePID,options){ // options are optional.  This can be used on any PID as a sync function
+  // By default this will send a SIGKILL signal to the PID if it has not ended within the specified timeout
+  // options example:
+  // {
+  //    interval:'2',
+  //    sigType:'SIGTERM'
+  // }
+  var mSecondsCount=0;
+  var intervalVar=1000;
+  var sigType="SIGKILL";
+  if (mSeconds && thePID){
+    if (options){
+      if (options.hasOwnProperty("interval")){
+        intervalVar=options["interval"];
+      }
+      if (options.hasOwnProperty("sigType")){
+        sigType=options["sigType"];
+      }
+    }
+    if (isPidAlive(thePID)){
+      process.stdout.write("\nWaiting for process to die.");
+      while (isPidAlive(thePID) && mSecondsCount < mSeconds){
+        sleep(intervalVar);
+        process.stdout.write(".");
+        mSecondsCount+=intervalVar;
+      }
+      process.stdout.write("\n");
+      if (isPidAlive(thePID)){
+        console.log("PID (" + thePID + ") still alive after waiting " + mSecondsCount + " milliseconds!  Killing it with: " + sigType);
+        process.kill(thePID,sigType);
+      } else if (mSecondsCount>0){
+          console.log("PID (" + thePID + ") died of natural causes after " + mSecondsCount + " milliseconds.  No need to send a " + sigType + " signal to it.  Phew!");
+      } else {
+        console.log("PID (" + thePID + ") died of natural causes.  No need to send a " + sigType + " signal to it.  Phew!");
+      }
+    } else {
+      console.log("Process already died on it's own!  GREAT!  :D");
+    }
+  } else {
+    throw new Error("Insufficient parameters given to waitAndThenSigKill function!");
   }
 }
