@@ -45,7 +45,6 @@ const http   = require('http');
 const fs     = require('fs');
 const events = require('events');
 const spawn  = require('child_process').spawn;
-const child  = require('child_process');
 const path   = require('path'); // This is needed to build file and directory paths that will work in windows or linux or macosx.  For example, The / character is used in linu, but windows uses \ characters.  Windows also uses hard drive characters, wherease linux has mount points.  For example, in linux a path looks like "/path/to/somewhere", but in windows it looks like "c:\path\to\somewhere".  The path module takes care of this for us to build the path correctly.
 // const stream   = require('stream'); // For creating streams.  Not used right now but may be later.
 
@@ -79,18 +78,17 @@ const setSettings       = requireBin("setSettings.js"); // This will confirm the
 const installAndRequire = requireBin("installAndRequire.js"); // This is used to install missing NPM modules and then require them without messing up the require cache with modules not found (which blocks requiring them till an app restart).
 const sleep             = requireBin("mySleep.js").softSleep; // Only accurate for 100ms or higher wait times.
 const patterns          = requireBin("patterns.js"); // Import the patterns that will be used to match to in-game events like deaths and messages.
-const starNet           = requireBin("starNet.js"); // needs testing
-const starNetHelper     = requireBin("starNetHelper.js"); // needs testing
-const sqlQuery          = requireBin("sqlQuery.js"); // needs testing
+// const starNet           = requireBin("starNet.js"); // Performs sql queries and gets back a string result if successful
+// const starNetHelper     = requireBin("starNetHelper.js"); // needs testing
+// const sqlQuery          = requireBin("sqlQuery.js"); // Will be eliminating this in favor of creating SqlQuery objects.
 const ini               = requireBin("iniHelper.js"); // This will replace the current functionality of ini by wrapping it and modifying the ini package so that it works correctly for starmade config files and ini files that use # characters.
-const obj               = requireBin("objectHelper.js"); // This includes assistance handling of custom objects and conversions
+// const obj               = requireBin("objectHelper.js"); // This includes assistance handling of custom objects and conversions
 const regExpHelper      = requireBin("regExpHelper.js"); // Contains common patterns, arrays, and pattern functions needed for the wrapper.
 const smInstallHelpers = requireBin("smInstallHelpers.js");
 
 // #################################
 // ### NPM DOWNLOADABLE REQUIRES ###
 // #################################
-const makeDir         = installAndRequire('make-dir'); // https://www.npmjs.com/package/make-dir This allows creating folders recursively if they do not exist, with either async or sync functionality.
 const treeKill        = installAndRequire('tree-kill'); // https://www.npmjs.com/package/tree-kill To kill the server and any sub-processes
 // const iniPackage      = installAndRequire('ini'); // https://www.npmjs.com/package/ini Imports ini files as objects.  It's a bit wonky with # style comments (in that it removes them and all text that follows) and leaves // type comments, so I created some scripting to modify how it loads ini files and also created some functions to handle comments.
 const prompt          = installAndRequire("prompt-sync")({"sigint":true}); // https://www.npmjs.com/package/prompt-sync This creates sync prompts and can have auto-complete capabilties.  The sigint true part makes it so pressing CTRL + C sends the normal SIGINT to the parent javascript process
@@ -274,7 +272,7 @@ if (fs.existsSync(lockFile) && ignoreLockFile == false){
           console.log("TREE KILLING WITH EXTREME BURNINATION!");
           treeKill(lockFileObject["mainPID"], 'SIGTERM');
           // We should initiate a loop giving up to 5 minutes for it to shut down before sending a sig-kill.
-          waitAndThenKill(300000,lockFileObject["mainPID"]);
+          miscHelpers.waitAndThenKill(300000,lockFileObject["mainPID"]);
           sleep(1000); // Give the sigKILL time to complete if it was necessary.
         } else {
           console.log("Alrighty, I'll just let it run then.");
@@ -301,7 +299,7 @@ if (fs.existsSync(lockFile) && ignoreLockFile == false){
             if (response == "yes"){
               console.log("KILLING IT WITH FIRE! (SIGTERM)")
               process.kill(serverPIDS[i],'SIGTERM');
-              waitAndThenKill(300,serverPIDS[i]);
+              miscHelpers.waitAndThenKill(300,serverPIDS[i]);
               sleep(1000); // Giving the SIGKILL time to complete.
               // We should initiate a loop giving up to 5 minutes for it to shut down before sending a sig-kill.
             } else {
@@ -425,7 +423,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
     "fsWatchOptions": {"persistent": false},
     "follow": true
   };
-  touch(path.join(starMadeInstallFolder,"logs","serverlog.0.log")); // Ensure the file exists before we tail it.
+  miscHelpers.touch(path.join(starMadeInstallFolder,"logs","serverlog.0.log")); // Ensure the file exists before we tail it.
   var serverTail = new Tail(path.join(starMadeInstallFolder,"logs","serverlog.0.log"),tailOptions);
 
   addServerPID(server.pid); // Adds the PID to the lockfile PID tracker for servers and writes the file
@@ -447,26 +445,10 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
       }
       // ### Player Messages ###
       if (theArguments[0] == "[CHANNELROUTER]"){ // This is for all messages, including commands.
-        // I know this is a super messy way of processing the text.  I was stringing them along in 1 line apiece, but ESLint was yelling at me.  Here's some more ways to do it:  https://stackoverflow.com/questions/4092325/how-to-remove-part-of-a-string-before-a-in-javascript
-        // let sender            = dataInput.match(/sender=[A-Za-z0-9_-]*/).toString();
-        // let senderArray       = sender.split("=");
-        // sender                = senderArray.pop();
-
-        let sender            = dataInput.match(/sender=[A-Za-z0-9_-]*/).toString().split("=").pop();
-        // let senderArray       = sender.split("=");
-        // sender                = senderArray.pop();
-        let receiver          = dataInput.match(/\[receiver=[A-Za-z0-9_-]*/).toString();
-        let receiverArray     = receiver.split("=");
-        receiver              = receiverArray.pop();
-        let receiverType      = dataInput.match(/\[receiverType=[A-Za-z0-9_-]*/).toString();
-        let receiverTypeArray = receiverType.split("=");
-        receiverType          = receiverTypeArray.pop();
-        let message           = dataInput.match(/\[message=.*\]$/).toString();
-        let messageArray      = message.split("=");
-        message               = messageArray.pop();
-        messageArray          = message.split("");
-        messageArray.pop();
-        message=messageArray.join("");
+        let sender            = dataInput.match(/\[sender=[A-Za-z0-9_-]*/).toString().replace(/^\[sender=/,"");
+        let receiver          = dataInput.match(/\[receiver=[A-Za-z0-9_-]*/).toString().replace(/^\[receiver=/,"");
+        let receiverType      = dataInput.match(/\[receiverType=[A-Za-z0-9_-]*/).toString().replace(/^\[receiverType=/,"");
+        let message           = dataInput.match(/\[message=.*(?=\]$)/).toString().replace(/^\[message=/,"");
         //arguments[0]: [CHANNELROUTER] RECEIVED MESSAGE ON Server(0): [CHAT][sender=Benevolent27][receiverType=CHANNEL][receiver=all][message=words]
         console.log("Message found: ");
         console.log("sender: " + sender);
@@ -829,12 +811,11 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           console.log("\nIf you would like to change a setting, try !changesetting [SettingName] [NewValue]");
         }
       } else if (theCommand == "changesetting") {
-        var showUsage = function(){ console.log("Usage: !changeSetting [Property] [NewValue]"); }; // Ignore this ESLinter warning, I WANT this to be scoped how it is, I do NOT want to declare with function which will give it a wider scope
+        var usageMsg="Usage: !changeSetting [Property] [NewValue]";
         if (theArguments[0]){
           // console.log("Result of checking hasOwnProperty with " + theArguments[0] + ": " + settings.hasOwnProperty(theArguments[0]));
           if (settings.hasOwnProperty(theArguments[0])){
-
-            let oldSettings=copyObj(settings);
+            let oldSettings=miscHelpers.copyObj(settings);
             let settingNameToChange=theArguments.shift();
             let newSetting=theArguments.join(" ");
             if (newSetting){
@@ -845,14 +826,14 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
               writeSettings();
             } else {
               console.log("ERROR: You need to specify WHAT you wish to change the setting, '', to!");
-              showUsage();
+              console.log(usageMsg);
             }
           } else {
             console.log("ERROR:  Cannot change setting, '" + theArguments[0] + "'! No such setting: ");
           }
         } else {
           console.log("ERROR:  Please provide a setting to change!");
-          showUsage();
+          console.log(usageMsg);
         }
       }
     } else {
@@ -880,9 +861,7 @@ eventEmitter.on('asyncDone', installDepsSync);
 // ###  FUNCTIONS  #### -- The standard practice for functions is first write in place, then make a multi-purpose function that handles what you need and can be used elsewhere, then bundle it in a require and change over functionality.  This is to keep the main script at a maintainable length and also have high re-usability value for code created.
 // ####################
 
-function isAlphaNumeric(testString){
-  return "/^[A-Za-z0-9]+$/".test(testString);
-}
+
 function getRandomAlphaNumericString(charLength){ // If no charlength given or it is invalid, it will output 10 and throw an error message. // Original code from: https://stackoverflow.com/questions/1349404/generate-random-string-characters-in-javascript
   var text = "";
   var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -908,15 +887,7 @@ function getRandomAlphaNumericString(charLength){ // If no charlength given or i
 //   return new Promise((resolve) => setTimeout(resolve, ms));
 // }
 
-function copyObj(obj) { // This will create a new object from an existing one, rather than linking to the original.  From:  https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/forEach
-  const copy = Object.create(Object.getPrototypeOf(obj)); // Ignore the ESLint warnings, it really doesn't know what it's talking about.  I looked into it, it's suggesting to use functions of Reflect that don't exist.
-  const propNames = Object.getOwnPropertyNames(obj);
-  propNames.forEach(function(name) {
-    const desc = Object.getOwnPropertyDescriptor(obj, name);
-    Object.defineProperty(copy, name, desc);
-  });
-  return copy;
-}
+
 
 function writeSettings() {
   var settingsFileName=path.basename(settingsFile);
@@ -928,54 +899,6 @@ function writeSettings() {
   } catch (err) {
     console.error("ERROR: Could not write to the '" + settingsFileName + "' file!");
     throw err;
-  }
-}
-
-
-function touch (file){ // This creates an empty file quickly.
-  fs.closeSync(fs.openSync(file, 'w'));
-}
-
-// TODO: consolidate file deletion, there is literally no reason to have 2 delete functions.
-function simpleDelete (file) { // Simple delete which doesn't resolve paths nor break out of the scripting by throwing an error.  It also does not display anything unless there is an error.
-  try {
-    fs.unlinkSync(file);
-    // console.log("File, , " + file + ", deleted!");
-  } catch(err) {
-    console.error("File, " + file + ", cannot be deleted.");
-  }
-}
-function ensureDelete (fileToDelete,options){
-  // Resolves files to use main script path as root if given relative path.
-  // Also throws an error if it cannot delete the file.
-  // Default behavior is to be quiet, unless "quiet" is set to "false" from an options object.
-  var console=console; // This is to replace the functionality of console, JUST for this function
-  if (options) {
-    if (options.hasOwnProperty("quiet")){
-       if (options.quiet != false) {
-         // console.log("Setting up scoped console to disable it.");
-         console={};
-         console.log=function(){ /* empty on purpose */ }; // This is really just an experiment for future reference with modifying console.log to see if it's possible to make an entire script quiet
-         console.error=function(){ /* empty on purpose */ };
-       }
-    }
-  } else {
-    console={};
-    console.log=function(){ /* empty on purpose */ };
-    console.error=function(){ /* empty on purpose */ };
-  }
-  let resolvedFile = path.resolve(mainFolder,fileToDelete); // This will resolve relative paths back to the main script's root dir as the base
-  if (fs.existsSync(resolvedFile)){
-    try {
-      fs.unlinkSync(resolvedFile);
-      console.log("Deleting: " + fileToDelete);
-    } catch (err) {
-      console.error("ERROR: Could not delete file: " + resolvedFile);
-      console.error("Please manually remove this file and ENSURE you have access to delete files at this location!")
-      throw err;
-    }
-  } else {
-    console.error("ERROR: Cannot delete file.  File not found: " + resolvedFile);
   }
 }
 
@@ -1016,7 +939,7 @@ function preDownload(httpURL,fileToPlace){ // This function handles the pre-down
   // Code adapted from: https://stackoverflow.com/questions/11944932/how-to-download-a-file-with-node-js-without-using-third-party-libraries
   asyncOperation("start","preDownload: " + fileToPlace);
   let tempFileToPlace=path.resolve(mainFolder,fileToPlace + ".tmp");
-  ensureDelete(tempFileToPlace);
+  miscHelpers.deleteFile(tempFileToPlace);
   let resolvedFileToPlace=path.resolve(mainFolder,fileToPlace);
   let baseFileToPlace=path.basename(resolvedFileToPlace);
   let baseDirForFile=path.dirname(resolvedFileToPlace);
@@ -1105,7 +1028,7 @@ async function getSuperAdminPassword(starMadeInstallPath){ // This will grab the
     do {
       newSuperAdminPassword=prompt("New SuperAdminPassword: ");
     }
-    while (!(newSuperAdminPassword === null || newSuperAdminPassword == "" || isAlphaNumeric(newSuperAdminPassword))) // If a person puts invalid characters in, it'll just keep repeating the prompt.
+    while (!(newSuperAdminPassword === null || newSuperAdminPassword == "" || regExpHelper.isAlphaNumeric(newSuperAdminPassword))) // If a person puts invalid characters in, it'll just keep repeating the prompt.
     if (newSuperAdminPassword === null || newSuperAdminPassword == ""){
       console.log("Excellent choice!  I have set a LONG and nearly impossible to crack SuperAdminPassword for you! :D");
       newSuperAdminPassword = getRandomAlphaNumericString(32);
@@ -1202,8 +1125,6 @@ exitHook(() => { // This will handle sigint and sigterm exits.
 //   // Cleanup that needs to be done on the global scope should be done here.
 //   console.log("Global Exit event running..");
 // });
-
-// touch(lockFile); // Create an empty lock file.  This is to prevent this script from running multiple times.
 writeLockFile(); // This is to prevent this script from running multiple times or starting while another server instance is already running.
 
 // ##############################
