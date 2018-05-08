@@ -20,18 +20,21 @@ module.exports={ // Always put module.exports at the top so circular dependencie
 
 
 // Requires
-const path        = require('path');
-const binFolder   = path.resolve(__dirname,"../bin/");
-const spawn       = require('child_process').spawn;
-const http        = require('http');
-var miscHelper    = require(path.join(binFolder,"miscHelpers.js"));
-var requireBin    = miscHelper["requireBin"];
-var starNet       = requireBin("starNet.js");
-var starNetHelper = requireBin("starNetHelper.js");
-var sqlQuery      = requireBin("sqlQuery.js");
-var objectHelper  = requireBin("objectHelper.js");
-var regExpHelper  = requireBin("regExpHelper.js");
-var ini           = requireBin("iniHelper.js");
+const path          = require('path');
+const binFolder     = path.resolve(__dirname,"../bin/");
+const spawn         = require('child_process').spawn;
+const http          = require('http');
+const miscHelper    = require(path.join(binFolder,"miscHelpers.js"));
+const requireBin    = miscHelper["requireBin"];
+const starNet       = requireBin("starNet.js");
+const starNetHelper = requireBin("starNetHelper.js");
+const sqlQuery      = requireBin("sqlQuery.js");
+const objectHelper  = requireBin("objectHelper.js");
+const regExpHelper  = requireBin("regExpHelper.js");
+const ini           = requireBin("iniHelper.js");
+var setSettings     = requireBin("setSettings2.js"); // This will confirm the settings.json file is created and the install folder is set up.
+
+
 
 // var starNet=require(path.join(binFolder,"starNet.js"));
 // var starNetHelper=require(path.join(binFolder,"starNetHelper.js"));
@@ -40,18 +43,18 @@ var ini           = requireBin("iniHelper.js");
 // var regExpHelper=require(path.join(binFolder,"regExpHelper.js"));
 
 // Set up aliases
-var colorize               = objectHelper["colorize"];
-var stripFullUIDtoUID      = regExpHelper["stripFullUIDtoUID"]; // Function that removes text like ENTITY_SHIP_ and ENTITY_PLANET_ from the beginning of a full UID so it can be used to perform SQL queries on UID
-var getObjType              = objectHelper.getObjType; // Gets the prototype name of an object, so instead of using "typeof", which returns "object" for things like arrays and SectorObj's, etc, this will return their object name instead.
-var SqlQueryObj            = sqlQuery.SqlQueryObj;
-const toNum                = objectHelper.toNumIfPossible;
-var sectorProtectionsArray = regExpHelper.sectorProtections; // This should include all the possible protections a sector can have.
-var verifyStarNetResponse  = starNetHelper.verifyResponse; // This can be used to perform a verification on a StarMade response without consuming the response
-var starNetVerified        = starNetHelper.starNetVerified; // If the response does not verify, this consumes the response and throws an error instead
-var copyArray              = objectHelper.copyArray;
-var toNumIfPossible        = objectHelper.toNumIfPossible;
-var subArrayFromAnother    = objectHelper.subArrayFromAnother;
-var findSameFromTwoArrays = objectHelper.findSameFromTwoArrays;
+const colorize              = objectHelper["colorize"];
+const stripFullUIDtoUID     = regExpHelper["stripFullUIDtoUID"]; // Function that removes text like ENTITY_SHIP_ and ENTITY_PLANET_ from the beginning of a full UID so it can be used to perform SQL queries on UID
+const getObjType            = objectHelper.getObjType; // Gets the prototype name of an object, so instead of using "typeof", which returns "object" for things like arrays and SectorObj's, etc, this will return their object name instead.
+const SqlQueryObj           = sqlQuery.SqlQueryObj;
+const toNum                 = objectHelper.toNumIfPossible;
+var sectorProtectionsArray  = regExpHelper.sectorProtections; // This should include all the possible protections a sector can have.
+const verifyStarNetResponse = starNetHelper.verifyResponse; // This can be used to perform a verification on a StarMade response without consuming the response
+const starNetVerified       = starNetHelper.starNetVerified; // If the response does not verify, this consumes the response and throws an error instead
+const copyArray             = objectHelper.copyArray;
+const toNumIfPossible       = objectHelper.toNumIfPossible;
+const subArrayFromAnother   = objectHelper.subArrayFromAnother;
+const findSameFromTwoArrays = objectHelper.findSameFromTwoArrays;
 
 // Set up prototypes for constructors, such as replacing .toString() functionality with a default value.  Prototypes will not appear as a regular key.
 SectorObj.prototype.toString = function(){ return this.coords.toString() };
@@ -311,14 +314,44 @@ function showResponseCallback(error,output){ // This is a helper function for te
 
 // TESTING END
 
-function ServerObj(starMadeInstallFolder,javaArgs){
+function ServerObj(configurationName){ // configurationName is the name of the server from the settings.json file under the section "servers".  All configuration values specific to that name will be created if they don't exist alrady.
   // The goal here is to have this object be the root of running server based commands, such as force_save, shutdown, etc.
-  // Information like the port, path to starmade, etc, should appear in here.
-
   // TODO:  This should do all the installation, verification, spawning, etc, necessary to get this spawn up and running and then add it's PID to the lock file.
-  this.spawn=spawn("java",javaArgs,{"cwd": starMadeInstallFolder});
-  this.cfgFile=path.join(starMadeInstallFolder,"server.cfg");
-  this.cfg=ini.getFileAsObj(this.cfgFile);
+
+  // Should this create a new server entry in the master settings file if configurationName is blank?  Or should it use default settings?  Hmm..
+
+  // Load the settings.json file from the main dir.
+  this.settings=setSettings(configurationName); // This will return the settings, setting them if needed by asking questions.
+  // Build the java arguments, separating by java arguments and arguments passed to StarMade.jar
+  this.starMadeJar=path.join(this.settings["starMadeInstallFolder"],"StarMade.jar");
+  var baseJavaArgs=["-Xms" + this.settings["javaMin"], "-Xmx" + this.settings["javaMax"],"-jar"]; // These run on any OS.  TODO: Add support for JVM arguments
+  var baseJavaArgsWindows=["-Xincgc","-Xshare:off"]; // These will run on windows only
+  var baseSMJarArgs=[this.starMadeJar,"-server", "-port:" + this.settings["port"]];
+  if (process.platform == "win32"){
+    this.javaArgs=baseJavaArgs.concat(baseJavaArgsWindows).concat(baseSMJarArgs);
+  } else {
+    this.javaArgs=baseJavaArgs.concat(baseSMJarArgs);
+  }
+  this.cfgFile=path.join(this.settings["starMadeInstallFolder"],"server.cfg");
+  this.cfg=function(){ return ini.getFileAsObj(this.cfgFile) }; // This generates a new ini file object each time it's ran
+
+  // Perform any install needed
+
+
+  // Verify any install
+
+
+  this.getServerList=function(cb){
+    if (getObjType(cb) == "Function"){
+      return getServerListArray(cb); // This does NOT return the server list.  It returns a  <http.ClientRequest> object (https://nodejs.org/api/http.html#http_class_http_clientrequest).  The callback function must handle the actual server list.  Example: cb(err,serverListString)
+    }
+    throw new Error("ERROR: No callback function provided to getServerList method on ServerObj!  Example: myServerObj.getServerList(myFunction)");
+  }
+
+  // The last thing we do is spawn the StarMade instance
+  this.spawn=spawn("java",this.javaArgs,{"cwd": this.settings["starMadeInstallFolder"]});
+  // Register the spawn with the lock file and set up exit events.
+
 }
 
 function MessageObj(sender,receiver,receiverType,message){
@@ -349,73 +382,6 @@ function ChannelObj(channelName){
     this.type="named";
   }
   this.name=channelName;
-}
-function checkSuccess2(input){
-  // This takes a starNet.jar output string and checks for the success message.
-  //RETURN: [SERVER, [ADMIN COMMAND] successfully
-  // This is used for /ban and /unban commands
-  if (input === false){ return false }; // if a "false" boolean is fed to it, it will simply return that.  This allows it to have other checks nested inside the input
-  var theReg=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] successfully");
-  return checkForLine(input,theReg);
-}
-function checkForLine(input,regExp){
-  // This is designed to look through starNet responses for a specific regExp on every line and return true if at least one instance of the pattern is found
-  // This should be used mostly for verifying if there were errors or successes
-  if (typeof input == "string" && getObjType(regExp) == "RegExp"){
-    var theArray=input.split("\n");
-    for (let i = 0;i < theArray.length;i++) {
-      if (regExp.test(theArray[i])){
-        return true;
-      }
-    }
-    return false;
-  }
-  throw new Error("Invalid parameters given to 'checkForLine' function!");
-}
-function ipBan(ipAddress,minutes){ // minutes are optional.  A perm ban is applied if none provided.
-  if (ipAddress){
-    var ipToUse=ipAddress.toString(); // This allows ipObj's to be fed in, and this should translate to an ip string.
-    if (minutes){
-      var minutesNum=toNumIfPossible(minutes);
-      if (typeof minutesNum == "number"){
-        console.log("Banning IP, '" + ipAddress + "' for " + minutesNum + " minutes.");
-        return checkSuccess2(starNetVerified("/ban_ip_temp " + ipToUse + " " + minutesNum));
-      } else {
-        // invalid minutes given
-        throw new Error("Invalid minutes specified!");
-      }
-    } else {
-      // no minutes provided, so perform a perm ban
-      console.log("PERMANENT banning IP, '" + ipAddress + "'!");
-      return checkSuccess2(starNetVerified("/ban_ip " + ipToUse));
-    }
-  } else {
-    throw new Error("No ipAddress given to function, 'ipBan'!");
-  }
-}
-function ipUnBan(ipAddress,options){ // options are optional and should be an object.
-  if (ipAddress){
-    var ipToUse=ipAddress.toString(); // This allows ipObj's to be fed in, and this should translate to an ip string.
-    console.log("Unbanning IP: " + ipAddress);
-    return checkSuccess2(starNetVerified("/unban_ip " + ipToUse,options)); // This will return false if the ip is not found in the blacklist
-  } else {
-    throw new Error("No ipAddress given to function, 'ipUnBan'!");
-  }
-}
-
-function createDateObjIfPossible(input){ // Takes either a date string that "new Date" can turn into an object, passes along a Date object fed to it, or returns false if no new Date could be created.
-  if (typeof input != "undefined" && input != "" && getObjType(input) != "Null"){ // if an input is nulled out using null, it actually appears as an "object" to typeof
-    if (getObjType(input) == "Date"){
-      return input; // If the input was already a Date object, just return it
-    } else {
-      try{
-        return new Date(input);
-      } catch(err) {
-        return false;  // Returns false if creating the data object failed.
-      }
-    }
-  }
-  return false; // Returns false if no input given
 }
 
 function IPObj(ipAddressString,date,options){
@@ -616,7 +582,6 @@ function FactionObj(factionNumber){
   // duplicate(Num) - This will create duplicate new open factions with fake names as the leaders with the same name as this faction (uses /faction_create_amount [Name] [Number])
   // serverMessage(MessageString,info/warning/error) - Sends a message to all online players of this faction.  If no method is specified "plain" is used, which shows up on the player's main chat.
 }
-
 function SectorObj(x,y,z){
   // TODO: Add Info methods:
   // getSystem - Returns a SystemObj
@@ -772,9 +737,8 @@ function RemoteServer(ip,domain,port){
   this.port=port;
 }
 
-function getServerListArray(cb){
-  var fileURL="http://files-origin.star-made.org/serverlist"
-  // This is intended to download
+function getServerListArray(cb){ // This must be provided with a callback function that has standard error first handling.  Example:  cb(err,response)
+  var fileURL="http://files-origin.star-made.org/serverlist"  // This is where the server list is currently.
   var rawData="";
   try {
     var request = http.get(fileURL, function(response) {
@@ -805,7 +769,57 @@ function getServerListArray(cb){
 }
 
 
-// Regular Functions
+// Support Functions
+function ipBan(ipAddress,minutes){ // minutes are optional.  A perm ban is applied if none provided.
+  if (ipAddress){
+    var ipToUse=ipAddress.toString(); // This allows ipObj's to be fed in, and this should translate to an ip string.
+    if (minutes){
+      var minutesNum=toNumIfPossible(minutes);
+      if (typeof minutesNum == "number"){
+        console.log("Banning IP, '" + ipAddress + "' for " + minutesNum + " minutes.");
+        return starNetHelper.detectSuccess2(starNetVerified("/ban_ip_temp " + ipToUse + " " + minutesNum));
+      } else {
+        // invalid minutes given
+        throw new Error("Invalid minutes specified!");
+      }
+    } else {
+      // no minutes provided, so perform a perm ban
+      console.log("PERMANENT banning IP, '" + ipAddress + "'!");
+      return starNetHelper.detectSuccess2(starNetVerified("/ban_ip " + ipToUse));
+    }
+  } else {
+    throw new Error("No ipAddress given to function, 'ipBan'!");
+  }
+}
+function ipUnBan(ipAddress,options){ // options are optional and should be an object.
+  if (ipAddress){
+    var ipToUse=ipAddress.toString(); // This allows ipObj's to be fed in, and this should translate to an ip string.
+    console.log("Unbanning IP: " + ipAddress);
+    return starNetHelper.detectSuccess2(starNetVerified("/unban_ip " + ipToUse,options)); // This will return false if the ip is not found in the blacklist
+  } else {
+    throw new Error("No ipAddress given to function, 'ipUnBan'!");
+  }
+}
+function createDateObjIfPossible(input){ // Takes either a date string that "new Date" can turn into an object, passes along a Date object fed to it, or returns false if no new Date could be created.
+  // This can be used to return a date object from some dates provided by StarMade directly, such as the ip dates returned by the /player_info command.
+  if (typeof input != "undefined" && input != "" && getObjType(input) != "Null"){ // if an input is nulled out using null, it actually appears as an "object" to typeof
+    if (getObjType(input) == "Date"){
+      return input; // If the input was already a Date object, just return it
+    } else {
+      try{
+        var dateTest=new Date(input);
+        if (dateTest.toString() == "Invalid Date"){ // If invalid input is given, return false
+          return false;
+        }
+        return dateTest;
+
+      } catch(err) {
+        return false;  // Returns false if creating the data object threw an error.
+      }
+    }
+  }
+  return false; // Returns false if no input given
+}
 function getChmodNum(sectorObjArrayOrString){
   // This performs a sql query and returns the protections number for a sector as a number
   // Input can be a SectorObj,CoordsObj, Array of 3 numbers, or a string with a space or comma separating each value.  The preferred type is a SectorObj
@@ -964,6 +978,7 @@ function getChmodArrayFromNum(newChmodNum){ // This outputs the chmod values for
   return outputArray;
 }
 function getProtectionsDifferentialString(currentProtectNum,newProtectNum){ // The current sector protection number and what the new number should be
+  // Returns an array of strings to set and remove needed chmod values based on what the end result should be.
   var currentProtection=decodeChmodNum(currentProtectNum);
   var whatItNeeds=decodeChmodNum(newProtectNum);
   var whatItDoesntNeed=getInverseProtectionsArrayFromArray(whatItNeeds); // These are all the values it should not have
