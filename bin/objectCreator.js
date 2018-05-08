@@ -22,15 +22,15 @@ module.exports={ // Always put module.exports at the top so circular dependencie
 // Requires
 const fs                   = require('fs');
 const path                 = require('path');
-const events = require('events');
-const mainFolder           = path.dirname(require.main.filename); // This should be where the starmade.js is, regardless of wherever this is required from.
+const events               = require('events');
+const mainFolder           = path.dirname(require.main.filename); // This should be where the starmade.js is, unless this script is ran by itself for testing purposes.
 const binFolder            = path.resolve(__dirname,"../bin/");
 const spawn                = require('child_process').spawn;
 const http                 = require('http');
+const miscHelpers          = require(path.join(binFolder,"miscHelpers.js"));
 const requireBin           = miscHelpers["requireBin"];
 const sqlQuery             = requireBin("sqlQuery.js");
 module.exports.SqlQueryObj = sqlQuery.SqlQueryObj; // Module injections should occur as quickly as possible to allow circular dependencies to function properly
-const miscHelpers          = requireBin("miscHelpers.js");
 const starNet              = requireBin("starNet.js");
 const starNetHelper        = requireBin("starNetHelper.js");
 const objectHelper         = requireBin("objectHelper.js");
@@ -38,10 +38,12 @@ const regExpHelper         = requireBin("regExpHelper.js");
 const ini                  = requireBin("iniHelper.js");
 var setSettings            = requireBin("setSettings2.js"); // This will confirm the settings.json file is created and the install folder is set up.
 const installAndRequire    = requireBin("installAndRequire.js");
+const sleep                = requireBin("mySleep.js").softSleep;
 
 // NPM installable requires
 const treeKill      = installAndRequire('tree-kill'); // https://www.npmjs.com/package/tree-kill To kill the server and any sub-processes
 const isInvalidPath = installAndRequire("is-invalid-path"); // https://www.npmjs.com/package/is-invalid-path -- Not using the "is-valid-path" because my force require scripting won't work with it since it uses a non-standard path to it's scripts
+const exitHook      = installAndRequire('exit-hook'); // https://github.com/sindresorhus/exit-hook Handles normal shutdowns, sigterm, sigint, and a "message=shutdown" event.  Good for ensuring the server gets shutdown.
 
 var lockFile   = path.join(mainFolder,"server.lck");
 
@@ -307,9 +309,33 @@ function getServerListTest(){
   getServerListArray(showResponseCallback);
 }
 function lockFileTest(){
+  console.log("Creating new lock file..");
   var lockFileObj=new LockFileObj("justTesting.lck");
   console.log("Created new lock file object:");
   console.dir(lockFileObj);
+  sleep(4000);
+  console.log("\nAdding a few nonsense pids..");
+  console.log("Result: " + lockFileObj.addSubProcessPid(12345));
+  console.log("Result: " + lockFileObj.addSubProcessPid(32345));
+  sleep(2000);
+  console.log("\nTrying one of the same nonsense pids again..");
+  console.log("Result: " + lockFileObj.addSubProcessPid(12345));
+  sleep(2000);
+  console.log("\nDeleting serverPid 12345..");
+  console.log("Result: " + lockFileObj.delSubProcessPid(12345));
+  sleep(2000);
+  console.log("\nGrabbed data from file: ");
+  console.dir(lockFileObj.getData());
+  console.log("Alive Pids Count: " + lockFileObj.countAlivePids());
+  console.log("Alive Pids: " + lockFileObj.getAlivePids() + " This script pid: " + process.pid);
+
+  // TODO:  Spawn a process that does not exit and add the PID to the lock file.  See if it kills it successfully.
+
+  // process.on('exit',function(){
+  //   console.log("Killing any alive pids, except the main script..");
+  //   lockFileObj.killAlivePidsExceptThisProcess();
+  //   lockFileObj.deleteFile();
+  // });
 }
 
 function showResponseCallback(error,output){ // This is a helper function for testing purposes.  It shows any error or output when it's used as a callback function.
@@ -762,6 +788,9 @@ function LockFileObj(pathToLockFile){
   // new LockFileObj("myNewLockFile.lck")
   // new LockFileObj("/full/path/to/lockFile.lck")
   // new LockFileObj(); // Loads the default lock file
+
+  // This is used to help manage subprocesses, killing them when the main script exits and checking for them on next start if still alive
+  // TODO: Add a function that spawns a process, records the PID to the lock file, and returns the process object.
   var theLockFile;
   if (pathToLockFile){
     if (isInvalidPath(pathToLockFile)){
@@ -771,16 +800,17 @@ function LockFileObj(pathToLockFile){
   } else { // if no lock file provided, use the default, which should be in the same folder as starmade.js
     theLockFile=lockFile;
   }
+  console.log("Creating new lockFileObj at path: " + theLockFile);
 
   var defaultData={
     "mainPID": process.pid,
-    "serverSpawnPIDs": []
+    "subProcessPIDs": []
   };
   this.dirName=path.dirname(theLockFile);
   this.fileName=theLockFile;
   this.getData=function(){ // This will update the data property and return a new read
     if (fs.existsSync(theLockFile)){ // If it exists, return the data, otherwise return false.
-      var readData=JSON.parse(fs.readFileSync(lockFile));
+      var readData=JSON.parse(fs.readFileSync(theLockFile));
       this.data=readData;
       return readData;
     } else { // Make no changes if it did not exist.
@@ -813,16 +843,15 @@ function LockFileObj(pathToLockFile){
     this.data=defaultData;
   } else {
     this.new=false;
-    // verify that the imported data actually has appropriate values and create them where they do not exist.
-
+    // Should we verify that the imported data actually has appropriate or innappropriate values?
     this.data=grabData;
   }
   // Add functions to add and remove server pids
-  this.addServerPid=function(thePID){ // this updates the "data" property of this object and writes it to the file
+  this.addSubProcessPid=function(thePID){ // this updates the "data" property of this object and writes it to the file
     var thePIDtoUse=objectHelper.toNumIfPossible(thePID);
-    var thePidsArray=this.data.serverSpawnPIDs;
+    var thePidsArray=this.data.subProcessPIDs;
     if (thePidsArray.indexOf(thePIDtoUse) == -1){ // The PID is not in the array
-      this.data.serverSpawnPIDs.push(thePIDtoUse);
+      this.data.subProcessPIDs.push(thePIDtoUse);
       let writeResult=this.write();
       if (writeResult != true){
         console.error("Unable to write to lock file when adding PID!");
@@ -832,12 +861,12 @@ function LockFileObj(pathToLockFile){
     }
     return false; // Could not add the PID because it already existed
   }
-  this.delServerPid=function(thePID){ // this updates the "data" property of this object and writes it to the file
+  this.delSubProcessPid=function(thePID){ // this updates the "data" property of this object and writes it to the file
     var thePIDtoUse=objectHelper.toNumIfPossible(thePID);
-    var thePidsArray=this.data.serverSpawnPIDs;
+    var thePidsArray=this.data.subProcessPIDs;
     var thePIDIndex=thePidsArray.indexOf(thePIDtoUse);
     if (thePIDIndex != -1){ // The PID is in the array
-      this.data.serverSpawnPIDs.splice(thePIDIndex,1);
+      this.data.subProcessPIDs.splice(thePIDIndex,1);
       let writeResult=this.write();
       if (writeResult != true){
         console.error("Unable to write to lock file when deleting PID: " + thePIDtoUse);
@@ -866,8 +895,8 @@ function LockFileObj(pathToLockFile){
         }
       }
     }
-    if (this.data.hasOwnProperty("serverSpawnPIDs")){
-      var serverPIDs=this.data["serverSpawnPIDs"];
+    if (this.data.hasOwnProperty("subProcessPIDs")){
+      var serverPIDs=this.data["subProcessPIDs"];
       for (let i=0;i<serverPIDs.length;i++){
         if (miscHelpers.isPidAlive(serverPIDs[i])){
           count++
@@ -886,28 +915,48 @@ function LockFileObj(pathToLockFile){
         }
       }
     }
-    if (this.data.hasOwnProperty("serverSpawnPIDs")){
-      var serverPIDs=this.data["serverSpawnPIDs"];
-      for (let i=0;i<serverPIDs.length;i++){
-        if (miscHelpers.isPidAlive(serverPIDs[i])){
-          returnArray.push(serverPIDs[i]);
+    if (this.data.hasOwnProperty("subProcessPIDs")){
+      var subProcessPids=this.data["subProcessPIDs"];
+      for (let i=0;i<subProcessPids.length;i++){
+        if (miscHelpers.isPidAlive(subProcessPids[i])){
+          returnArray.push(subProcessPids[i]);
         }
       }
     }
     return returnArray;
   }
   this.killAlivePidsExceptThisProcess=function(){ // We never want to send a kill command to our own process, that would just be dumb
+    console.log("Checking if any PID's are alive and killing them..");
     var alivePidsArray=this.getAlivePids();
-    // alivePidsArray.forEach(function(val,index){
-    for (let i=0;i<alivePidsArray.length;i++){
-      var pidToKill=toNumIfPossible(alivePidsArray[i]);
-      if (pidToKill != process.pid){
-        console.log("Killing PID: " + pidToKill);
-        treeKill(pidToKill, 'SIGTERM');
-        miscHelpers.waitAndThenKill(300000,pidToKill); // Gives up to 5 minutes before sending a kill signal
-      }
-    };
+    var pidsKilledCount=0;
+    if (alivePidsArray.length > 0){
+      for (let i=0;i<alivePidsArray.length;i++){
+        var pidToKill=toNumIfPossible(alivePidsArray[i]);
+        if (pidToKill != process.pid){
+          pidsKilledCount++;
+          console.log("Killing PID: " + pidToKill);
+          treeKill(pidToKill, 'SIGTERM');
+          miscHelpers.waitAndThenKill(300000,pidToKill); // Gives up to 5 minutes before sending a kill signal
+        }
+      };
+    }
+    if (pidsKilledCount>0) {
+      console.log("No pids (besides this one) were alive.  Nothing to do!");
+    }
+    return true; // Since we made it this far, we can return true.  No pids in the lock file should be alive now.
   }
+  exitHook(() => { // This will handle sigint and sigterm exits.
+    // Cleanup that needs to be done on the global scope should be done here.
+    console.log("Cleaning up running pids tracked by this lock file..");
+    // if (this.countAlivePids() > 0){
+      console.log("Attempting to kill any alive processes..")
+      var killResult=this.killAlivePidsExceptThisProcess();
+      console.log("All pids dead?: " + killResult);
+      if (killResult == true){
+        console.log("All PID's should be dead, removing lock file..");
+        this.deleteFile();
+      }
+  });
 }
 
 // Array generators
