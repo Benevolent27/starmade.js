@@ -3,12 +3,15 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   isPidAlive,
   smartSpawnSync, // This allows executing a jar file or .exe file with the same spawn command, specifying arguments to use and ignoring any java arguments provided if it's not a jar file.
   ensureFolderExists,
-  waitAndThenKill
+  waitAndThenKill,
+  deleteFile,
+  touch
 };
 
 const path              = require('path');
 const http              = require('http');
 const fs                = require('fs');
+var mainFolder          = path.dirname(require.main.filename); // This is where the starmade.js is.  I use this method instead of __filename because starmade.js might load itself or be started from another script
 const binFolder         = path.resolve(__dirname,"../bin/");
 // const objectCreator=require(path.join(binFolder,"objectCreator.js"));
 const installAndRequire = requireBin("installAndRequire");
@@ -156,4 +159,26 @@ function waitAndThenKill(mSeconds,thePID,options){ // options are optional.  Thi
   } else {
     throw new Error("Insufficient parameters given to waitAndThenSigKill function!");
   }
+}
+
+function deleteFile (fileToDelete){
+  // Resolves files to use main script path as root if given relative path.
+  // Also throws an error if it cannot delete the file.
+  let resolvedFile = path.resolve(mainFolder,fileToDelete); // This will resolve relative paths back to the main script's root dir as the base
+  if (fs.existsSync(resolvedFile)){
+    try {
+      fs.unlinkSync(resolvedFile);
+      console.log("Deleting: " + fileToDelete);
+    } catch (err) {
+      console.error("ERROR: Could not delete file: " + resolvedFile);
+      console.error("Please manually remove this file and ENSURE you have access to delete files at this location!")
+      throw err;
+    }
+  } else {
+    console.error("ERROR: Cannot delete file.  File not found: " + resolvedFile);
+  }
+}
+
+function touch (file){ // This creates an empty file quickly.
+  fs.closeSync(fs.openSync(file, 'w'));
 }
