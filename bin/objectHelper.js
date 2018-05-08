@@ -1,11 +1,11 @@
 // These are helper functions to assist with objects and values.  New objects are not created here.  See the "objectCreator.js" file for that.
 
 module.exports={ // Always put module.exports at the top so circular dependencies work correctly.
-  mapToJson,
-  jsonToMap,
-  strMapToObj,
-  objToStrMap,
-  toBoolean,
+  mapToJson, // this converts a map with all STRING properties to a Json output
+  jsonToMap, // This converts a json input to object output
+  strMapToObj, // This converts a map with ALL string properties to an object
+  objToStrMap, // This converts an object to a map
+  toBoolean, // This converts a value to Boolean, handling "false" string as false
   toNumIfPossible, // This converts a value to a number if possible, otherwise returns the value back.
   getObjType, // This checks the object.constructor.name value for any object.  All constructor names should be capitalized.  Otherwise returns the typeof value, which should be lowercase.
   "type":getObjType, // This is just an alias.. not sure why I did this..
