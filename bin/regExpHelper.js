@@ -43,11 +43,17 @@ if (require.main.filename == __filename){ // This is so it only runs based on ar
     console.log("No test value given!");
   }
 }
+
+function isAlphaNumeric(testString){
+  return "/^[A-Za-z0-9]+$/".test(testString);
+}
+
 module.exports={
   uidPrefixes,
   stripFullUIDtoUID,
   isPlayerUID,
   sectorProtections, // Array of protections possible.  Will affect other scripts that utilize this list.
   "uidPrefixesReg":uidPrefixesRegExp,
-  "createMultiRegFromArray": createMultiRegExpFromArray
+  "createMultiRegFromArray": createMultiRegExpFromArray,
+  isAlphaNumeric
 }
