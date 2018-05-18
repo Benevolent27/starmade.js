@@ -9,6 +9,15 @@
 // const setSettings = require("./bin/setSettings.js");
 // var settings = setSettings();
 
+
+// CURRENT STRUCTURE
+
+
+
+// DESIRED STRUCTURE
+
+
+
 // This should ONLY ever be ran from the starmade.js script, never as itself, otherwise it's script requires won't load properly.
 if (require.main.filename == __filename){
   console.error("This script should only ever be run by the starmade.js script!  Exiting!");

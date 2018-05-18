@@ -800,7 +800,6 @@ function LockFileObj(pathToLockFile){
   } else { // if no lock file provided, use the default, which should be in the same folder as starmade.js
     theLockFile=lockFile;
   }
-  console.log("Creating new lockFileObj at path: " + theLockFile);
 
   var defaultData={
     "mainPID": process.pid,
