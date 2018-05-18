@@ -159,6 +159,7 @@ function waitAndThenKill(mSeconds,thePID,options){ // options are optional.  Thi
   } else {
     throw new Error("Insufficient parameters given to waitAndThenSigKill function!");
   }
+  return true; // if we made it this far the process should be killed.
 }
 
 function deleteFile (fileToDelete){
