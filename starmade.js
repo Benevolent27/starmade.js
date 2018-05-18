@@ -49,6 +49,7 @@ const path   = require('path'); // This is needed to build file and directory pa
 // const stream   = require('stream'); // For creating streams.  Not used right now but may be later.
 
 // ### Main Vars ### - Don't change these
+console.log("Setting main vars..");
 var mainFolder      = path.dirname(require.main.filename); // This is where the starmade.js is.  I use this method instead of __filename because starmade.js might load itself or be started from another script
 var binFolder       = path.join(mainFolder,"bin");
 var modFolder       = path.join(mainFolder,"mods");
@@ -71,10 +72,15 @@ console.debug=function (vals,sleepTime) { // for only displaying text when the -
 // ### SCRIPT REQUIRES ###
 // #######################
 // path.resolve below builds the full path to "./bin/setSettings.js" in such a way that is compatible with both windows and linux/macosx, since it doesn't use / or \ characters.
+console.log("Importing bin scripts..");
 const miscHelpers       = require(path.join(binFolder,"miscHelpers.js"));
 const requireBin        = miscHelpers["requireBin"]; // Simplifies requiring scripts from the bin folder..yes I am this lazy.
-const objectCreator     = requireBin("objectCreator.js");
+console.log("setSettings..");
 const setSettings       = requireBin("setSettings.js"); // This will confirm the settings.json file is created and the install folder is set up.
+var settings                  = setSettings(); // Import settings, including the starmade folder, min and max java settings, etc.  If the settings.json file does not exist, it will set it up.
+
+console.log("Objects..");
+const objectCreator     = requireBin("objectCreator.js");
 const installAndRequire = requireBin("installAndRequire.js"); // This is used to install missing NPM modules and then require them without messing up the require cache with modules not found (which blocks requiring them till an app restart).
 const sleep             = requireBin("mySleep.js").softSleep; // Only accurate for 100ms or higher wait times.
 const patterns          = requireBin("patterns.js"); // Import the patterns that will be used to match to in-game events like deaths and messages.
@@ -89,6 +95,7 @@ const smInstallHelpers = requireBin("smInstallHelpers.js");
 // #################################
 // ### NPM DOWNLOADABLE REQUIRES ###
 // #################################
+console.log("Importing NPM requires, installing if need be..");
 const treeKill        = installAndRequire('tree-kill'); // https://www.npmjs.com/package/tree-kill To kill the server and any sub-processes
 // const iniPackage      = installAndRequire('ini'); // https://www.npmjs.com/package/ini Imports ini files as objects.  It's a bit wonky with # style comments (in that it removes them and all text that follows) and leaves // type comments, so I created some scripting to modify how it loads ini files and also created some functions to handle comments.
 const prompt          = installAndRequire("prompt-sync")({"sigint":true}); // https://www.npmjs.com/package/prompt-sync This creates sync prompts and can have auto-complete capabilties.  The sigint true part makes it so pressing CTRL + C sends the normal SIGINT to the parent javascript process
@@ -120,7 +127,7 @@ var showAllEvents             = false;
 var enumerateEventArguments   = false;
 var pauseBeforeStartingServer = "2000"; // Default: 2 - After any sort of installs, config verifications, etc, how long should we wait before pulling the trigger on the server spawn in ms?
 var settingsFile              = path.join(mainFolder, "settings.json");
-var settings                  = setSettings(); // Import settings, including the starmade folder, min and max java settings, etc.  If the settings.json file does not exist, it will set it up.
+console.log("Importing settings..");
 var starNetJarURL             = "http://files.star-made.org/StarNet.jar";
 var starMadeInstallFolder     = path.join(settings["starMadeFolder"],"StarMade");
 var starMadeJar               = path.join(starMadeInstallFolder,"StarMade.jar");
@@ -139,14 +146,14 @@ var starMadeStarter;
 // } else {
   starMadeStarter="StarMade-Starter.jar"; // This handles linux and macOSX
 // }
-var starMadeInstallerFile         = path.join(binFolder,starMadeStarter);
-var starMadeInstallerURL      = "http://files.star-made.org/" + starMadeStarter;
+var starMadeInstallerFile = path.join(binFolder,starMadeStarter);
+var starMadeInstallerURL  = "http://files.star-made.org/" + starMadeStarter;
 // Windows: http://files.star-made.org/StarMade-starter.exe // Does not seem to actually work correctly with spawnSync and the -nogui option on windows.. Using the linux/macOSX jar installer does though!  wtf!
 // macosx: http://files.star-made.org/StarMade-Starter.jar
 // Linux: http://files.star-made.org/StarMade-Starter.jar
 // Patterns - This will be to detect things like connections, deaths, etc.  I'm pushing to an array so it's easier to add or remove patterns.
-var includePatternRegex       = patterns.includes();
-var excludePatternRegex       = patterns.excludes();
+var includePatternRegex   = patterns.includes();
+var excludePatternRegex   = patterns.excludes();
 
 
 

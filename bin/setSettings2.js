@@ -225,9 +225,12 @@ module.exports = function() {
     if (changeMadeToSettings==true) {
       console.log("");
       try {
-        var settingsFileStream=fs.createWriteStream(settingsFile);
-        settingsFileStream.write(JSON.stringify(settings, null, 4));
-        settingsFileStream.end();
+        // var settingsFileStream=fs.createWriteStream(settingsFile);
+        // console.log("Writing data to settings.json file:");
+        // console.log(JSON.stringify(settings, null, 4));
+        // settingsFileStream.write(JSON.stringify(settings, null, 4));
+        // settingsFileStream.end();
+        fs.writeFileSync(settingsFile,JSON.stringify(settings, null, 4));
         console.log("I just popped out a new 'settings.json' file!  Yippee!")
       } catch (err) {
         console.error("ERROR: Could not write to settings.json file! AAHH!  I kinda need write access to this folder, ya know?");

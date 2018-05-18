@@ -11,8 +11,6 @@ var starNetJar=path.join(binFolder,"StarNet.jar");
 var settings=require(path.resolve(__dirname,"../settings.json"));
 var ini=require(path.join(binFolder,"iniHelper.js"));
 var objHelper=require(path.join(binFolder,"objectHelper.js"));
-
-
 var starmadeServerCfg=path.join(settings["starMadeFolder"],"StarMade","server.cfg");
 var starMadeServerCfgObj=ini.getFileAsObj(starmadeServerCfg);
 var superAdminPassword=ini.getVal(starMadeServerCfgObj,"SUPER_ADMIN_PASSWORD");
@@ -35,19 +33,20 @@ if (__filename == require.main.filename){ // Only run the arguments IF this scri
   }
 }
 
-function runStarNet(command){
-  // This is an attempt at making an async type function.  You can't capture the output from it, it's just for display purposes only.
-  // This sort of formula can be used though to write the data to a stream and process it that way as it comes in.  This is would be useful for SQL queries that can get rather large.
-  if (command){
-    var results=child.spawn("java",["-jar",starNetJar,"127.0.0.1:" + settings["port"],superAdminPassword,command],{"cwd":binFolder});
-    results.stdout.on('data',function(data){
-      process.stdout.write(data);
-    });
-    results.stderr.on('data',function(data){
-      process.stdout.write(data);
-    });
-  }
-}
+// Obsoleting
+// function runStarNet(command){
+//   // This is an attempt at making an async type function.  You can't capture the output from it, it's just for display purposes only.
+//   // This sort of formula can be used though to write the data to a stream and process it that way as it comes in.  This is would be useful for SQL queries that can get rather large.
+//   if (command){
+//     var results=child.spawn("java",["-jar",starNetJar,"127.0.0.1:" + settings["port"],superAdminPassword,command],{"cwd":binFolder});
+//     results.stdout.on('data',function(data){
+//       process.stdout.write(data);
+//     });
+//     results.stderr.on('data',function(data){
+//       process.stdout.write(data);
+//     });
+//   }
+// }
 function runStarNetReturn(command,options){
   // Options are passed as an array.  Eg. {debug:true}
   var debug=false;
@@ -63,8 +62,9 @@ function runStarNetReturn(command,options){
   }
   return false;
 }
-function ReturnObj(theArray){
-  var tempArray=theArray;
-  this.columns=tempArray.shift();
-  this.data=tempArray;
-}
+// Obsoleting
+// function ReturnObj(theArray){
+//   var tempArray=theArray;
+//   this.columns=tempArray.shift();
+//   this.data=tempArray;
+// }
