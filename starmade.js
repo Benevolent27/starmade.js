@@ -79,7 +79,7 @@ console.log("setSettings..");
 const setSettings       = requireBin("setSettings.js"); // This will confirm the settings.json file is created and the install folder is set up.
 var settings                  = setSettings(); // Import settings, including the starmade folder, min and max java settings, etc.  If the settings.json file does not exist, it will set it up.
 
-console.log("Objects..");
+console.log("Loading Objects..");
 const objectCreator     = requireBin("objectCreator.js");
 const installAndRequire = requireBin("installAndRequire.js"); // This is used to install missing NPM modules and then require them without messing up the require cache with modules not found (which blocks requiring them till an app restart).
 const sleep             = requireBin("mySleep.js").softSleep; // Only accurate for 100ms or higher wait times.
