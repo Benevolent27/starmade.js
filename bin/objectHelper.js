@@ -17,7 +17,8 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   subArrayFromAnother, // Subtracts any values that exist in one array from another.
   findSameFromTwoArrays, // Finds whatever values exist in both arrays
   isObjHasPropAndEquals, // Checks if input is an object, has a property, and that property strictly equals a value
-  objHasPropAndEquals // For when you have many property checks and you've already ensured what is being fed is an object
+  objHasPropAndEquals, // For when you have many property checks and you've already ensured what is being fed is an object
+  isObjEmpty // Checks for empty object
 };
 
 const util=require('util');
@@ -155,4 +156,13 @@ function isArrayAllEqualTo(inputArray,valueToCompare){
   } else {
     throw new Error("Invalid input given to function, isArrayAll!  inputArray was not an array!");
   }
+}
+
+function isObjEmpty(obj) {
+    for(var key in obj) {
+        if (obj.hasOwnProperty(key)){
+          return false;
+        }
+    }
+    return true;
 }
