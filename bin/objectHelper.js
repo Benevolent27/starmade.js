@@ -64,10 +64,12 @@ function toBoolean(input){ // The main purpose of this function is to convert st
     return false;
   }
 }
-function toNumIfPossible(input){
-  var output=Number(input);
-  if (isNaN(output)){
-    return input;
+function toNumIfPossible(input){ // This also converts numbers from scientific notation to floating point
+  if (typeof input != "undefined" && input != ""){ // This check is necessary since Number will create a 0 number using them
+    var output=Number(input);
+    if (isNaN(output)){
+      return input;
+    }
   }
   return output;
 }
