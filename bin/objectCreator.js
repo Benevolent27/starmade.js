@@ -465,8 +465,9 @@ function SMName(smName){
   // Using SQL queries:
   // getNames - Returns an array of PlayerObj's for all the usernames associated with this registry account name
 }
-function PlayerObj(playerName){
-  if (playerName){
+function PlayerObj(player){ // "Player" must be a string and can be just the player's nickname or their full UID
+  if (player){
+    var playerName=player.replace(/^ENTITY_PLAYERCHARACTER_/,"").replace(/^ENTITY_PLAYERSTATE_/,""); // strip the UID
     this.name=playerName;
     // TODO: Add Info methods:
 
@@ -632,12 +633,12 @@ function SectorObj(x,y,z){
   // getSystem - Returns a SystemObj
 
   // Add Action Methods:
-  // setChmodNum - to set the chmod for a sector based on the relevant input number (based on the SQL number representation)
   // despawn(PartOfShipNameString) - Uses the /despawn_sector command to despawn ships that start with the string provided
   // export(nameOfExportFileString) - This will send a /force_save command and then a /export_sector command of this sector.
-  // load(radiusNum/X,Y,Z/SectorObj/CoordsObj) - uses "/load_sector_range x y z x y z" to load the sector.  If a radius is given, then it loads that much of a radius around the sector.  If a second set of coordinates are given (or SectorObj/CoordsObj), then it loads a range between this sector and the one provided.
   // populate - This will run the /populate_sector command on this sector (replenishes asteroids or planets I think?  Not sure.)
   // repair - This will run a /repair_sector command on the sector.  NOTE:  This OFTEN has unintended consequences, including atually corrupting a sector or duplicating entities within the sector!
+  // # custom action methods
+  // loadRange(radiusNum/X,Y,Z/SectorObj/CoordsObj) - Should allow easy loading of a range of sectors using this sector as the focal point, either using a radius OR a second coordinates point (either string, sectorObj or coordsObj)
 
   // spawnEntity(BlueprintString,NewShipNameString,FactionNumber/FactionObj,AIActiveBoolean,[spacialX,SpacialY,SpacialZ]/CoordsObj)
   // - Spawns an entity somewhere within this sector.  Spacial coordinates are optional.  If no faction number is provided, 0 is used.  If AI active true/false value not given, true is used.
@@ -645,6 +646,9 @@ function SectorObj(x,y,z){
   // - Returns an EntityObj of the newly spawned entity if successful, otherwise returns false.
 
   // TODO: add alternative inputs, such as "x y z" or "[x,y,z]" or a coordinates object
+  // TODO: test the UID list functions and the functions that return objects
+  // TODO: add a way to filter entities by a certain regex pattern input, for things like destroying only specifically named ships/stations.
+  // TODO: Map out the "creator" possibilities for /sector_info and enable filtering of lists by creator regex patterns
 
   if (typeof x == "number" && typeof y == "number" && typeof z == "number"){
     this.coords=new CoordsObj(x,y,z);
@@ -673,7 +677,119 @@ function SectorObj(x,y,z){
         console.error("Error setting one of the chmod values for " + this.coords + " with values for chmod number, " + newNum + "!");
       }
       return chmodResults;
-
+    }
+    this.listEntityUIDs=function(filter,options){
+      return returnEntityUIDList(this.coords.toString(),filter,options);
+    }
+    this.listShipUIDs=function(){
+      return returnEntityUIDList(this.coords.toString(),"ENTITY_SHIP_");
+    }
+    this.listStationUIDs=function(){
+      return returnEntityUIDList(this.coords.toString(),"ENTITY_SPACESTATION_");
+    }
+    this.listShopUIDs=function(){
+      return returnEntityUIDList(this.coords.toString(),"ENTITY_SHOP_");
+    }
+    this.listCreatureUIDs=function(){
+      return returnEntityUIDList(this.coords.toString(),"ENTITY_CREATURE_");
+    }
+    this.listAsteroidUIDs=function(){
+      return returnEntityUIDList(this.coords.toString(),"(ENTITY_FLOATINGROCK_|ENTITY_FLOATINGROCKMANAGED_)");
+    }
+    this.listPlanetUIDs=function(){
+      return returnEntityUIDList(this.coords.toString(),"(ENTITY_PLANET_|ENTITY_PLANETCORE_)");
+    }
+    this.listPlayerUIDs=function(){
+      return returnEntityUIDList(this.coords.toString(),"(ENTITY_PLAYERCHARACTER_|ENTITY_PLAYERSTATE_)");
+    }
+    this.entities=function(filter,options){
+      // "filter" is optional, it should look something like this "(ENTITY_SHIP_|ENTITY_CREATURE_)".  This will return all ships and creatures.
+      // "options" are simply forwarded to the listEntityUIDs method and are also optional
+      var returnArray=[];
+      var uidArray=this.listEntityUIDs(filter,options);
+      if (uidArray){ // Will be Null if the StarNet command fails for some reason
+        for (let i=0;i<uidArray.length;i++){
+          // Set the correct type of object for each entity in the sector
+          if (uidArray[i].match(/^(ENTITY_SHIP_|ENTITY_SPACESTATION_|ENTITY_SHOP_|ENTITY_FLOATINGROCK_|ENTITY_FLOATINGROCKMANAGED_|ENTITY_PLANET_|ENTITY_PLANETCORE_)/)){
+            returnArray.push(new EntityObj(uidArray[i]));
+          } else if (uidArray[i].match(/^(ENTITY_PLAYERCHARACTER_|ENTITY_PLAYERSTATE_)/)){
+            returnArray.push(new PlayerObj(uidArray[i]));
+          } else if (uidArray[i].match(/^ENTITY_CREATURE_/)){
+            returnArray.push(new CreatureObj(uidArray[i]));
+          }
+        }
+      }
+      return returnArray;
+    }
+    this.ships=function(){
+      var returnArray=[];
+      var uidArray=this.listShipUIDs();
+      if (uidArray){ // Will be Null if the StarNet command fails for some reason
+        for (let i=0;i<uidArray.length;i++){
+          returnArray.push(new EntityObj(uidArray[i]));
+        }
+      }
+      return returnArray;
+    }
+    this.stations=function(){
+      var returnArray=[];
+      var uidArray=this.listStationUIDs();
+      if (uidArray){ // Will be Null if the StarNet command fails for some reason
+        for (let i=0;i<uidArray.length;i++){
+          returnArray.push(new EntityObj(uidArray[i]));
+        }
+      }
+      return returnArray;
+    }
+    this.shops=function(){
+      var returnArray=[];
+      var uidArray=this.listShopUIDs();
+      if (uidArray){ // Will be Null if the StarNet command fails for some reason
+        for (let i=0;i<uidArray.length;i++){
+          returnArray.push(new EntityObj(uidArray[i]));
+        }
+      }
+      return returnArray;
+    }
+    this.creatures=function(){ // This includes NPC's, spiders, hoppies, or custom creations
+      var returnArray=[];
+      var uidArray=this.listCreatureUIDs();
+      if (uidArray){ // Will be Null if the StarNet command fails for some reason
+        for (let i=0;i<uidArray.length;i++){
+          returnArray.push(new CreatureObj(uidArray[i]));
+        }
+      }
+      return returnArray;
+    }
+    this.asteroids=function(){ // TODO: Consider creating an AsteroidObj as opposed to entity if there are commands that won't work correctly with them
+      var returnArray=[];
+      var uidArray=this.listAsteroidUIDs();
+      if (uidArray){ // Will be Null if the StarNet command fails for some reason
+        for (let i=0;i<uidArray.length;i++){
+          returnArray.push(new EntityObj(uidArray[i]));
+        }
+      }
+      return returnArray;
+    }
+    this.planets=function(){ // TODO: Consider creating an PlanetObj as opposed to entity if there are commands that won't work correctly with them
+      var returnArray=[];
+      var uidArray=this.listPlanetUIDs();
+      if (uidArray){ // Will be Null if the StarNet command fails for some reason
+        for (let i=0;i<uidArray.length;i++){
+          returnArray.push(new EntityObj(uidArray[i]));
+        }
+      }
+      return returnArray;
+    }
+    this.players=function(){
+      var returnArray=[];
+      var uidArray=this.listPlayerUIDs();
+      if (uidArray){ // Will be Null if the StarNet command fails for some reason
+        for (let i=0;i<uidArray.length;i++){
+          returnArray.push(new PlayerObj(uidArray[i]));
+        }
+      }
+      return returnArray;
     }
 
 
@@ -691,15 +807,63 @@ function SectorObj(x,y,z){
     throw new Error("ERROR: Invalid values given to SectorObj constructor!");
   }
 }
-function CoordsObj(x,y,z){
-  this.x=x;
-  this.y=y;
-  this.z=z;
-  this.coords=function(){ return new CoordsObj(x,y,z) }; // This is to allow a sectorObj to gracefully morph into a CoordsObj and for a CoordsObj to be duplicated and then possibly modified.
+function CoordsObj(xInput,yInput,zInput){
+  // test to ensure string, array, CoordsObj, SectorObj, and regular numbers/strings(which are numbers) works.
+  var x=objectHelper.toNumIfPossible(xInput);
+  var y=objectHelper.toNumIfPossible(yInput);
+  var z=objectHelper.toNumIfPossible(zInput);
+  var xToUse;
+  var yToUse;
+  var zToUse;
+  if (typeof x == "number" && typeof y == "number" && typeof z == "number"){
+    xToUse=x;
+    yToUse=y;
+    zToUse=z;
+  } else if (typeof x == "string" && typeof y == "undefined"){ // This handles coords with spaces or commas
+    var tempArray=[];
+    if (x.indexOf(",") > "-1"){ // comma separated values
+      tempArray=x.split(",");
+    } else if (x.indexOf(" ") > "-1") {
+      tempArray=x.split(" "); // space separated values
+    } else {
+      throw new Error("Invalid string given as input to CoordsObj: " + x);
+    }
+    if (tempArray.length == 3){
+      xToUse=objectHelper.toNumIfPossible(tempArray[0].trim());
+      yToUse=objectHelper.toNumIfPossible(tempArray[1].trim());
+      zToUse=objectHelper.toNumIfPossible(tempArray[2].trim());
+    } else {
+      throw new Error("Invalid amount of numbers given as string to CoordsObj(" + tempArray.length + "): " + x);
+    }
+  } else if (typeof x=="object"){ // This handles arrays or other objects
+    if (objectHelper.getObjType(x) == "Array"){
+      if (x.length==3){
+        xToUse=objectHelper.toNumIfPossible(x[0].trim());
+        yToUse=objectHelper.toNumIfPossible(x[1].trim());
+        zToUse=objectHelper.toNumIfPossible(x[2].trim());
+      } else {
+        throw new Error("Invalid number of values given in array to CoordsObj (" + x.length + "): " + x)
+      }
+    } else if (objectHelper.getObjType(x) == "CoordsObj" || objectHelper.getObjType(x) == "SectorObj"){
+      var coordArrayTemp=x.toArray();
+      xToUse=coordArrayTemp[0];
+      yToUse=coordArrayTemp[1];
+      zToUse=coordArrayTemp[2];
+    } else {
+      throw new Error("Invalid object input given to CoordsObj: " + x);
+    }
+  }
+  if (typeof xToUse != "number" || yToUse != "number" || zToUse != "number"){
+    throw new Error("Invalid coords input given to new CoordsObj: " + xToUse + " " + yToUse + " " + zToUse);
+  }
+  this.x=xToUse;
+  this.y=yToUse;
+  this.z=zToUse;
+  this.coords=function(){ return new CoordsObj(this.x,this.y,this.z) }; // This is to allow a sectorObj to gracefully morph into a CoordsObj and for a CoordsObj to be duplicated and then possibly modified.
   this.toArray=function(){ return [this.x, this.y, this.z]; }
-  // this.string=x.toString() + " " + y.toString() + " "+ z.toString();
+
   // This can be expanded to allow storing information, such as a description, if more than values than expected are given to the constructor
-  if (arguments.length > CoordsObj.length){
+  if (arguments.length > CoordsObj.length){ // the CoordsObj.length gets the number of expected input vars
     var extraInfoArray=[];
     for (let i=CoordsObj.length-1;i<arguments.length;i++){
       extraInfoArray.push(arguments[i]);
@@ -708,6 +872,14 @@ function CoordsObj(x,y,z){
   }
   // this.toString=function(){ return this.string };
 }
+
+function CreatureObj(fullUID){ // TODO: create creature object
+  console.log("Complete me plz.");
+  this["UID"]=stripFullUIDtoUID(fullUID);
+  this["fullUID"]=fullUID;
+}
+
+
 function EntityObj(fullUID){
   // This builds an entity object based on the full UID
   // This can be used for ships and stations.  Please use PlanetObj for planets and AsteroidObj for asteroids.
@@ -991,6 +1163,7 @@ function getServerListArray(cb){ // This must be provided with a callback functi
 }
 
 
+
 // Support Functions
 
 function ipBan(ipAddress,minutes){ // minutes are optional.  A perm ban is applied if none provided.
@@ -1230,5 +1403,158 @@ function getInverseProtectionsArrayFromArray(arrayToInvert,baseProtectionsArray)
   return subArrayFromAnother(arrayToInvert,arrayToUse);
 }
 
+function returnEntityUIDList(coordsString,beginFilter,options){
+  // TODO: Test to ensure the options for filtering work
+  // Example: returnEntityUIDList("2 2 2")
+  // Example2: returnEntityUIDList("2 2 2","ENTITY_SHIP_");
+  // Example3: returnEntityUIDList("2 2 2","ENTITY_SHIP_",{spawnerFilter:"Benevolent27",lastModifierFilter:"Benevolent27",uidFilter:"TheShip",nameFilter:"TheShipName",factionFilter:"10000",touchedFilter:true});
+
+  var checkSpacialCoords=false;
+  var checkIfTouched=false;
+  var checkFaction=false;
+  var checkSpawner=false;
+  var checkLastModifier=false;
+  var checkUID=false;
+  var checkName=false;
+  if (typeof options == "object"){
+    if (!objectHelper.isObjEmpty(options)){ // the isObjEmpty EXPECTS an object, so we must first verify the options is an object
+      if (options.hasOwnProperty("spawnerFilter")){
+        checkSpawner=true;
+        var spawnerRegExp=new RegExp("spawner=" + options["spawnerFilter"] + ","); // It MUST end in a , so the filter is looking at the spawner full spawner data.  Partial matches will not be included.
+      }
+      if (options.hasOwnProperty("lastModifierFilter")){
+        checkLastModifier=true;
+        var lastModifierRegExp=new RegExp("lastModifier=" + options["lastModifierFilter"] + ",");
+      }
+      if (options.hasOwnProperty("uidFilter")){
+        checkUID=true;
+        // TODO: Make it so the UID filter only looks at the name of the UID, not the FULL UID
+        var uidRegExp=new RegExp("uid=" + options["uidFilter"] + ",");
+      }
+      if (options.hasOwnProperty("nameFilter")){
+        checkName=true;
+        var nameRegExp=new RegExp("realName=" + options["nameFilter"] + ",");
+      }
+      if (options.hasOwnProperty("factionFilter")){
+        checkFaction=true;
+        var factionRegExp=new RegExp("faction=" + options["factionFilter"] + ",");
+      }
+      if (options.hasOwnProperty("touchedFilter")){
+        // options here are true/false, so it will only show entities that either were or were not touched
+        checkIfTouched=true;
+        var touchedRegExp=new RegExp("");
+        if (options["touchedFilter"] == true){
+          touchedRegExp=new RegExp("touched=true,");
+        } else if (options["touchedFilter"] == false){
+          touchedRegExp=new RegExp("touched=false,");
+        }
+      }
+      if (options.hasOwnProperty("betweenSpacialCoordsFilter")){
+        if (objectHelper.getObjType(options["betweenSpacialCoordsFilter"]) == "Array"){
+          if (options["betweenSpacialCoordsFilter"].length == 2){
+            checkSpacialCoords=true;
+            var spacialCoordsFilterPointAObj=new CoordsObj(options["betweenSpacialCoordsFilter"][0]);
+            var spacialCoordsFilterPointBObj=new CoordsObj(options["betweenSpacialCoordsFilter"][1]);
+          } else {
+            throw new Error("Invalid input given to betweenSpacialCoordsFilter!  Must be an array with two sets of coordinates!");
+          }
+        } else {
+          throw new Error("Invalid input given to betweenSpacialCoordsFilter!  Must be an array!");
+        }
+      }
+      // Note that there is no "type" filter because the "type" is given in two different ways depending on if the sector is loaded, either as a number OR as a name. Like "4" when unloaded and "ship" when loaded.  Instead the main filter is used for this looking at the first part of the UID.
+    }
+  }
+  // TODO: Implement the option filtering.
+
+  // Returns an array of strings of UID's.  Does NOT convert to objects!
+  // Returns null if the command failed for some reason.
+  // Examples:
+  // returnEntityUIDList("2 2 2"); // Returns all entities in the sector
+  // returnEntityUIDList("2 2 2","ENTITY_SHIP_"); // Returns only ships in the sector
+  // returnEntityUIDList("2 2 2","ENTITY_SHIP_|ENTITY_SPACESTATION_"); // Returns ships and stations in the sector
+  if (typeof coordsString == "string"){
+    // This will return an array of entities within the sector
+    // Todo: Add an option to convert from full UID to hsql uid
+    var shipListResults="";
+    if (starNetHelper.detectRan(starNet("/load_sector_range " + coordsString + " " + coordsString))){ // Load the sector first, otherwise some entities like creatures won't load
+      shipListResults=starNet("/sector_info " + coordsString);
+      if (starNetHelper.detectRan(shipListResults)){
+        var resultsArray=shipListResults.split("\n");
+        resultsArray.pop(); // Remove "command execution ended" line
+        resultsArray.pop(); // Remove the sector info line
+        var returnResults=[];
+        var shipUID={};
+        var theReg=new RegExp("");
+        if (typeof beginFilter == "string"){
+          theReg=new RegExp("uid=" + beginFilter + "[^,]*");
+        } else {
+          theReg=new RegExp("uid=[^,]*");
+        }
+        var proceed=true;
+        for (let i=0;i<resultsArray.length;i++){ // If there were any results, cycle through them one by one
+          // example: RETURN: [SERVER, DatabaseEntry [uid=ENTITY_SHIP_TopolM_1526337858159, sectorPos=(2, 2, 2), type=5, seed=0, lastModifier=ENTITY_PLAYERSTATE_TopolM, spawner=ENTITY_PLAYERSTATE_TopolM, realName=TopolM_1526337858159, touched=true, faction=0, pos=(121.83931, 271.8866, -1257.7705), minPos=(-2, -2, -2), maxPos=(2, 2, 2), creatorID=0], 0]
+          shipUID=resultsArray[i].match(theReg);
+          if (shipUID){ // will be null if no match found on this line
+            proceed=true;
+            if (checkSpawner){
+              if (!resultsArray[i].match(spawnerRegExp)){
+                proceed=false;
+              }
+            }
+            if (checkLastModifier && proceed){
+              if (!resultsArray[i].match(lastModifierRegExp)){
+                proceed=false;
+              }
+            }
+            if (checkUID && proceed){
+              if (!resultsArray[i].match(uidRegExp)){
+                proceed=false;
+              }
+            }
+            if (checkName && proceed){
+              if (!resultsArray[i].match(nameRegExp)){
+                proceed=false;
+              }
+            }
+            if (checkFaction && proceed){
+              if (!resultsArray[i].match(factionRegExp)){
+                proceed=false;
+              }
+            }
+            if (checkIfTouched && proceed){
+              if (!resultsArray[i].match(touchedRegExp)){
+                proceed=false;
+              }
+            }
+            if (checkSpacialCoords && proceed){
+              // TODO: Create the function that can compare a set of floating point coordinates against a set
+              // Example (loaded and unloaded):
+              // pos=(121.83931, 271.8866, -1257.7705) // Can be an E type value, so make sure to convert during the check.
+              var posResult=resultsArray[i].match(/pos=[(][0-9, .E-][)]/)
+              if (posResult){ // This is redundant, there should ALWAYS be a match, but just in case..
+                var posString=posResult[0].replace(/^pos=[(]/,"").replace(/[)]$/,"");
+                var posCoordsObj=new CoordsObj(posString); // This converts any E numbers to floating point
+                if (!miscHelpers.areCoordsBetween(posCoordsObj,spacialCoordsFilterPointAObj,spacialCoordsFilterPointBObj)){
+                    proceed=false;
+                }
+              } else { // I guess the entity didn't have spacial coords somehow?
+                proceed=false;
+              }
+            }
+            if (proceed){
+              // If all tests passed, then push the UID
+              returnResults.push(shipUID[0].replace(/^uid=/,"")); // Grab the first value from the match object created to get the string. Don't use .toString() because this doesn't work right when using | either/or type regex patterns on the uid filter
+            }
+          }
+        }
+        return returnResults;
+      } else { // Some kind of error occurred when attempting to get the sector info
+        console.error("ERROR: Unable to run starnet command to grab the ship list!");
+      }
+    }
+  }
+  return null;
+}
 // TODO: Create a function that gives a specific protection a value based on the sectorProtections array.
 // TODO: Create a function that converts an array of protection names to a total number

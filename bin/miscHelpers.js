@@ -5,7 +5,8 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   ensureFolderExists,
   waitAndThenKill,
   deleteFile,
-  touch
+  touch,
+  areCoordsBetween // TODO: Test to ensure this works correctly
 };
 
 const path              = require('path');
@@ -46,6 +47,24 @@ function isPidAliveTest(){
 // TESTING END
 
 // The FUNCTIONS
+
+function areCoordsBetween(compare,first,second){ // Takes CoordsObj as input for all values
+  // example areCoordsBetween(new CoordsObj(1,1,1),new CoordsObj(0,0,0),new CoordsObj(2,2,2));  // Returns true
+  var cX=compare.x;
+  var cY=compare.y;
+  var cZ=compare.z;
+
+  var sX=Math.min(first.x,second.x);
+  var sY=Math.min(first.y,second.y);
+  var sZ=Math.min(first.z,second.z);
+
+  var bX=Math.max(first.x,second.x);
+  var bY=Math.max(first.y,second.y);
+  var bZ=Math.max(first.z,second.z);
+  return cX >= sX && cX <= bX && cY >= sY && cY <= bY && cZ >= sZ && cZ <= bZ;
+}
+
+
 function ensureFolderExists (folderPath){ // Returns true if the folder exists or if it can be created and then exists, otherwise throws an error.
   let resolvedFolderPath=path.resolve(folderPath); // Using resolve to ensure the path is specified in the right way for the OS.  Resolve tack on the current working directory to make it a full path if needed, which may NOT be the same as the folder starmade.js is in because this is meant to be a general purpose function and not necessarily tied to the starmade.js script.
   try {
