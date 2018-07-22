@@ -1,3 +1,19 @@
+module.exports={
+  "getFileAsObj":getIniFileAsObj,
+  "writeObjToFile":writeIniObjToIni,
+  "getVal":getIniValue,
+  "getValFromStr":removeIniCommentsFromString,
+  "setVal":changeIniValue,
+  "renVar":renameIniVariable,
+  "getComment":getIniComment,
+  "getCommentFromStr":getIniCommentFromString,
+  "remCommentFromStr":removeIniCommentsFromString,
+  "changeValFromStr":changeIniValueFromString,
+  "varExists":iniVariableExists,
+  "getVarsWhereVal":getVariablesWhereValueEqualsString
+}
+
+
 const fs=require('fs');
 const path=require('path');
 const binFolder=path.resolve(__dirname,"../bin/");
@@ -138,19 +154,4 @@ function changeIniValueFromString(stringWComments,newVal){
       return newVal + getIniCommentFromString(stringWComments);
     }
     throw new Error("ERROR: Please specify a string from an ini object and a new value to replace the old one with!");
-}
-
-module.exports={
-  "getFileAsObj":getIniFileAsObj,
-  "writeObjToFile":writeIniObjToIni,
-  "getVal":getIniValue,
-  "getValFromStr":removeIniCommentsFromString,
-  "setVal":changeIniValue,
-  "renVar":renameIniVariable,
-  "getComment":getIniComment,
-  "getCommentFromStr":getIniCommentFromString,
-  "remCommentFromStr":removeIniCommentsFromString,
-  "changeValFromStr":changeIniValueFromString,
-  "varExists":iniVariableExists,
-  "getVarsWhereVal":getVariablesWhereValueEqualsString
 }
