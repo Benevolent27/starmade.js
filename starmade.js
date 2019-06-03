@@ -259,7 +259,7 @@ if (fs.existsSync(lockFile) && ignoreLockFile == false){
   //todo if the lock file exists, we need to grab the PID from the file and see if the server is running.  If not, then we can safely remove the lock file, otherwise end with an error.
   console.log("Existing Lock file found! Parsing to determine if server is still running..");
   var response;
-  var lockFileContents=fs.readFileSync(lockFile);
+  var lockFileContents=fs.readFileSync(lockFile).toString();  //added .toString to make ES lint happy
   var lockFileObject=JSON.parse(lockFileContents);
   // Checking the main starmade.js process PID - We check this first because we run a treekill on it which will normally also bring down the individual server PID and prevent it from auto-restarting the server on abnormal exit
   if (lockFileObject.hasOwnProperty("mainPID")){
@@ -487,7 +487,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
             }
             let playerObj={
               "playerName": playerName,
-              "spawnTime": Math.floor(new Date() / 1000)
+              "spawnTime": Math.floor(new Date().getTime() / 1000)
             }
             eventEmitter.emit('playerSpawn',playerObj);
           }
@@ -523,7 +523,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           let shipObj={
             "playerName": playerName,
             "shipName": shipName,
-            "spawnTime" : Math.floor(new Date() / 1000)
+            "spawnTime" : Math.floor(new Date().getTime() / 1000)
           }
           eventEmitter.emit('shipSpawn',shipObj);
         } else {
@@ -537,7 +537,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
             let baseObj={
               "playerName": playerName,
               "baseName": baseName,
-              "spawnTime" : Math.floor(new Date() / 1000)
+              "spawnTime" : Math.floor(new Date().getTime() / 1000)
             }
             eventEmitter.emit('baseSpawn',baseObj);
           }
@@ -677,9 +677,6 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
     delServerPID(server.pid); // This updates the lock file
     if (code){
       process.exitCode=code;
-      if (code.message){
-          console.log('Server instance exited with message: ' + code.message.toString());
-      }
       console.log('Server instance exited with code: ' + code.toString());
     }
     console.log("Here's some listener listings:");
@@ -717,11 +714,13 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   server.on('error', function (code) {
     // This runs is the java process could not start for some reason.
     console.error("ERROR:  Could not launch server process!")
-    if (code.message){
+    if (code.hasOwnProperty("message")){
         console.log('Error Message: ' + code.message.toString());
     }
     console.log('Exit code: ' + code.toString());
-    process.exitCode=code;
+    if (code.hasOwnProperty("code")){
+      process.exitCode=code.code;
+    }
     throw new Error("Server launch fail!");
     // exitNow(code); // This is temporary, we don't necessarily want to kill the wrapper when the process dies.
   });
