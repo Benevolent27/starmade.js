@@ -680,14 +680,14 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
       console.log('Server instance exited with code: ' + code.toString());
     }
     console.log("Here's some listener listings:");
-    console.log("process:");
-    console.dir(process.listeners());
+    // console.log("process:");
+    // console.dir(process.listeners());
 
-    console.log("server:");
-    console.dir(server.listeners());
+    // console.log("server:");
+    // console.dir(server.listeners());
 
-    console.log("eventEmitter:");
-    console.dir(eventEmitter.listeners());
+    // console.log("eventEmitter:");
+    // console.dir(eventEmitter.listeners());
 
     console.log("serverTail:");
     console.dir(serverTail.listeners());
