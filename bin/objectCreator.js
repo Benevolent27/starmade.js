@@ -2,6 +2,7 @@
 // This script assists with creating all custom object types used by the wrapper.
 
 module.exports={ // Always put module.exports at the top so circular dependencies work correctly.
+  init, // This is needed so objects can send text directly to the server
   ServerObj,
   // SqlQueryObj, // This cannot be defined here because it comes from a require.  It must be injected AFTER being required.
   EntityObj,
@@ -16,7 +17,8 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   SpawnObj,
   BluePrintObj,
   RemoteServer: RemoteServerObj,
-  LockFileObj
+  LockFileObj,
+  PlayerObj
 }
 
 // Requires
@@ -301,8 +303,6 @@ function ipObjTests(){
   console.log("myIPObj.unban() result: " + myIPObj.unban());
   console.log("Attempting to unban the IP again, which should fail:");
   console.log("myIPObj.unban() result: " + myIPObj.unban());
-
-
 }
 function getServerListTest(){
   console.log("Test result: ");
@@ -349,6 +349,10 @@ function showResponseCallback(error,output){ // This is a helper function for te
 }
 
 // TESTING END
+var server;  // This is needed so objects can send text to the server directly
+function init(theServer) {
+  server=theServer;
+}
 
 function ServerObj(configurationName,lockFileObj){
   // configurationName is the name of the server from the settings.json file under the section "servers".
@@ -469,6 +473,16 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
   if (player){
     var playerName=player.replace(/^ENTITY_PLAYERCHARACTER_/,"").replace(/^ENTITY_PLAYERSTATE_/,""); // strip the UID
     this.name=playerName;
+
+    this.msg=function (message){
+      if (message){
+        var theMessage=message.toString().trim();
+        let mMessage="/server_message_to plain " + playerName + "'" + theMessage + "'\n";
+        return server.stdin.write(mMessage);
+      }
+      return false;
+    }
+
     // TODO: Add Info methods:
 
     // Example from "/player_info Benevolent27":

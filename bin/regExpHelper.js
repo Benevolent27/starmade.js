@@ -7,7 +7,7 @@
 
 var playerPrefixes=["ENTITY_PLAYERCHARACTER_","ENTITY_PLAYERSTATE_"];
 var uidPrefixes=["ENTITY_SHOP_","ENTITY_SPACESTATION_","ENTITY_FLOATINGROCK_","ENTITY_PLANET_","ENTITY_SHIP_","ENTITY_FLOATINGROCKMANAGED_","ENTITY_CREATURE_","ENTITY_PLANETCORE_","ENTITY_PLAYERCHARACTER_","ENTITY_PLAYERSTATE_"];
-var sectorProtections=["nofploss","noindications","noexit","noenter","protected","peace"]; // If a new sector chmod value comes out, it can be added to the end of the beginning of this array.
+var sectorProtections=["nofploss","noindications","noexit","noenter","protected","peace"]; // If a new sector chmod value comes out, it can be added to the end or the beginning of this array.
 
 var uidPrefixesRegExp=createMultiRegExpFromArray(uidPrefixes,"^");
 function createMultiRegExpFromArray(inputArray,prefix,suffix){

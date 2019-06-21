@@ -86,13 +86,15 @@ function SqlQueryObj(sqlQuery){
           // Even if there are no results found, a valid SQL query ALWAYS returns the columns
           this.error=false;
           this.mapArray=mapifyColumnsAndAllData(theResults["columns"],theResults["data"]);
-          this.objArray=function(){
+          this.objArray2=function(){
             var returnArray=[];
             for (let i=0;i<this.mapArray.length;i++){
               returnArray.push(objHelper.strMapToObj(this.mapArray[i]));
             }
             return returnArray;
           };
+		  this.objArray=convertMapArrayToObjectArray(this.mapArray);
+		  
           this.columns=theResults["columns"];
           // I'm changing this to be a value rather than function, because it occured to me that if there are 0 results, the map should be empty
           // this.columns=function(){
@@ -125,7 +127,7 @@ function ReturnObj(theArray){ // This simply shifts a 2 part array into an objec
     this.columns=[]; // Since there were no values, there were no columns
   }
   this.data=tempArray;
-}
+};
 
 function mapifyColumnsAndAllData(columnArray,dataArray){ // this assists the SQL query constructor
   // dataArray should be an array of nested arrays, which each contain one individual result
@@ -136,11 +138,19 @@ function mapifyColumnsAndAllData(columnArray,dataArray){ // this assists the SQL
     tempArray.push(mapFromColumnsAndDataSet(columnArray,dataArray[e]));
   }
   return tempArray;
-}
+};
 function mapFromColumnsAndDataSet(columnArray,dataArray){ // this assists the SQL query constructor, creating each a new map for each individual result.
   var tempMap=new Map();
   for (let i=0;i<columnArray.length;i++){
     tempMap.set(columnArray[i],dataArray[i]);
   }
   return tempMap;
-}
+};
+
+function convertMapArrayToObjectArray(theMap){
+	var returnArray=[];
+	for (let i=0;i<theMap.length;i++){
+		returnArray.push(objHelper.strMapToObj(theMap[i]));
+	}
+return returnArray;
+};
