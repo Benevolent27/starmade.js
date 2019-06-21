@@ -105,10 +105,7 @@ const exitHook        = installAndRequire('exit-hook'); // https://github.com/si
 // ### Set up submodules and aliases from requires.
 var eventEmitter      = new events.EventEmitter(); // This is for custom events
 var isPidAlive        = miscHelpers.isPidAlive;
-
-
 var {isDirectory,getDirectories,isFile,getFiles}=miscHelpers;  // Sets up file handling
-
 
 // Object aliases
 var SqlQueryObj    = objectCreator.SqlQueryObj;
