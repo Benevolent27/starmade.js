@@ -1,0 +1,29 @@
+global object:
+
+mainFolder
+binFolder
+modsFolder
+debugLog
+miscHelpers
+requireBin
+settings
+objectCreator
+installAndRequire
+sleep
+ini
+objectHelper
+regExpHelper
+
+treeKill // https://www.npmjs.com/package/tree-kill To kill the server and any sub-processes
+prompt // https://www.npmjs.com/package/prompt-sync This creates sync prompts and can have auto-complete capabilties.  The sigint true part makes it so pressing CTRL + C sends the normal SIGINT to the parent javascript process
+Tail // https://github.com/lucagrulla/node-tail/blob/master/README.md For following the server log.  I forgot that the console output does NOT have everything.  This is NOT a perfect solution because whenever file rotation occurs, there is a 1 second gap in coverage.  Argh.
+exitHook // https://github.com/sindresorhus/exit-hook Handles normal shutdowns, sigterm, sigint, and a "message=shutdown" event.  Good for ensuring the server gets shutdown.
+
+starMadeInstallFolder
+starMadeServerConfigFile
+debug
+
+serverSpawn // The actual javascript spawn of the server
+
+modFolders // An array of all the mod folders
+modFiles // An array of all the loaded .js files loaded from the mod folders

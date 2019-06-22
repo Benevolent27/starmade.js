@@ -1,15 +1,18 @@
 module.exports={"init":init};
 
-function init(event){
+function init(event,global){  // the event listener is always the first variable here, global is optional
   console.log("#!#!# test mod loaded!  #!#!#");
   var path=require("path");
-  var binFolder=path.join("..","..","bin");
-  var objectCreator=require(path.join(binFolder,"objectCreator.js"));
-  var objectHelper=require(path.join(binFolder,"objectHelper.js"));
-
+  // var binFolder=path.join("..","..","bin");
+  // var objectCreator=require(path.join(binFolder,"objectCreator.js"));
+  // var objectHelper=require(path.join(binFolder,"objectHelper.js"));
+  var {binFolder, objectCreator, objectHelper} = global; // Rather than having to manually load these values, they can be pulled from the globalObject passed to this mod
+  // Set up custom Objects
+  var {PlayerObj,SqlQueryObj}=objectCreator;
   event.on('message', function(msg) { // Handle messages sent from players
 
-    let playerObj = new objectCreator.PlayerObj("Benevolent27"); // Just testing how requiring the objectCreator.js works
+    // let playerObj = new objectCreator.PlayerObj("Benevolent27"); // Just testing how requiring the objectCreator.js works
+    let playerObj = new PlayerObj("Benevolent27"); // Just testing how requiring the objectCreator.js works
     playerObj.msg("The new object was created successfully!"); // Just testing how requiring the objectCreator.js works
 
 
@@ -28,6 +31,7 @@ function init(event){
 
     }
   });
+
   event.on('playerSpawn', function(playerObj) {
     playerObj.msg("Melvin: Hello and welcome to the server!");
   });
