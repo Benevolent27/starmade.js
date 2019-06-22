@@ -1276,7 +1276,7 @@ exitHook(() => { // This will handle sigint and sigterm exits.
     try {
       console.log("Powershell spawn detected.  Killing it.  PID is: " + powershellPID);
       treeKill(powershellPID, 'SIGTERM');
-    } catch {
+    } catch (error) {
       console.log("ERROR:  Could not kill powershell instance!");
     }
   }
