@@ -35,8 +35,8 @@
     "tail": "^1.2.3",
     "thread-sleep": "^2.0.0",
     "tree-kill": "^1.2.0",
-	"js-yaml": ">=3.13.1",
-	"lodash": ">=4.17.11",
-	"underscore.string": ">=3.3.5"
+    "js-yaml": ">=3.13.1",
+    "lodash": ">=4.17.11",
+    "underscore.string": ">=3.3.5"
   }
 }
