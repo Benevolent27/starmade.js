@@ -868,8 +868,9 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   process.stdin.on('data', function(text){
     let theText=text.toString().trim();
     if (theText[0] == "!"){
-      let theArguments = theText.split(" +"); // Split with the + symbol so it splits by any amount of spaces
-      let theCommand   = theArguments.shift().toLowerCase();
+      let theArguments = theText.split(/ +/); // Split with the + symbol so it splits by any amount of spaces
+      let theCommand   = theArguments[0].toLowerCase();
+      theArguments.shift();
       let tempArray    = theCommand.split("")
       tempArray.shift();
       theCommand=tempArray.join("");
