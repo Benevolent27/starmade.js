@@ -21,7 +21,7 @@ function included(){ // Include Patterns
   includePatterns.push("^Planet[(]"); // # This handles NPC creature death via planet
   includePatterns.push("^ManagedAsteroid[(]"); // This handles NPC creature deaths via asteroids that have been modified in some way
   includePatterns.push("^\\[DEATH\\]");
-  includePatterns.push("^\\[SPAWN\\]");
+  includePatterns.push("^\\[SPAWN\\]"); // This is for the serverlog.0.log, which shows when a player spawns in a ship -- this information is not found in the console output or elsewhere.
   includePatterns.push("^\\[BLUEPRINT\\]"); // Blueprint spawns, including admin spawns.  They can be separated.
   includePatterns.push("^\\[SEGMENTCONTROLLER\\] ENTITY");
   includePatterns.push("^\\[FACTION\\]");
