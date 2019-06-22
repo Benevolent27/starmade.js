@@ -28,6 +28,8 @@
 // NPM "REQUIRES" ARE OK - NO NEED TO RE-INVENT WHEELS
 // Provided a NPM package seems stable enough, we can use them to expand the functionality of our scripting and decrease production time.  Care must be taken to ensure that performance isn't decreased significantly though.  -- NO GHETTO PACKAGES PLZ
 
+
+
 // ######################
 // ###   EXIT CODES   ###
 // ######################
@@ -48,9 +50,13 @@ const path   = require('path'); // This is needed to build file and directory pa
 
 // ### Main Vars ### - Don't change these
 console.log("Setting main vars..");
+var global={ }; // This will be used to pass variables to mods to be readily available
 var mainFolder      = path.dirname(require.main.filename); // This is where the starmade.js is.  I use this method instead of __filename because starmade.js might load itself or be started from another script
 var binFolder       = path.join(mainFolder,"bin");
-var modFolder       = path.join(mainFolder,"mods");
+var modsFolder       = path.join(mainFolder,"mods");
+global["mainFolder"]=mainFolder;
+global["binFolder"]=binFolder;
+global["modsFolder"]=modsFolder;
 var operations      = 0;
 var serversRunning  = 0; // This is to count the server's running to manage the exit function and kill them when this main script dies.
 var lockFileObj = { // This will be used for the lock file, so if another instance of the script runs, it can parse the file and check PIDs, making decisions on what to do.
@@ -65,6 +71,7 @@ console.debug=function (vals,sleepTime) { // for only displaying text when the -
     }
   }
 }
+global["debugLog"]=console.debug;
 
 // #######################
 // ### SCRIPT REQUIRES ###
@@ -75,7 +82,10 @@ const miscHelpers       = require(path.join(binFolder,"miscHelpers.js"));
 const requireBin        = miscHelpers["requireBin"]; // Simplifies requiring scripts from the bin folder..yes I am this lazy.
 console.log("setSettings..");
 const setSettings       = requireBin("setSettings.js"); // This will confirm the settings.json file is created and the install folder is set up.
-var settings                  = setSettings(); // Import settings, including the starmade folder, min and max java settings, etc.  If the settings.json file does not exist, it will set it up.
+var settings            = setSettings(); // Import settings, including the starmade folder, min and max java settings, etc.  If the settings.json file does not exist, it will set it up.
+global["miscHelpers"]=miscHelpers;
+global["requireBin"]=requireBin;
+global["settings"]=settings;
 
 console.log("Loading Objects..");
 const objectCreator     = requireBin("objectCreator.js");
@@ -86,9 +96,15 @@ const patterns          = requireBin("patterns.js"); // Import the patterns that
 // const starNetHelper     = requireBin("starNetHelper.js"); // needs testing
 // const sqlQuery          = requireBin("sqlQuery.js"); // Will be eliminating this in favor of creating SqlQuery objects.
 const ini               = requireBin("iniHelper.js"); // This will replace the current functionality of ini by wrapping it and modifying the ini package so that it works correctly for starmade config files and ini files that use # characters.
-// const obj               = requireBin("objectHelper.js"); // This includes assistance handling of custom objects and conversions
+const objectHelper      = requireBin("objectHelper.js"); // This includes assistance handling of custom objects and conversions
 const regExpHelper      = requireBin("regExpHelper.js"); // Contains common patterns, arrays, and pattern functions needed for the wrapper.
 const smInstallHelpers = requireBin("smInstallHelpers.js");
+global["objectCreator"]=objectCreator;
+global["installAndRequire"]=installAndRequire;
+global["sleep"]=sleep;
+global["ini"]=ini;
+global["objectHelper"]=objectHelper;
+global["regExpHelper"]=regExpHelper;
 
 // #################################
 // ### NPM DOWNLOADABLE REQUIRES ###
@@ -99,10 +115,16 @@ const treeKill        = installAndRequire('tree-kill'); // https://www.npmjs.com
 const prompt          = installAndRequire("prompt-sync")({"sigint":true}); // https://www.npmjs.com/package/prompt-sync This creates sync prompts and can have auto-complete capabilties.  The sigint true part makes it so pressing CTRL + C sends the normal SIGINT to the parent javascript process
 const Tail            = installAndRequire('tail').Tail; // https://github.com/lucagrulla/node-tail/blob/master/README.md For following the server log.  I forgot that the console output does NOT have everything.  This is NOT a perfect solution because whenever file rotation occurs, there is a 1 second gap in coverage.  Argh.
 const exitHook        = installAndRequire('exit-hook'); // https://github.com/sindresorhus/exit-hook Handles normal shutdowns, sigterm, sigint, and a "message=shutdown" event.  Good for ensuring the server gets shutdown.
+global["treeKill"]=treeKill;
+global["prompt"]=prompt;
+global["Tail"]=Tail;
+global["exitHook"]=exitHook;
+
 
 // ### Set up submodules and aliases from requires.
 var eventEmitter      = new events.EventEmitter(); // This is for custom events
 var isPidAlive        = miscHelpers.isPidAlive;
+var {isDirectory,getDirectories,isFile,getFiles}=miscHelpers;  // Sets up file handling
 
 // Object aliases
 var SqlQueryObj    = objectCreator.SqlQueryObj;
@@ -136,6 +158,10 @@ var forceStart                = false; // Having this set to true will make the 
 var ignoreLockFile            = false; // If this is set to true, it will behave as though the lock file does not exist, and will replace it when it starts again.  WARNING:  If any servers are running in the background, this will duplicate trying to run the server, which will fail because an existing server might already be running.
 var debug                     = false; // This enables debug messages
 var os                        = process.platform;
+global["starMadeInstallFolder"]=starMadeInstallFolder;
+global["starMadeServerConfigFile"]=starMadeServerConfigFile;
+global["debug"]=debug;
+
 var starMadeStarter;
 // TODO: Fix this to use the .exe file properly when doing installs.  Sure the Jar works, but might be a bad idea for some reason.
 // Note that I SHOULD be able to re-enable this, but I need to ensure the starMadeStarter is not ran directly anywhere and instead uses the helper function, "smartSpawnSync" from miscHelpers.js
@@ -259,7 +285,7 @@ if (fs.existsSync(lockFile) && ignoreLockFile == false){
   //todo if the lock file exists, we need to grab the PID from the file and see if the server is running.  If not, then we can safely remove the lock file, otherwise end with an error.
   console.log("Existing Lock file found! Parsing to determine if server is still running..");
   var response;
-  var lockFileContents=fs.readFileSync(lockFile);
+  var lockFileContents=fs.readFileSync(lockFile).toString(); // Added .toString() to make ESLinter happy since it was saying this was a string when using JSON.parse on it.
   var lockFileObject=JSON.parse(lockFileContents);
   // Checking the main starmade.js process PID - We check this first because we run a treekill on it which will normally also bring down the individual server PID and prevent it from auto-restarting the server on abnormal exit
   if (lockFileObject.hasOwnProperty("mainPID")){
@@ -366,7 +392,7 @@ if (fs.existsSync(lockFile) && ignoreLockFile == false){
 eventEmitter.on('ready', function() { // This won't fire off yet, it's just being declared so later on in the script it can be started.  I can modify this later if I want to allow more than one instance to be ran at a time.
   console.log("Starting server..");
 
-  // #####  PLAYER MESSAGES  #####
+  // #####  PLAYER MESSAGES  #####  TODO:  Remove this section since the modloader is working now.
   eventEmitter.on('message', function(messageObj) { // Handle messages sent from players
     // Expects message to be a message type object
     console.log("Message (type: " + messageObj.type +") DETECTED from " + messageObj.sender.name + " to " + messageObj.receiver.name + ": " + messageObj.text);
@@ -377,10 +403,9 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
       // server.stdin.end();
     }
   });
-
   eventEmitter.on('playerSpawn', function(playerSpawn) {
     console.log("playerSpawn detected.");
-    let mMessage="/server_message_to plain " + playerSpawn.playerName + " 'Melvin: Well hello there, " + playerSpawn.playerName + "!  Thanks for spawning in!'";
+    let mMessage="/server_message_to plain " + playerSpawn.name + " 'Melvin: Well hello there, " + playerSpawn.name + "!  Thanks for spawning in!'";
     server.stdin.write(mMessage.toString().trim() + "\n");
   });
   eventEmitter.on('shipSpawn', function(shipSpawn) {
@@ -417,6 +442,8 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
     //   server = spawn("java", ["-Xms" + settings["javaMin"], "-Xmx" + settings["javaMax"],"-jar", starMadeJar,"-server", "-port:" + settings["port"]], {"cwd": starMadeInstallFolder});
     // }
     server = spawn("java",javaArgs,{"cwd": starMadeInstallFolder});
+    global["serverSpawn"]=server;
+
   } catch (err) { // This does NOT handle errors returned by the spawn process.  This only handles errors actually spawning the process in the first place, such as if we type "javaBlah" instead of "java".  Cannot run "javaBlah" since it doesn't exist.
     console.error("ERROR: Could not spawn server!")
     if (err.message) { console.error("Error Message: " + err.message.toString()); }
@@ -424,6 +451,102 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
     process.exitCode=130;
     throw new Error("Server spawn fail.");
   }
+
+  // initialize the objectCreator so it can send text directly to the server through "server". 
+  //  IMPORTANT:  THIS MUST BE DONE BEFORE ANY OBJECTS ARE CREATED!
+  console.log("############## INITIALIZING OBJECT CREATOR ###############");
+  objectCreator.init(server);
+
+    // ###################
+    // #### MODLOADER ####
+    // ###################
+    console.log("############## Loading Mods ###############");
+
+    // Find all modfolders   // Source: https://stackoverflow.com/questions/18112204/get-all-directories-within-directory-nodejs
+    // const isDirectory = source => lstatSync(source).isDirectory()
+
+    //    Working but throws errors with ESLINT due to the way the function is declared
+    // const isDirectory = function (source) { 
+    //   return lstatSync(source).isDirectory(); 
+    // };
+    // const getDirectories = function(source) {
+    //   return readdirSync(source).map((name) => join(source, name)).filter(isDirectory); // working
+    // }
+    // const isFile = function (source) { 
+    //   return lstatSync(source).isFile(); 
+    // };
+    // const getFiles = function(source) {
+    //   return readdirSync(source).map((name) => join(source, name)).filter(isFile); // testing
+    // }
+
+    // Working but I'd rather just use fs.lstatSync and fs.readdirSync directly when needed.
+    // const {lstatSync, readdirSync} = require('fs')
+    // const {join} = require('path')
+    // function isDirectory(source) { 
+    //   return lstatSync(source).isDirectory(); 
+    // };
+    // function getDirectories(source) {
+    //   return readdirSync(source).map((name) => join(source, name)).filter(isDirectory);
+    // }
+    // function isFile(source) { 
+    //   return lstatSync(source).isFile(); 
+    // };
+    // function getFiles(source) {
+    //   return readdirSync(source).map((name) => join(source, name)).filter(isFile);
+    // }
+
+    // Final - simplified to functions -- And exported to miscHelpers
+    // function isDirectory(source) { 
+    //   return fs.lstatSync(source).isDirectory(); 
+    // };
+    // function getDirectories(source) {
+    //   return fs.readdirSync(source).map((name) => path.join(source, name)).filter(isDirectory);
+    // }
+    // function isFile(source) { 
+    //   return fs.lstatSync(source).isFile(); 
+    // };
+    // function getFiles(source) {
+    //   return fs.readdirSync(source).map((name) => path.join(source, name)).filter(isFile);
+    // }
+
+    var modFolders=getDirectories(modsFolder)
+    global["modFolders"]=modFolders;
+
+    // Testing for loading mods  TODO: Change the way it loads to use a map instead, with each directory name being paired with the require
+    // Require all scripts found in mod folders
+    var fileList=[];
+    var mods=[];
+    for (var i = 0;i < modFolders.length;i++) {
+      console.log("Mod Folder found: " + modFolders[i] + " Looking for scripts..");
+      fileList=getFiles(modFolders[i]);
+      console.dir(fileList);
+      for (var e=0;e<fileList.length;e++){
+        if (fileList[e].match(/.\.js$/)) {
+          console.log("Loading JS file: " + fileList[e]);
+          mods.push(require(fileList[e]));
+        }
+      }
+    }
+    console.dir(mods);
+    global["modFiles"]=mods;
+    //  No more variables should be added to the globalObject after this, since all the mods will be initialized NOW.  ie. global["whatever"]=whatever;
+
+    for (i=0;i<mods.length;i++){
+      if (mods[i].hasOwnProperty("init")){  // Only run the init function for scripts that have it
+        mods[i].init(eventEmitter,global);
+      }
+    }
+    
+
+    //    process.exit();
+
+    //  Temp:  Loads an individual, pre-made test.js
+    // var testModFolder=path.join(modsFolder,"testMod");
+    //console.log("Loading: " + path.join(testModFolder,"test.js"));
+    //var modTest = require(path.join(testModFolder,"test.js"));
+    //modTest.init(eventEmitter,server);
+
+    console.log("#####  MODS LOADED #####");
   var tailOptions = {
     "fsWatchOptions": {"persistent": false},
     "follow": true
@@ -485,10 +608,13 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
               let mMessage="/server_message_broadcast plain " + "'" + playerName + " has spawned.'";
               server.stdin.write(mMessage.toString().trim() + "\n");
             }
-            let playerObj={
-              "playerName": playerName,
-              "spawnTime": Math.floor(new Date() / 1000)
-            }
+            let playerObj = new objectCreator.PlayerObj(playerName);
+            playerObj["spawnTime"]=Math.floor((new Date()).getTime() / 1000);
+
+            //let playerObj={
+            //  "playerName": playerName,
+            //  "spawnTime": Math.floor((new Date()).getTime() / 1000)
+            //}
             eventEmitter.emit('playerSpawn',playerObj);
           }
         }
@@ -523,7 +649,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           let shipObj={
             "playerName": playerName,
             "shipName": shipName,
-            "spawnTime" : Math.floor(new Date() / 1000)
+            "spawnTime" : Math.floor((new Date()).getTime() / 1000)
           }
           eventEmitter.emit('shipSpawn',shipObj);
         } else {
@@ -537,7 +663,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
             let baseObj={
               "playerName": playerName,
               "baseName": baseName,
-              "spawnTime" : Math.floor(new Date() / 1000)
+              "spawnTime" : Math.floor((new Date()).getTime() / 1000)
             }
             eventEmitter.emit('baseSpawn',baseObj);
           }
@@ -632,7 +758,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
       if (showStdout == true) {
         console.log("stdout: " + dataString);
       }
-      processDataInput(dataString); // Process the line to see if it matches any events
+      processDataInput(dataString); // Process the line to see if it matches any events and then trigger the appropriate event
     }
   });
 
@@ -642,19 +768,18 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
       if (showStderr == true) {
         console.log("stderr: " + dataString);
       }
-      processDataInput(dataString); // Process the line to see if it matches any events
+      processDataInput(dataString); // Process the line to see if it matches any events and then trigger the appropriate event
     }
   });
-
-  serverTail.on('line', function(data) {
-    // let dataString=data.toString().trim().replace(/^\[[^\[]*\] */,'');
-    let dataString=data.toString().trim().replace(/^\[[^[]*\] */,''); // Trying to fix ESLinter error
+  
+  serverTail.on('line', function(data) { // This is unfortunately needed because some events don't appear in the console output.  I do not know if the tail will be 100% accurate, missing nothing.
+    // let dataString=data.toString().trim().replace(/^\[[^\[]*\] */,''); // This was throwing ESLINTER areas I guess.
+    let dataString=data.toString().trim().replace(/^\[[^[]*\] */,''); // This removes the timestamp from the beginning of each line so each line looks the same as a console output line, which has no timestamps.
     if (dataString){
-      // sed 's/^\[[^\[]*\][[:blank:]]*//g'
       if (showServerlog == true ) {
         console.log("serverlog: " + dataString);
       }
-      processDataInput(dataString);
+      processDataInput(dataString); // Process the line to see if it matches any events and then trigger the appropriate event.
     }
 
   });
@@ -677,20 +802,18 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
     delServerPID(server.pid); // This updates the lock file
     if (code){
       process.exitCode=code;
-      if (code.message){
-          console.log('Server instance exited with message: ' + code.message.toString());
-      }
+      // if (code.hasOwnProperty("message")){  // Commenting out to make ESLinter happy
+      //     console.log('Server instance exited with message: ' + code.message.toString());
+      // }
       console.log('Server instance exited with code: ' + code.toString());
     }
     console.log("Here's some listener listings:");
-    console.log("process:");
-    console.dir(process.listeners());
-
-    console.log("server:");
-    console.dir(server.listeners());
-
-    console.log("eventEmitter:");
-    console.dir(eventEmitter.listeners());
+    // console.log("process:");  // Commenting out this and below to make ESLint happy
+    // console.dir(process.listeners());
+    // console.log("server:");
+    // console.dir(server.listeners());
+    // console.log("eventEmitter:");
+    // console.dir(eventEmitter.listeners());
 
     console.log("serverTail:");
     console.dir(serverTail.listeners());
@@ -700,7 +823,8 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
     console.log("Shutting down server log tail..");
     serverTail.unwatch();
     // server.stdin.end();
-    console.log("Removing listeners..");
+
+    // console.log("Removing listeners..");
     // serverTail.removeAllListeners();
     // server.removeAllListeners();
 
@@ -717,17 +841,17 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   server.on('error', function (code) {
     // This runs is the java process could not start for some reason.
     console.error("ERROR:  Could not launch server process!")
-    if (code.message){
+    if (code.hasOwnProperty("message")){
         console.log('Error Message: ' + code.message.toString());
     }
-    console.log('Exit code: ' + code.toString());
-    process.exitCode=code;
-    throw new Error("Server launch fail!");
-    // exitNow(code); // This is temporary, we don't necessarily want to kill the wrapper when the process dies.
+    console.log('Error: ' + code.toString()); // This should provide details of the error starting the server
+    // process.exitCode=code; // There does not seem to be a code provided to an error Object, so the exit code cannot be created
+    // TODO:  Set error codes for launch fails.  This will require parsing the error thrown.
+    throw new Error("Server launch fail!"); // This should kill the server and dump the text to the console.
   });
 
 
-  server.on('message', function(text) {
+  server.on('message', function(text) { // I don't think this is needed.  TODO: Remove this.
     console.log("Message found: " + text);
   });
 
@@ -1136,7 +1260,7 @@ writeLockFile(); // This is to prevent this script from running multiple times o
 // ### CREATE NEEDED FOLDERS  ###
 // ##############################
 
-miscHelpers.ensureFolderExists(modFolder);
+miscHelpers.ensureFolderExists(modsFolder);
 miscHelpers.ensureFolderExists(binFolder);
 miscHelpers.ensureFolderExists(starMadeInstallFolder); // This is redundant to handle if the person deletes or moves their StarMade install folder.
 

@@ -6,8 +6,13 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   waitAndThenKill,
   deleteFile,
   touch,
+  isDirectory,
+  getDirectories,
+  isFile,
+  getFiles,
   areCoordsBetween // TODO: Test to ensure this works correctly
 };
+
 
 const path              = require('path');
 const http              = require('http');
@@ -180,6 +185,23 @@ function waitAndThenKill(mSeconds,thePID,options){ // options are optional.  Thi
   }
   return true; // if we made it this far the process should be killed.
 }
+
+// #########################################
+// ######### File System Functions #########
+// #########################################
+
+function isDirectory(source) { 
+  return fs.lstatSync(source).isDirectory(); 
+};
+function getDirectories(source) {
+  return fs.readdirSync(source).map((name) => path.join(source, name)).filter(isDirectory);
+};
+function isFile(source) { 
+  return fs.lstatSync(source).isFile(); 
+};
+function getFiles(source) {
+  return fs.readdirSync(source).map((name) => path.join(source, name)).filter(isFile);
+};
 
 function deleteFile (fileToDelete){
   // Resolves files to use main script path as root if given relative path.
