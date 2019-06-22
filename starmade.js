@@ -113,7 +113,7 @@ console.log("Importing NPM requires, installing if need be..");
 const treeKill        = installAndRequire('tree-kill'); // https://www.npmjs.com/package/tree-kill To kill the server and any sub-processes
 // const iniPackage      = installAndRequire('ini'); // https://www.npmjs.com/package/ini Imports ini files as objects.  It's a bit wonky with # style comments (in that it removes them and all text that follows) and leaves // type comments, so I created some scripting to modify how it loads ini files and also created some functions to handle comments.
 const prompt          = installAndRequire("prompt-sync")({"sigint":true}); // https://www.npmjs.com/package/prompt-sync This creates sync prompts and can have auto-complete capabilties.  The sigint true part makes it so pressing CTRL + C sends the normal SIGINT to the parent javascript process
-const Tail            = installAndRequire('tail').Tail; // https://github.com/lucagrulla/node-tail/blob/master/README.md For following the server log.  I forgot that the console output does NOT have everything.  This is NOT a perfect solution because whenever file rotation occurs, there is a 1 second gap in coverage.  Argh.
+var Tail            = installAndRequire('tail').Tail; // https://github.com/lucagrulla/node-tail/blob/master/README.md For following the server log.  I forgot that the console output does NOT have everything.  This is NOT a perfect solution because whenever file rotation occurs, there is a 1 second gap in coverage.  Argh.
 const exitHook        = installAndRequire('exit-hook'); // https://github.com/sindresorhus/exit-hook Handles normal shutdowns, sigterm, sigint, and a "message=shutdown" event.  Good for ensuring the server gets shutdown.
 global["treeKill"]=treeKill;
 global["prompt"]=prompt;
@@ -140,8 +140,8 @@ var MessageObj     = objectCreator.MessageObj;
 // ###    SETTINGS   ###
 // #####################
 var lockFile                  = path.join(mainFolder,"server.lck");
-var showStderr                = true;
-var showStdout                = true;
+var showStderr                = false; // Normally this would be true but can be turned to false if testing
+var showStdout                = false;
 var showServerlog             = true;
 var showAllEvents             = false;
 var enumerateEventArguments   = false;
@@ -151,9 +151,12 @@ console.log("Importing settings..");
 var starNetJarURL             = "http://files.star-made.org/StarNet.jar";
 var starMadeInstallFolder     = path.join(settings["starMadeFolder"],"StarMade");
 var starMadeJar               = path.join(starMadeInstallFolder,"StarMade.jar");
+var logFolder                 = path.join(starMadeInstallFolder,"logs"); // This is added because we have to parse the serverlog.0.log file for ship spawns
+var serverLogFile             = path.join(logFolder,"serverlog.0.log");
+var powershellPID; // This is necessary for windows because the javascript tail will not work correctly otherwise.  TODO: See if I can use a stream with powershell instead of tail.
 var starNetJar                = path.join(binFolder,"StarNet.jar");
 var starMadeServerConfigFile  = path.join(starMadeInstallFolder,"server.cfg");
-var serverCfg                 = {}; // I'm only declaring an empty array here initially because we don't want to try and load it till we are sure the install has been completed
+var serverCfg                 = {}; // I'm declaring an empty array here initially because we don't want to try and load it till we are sure the install has been completed
 var forceStart                = false; // Having this set to true will make the script kill any existing scripts and servers and then start without asking the user.
 var ignoreLockFile            = false; // If this is set to true, it will behave as though the lock file does not exist, and will replace it when it starts again.  WARNING:  If any servers are running in the background, this will duplicate trying to run the server, which will fail because an existing server might already be running.
 var debug                     = false; // This enables debug messages
@@ -390,6 +393,14 @@ if (fs.existsSync(lockFile) && ignoreLockFile == false){
 // ###    SERVER START   ###
 // #########################
 eventEmitter.on('ready', function() { // This won't fire off yet, it's just being declared so later on in the script it can be started.  I can modify this later if I want to allow more than one instance to be ran at a time.
+  
+  serverCfg = ini.getFileAsObj(starMadeServerConfigFile); // Import the server.cfg values to an object.  These should be the final values.  Any settings changes to the file should be completed before this is loaded.  Note that this KEEPS comments in the value!
+  // Use Ini functions from the iniHelperjs to handle the the ini object.  See bottom of the file for the full list.
+  if (serverCfg){
+    console.log("Server config loaded: " + starMadeServerConfigFile);
+    global["serverCfg"]=serverCfg;
+  }
+
   console.log("Starting server..");
 
   // #####  PLAYER MESSAGES  #####  TODO:  Remove this section since the modloader is working now.
@@ -549,10 +560,27 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
     console.log("#####  MODS LOADED #####");
   var tailOptions = {
     "fsWatchOptions": {"persistent": false},
-    "follow": true
+    "follow": true,
+    "fromBeginning": false
   };
+  console.log("Initializing tail of serverlog.0.log");
   miscHelpers.touch(path.join(starMadeInstallFolder,"logs","serverlog.0.log")); // Ensure the file exists before we tail it.
-  var serverTail = new Tail(path.join(starMadeInstallFolder,"logs","serverlog.0.log"),tailOptions);
+  
+  var powershell; // TODO:  See if there is a cleaner workaround than using a powershell instance to force the serverTail to be faster..  It does not handle errors well.  I believe it will crash when log rotation happens.
+  if (process.platform == "win32" ){
+    console.log("#########   Windows detected, running powershell listener.  #########");
+    //  powershell type -wait -Tail 0 .\serverlog.0.log  <-- this will force it to refresh
+    var powershellArgs=["type","-wait","-Tail 0",serverLogFile];
+    console.log("Set Powershell arguments to: " + powershellArgs)
+    powershell = spawn("powershell",powershellArgs,{"cwd": logFolder});
+    powershellPID=powershell.pid;
+    console.log("Powershell started with PID: " + powershellPID);
+    addServerPID(powershellPID); // This is to ensure the PID is killed if the server is started again and was not successfully shut down.  I am also adding a treekill to the global exit listener.
+  }
+
+  var serverTail = new Tail(path.join(starMadeInstallFolder,"logs","serverlog.0.log"),tailOptions); // TODO:  This seems broken
+  // serverTail.watch(); // TEMPORARY
+  // process.exit(); // TEMPORARY
 
   addServerPID(server.pid); // Adds the PID to the lockfile PID tracker for servers and writes the file
   serversRunning++; // Increment the number of servers running.
@@ -610,11 +638,6 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
             }
             let playerObj = new objectCreator.PlayerObj(playerName);
             playerObj["spawnTime"]=Math.floor((new Date()).getTime() / 1000);
-
-            //let playerObj={
-            //  "playerName": playerName,
-            //  "spawnTime": Math.floor((new Date()).getTime() / 1000)
-            //}
             eventEmitter.emit('playerSpawn',playerObj);
           }
         }
@@ -637,7 +660,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
 
       } else if (theArguments[0] == "[SPAWN]") { // New Ship or Base Creation
         // Event found!: [SERVER] Object Ship[Benevolent27_1523387756157](1447) didn't have a db entry yet. Creating entry!Arguments: 1
-        console.log("Parsing possible ship or base spawn.");
+        console.log("Parsing possible ship or base spawn: " + theArguments.join(" ").toString());
         var playerName=theArguments[1];
         // var shipName=arguments[0].match(/spawned new ship: "[0-9a-zA-Z _-]*/);
         var shipName=arguments[0].match(/spawned new ship: ["][0-9a-zA-Z _-]*/);
@@ -773,6 +796,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   });
   
   serverTail.on('line', function(data) { // This is unfortunately needed because some events don't appear in the console output.  I do not know if the tail will be 100% accurate, missing nothing.
+    console.log("Processing serverlog.0.log line: " + data.toString().trim());
     // let dataString=data.toString().trim().replace(/^\[[^\[]*\] */,''); // This was throwing ESLINTER areas I guess.
     let dataString=data.toString().trim().replace(/^\[[^[]*\] */,''); // This removes the timestamp from the beginning of each line so each line looks the same as a console output line, which has no timestamps.
     if (dataString){
@@ -1247,7 +1271,15 @@ function countActiveLockFilePids(lockFileObject){
 
 exitHook(() => { // This will handle sigint and sigterm exits.
   // Cleanup that needs to be done on the global scope should be done here.
-  console.log("Global Exit event running..");
+  console.log("Global Exit event running using exitHook require..");
+  if (powershellPID){
+    try {
+      console.log("Powershell spawn detected.  Killing it.  PID is: " + powershellPID);
+      treeKill(powershellPID, 'SIGTERM');
+    } catch {
+      console.log("ERROR:  Could not kill powershell instance!");
+    }
+  }
 });
 
 // This doesn't handle sigterm or sigint exit codes.
@@ -1287,12 +1319,6 @@ async function installDepsSync() {
   var superAdminPassword = await getSuperAdminPassword(settings["starMadeFolder"]); // Check the super admin password and set up if not configured.
   console.debug("Using superAdminPassword: " + superAdminPassword); // Temporary, just for testing.  We don't want to print this to the screen normally.
 
-  serverCfg = ini.getFileAsObj(starMadeServerConfigFile); // Import the server.cfg values to an object.  These should be the final values.  Any settings changes to the file should be completed before this is loaded.  Note that this KEEPS comments in the value!
-  // Use Ini functions from the iniHelperjs to handle the the ini object.  See bottom of the file for the full list.
-
-  if (serverCfg){
-    console.log("Server config loaded: " + starMadeServerConfigFile);
-  }
   console.log("About to start server..");
   await sleep(pauseBeforeStartingServer);
   // ### Unimportant Async downloads/installs ### -- These should not be required by the server to run, but they may have depended on the first async install or sync installs before they could be run.
