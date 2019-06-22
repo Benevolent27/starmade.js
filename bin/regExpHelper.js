@@ -45,7 +45,7 @@ if (require.main.filename == __filename){ // This is so it only runs based on ar
 }
 
 function isAlphaNumeric(testString){
-  return "/^[A-Za-z0-9]+$/".test(testString);
+  return (/^[A-Za-z0-9]+$/).test(testString);
 }
 
 module.exports={

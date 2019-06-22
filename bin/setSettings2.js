@@ -40,7 +40,7 @@ module.exports = function() {
   const mkdirp = installAndRequire("mkdirp"); // https://www.npmjs.com/package/mkdirp - Great for sync or async folder creation, creating all folders necessary up to the end folder
 
   function isAlphaNumeric(testString){
-    return "/^[A-Za-z0-9]+$/".test(testString);
+    return (/^[A-Za-z0-9]+$/).test(testString);
   }
   function isValidCommandOperator(testString){
     // Command operators cannot be / characters, alphanumeric, blank, and must be 1 character
