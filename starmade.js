@@ -884,7 +884,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
         console.log(" !serverlog [on/off]");
         console.log(" !enumerateevents [on/off]");
         console.log(" !showallevents [on/off]");
-        console.log(" !settings list");
+        console.log(" !settings");
         console.log(" !changesetting [setting] [newvalue]");
 
       } else if (theCommand == "stdout" ) {
@@ -930,7 +930,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           showAllEvents=false;
         }
       } else if (theCommand == "settings") {
-        if (theArguments[0] == "list"){
+        if (!theArguments[0]){
           // const copy = Object.create(Object.getPrototypeOf(settings));
           console.log("\nHere are your current settings:")
           const propNames = Object.getOwnPropertyNames(settings);
