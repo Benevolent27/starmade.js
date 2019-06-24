@@ -821,7 +821,7 @@ function SectorObj(x,y,z){
     throw new Error("ERROR: Invalid values given to SectorObj constructor!");
   }
 }
-function CoordsObj(xInput,yInput,zInput){
+function CoordsObj(xInput,yInput,zInput){ // xInput can be a string or space or comma separated numbers, coordsObj, or a sectorObj
   // test to ensure string, array, CoordsObj, SectorObj, and regular numbers/strings(which are numbers) works.
   var x=objectHelper.toNumIfPossible(xInput);
   var y=objectHelper.toNumIfPossible(yInput);
@@ -833,12 +833,12 @@ function CoordsObj(xInput,yInput,zInput){
     xToUse=x;
     yToUse=y;
     zToUse=z;
-  } else if (typeof x == "string" && typeof y == "undefined"){ // This handles coords with spaces or commas
+  } else if (typeof xInput == "string" && typeof y == "undefined"){ // This handles coords with spaces or commas
     var tempArray=[];
-    if (x.indexOf(",") > "-1"){ // comma separated values
-      tempArray=x.split(",");
-    } else if (x.indexOf(" ") > "-1") {
-      tempArray=x.split(" "); // space separated values
+    if (xInput.indexOf(",") > "-1"){ // comma separated values
+      tempArray=xInput.split(",");
+    } else if (xInput.indexOf(" ") > "-1") {
+      tempArray=xInput.split(" "); // space separated values
     } else {
       throw new Error("Invalid string given as input to CoordsObj: " + x);
     }
@@ -849,17 +849,17 @@ function CoordsObj(xInput,yInput,zInput){
     } else {
       throw new Error("Invalid amount of numbers given as string to CoordsObj(" + tempArray.length + "): " + x);
     }
-  } else if (typeof x=="object"){ // This handles arrays or other objects
-    if (objectHelper.getObjType(x) == "Array"){
-      if (x.length==3){
-        xToUse=objectHelper.toNumIfPossible(x[0].trim());
-        yToUse=objectHelper.toNumIfPossible(x[1].trim());
-        zToUse=objectHelper.toNumIfPossible(x[2].trim());
+  } else if (typeof xInput=="object"){ // This handles arrays or other objects
+    if (objectHelper.getObjType(xInput) == "Array"){
+      if (xInput.length==3){
+        xToUse=objectHelper.toNumIfPossible(xInput[0].trim());
+        yToUse=objectHelper.toNumIfPossible(xInput[1].trim());
+        zToUse=objectHelper.toNumIfPossible(xInput[2].trim());
       } else {
         throw new Error("Invalid number of values given in array to CoordsObj (" + x.length + "): " + x)
       }
-    } else if (objectHelper.getObjType(x) == "CoordsObj" || objectHelper.getObjType(x) == "SectorObj"){
-      var coordArrayTemp=x.toArray();
+    } else if (objectHelper.getObjType(xInput) == "CoordsObj" || objectHelper.getObjType(xInput) == "SectorObj"){
+      var coordArrayTemp=xInput.toArray();
       xToUse=coordArrayTemp[0];
       yToUse=coordArrayTemp[1];
       zToUse=coordArrayTemp[2];
@@ -867,7 +867,8 @@ function CoordsObj(xInput,yInput,zInput){
       throw new Error("Invalid object input given to CoordsObj: " + x);
     }
   }
-  if (typeof xToUse != "number" || yToUse != "number" || zToUse != "number"){
+  if (typeof xToUse != "number" || typeof yToUse != "number" || typeof zToUse != "number"){
+    console.error("Invalid coords input given to new CoordsObj: " + xToUse + " " + yToUse + " " + zToUse);
     throw new Error("Invalid coords input given to new CoordsObj: " + xToUse + " " + yToUse + " " + zToUse);
   }
   this.x=xToUse;
