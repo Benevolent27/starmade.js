@@ -569,7 +569,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   var powershell; // TODO:  See if there is a cleaner workaround than using a powershell instance to force the serverTail to be faster..  It does not handle errors well.  I believe it will crash when log rotation happens.
   if (process.platform == "win32" ){
     console.log("#########   Windows detected, running powershell listener.  #########");
-    //  powershell type -wait -Tail 0 .\serverlog.0.log  <-- this will force it to refresh
+    //  powershell type -wait -Tail 0 .\serverlog.0.log  <-- this will force it to refresh  Source: https://serverfault.com/questions/1845/how-to-monitor-a-windows-log-file-in-real-time
     var powershellArgs=["type","-wait","-Tail 0",serverLogFile];
     console.log("Set Powershell arguments to: " + powershellArgs)
     powershell = spawn("powershell",powershellArgs,{"cwd": logFolder});
@@ -596,6 +596,8 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
         console.log("Event found!: " + dataInput + "Arguments: " + arguments.length);
       }
       let theArguments=arguments[0].split(" "); // This is to allow easier parsing of each individual word in the line
+      
+      enumerateEventArguments=true; // Temporary
       if (enumerateEventArguments == true){
         for (let i=0;i<theArguments.length;i++){ console.log("theArguments[" + i + "]: " + theArguments[i]); }
       }
@@ -613,7 +615,8 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
         console.log("message: " + message);
         eventEmitter.emit('message',new MessageObj(sender,receiver,receiverType,message));
 
-      } else if (theArguments[0] == "[SERVER][SPAWN]" ) { // Player Spawns
+      // ### Player Spawns ###
+      } else if (theArguments[0] == "[SERVER][SPAWN]" ) {
 
 
           // Event found!: [SERVER][SPAWN] SPAWNING NEW CHARACTER FOR PlS[Benevolent27 ; id(2)(1)f(0)]Arguments: 1
@@ -657,8 +660,8 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           // theArguments[10]: entry!
 
 
-
-      } else if (theArguments[0] == "[SPAWN]") { // New Ship or Base Creation
+      // ### New Ship or Base Creation (not blueprints) ###
+      } else if (theArguments[0] == "[SPAWN]") { 
         // Event found!: [SERVER] Object Ship[Benevolent27_1523387756157](1447) didn't have a db entry yet. Creating entry!Arguments: 1
         console.log("Parsing possible ship or base spawn: " + theArguments.join(" ").toString());
         var playerName=theArguments[1];
@@ -691,7 +694,8 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
             eventEmitter.emit('baseSpawn',baseObj);
           }
         }
-      } else if (theArguments[0] == /\[BLUEPRINT\].*/) { // Various Blueprint events
+      } else if (theArguments[0].match(/\[BLUEPRINT\].*/)) { // Various Blueprint events
+
         if (theArguments[0] == "[BLUEPRINT][BUY]"){ // New Ship spawn from blueprint
           // Event found!: [BLUEPRINT][BUY] Benevolent27 bought blueprint from metaItem: "Isanth-VI" as "Isanth-VI1523389134208"; Price: 194625; to sector: (2, 2, 2) (loadTime: 80ms, spawnTime: 0ms)
           // [SERVER][META] removing metaID: 100320Arguments: 1
@@ -723,6 +727,41 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           console.log("Some blueprint buy event happened.");
         } else if (theArguments[0] == "[BLUEPRINT][LOAD]"){ // New ship from load - possibly /spawn_mobs command
           console.log("Some blueprint load event happened.");
+          let theUser=theArguments[1];
+          console.log("theUser:" + theUser);
+          let spawnType;
+          if (theUser=="<admin>"){
+            spawnType="admin"
+          } else if (theUser=="<system>"){
+            spawnType="massSpawn"
+          } else {
+            spawnType="player"
+          }
+          console.log("spawnType:" + spawnType);
+          
+          let bluePrintName=dataInput.match(/loaded .*as "/)[0].replace(/^loaded /,"").replace(/ as "$/,"");
+          console.log("bluePrintName:" + bluePrintName);
+          let shipName=dataInput.match(/".*"/)[0].replace(/"/g,"");
+          console.log("shipName:" + shipName);
+          let coordsArray=dataInput.match(/\(.*\)/)[0].replace(/[()]/g,"").split(', ');
+          console.log("coordsArray:" + coordsArray);
+          console.log("X:" + coordsArray[0]);
+          console.log("Y:" + coordsArray[1]);
+          console.log("Z:" + coordsArray[2]);
+          let factionNumber=dataInput.match(/(\d+)$/)[0];
+          console.log("factionNumber:" + factionNumber);
+          
+
+          // Examples:
+          // Filling blueprint and spawning as player
+          // [BLUEPRINT][LOAD] Benevolent27 loaded Isanth Type-Zero B- as "This is the ship" in (1000, 1000, 1000) as faction 10001
+
+          // Admin loading:
+          // [BLUEPRINT][LOAD] <admin> loaded Isanth Type-Zero B- as "Isanth Type-Zero B-_1561352308449" in (1000, 1000, 1000) as faction 10001
+          
+          // Using "Mass Spawn Ships" as an admin
+          // [BLUEPRINT][LOAD] <system> loaded Isanth Type-Zero Cb as "MOB_Isanth Type-Zero Cb_1561353688999_0" in (1000, 1000, 1000) as faction 0
+
           // Event found!: [BLUEPRINT][LOAD] <admin> loaded Isanth-VI as "Isanth-VI_1523389201663" in (2, 2, 2) as faction 0Arguments: 1
           // theArguments[0]: [BLUEPRINT][LOAD]
           // theArguments[1]: <admin>
@@ -796,7 +835,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   });
   
   serverTail.on('line', function(data) { // This is unfortunately needed because some events don't appear in the console output.  I do not know if the tail will be 100% accurate, missing nothing.
-    console.log("Processing serverlog.0.log line: " + data.toString().trim());
+    // console.log("Processing serverlog.0.log line: " + data.toString().trim());
     // let dataString=data.toString().trim().replace(/^\[[^\[]*\] */,''); // This was throwing ESLINTER areas I guess.
     let dataString=data.toString().trim().replace(/^\[[^[]*\] */,''); // This removes the timestamp from the beginning of each line so each line looks the same as a console output line, which has no timestamps.
     if (dataString){
