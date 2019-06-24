@@ -1,5 +1,8 @@
 // @ts-check
 
+// TODO:  Create separate patterns for stderr, stdout, and tailing serverlog.0.txt
+// TODO:  Finish the blueprint loading scripting and finalize how I want it to export.  I am thinking a custom object could be used, a modified entity object, or just a regular entity object (though this would not be very efficient since it wouldn't utilize some of the data available).
+
 // Design fundamentals:
 
 // SIMPLICITY IN USE
@@ -133,6 +136,9 @@ var SectorObj      = objectCreator.SectorObj;
 var CoordsObj      = objectCreator.CoordsObj;
 var FactionObj     = objectCreator.FactionObj;
 var MessageObj     = objectCreator.MessageObj;
+var BluePrintObj   = objectCreator.BluePrintObj;
+var PlayerObj      = objectCreator.PlayerObj;
+
 
 
 
@@ -590,8 +596,12 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   // ###    WRAPPER   ###
   // ####################
 
+  // For console output:
   function processDataInput(dataInput){ // This function is run on every single line that is output by the server console.
     if (testMatch(dataInput)) { // Check to see if the message fits any of the regex patterns
+      
+      // TODO:  There needs to be a separate processing for the serverlog.0.log file, console, and stdout since there are some duplicates between the console.  This would also be faster.
+
       if (showAllEvents == true) {
         console.log("Event found!: " + dataInput + "Arguments: " + arguments.length);
       }
@@ -750,7 +760,34 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           console.log("Z:" + coordsArray[2]);
           let factionNumber=dataInput.match(/(\d+)$/)[0];
           console.log("factionNumber:" + factionNumber);
+          console.log(" ");
+          console.log(" ");
           
+          let entityObj=new EntityObj(null,shipName);
+          console.dir(entityObj);
+
+          console.log("Creating new coordsObj with: " + coordsArray);
+          let coordsObj=new CoordsObj(coordsArray);
+          // let coordsObj=new CoordsObj(coordsArray[0],coordsArray[1],coordsArray[2]);
+          console.dir(coordsObj);
+
+          let playerObj;
+          if (spawnType=="player"){
+            playerObj=new PlayerObj(theUser);
+            playerObj.msg("The playerObj was successful: " + shipName);
+            // playerObj.msg("entityObj.loaded:" + entityObj.loaded);
+
+            
+
+          }
+          console.dir(playerObj);
+
+          let blueprintObj=new BluePrintObj(bluePrintName);
+          console.dir(blueprintObj);
+
+          let factionObj=new FactionObj(factionNumber);
+          console.dir(factionObj);
+
 
           // Examples:
           // Filling blueprint and spawning as player
@@ -776,6 +813,8 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           // theArguments[10]: as
           // theArguments[11]: faction
           // theArguments[12]: 0
+
+
 
         }
           // Player Disconnects
@@ -814,6 +853,75 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
     }
   }
 
+  // For serverlog.0.log
+  function processServerlogDataInput(dataInput){ // This function is run on every single line that is output by the server console.
+    if (testMatch(dataInput)) { // Check to see if the message fits any of the regex patterns
+      
+      // TODO:  There needs to be a separate testMatch for the serverlog.0.log file
+
+      if (showAllEvents == true) {
+        console.log("Event found!: " + dataInput + "Arguments: " + arguments.length);
+      }
+      let theArguments=arguments[0].split(" "); // This is to allow easier parsing of each individual word in the line
+      
+      enumerateEventArguments=true; // Temporary
+      if (enumerateEventArguments == true){
+        for (let i=0;i<theArguments.length;i++){ console.log("theArguments[" + i + "]: " + theArguments[i]); }
+      }
+      // ### Player Spawns ###
+      if (theArguments[0] == "[SERVER][SPAWN]" ) {
+        console.log("Parsing possible player spawn.  theArguments[5]: " + theArguments[5].toString());
+        if (/PlS\[.*/.test(theArguments[5].toString())){
+          let playerName=theArguments[5].split("[").pop();
+          if (playerName) {
+            console.log("Player Spawned: " + playerName);
+            if (settings["announceSpawnsToMainChat"] == "true") {
+              let mMessage="/server_message_broadcast plain " + "'" + playerName + " has spawned.'";
+              server.stdin.write(mMessage.toString().trim() + "\n");
+            }
+            let playerObj = new objectCreator.PlayerObj(playerName);
+            playerObj["spawnTime"]=Math.floor((new Date()).getTime() / 1000);
+            eventEmitter.emit('playerSpawn',playerObj);
+          }
+        }
+      // ### New Ship or Base Creation (not blueprints) ###
+      } else if (theArguments[0] == "[SPAWN]") { 
+        // Event found!: [SERVER] Object Ship[Benevolent27_1523387756157](1447) didn't have a db entry yet. Creating entry!Arguments: 1
+        console.log("Parsing possible ship or base spawn: " + theArguments.join(" ").toString());
+        var playerName=theArguments[1];
+        // var shipName=arguments[0].match(/spawned new ship: "[0-9a-zA-Z _-]*/);
+        var shipName=arguments[0].match(/spawned new ship: ["][0-9a-zA-Z _-]*/);
+        if (shipName){
+          console.log("Temp shipName: " + shipName);
+          shipName=shipName.toString().replace(/^spawned new ship: ["]/,'');
+          // shipName=shipName.toString().split(":").pop();
+          console.log("Temp shipName: " + shipName);
+          let shipObj={
+            "playerName": playerName,
+            "shipName": shipName,
+            "spawnTime" : Math.floor((new Date()).getTime() / 1000)
+          }
+          eventEmitter.emit('shipSpawn',shipObj);
+        } else {
+          // var baseName=arguments[0].match(/spawned new station: "[0-9a-zA-Z _-]*/);
+          var baseName=arguments[0].match(/spawned new station: ["][0-9a-zA-Z _-]*/);
+          if (baseName){
+            // baseName=baseName.split(":").pop();
+            baseName=baseName.toString().replace(/^spawned new station: ["]/,'');
+
+            // baseNameArray=baseName.split()
+            let baseObj={
+              "playerName": playerName,
+              "baseName": baseName,
+              "spawnTime" : Math.floor((new Date()).getTime() / 1000)
+            }
+            eventEmitter.emit('baseSpawn',baseObj);
+          }
+        }
+      }
+    }
+  }
+
   server.stdout.on('data', function (data) { // Displays the standard output from the starmade server
     let dataString=data.toString().trim(); // Clear out any blank lines
     if (dataString){
@@ -842,7 +950,10 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
       if (showServerlog == true ) {
         console.log("serverlog: " + dataString);
       }
-      processDataInput(dataString); // Process the line to see if it matches any events and then trigger the appropriate event.
+      // There needs to be a separate processor for serverlog stuff, since there can be duplicates found in the console and serverlog.0.log file.  This should also be faster once streamlined.
+      // processDataInput(dataString); // Process the line to see if it matches any events and then trigger the appropriate event.
+      processServerlogDataInput(dataString); // Process the line to see if it matches any events and then trigger the appropriate event.
+      
     }
 
   });
@@ -1190,6 +1301,8 @@ function preDownload(httpURL,fileToPlace){ // This function handles the pre-down
 function testMatch(valToCheck) { // This function will be called on EVERY line the wrapper outputs to see if the line matches a known event or not.
   // TODO: It would be much better to simply run the match, then forward for processing, rather than running a test and processing the matches against it.
   // So really this should simply be replaced with a "getMatch" function which only returns the line if it matches
+  
+  // TODO:  There needs to be a separate check AND processing for the serverlog.0.log file, since there are some duplicates between the console.  This would also be faster.
   if (includePatternRegex.test(valToCheck)){
     if (!excludePatternRegex.test(valToCheck)){
       return true;
