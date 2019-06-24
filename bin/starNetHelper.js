@@ -9,7 +9,8 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   detectRan,
   checkForLine, // Checks every line of a starNet.js query for a regExp and returns true/false if found or not.
   detectSuccess, // Returns true/false if a chmod command was successful or not.  Can be fed with "false" to return "false", to be stacked with other check types.
-  detectSuccess2 // Returns true/false if a ban/unban command was successful or not.  Can be fed with "false" to return "false", to be stacked with other check types.
+  detectSuccess2, // Returns true/false if a ban/unban command was successful or not.  Can be fed with "false" to return "false", to be stacked with other check types.
+  getUIDfromName
 }
 
 var path=require('path');
@@ -60,8 +61,12 @@ if (require.main.filename == __filename){ // This is so it only runs based on ar
   }
   if (theArguments[0]){
     var theResult;
-    if (theArguments[1]){
-      theResult=getEntityValue(theArguments[0],theArguments[1]);
+    console.log("theArguments[0]: " + theArguments[0]);
+    console.log("theArguments[1]: " + theArguments[1]);
+    if (theArguments[0]){
+      // theResult=getEntityValue(theArguments[0],theArguments[1]); // This is to test mapping out a /ship_info_uid command
+      console.log("Using: " + theArguments[0]);
+      theResult=getUIDfromName(theArguments[0]); // This is to test getting the UID from a ship name
       console.log("Result: " + theResult);
     } else {
       if (theArguments[2]){
@@ -316,6 +321,94 @@ function ShipInfoUidObj(uidOrShipObj,options){ // options are optional and are m
 }
 
 
+function getUIDfromName (name){
+  // Returns:
+  // If ship not found:  null
+  // If an error is encountered running starnet:  undefined
+  // If invalid input is given, it will throw an error
+  // If ship is found:  The FULL UID of the ship
+  // console.log("Looking up name: " + name); // temp
+  let returnResult;
+  if (typeof name == "string"){
+    const results=starNet('/ship_info_name "' + name + '"');
+    // console.log("Results:"); //temp
+    // console.dir(results); // temp
+  
+    if (verifyResponse(results)){
+      // There are different results that can happen.  Errors are filtered out by verifyResponse
+
+      // console.log("looks like the results came in fine.") // temp
+      var theArray=results.trim().split("\n");  // Split results by return lines, so we can check each line
+      // console.dir(theArray);
+      var notFound=false;
+      // Not found:
+      // RETURN: [SERVER, [INFO] Benevolent27_15613535805644 not found in loaded objects. Checking Database..., 0]
+      // RETURN: [SERVER, [INFO] Benevolent27_15613535805644 not found in database, 0]
+      // RETURN: [SERVER, END; Admin command execution ended, 0]
+      for (let i=0;i<theArray.length;i++){ // Check if it is not found
+        if (theArray[i].match(/.*not found in database, 0\]$/)){
+          notFound=true;
+        }
+      }
+      // console.log("notFound: " + notFound);
+      if (notFound){
+        returnResult=null; // The ship was not found, so return null
+      } else if (theArray[0].match(/found in loaded objects, 0\]$/)) { // The ship is loaded
+          // Found, and Loaded:
+
+          // RETURN: [SERVER, [INFO] Benevolent27_1561353580564 found in loaded objects, 0]
+          // RETURN: [SERVER, ReactorHP: 1 / 1, 0]
+          // RETURN: [SERVER, MissileCapacity: 1.0 / 1.0, 0]
+          // RETURN: [SERVER, Attached: [], 0]
+          // RETURN: [SERVER, DockedUIDs: , 0]
+          // RETURN: [SERVER, Blocks: 3, 0]
+          // RETURN: [SERVER, Mass: 0.45, 0]
+          // RETURN: [SERVER, LastModified: ENTITY_PLAYERSTATE_Benevolent27, 0]
+          // RETURN: [SERVER, Creator: ENTITY_PLAYERSTATE_Benevolent27, 0]
+          // RETURN: [SERVER, Sector: 600 -> Sector[600](1000, 1000, 1000), 0]
+          // RETURN: [SERVER, Name: Benevolent27_1561353580564, 0]
+          // RETURN: [SERVER, UID: ENTITY_SHIP_Benevolent27_1561353580564, 0]
+          // RETURN: [SERVER, MinBB(chunks): (-2, -2, -2), 0]
+          // RETURN: [SERVER, MaxBB(chunks): (2, 2, 2), 0]
+          // RETURN: [SERVER, Local-Pos: (20.523241, -36.74963, 5.297421), 0]
+          // RETURN: [SERVER, Orientation: (0.0022727407, -0.7074699, 0.0022768104, 0.70673615), 0]
+          // RETURN: [SERVER, Ship, 0]
+          // RETURN: [SERVER, END; Admin command execution ended, 0]
+
+          //console.log("Ship loaded.");
+          for (let i=1;i<theArray.length;i++){ // Cycle through all the values, looking for the UID
+            if (theArray[i].match(/^RETURN: \[SERVER, UID:/)){
+              returnResult=theArray[i].match(/[^:]+, 0\]$/)[0].trim().replace(/, 0\]$/,"");
+            }
+            // There should ALWAYS be a match here, but if for some reason there isn't, then the returnResult will be undefined
+          }
+      } else { // The ship was found but not loaded
+        // console.log("Ship not loaded.");
+
+        // Found, but Unloaded:
+        // We'll need to cycle through the DatabaseEntry field
+
+        // RETURN: [SERVER, [INFO] Benevolent27_1561353580564 not found in loaded objects. Checking Database..., 0]
+        // RETURN: [SERVER, DatabaseEntry [uid=ENTITY_SHIP_Benevolent27_1561353580564, sectorPos=(1000, 1000, 1000), type=5, seed=0, lastModifier=ENTITY_PLAYERSTATE_Benevolent27, spawner=ENTITY_PLAYERSTATE_Benevolent27, realName=Benevolent27_1561353580564, touched=true, faction=10001, pos=(20.523241, -36.74963, 5.297421), minPos=(-2, -2, -2), maxPos=(2, 2, 2), creatorID=0], 0]
+        // RETURN: [SERVER, END; Admin command execution ended, 0]
+        for (let i=1;i<theArray.length;i++){ // Cycle through all the values, looking for the UID
+          if (theArray[i].match(/^RETURN: \[SERVER, DatabaseEntry /)){
+            returnResult=theArray[i].match(/uid=[^,]+/)[0].replace(/^uid=/,"");
+          }
+          // There should ALWAYS be a match here, but if for some reason there isn't, then the returnResult will be undefined
+        }
+      }
+    } else {
+      console.error("There was a problem with the input!  Either starnet didn't run correctly or the parameters were invalid!");
+      // Don't change the "returnResult" so that it will be undefined.
+    }
+  } else {
+    throw new Error("getUIDfromName given invalid input.  Expected a string!");
+  }
+  return returnResult;
+}
+
+// TODO: Create a "getEntityValueUsingEntityName" function which will parse the /ship_info_name results -- Note that the results returned are much different so a whole set of supporting functions needs to be created
 function getEntityValue(uidOrShipObj,valueString,options){ // Options are optional.  Allows setting the return type for DataBaseEntry to an object
   // The goal of this is to find a value without creating a full map of everything, stopping once the value is found, so it is as efficient as possible.
   // The secondary goal is to make it so this can pull values from the DatabaseEntry if loaded info is not available, without having to load the sector.
