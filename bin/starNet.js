@@ -21,7 +21,7 @@ function getSettings(){
   }
   let theFile=path.resolve(__dirname,"../settings.json");
   if (fs.existsSync(theFile)){ // If not required, and it has been created, then require it in now and set the variable.
-    settings=require(theFile)
+    settings=require(theFile);
     return settings;
   }
   return {}; // If the file has not been created yet, then just return an empty object.  The install routine will set up the settings file before starNet.js should be used.
@@ -71,6 +71,10 @@ function getSuperAdminPassword(){ // We're using a latch variable setter and ret
 module.debug=false;
 
 if (__filename == require.main.filename){ // Only run the arguments IF this script is being run by itself and NOT as a require.
+  // Initialize the variables
+  getStarmadeServerCfg();
+  getStarMadeServerCfgObj();
+  getSuperAdminPassword();
   var clArguments=process.argv.slice(2);
   if (clArguments){
     for (let i=0;i<clArguments.length;i++){
@@ -80,7 +84,8 @@ if (__filename == require.main.filename){ // Only run the arguments IF this scri
       // console.log("Results String: " + tempResultsString);
       var tempResultsArray=tempResultsString.split("\n");
       for (let i=0;i<tempResultsArray.length;i++){
-        console.log("Line " + i + ": " + tempResultsArray[i]);
+        // console.log("Line " + i + ": " + tempResultsArray[i]);
+        console.log(tempResultsArray[i]);
       }
     }
   }
@@ -112,7 +117,8 @@ function runStarNetReturn(command,options){
     if (getSuperAdminPassword()){
       var results=child.spawnSync("java",["-jar",starNetJar,"127.0.0.1:" + settings["port"],getSuperAdminPassword(),command],{"cwd":binFolder});
       if (debug == true){ process.stdout.write(results.stderr.toString()); }
-      return results.stderr.toString().trim();
+      // return results.stderr.toString().trim();
+      return results.stderr.toString().trim().replace(/(\r)/g,""); // This is needed for windows
     }
     console.error("No super admin password established yet!  Can't do anything!");
   }
