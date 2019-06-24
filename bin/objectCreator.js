@@ -894,12 +894,19 @@ function CreatureObj(fullUID){ // TODO: create creature object
 }
 
 
-function EntityObj(fullUID){
+function EntityObj(fullUID,shipName){
   // This builds an entity object based on the full UID
   // This can be used for ships and stations.  Please use PlanetObj for planets and AsteroidObj for asteroids.
-  if (fullUID){
-    this["UID"]=stripFullUIDtoUID(fullUID); // Returns the UID as used with SQL queries, without the "ENTITY_SHIP_" whatever stuff.
-    this["fullUID"]=fullUID;
+
+  // the ship name can be used alternatively, but will require a lookup of the UID to then create the object
+  let fullUIDToUse=fullUID;
+  if (shipName){
+    fullUIDToUse=starNetHelper.getUIDfromName(shipName);
+  }
+
+  if (fullUIDToUse){
+    this["UID"]=stripFullUIDtoUID(fullUIDToUse); // Returns the UID as used with SQL queries, without the "ENTITY_SHIP_" whatever stuff.
+    this["fullUID"]=fullUIDToUse;
     this["loaded"]=function(){ return starNetHelper.getEntityValue(this.fullUID,"loaded") };
     // faction.number is WILDLY INACCURATE RIGHT NOW - WAITING ON FIX FROM SCHEMA - WILL NEED TO BE FIXED IN starNetHelper.js
     this["faction"]=function(){ return new FactionObj(starNetHelper.getEntityValue(this.fullUID,"faction")) };
