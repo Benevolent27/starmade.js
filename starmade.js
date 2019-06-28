@@ -185,8 +185,12 @@ var starMadeInstallerURL  = "http://files.star-made.org/" + starMadeStarter;
 // macosx: http://files.star-made.org/StarMade-Starter.jar
 // Linux: http://files.star-made.org/StarMade-Starter.jar
 // Patterns - This will be to detect things like connections, deaths, etc.  I'm pushing to an array so it's easier to add or remove patterns.
+// console output
 var includePatternRegex   = patterns.includes();
 var excludePatternRegex   = patterns.excludes();
+// serverlog.0.log output
+var includePatternServerLogRegex   = patterns.serverLogIncludes();
+var excludePatternServerLogRegex   = patterns.serverLogExcluded();
 
 
 
@@ -682,12 +686,17 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           shipName=shipName.toString().replace(/^spawned new ship: ["]/,'');
           // shipName=shipName.toString().split(":").pop();
           console.log("Temp shipName: " + shipName);
-          let shipObj={
+          let shipObjOld={
             "playerName": playerName,
             "shipName": shipName,
             "spawnTime" : Math.floor((new Date()).getTime() / 1000)
           }
-          eventEmitter.emit('shipSpawn',shipObj);
+
+          let playerObj=new PlayerObj(playerName);
+          let shipObj=new EntityObj("",shipName);
+          shipObj.spawnTime=Math.floor((new Date()).getTime() / 1000);
+
+          eventEmitter.emit('shipSpawn',playerObj,shipObj);
         } else {
           // var baseName=arguments[0].match(/spawned new station: "[0-9a-zA-Z _-]*/);
           var baseName=arguments[0].match(/spawned new station: ["][0-9a-zA-Z _-]*/);
@@ -768,17 +777,16 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
 
           console.log("Creating new coordsObj with: " + coordsArray);
           let coordsObj=new CoordsObj(coordsArray);
-          // let coordsObj=new CoordsObj(coordsArray[0],coordsArray[1],coordsArray[2]);
           console.dir(coordsObj);
+          let sectorObj=new SectorObj(coordsObj.x,coordsObj.y,coordsObj.z);
+          console.dir(sectorObj);
+          // let coordsObj=new CoordsObj(coordsArray[0],coordsArray[1],coordsArray[2]);
 
           let playerObj;
           if (spawnType=="player"){
             playerObj=new PlayerObj(theUser);
             playerObj.msg("The playerObj was successful: " + shipName);
             // playerObj.msg("entityObj.loaded:" + entityObj.loaded);
-
-            
-
           }
           console.dir(playerObj);
 
@@ -788,6 +796,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           let factionObj=new FactionObj(factionNumber);
           console.dir(factionObj);
 
+          eventEmitter.emit('blueprintSpawn',playerObj,blueprintObj,entityObj,sectorObj,factionObj);
 
           // Examples:
           // Filling blueprint and spawning as player
@@ -849,43 +858,79 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           // theArguments[9]: 10
           // theArguments[10]: messages
 
+      } else if (dataInput.match(/^\[SERVER\] PlayerCharacter\[.*/) || dataInput.match(/^\[SERVER\] Ship\[.*/) || dataInput.match(/^\[SERVER\] ManagedAsteroid\(.*/) || dataInput.match(/^\[SERVER\] Planet\(.*/)) {
+        console.log("Sector change detected: " + dataInput);
+        var excerptArray=dataInput.match(/has players attached. Doing Sector Change for PlS.*/);
+        console.log("excerptArray: ");
+        console.dir(excerptArray);
+        if (excerptArray){
+          var excerpt=excerptArray[0];
+          var whittled=excerpt.replace(/^has players attached. Doing Sector Change for PlS\[/,"");
+          var whittledArray=whittled.split(" ");
+          console.dir(whittledArray); // temp
+          // Example line: Weedle [Benevolent27]*; id(1712)(8)f(10533)]: Sector[2067](665, 666, 666) -> Sector[1960](666, 666, 666)
+          var playerNameCaptured=whittledArray[0];
+          var playerSMNameCaptured=whittledArray[1].replace(/[\[\]\*;]/g,"");
+
+          var coordsArray=excerpt.match(/Sector\[[0-9]+\]\([-]{0,1}[0-9]+, [-]{0,1}[0-9]+, [-]{0,1}[0-9]+\)/g);
+          // [ 'Sector[2067](665, 666, 666)', 'Sector[1960](666, 666, 666)' ]
+          var cleanCoordsArray=[];
+          for (let i=0;i<coordsArray.length;i++){
+            cleanCoordsArray.push(coordsArray[i].match(/[-]{0,1}[0-9]+, [-]{0,1}[0-9]+, [-]{0,1}[0-9]+/)[0].split(","))
+          }
+          console.log("Coords:");
+          console.dir(cleanCoordsArray); // First set is the sector starting in, second is going to
+          console.log("Player Name: " + playerNameCaptured);
+          console.log("Player SM Name:" + playerSMNameCaptured);
+
+          var startingCoords=new CoordsObj(cleanCoordsArray[0]); // TODO: It's not really necessary to make a CoordsObj here..
+          var endingCoords=new CoordsObj(cleanCoordsArray[1]);
+
+          var sectorChangeObject={
+            startCoords: new SectorObj(startingCoords.x,startingCoords.y,startingCoords.z), // Clean this up
+            endCoords: new SectorObj(endingCoords.x,endingCoords.y,endingCoords.z),
+            // startCoords: new SectorObj(cleanCoordsArray[0][0],cleanCoordsArray[0][1],cleanCoordsArray[0][2]), // not sure why this didn't work
+            // endCoords: new SectorObj(cleanCoordsArray[1][0],cleanCoordsArray[1][1],cleanCoordsArray[1][2]),
+            player: new PlayerObj(playerNameCaptured),
+            playerSMName: playerSMNameCaptured
+          }
+          console.log("Object Created:");
+          console.dir(sectorChangeObject);
+
+          // TODO:  Test this to see if it works
+
+        }
+        // Bash scripting:  (needs converting to javascript)
+        // tempVar=$(echo "${@}" | grep -o "has players attached. Doing Sector Change for PlS.*")
+        // if [ "w${tempVar}" != "w" ]; then
+        //   theInfo=$(echo "${tempVar}" | sed 's/^has players attached. Doing Sector Change for PlS\[//g')
+        //   set -- ${theInfo}
+        //   playerName="${1//\[}"
+        //   playerSMName="$(echo "${2}" | tr -d '[]*;')"
+        //   set -- $(echo ${theInfo} | grep -Po "(?<=Sector\[)[0-9]*\]\([-]{0,1}[0-9]*, [-]{0,1}[0-9]*, [-]{0,1}[0-9]*" | sed 's/^[0-9]*\][(]//g' | tr -d ',')
+        //   startingSector="${1}, ${2}, ${3}"
+        //   endingSector="${4}, ${5}, ${6}"
+        // fi
+
+
       }
     }
   }
 
   // For serverlog.0.log
   function processServerlogDataInput(dataInput){ // This function is run on every single line that is output by the server console.
-    if (testMatch(dataInput)) { // Check to see if the message fits any of the regex patterns
-      
-      // TODO:  There needs to be a separate testMatch for the serverlog.0.log file
-
+    if (testMatchServerLog(dataInput)) { // Check to see if the message fits any of the regex patterns
       if (showAllEvents == true) {
-        console.log("Event found!: " + dataInput + "Arguments: " + arguments.length);
+        console.log("Event found (serverlog)!: " + dataInput + "Arguments: " + arguments.length);
       }
       let theArguments=arguments[0].split(" "); // This is to allow easier parsing of each individual word in the line
       
-      enumerateEventArguments=true; // Temporary
+      // enumerateEventArguments=true; // Temporary
       if (enumerateEventArguments == true){
         for (let i=0;i<theArguments.length;i++){ console.log("theArguments[" + i + "]: " + theArguments[i]); }
       }
-      // ### Player Spawns ###
-      if (theArguments[0] == "[SERVER][SPAWN]" ) {
-        console.log("Parsing possible player spawn.  theArguments[5]: " + theArguments[5].toString());
-        if (/PlS\[.*/.test(theArguments[5].toString())){
-          let playerName=theArguments[5].split("[").pop();
-          if (playerName) {
-            console.log("Player Spawned: " + playerName);
-            if (settings["announceSpawnsToMainChat"] == "true") {
-              let mMessage="/server_message_broadcast plain " + "'" + playerName + " has spawned.'";
-              server.stdin.write(mMessage.toString().trim() + "\n");
-            }
-            let playerObj = new objectCreator.PlayerObj(playerName);
-            playerObj["spawnTime"]=Math.floor((new Date()).getTime() / 1000);
-            eventEmitter.emit('playerSpawn',playerObj);
-          }
-        }
       // ### New Ship or Base Creation (not blueprints) ###
-      } else if (theArguments[0] == "[SPAWN]") { 
+      if (theArguments[0] == "[SPAWN]") { 
         // Event found!: [SERVER] Object Ship[Benevolent27_1523387756157](1447) didn't have a db entry yet. Creating entry!Arguments: 1
         console.log("Parsing possible ship or base spawn: " + theArguments.join(" ").toString());
         var playerName=theArguments[1];
@@ -1305,6 +1350,20 @@ function testMatch(valToCheck) { // This function will be called on EVERY line t
   // TODO:  There needs to be a separate check AND processing for the serverlog.0.log file, since there are some duplicates between the console.  This would also be faster.
   if (includePatternRegex.test(valToCheck)){
     if (!excludePatternRegex.test(valToCheck)){
+      return true;
+    }
+    return false;
+
+  } else {
+    return false;
+  }
+}
+
+function testMatchServerLog(valToCheck) { // This function will be called on EVERY line the wrapper outputs to see if the line matches a known event or not.
+  // TODO: It would be much better to simply run the match, then forward for processing, rather than running a test and processing the matches against it.
+  // So really this should simply be replaced with a "getMatch" function which only returns the line if it matches
+  if (includePatternServerLogRegex.test(valToCheck)){
+    if (!excludePatternServerLogRegex.test(valToCheck)){
       return true;
     }
     return false;
