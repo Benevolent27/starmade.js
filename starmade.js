@@ -709,7 +709,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           console.log("Some blueprint load event happened.");
           let theUser=theArguments[1];
           console.log("theUser:" + theUser);
-          let spawnType;
+          var spawnType;
           if (theUser=="<admin>"){
             spawnType="admin"
           } else if (theUser=="<system>"){
@@ -757,7 +757,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           let factionObj=new FactionObj(factionNumber);
           console.dir(factionObj);
 
-          eventEmitter.emit('blueprintSpawn',playerObj,blueprintObj,entityObj,sectorObj,factionObj); // playerObj will be undefined if the blueprint was spawned by admin or mass spawned
+          eventEmitter.emit('blueprintSpawn',spawnType,playerObj,blueprintObj,entityObj,sectorObj,factionObj); // playerObj will be undefined if the blueprint was spawned by admin or mass spawned
 
           // Examples:
           // Filling blueprint and spawning as player
