@@ -693,10 +693,15 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
             "spawnTime" : Math.floor((new Date()).getTime() / 1000)
           }
 
-          let shipObj=new EntityObj("",shipName);
-          shipObj.spawnTime=Math.floor((new Date()).getTime() / 1000);
+          let entityObj=new EntityObj("",shipName);
+          entityObj.spawnTime=Math.floor((new Date()).getTime() / 1000);
 
-          eventEmitter.emit('shipSpawn',playerObj,shipObj);
+          let emitObj={
+            "playerObj":playerObj,
+            "entityObj":entityObj
+          };
+
+          eventEmitter.emit('shipSpawn',emitObj);
         } else {
           // var baseName=arguments[0].match(/spawned new station: "[0-9a-zA-Z _-]*/);
           var baseName=arguments[0].match(/spawned new station: ["][0-9a-zA-Z _-]*/);
@@ -710,9 +715,13 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
               "baseName": baseName,
               "spawnTime" : Math.floor((new Date()).getTime() / 1000)
             }
-            let baseObj=new EntityObj("",baseName);
-            baseObj.spawnTime=Math.floor((new Date()).getTime() / 1000);
-            eventEmitter.emit('baseSpawn',playerObj,baseObj);
+            let entityObj=new EntityObj("",baseName);
+            entityObj.spawnTime=Math.floor((new Date()).getTime() / 1000);
+            let emitObj={
+              "playerObj":playerObj,
+              "entityObj":entityObj
+            };
+            eventEmitter.emit('baseSpawn',emitObj);
           }
         }
       } else if (theArguments[0].match(/\[BLUEPRINT\].*/)) { // Various Blueprint events
