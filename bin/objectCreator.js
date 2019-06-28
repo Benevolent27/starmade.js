@@ -411,7 +411,7 @@ function MessageObj(sender,receiver,receiverType,message){
     this.type="channel";
     this.receiver=new ChannelObj(receiver);
   } else { // This should never happen, but hey maybe in the future they'll expand on the receiverTypes
-    this.receiver=receiver;
+    this.receiver=receiver; // This is only temporary till receiverTypes are broken down
     this.type=receiverType;
     console.error("ERROR: Unknown Receiever type for message! Set receiver and type as string! " + receiverType);
   }
