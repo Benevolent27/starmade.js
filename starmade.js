@@ -679,6 +679,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
         // Event found!: [SERVER] Object Ship[Benevolent27_1523387756157](1447) didn't have a db entry yet. Creating entry!Arguments: 1
         console.log("Parsing possible ship or base spawn: " + theArguments.join(" ").toString());
         var playerName=theArguments[1];
+        let playerObj=new PlayerObj(playerName);
         // var shipName=arguments[0].match(/spawned new ship: "[0-9a-zA-Z _-]*/);
         var shipName=arguments[0].match(/spawned new ship: ["][0-9a-zA-Z _-]*/);
         if (shipName){
@@ -692,7 +693,6 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
             "spawnTime" : Math.floor((new Date()).getTime() / 1000)
           }
 
-          let playerObj=new PlayerObj(playerName);
           let shipObj=new EntityObj("",shipName);
           shipObj.spawnTime=Math.floor((new Date()).getTime() / 1000);
 
@@ -705,12 +705,14 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
             baseName=baseName.toString().replace(/^spawned new station: ["]/,'');
 
             // baseNameArray=baseName.split()
-            let baseObj={
+            let baseObjOld={
               "playerName": playerName,
               "baseName": baseName,
               "spawnTime" : Math.floor((new Date()).getTime() / 1000)
             }
-            eventEmitter.emit('baseSpawn',baseObj);
+            let baseObj=new EntityObj("",baseName);
+            baseObj.spawnTime=Math.floor((new Date()).getTime() / 1000);
+            eventEmitter.emit('baseSpawn',playerObj,baseObj);
           }
         }
       } else if (theArguments[0].match(/\[BLUEPRINT\].*/)) { // Various Blueprint events
