@@ -870,7 +870,8 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           console.dir(whittledArray); // temp
           // Example line: Weedle [Benevolent27]*; id(1712)(8)f(10533)]: Sector[2067](665, 666, 666) -> Sector[1960](666, 666, 666)
           var playerNameCaptured=whittledArray[0];
-          var playerSMNameCaptured=whittledArray[1].replace(/[\[\]\*;]/g,"");
+          // var playerSMNameCaptured=whittledArray[1].replace(/[\[\]\*;]/g,""); // Working
+          var playerSMNameCaptured=whittledArray[1].replace(/[[\]*;]/g,""); // Making ESLINT Happy
 
           var coordsArray=excerpt.match(/Sector\[[0-9]+\]\([-]{0,1}[0-9]+, [-]{0,1}[0-9]+, [-]{0,1}[0-9]+\)/g);
           // [ 'Sector[2067](665, 666, 666)', 'Sector[1960](666, 666, 666)' ]
