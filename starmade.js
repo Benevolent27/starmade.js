@@ -675,57 +675,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
 
 
       // ### New Ship or Base Creation (not blueprints) ###
-      } else if (theArguments[0] == "[SPAWN]") { 
-        // Event found!: [SERVER] Object Ship[Benevolent27_1523387756157](1447) didn't have a db entry yet. Creating entry!Arguments: 1
-        console.log("Parsing possible ship or base spawn: " + theArguments.join(" ").toString());
-        var playerName=theArguments[1];
-        let playerObj=new PlayerObj(playerName);
-        // var shipName=arguments[0].match(/spawned new ship: "[0-9a-zA-Z _-]*/);
-        var shipName=arguments[0].match(/spawned new ship: ["][0-9a-zA-Z _-]*/);
-        if (shipName){
-          console.log("Temp shipName: " + shipName);
-          shipName=shipName.toString().replace(/^spawned new ship: ["]/,'');
-          // shipName=shipName.toString().split(":").pop();
-          console.log("Temp shipName: " + shipName);
-          let shipObjOld={
-            "playerName": playerName,
-            "shipName": shipName,
-            "spawnTime" : Math.floor((new Date()).getTime() / 1000)
-          }
-
-          let entityObj=new EntityObj("",shipName);
-          entityObj.spawnTime=Math.floor((new Date()).getTime() / 1000);
-
-          let emitObj={
-            "playerObj":playerObj,
-            "entityObj":entityObj
-          };
-
-          eventEmitter.emit('shipSpawn',emitObj);
-        } else {
-          // var baseName=arguments[0].match(/spawned new station: "[0-9a-zA-Z _-]*/);
-          var baseName=arguments[0].match(/spawned new station: ["][0-9a-zA-Z _-]*/);
-          if (baseName){
-            // baseName=baseName.split(":").pop();
-            baseName=baseName.toString().replace(/^spawned new station: ["]/,'');
-
-            // baseNameArray=baseName.split()
-            let baseObjOld={
-              "playerName": playerName,
-              "baseName": baseName,
-              "spawnTime" : Math.floor((new Date()).getTime() / 1000)
-            }
-            let entityObj=new EntityObj("",baseName);
-            entityObj.spawnTime=Math.floor((new Date()).getTime() / 1000);
-            let emitObj={
-              "playerObj":playerObj,
-              "entityObj":entityObj
-            };
-            eventEmitter.emit('baseSpawn',emitObj);
-          }
-        }
       } else if (theArguments[0].match(/\[BLUEPRINT\].*/)) { // Various Blueprint events
-
         if (theArguments[0] == "[BLUEPRINT][BUY]"){ // New Ship spawn from blueprint
           // Event found!: [BLUEPRINT][BUY] Benevolent27 bought blueprint from metaItem: "Isanth-VI" as "Isanth-VI1523389134208"; Price: 194625; to sector: (2, 2, 2) (loadTime: 80ms, spawnTime: 0ms)
           // [SERVER][META] removing metaID: 100320Arguments: 1
@@ -807,7 +757,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           let factionObj=new FactionObj(factionNumber);
           console.dir(factionObj);
 
-          eventEmitter.emit('blueprintSpawn',playerObj,blueprintObj,entityObj,sectorObj,factionObj);
+          eventEmitter.emit('blueprintSpawn',playerObj,blueprintObj,entityObj,sectorObj,factionObj); // playerObj will be undefined if the blueprint was spawned by admin or mass spawned
 
           // Examples:
           // Filling blueprint and spawning as player
@@ -942,10 +892,12 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
         for (let i=0;i<theArguments.length;i++){ console.log("theArguments[" + i + "]: " + theArguments[i]); }
       }
       // ### New Ship or Base Creation (not blueprints) ###
-      if (theArguments[0] == "[SPAWN]") { 
+      if (theArguments[0] == "[SPAWN]") {
         // Event found!: [SERVER] Object Ship[Benevolent27_1523387756157](1447) didn't have a db entry yet. Creating entry!Arguments: 1
         console.log("Parsing possible ship or base spawn: " + theArguments.join(" ").toString());
         var playerName=theArguments[1];
+        var playerObj=new PlayerObj(playerName);
+        console.dir(playerObj); // temp
         // var shipName=arguments[0].match(/spawned new ship: "[0-9a-zA-Z _-]*/);
         var shipName=arguments[0].match(/spawned new ship: ["][0-9a-zA-Z _-]*/);
         if (shipName){
@@ -953,12 +905,12 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           shipName=shipName.toString().replace(/^spawned new ship: ["]/,'');
           // shipName=shipName.toString().split(":").pop();
           console.log("Temp shipName: " + shipName);
-          let shipObj={
-            "playerName": playerName,
-            "shipName": shipName,
-            "spawnTime" : Math.floor((new Date()).getTime() / 1000)
-          }
-          eventEmitter.emit('shipSpawn',shipObj);
+
+          let entityObj=new EntityObj("",shipName);
+          entityObj.spawnTime=Math.floor((new Date()).getTime() / 1000);
+          console.dir(entityObj); // temp
+
+          eventEmitter.emit('shipSpawn',playerObj,entityObj);
         } else {
           // var baseName=arguments[0].match(/spawned new station: "[0-9a-zA-Z _-]*/);
           var baseName=arguments[0].match(/spawned new station: ["][0-9a-zA-Z _-]*/);
@@ -967,12 +919,9 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
             baseName=baseName.toString().replace(/^spawned new station: ["]/,'');
 
             // baseNameArray=baseName.split()
-            let baseObj={
-              "playerName": playerName,
-              "baseName": baseName,
-              "spawnTime" : Math.floor((new Date()).getTime() / 1000)
-            }
-            eventEmitter.emit('baseSpawn',baseObj);
+            let entityObj=new EntityObj("",baseName);
+            entityObj.spawnTime=Math.floor((new Date()).getTime() / 1000);
+            eventEmitter.emit('baseSpawn',playerObj,entityObj);
           }
         }
       }
