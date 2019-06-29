@@ -560,7 +560,8 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       var countTo=1; // The default times to run the command is 1
       var result;
       if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
-        if (theNum>1){ countTo=number; } }
+        if (theNum>1){ countTo=number; } 
+      }
       for (var i=0;countTo>i;i++){
         result=sendDirectToServer("/give_grapple_item_op " + this.name); // the input should never fail, so this should normally always return true
       }
@@ -573,7 +574,8 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       var countTo=1; // The default times to run the command is 1
       var result;
       if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
-        if (theNum>1){ countTo=number; } }
+        if (theNum>1){ countTo=number; } 
+      }
       for (var i=0;countTo>i;i++){
         result=sendDirectToServer("/give_heal_weapon " + this.name); // the input should never fail, so this should normally always return true
       }
@@ -584,7 +586,8 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       var countTo=1; // The default times to run the command is 1
       var result;
       if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
-        if (theNum>1){ countTo=number; } }
+        if (theNum>1){ countTo=number; } 
+      }
       for (var i=0;countTo>i;i++){
         result=sendDirectToServer("/give_laser_weapon " + this.name); // the input should never fail, so this should normally always return true
       }
@@ -596,7 +599,8 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       var countTo=1; // The default times to run the command is 1
       var result;
       if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
-        if (theNum>1){ countTo=number; } }
+        if (theNum>1){ countTo=number; } 
+      }
       for (var i=0;countTo>i;i++){
         result=sendDirectToServer("/give_laser_weapon_op " + this.name); // the input should never fail, so this should normally always return true
       }
@@ -607,7 +611,8 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       var countTo=1; // The default times to run the command is 1
       var result;
       if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
-        if (theNum>1){ countTo=number; } }
+        if (theNum>1){ countTo=number; } 
+      }
       for (var i=0;countTo>i;i++){
         result=sendDirectToServer("/give_marker_weapon " + this.name); // the input should never fail, so this should normally always return true
       }
@@ -618,7 +623,8 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       var countTo=1; // The default times to run the command is 1
       var result;
       if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
-        if (theNum>1){ countTo=number; } }
+        if (theNum>1){ countTo=number; } 
+      }
       for (var i=0;countTo>i;i++){
         result=sendDirectToServer("/give_transporter_marker_weapon " + this.name); // the input should never fail, so this should normally always return true
       }
@@ -629,7 +635,8 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       var countTo=1; // The default times to run the command is 1
       var result;
       if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
-        if (theNum>1){ countTo=number; } }
+        if (theNum>1){ countTo=number; } 
+      }
       for (var i=0;countTo>i;i++){
         result=sendDirectToServer("/give_power_supply_weapon " + this.name); // the input should never fail, so this should normally always return true
       }
@@ -640,7 +647,8 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       var countTo=1; // The default times to run the command is 1
       var result;
       if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
-        if (theNum>1){ countTo=number; } }
+        if (theNum>1){ countTo=number; } 
+      }
       for (var i=0;countTo>i;i++){
         result=sendDirectToServer("/give_rocket_launcher_weapon " + this.name); // the input should never fail, so this should normally always return true
       }
@@ -651,7 +659,8 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       var countTo=1; // The default times to run the command is 1
       var result;
       if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
-        if (theNum>1){ countTo=number; } }
+        if (theNum>1){ countTo=number; } 
+      }
       for (var i=0;countTo>i;i++){
         result=sendDirectToServer("/give_rocket_launcher_op " + this.name); // the input should never fail, so this should normally always return true
       }
@@ -662,7 +671,8 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       var countTo=1; // The default times to run the command is 1
       var result;
       if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
-        if (theNum>1){ countTo=number; } }
+        if (theNum>1){ countTo=number; } 
+      }
       for (var i=0;countTo>i;i++){
         result=sendDirectToServer("/give_sniper_weapon " + this.name); // the input should never fail, so this should normally always return true
       }
@@ -673,7 +683,8 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       var countTo=1; // The default times to run the command is 1
       var result;
       if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
-        if (theNum>1){ countTo=number; } }
+        if (theNum>1){ countTo=number; } 
+      }
       for (var i=0;countTo>i;i++){
         result=sendDirectToServer("/give_sniper_weapon_op " + this.name); // the input should never fail, so this should normally always return true
       }
@@ -684,7 +695,8 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       var countTo=1; // The default times to run the command is 1
       var result;
       if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
-        if (theNum>1){ countTo=number; } }
+        if (theNum>1){ countTo=number; } 
+      }
       for (var i=0;countTo>i;i++){
         result=sendDirectToServer("/give_torch_weapon " + this.name); // the input should never fail, so this should normally always return true
       }
@@ -695,7 +707,8 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       var countTo=1; // The default times to run the command is 1
       var result;
       if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
-        if (theNum>1){ countTo=number; } }
+        if (theNum>1){ countTo=number; } 
+      }
       for (var i=0;countTo>i;i++){
         result=sendDirectToServer("/give_torch_weapon_op " + this.name); // the input should never fail, so this should normally always return true
       }
