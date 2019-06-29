@@ -63,7 +63,7 @@ const toNumIfPossible       = objectHelper.toNumIfPossible;
 const subArrayFromAnother   = objectHelper.subArrayFromAnother;
 const findSameFromTwoArrays = objectHelper.findSameFromTwoArrays;
 
-const {testIfInput,trueOrFalse,isTrueOrFalse} = objectHelper;
+const {testIfInput,trueOrFalse,isTrueOrFalse,isNum} = objectHelper;
 
 // Set up prototypes for constructors, such as replacing .toString() functionality with a default value.  Prototypes will not appear as a regular key.
 SectorObj.prototype.toString = function(){ return this.coords.toString() };
@@ -478,35 +478,357 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
     // var playerName=player.replace(/^ENTITY_PLAYERCHARACTER_/,"").replace(/^ENTITY_PLAYERSTATE_/,""); // strip the UID
     this.name=player.replace(/^ENTITY_PLAYERCHARACTER_/,"").replace(/^ENTITY_PLAYERSTATE_/,""); // strip the UID
 
-    this.msg=function (message){
-      return sendDirectToServer("/server_message_to plain " + this.name + "'" + message.toString().trim() + "'");
+    this.msg=function (message){ // Sends a message to the player
+      if (testIfInput(message)){
+        return sendDirectToServer("/server_message_to plain " + this.name + "'" + message.toString().trim() + "'");
+      }
+      return false;
     }
     this.creativeMode=function (input){ // expects true or false as either boolean or string
       if (isTrueOrFalse(input)){
-        return sendDirectToServer("/creative_mode " + this.name + input);
+        return sendDirectToServer("/creative_mode " + this.name + " " + input);
       }
       return false;
     }
     this.godMode=function (input){ // expects true or false as either boolean or string
       if (isTrueOrFalse(input)){
-        return sendDirectToServer("/god_mode " + this.name + input);
+        return sendDirectToServer("/god_mode " + this.name + " " + input);
       }
       return false;
     }
     this.invisibilityMode=function (input){ // expects true or false as either boolean or string
       if (isTrueOrFalse(input)){
-        return sendDirectToServer("/invisibility_mode " + this.name + input);
+        return sendDirectToServer("/invisibility_mode " + this.name + " " + input);
       }
       return false;
     }
+    this.factionPointProtect=function (input){ // expects true or false as either boolean or string
+      if (isTrueOrFalse(input)){
+        return sendDirectToServer("/faction_point_protect_player " + this.name + " " + input);
+      }
+      return false;
+    }
+    this.give=function (input,number){ // expects an element name and number of items to give
+      if (testIfInput(input) && isNum(number)){
+        return sendDirectToServer("/give " + this.name + " " + input + " " + number);
+      }
+      return false;
+    }
+    this.giveId=function (inputNumber,number){ // expects an element id and number of items to give
+      var theNum=toNumIfPossible(number);
+      var theID=toNumIfPossible(inputNumber);
+      if (typeof theID == "number" && typeof theNum == "number"){
+        return sendDirectToServer("/give " + this.name + " " + inputNumber + " " + number);
+      }
+      return false;
+    }
+    this.giveAllItems=function (number){ // expects an element name and number of items to give
+      var theNum=toNumIfPossible(number);
+      if (typeof theNum == "number"){
+        return sendDirectToServer("/give_all_items " + this.name + " " + number);
+      }
+      return false;
+    }
+    this.giveCategoryItems=function (category,number){ // expects a category such as terrain/ship/station and number of items to give
+      var theNum=toNumIfPossible(number);
+      if (testIfInput(category) && typeof theNum == "number"){
+        return sendDirectToServer("/give_category_items " + this.name + " " + number + " " + category);
+      }
+      return false;
+    }
+    this.giveCredits=function (number){ // expects a number of credits to give.  If this value is negative, it will subtract credits.
+      var theNum=toNumIfPossible(number);
+      if (typeof theNum == "number"){
+        return sendDirectToServer("/give_credits " + this.name + " " + number);
+      }
+      return false;
+    }
+    this.giveGrapple=function (number){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
+      var theNum=toNumIfPossible(number);
+      var countTo=1; // The default times to run the command is 1
+      var result;
+      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+        if (theNum>1){ countTo=number; }
+      }
+      for (var i=0;countTo>i;i++){
+        result=sendDirectToServer("/give_grapple_item " + this.name); // the input should never fail, so this should normally always return true
+      }
+      return result;
+    }
+    this.giveGrappleOP=function (number){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
+      var theNum=toNumIfPossible(number);
+      var countTo=1; // The default times to run the command is 1
+      var result;
+      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+        if (theNum>1){ countTo=number; } }
+      for (var i=0;countTo>i;i++){
+        result=sendDirectToServer("/give_grapple_item_op " + this.name); // the input should never fail, so this should normally always return true
+      }
+      return result;
+    }
 
+
+    this.giveHealWeapon=function (number){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
+      var theNum=toNumIfPossible(number);
+      var countTo=1; // The default times to run the command is 1
+      var result;
+      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+        if (theNum>1){ countTo=number; } }
+      for (var i=0;countTo>i;i++){
+        result=sendDirectToServer("/give_heal_weapon " + this.name); // the input should never fail, so this should normally always return true
+      }
+      return result;
+    }
+    this.giveLaserWeapon=function (number){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
+      var theNum=toNumIfPossible(number);
+      var countTo=1; // The default times to run the command is 1
+      var result;
+      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+        if (theNum>1){ countTo=number; } }
+      for (var i=0;countTo>i;i++){
+        result=sendDirectToServer("/give_laser_weapon " + this.name); // the input should never fail, so this should normally always return true
+      }
+      return result;
+    }
+
+    this.giveLaserWeaponOP=function (number){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
+      var theNum=toNumIfPossible(number);
+      var countTo=1; // The default times to run the command is 1
+      var result;
+      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+        if (theNum>1){ countTo=number; } }
+      for (var i=0;countTo>i;i++){
+        result=sendDirectToServer("/give_laser_weapon_op " + this.name); // the input should never fail, so this should normally always return true
+      }
+      return result;
+    }
+    this.giveMarkerWeapon=function (number){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
+      var theNum=toNumIfPossible(number);
+      var countTo=1; // The default times to run the command is 1
+      var result;
+      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+        if (theNum>1){ countTo=number; } }
+      for (var i=0;countTo>i;i++){
+        result=sendDirectToServer("/give_marker_weapon " + this.name); // the input should never fail, so this should normally always return true
+      }
+      return result;
+    }
+    this.giveTransporterMarkerWeapon=function (number){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
+      var theNum=toNumIfPossible(number);
+      var countTo=1; // The default times to run the command is 1
+      var result;
+      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+        if (theNum>1){ countTo=number; } }
+      for (var i=0;countTo>i;i++){
+        result=sendDirectToServer("/give_transporter_marker_weapon " + this.name); // the input should never fail, so this should normally always return true
+      }
+      return result;
+    }
+    this.givePowerSupplyWeapon=function (number){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
+      var theNum=toNumIfPossible(number);
+      var countTo=1; // The default times to run the command is 1
+      var result;
+      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+        if (theNum>1){ countTo=number; } }
+      for (var i=0;countTo>i;i++){
+        result=sendDirectToServer("/give_power_supply_weapon " + this.name); // the input should never fail, so this should normally always return true
+      }
+      return result;
+    }
+    this.giveRocketLauncher=function (number){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
+      var theNum=toNumIfPossible(number);
+      var countTo=1; // The default times to run the command is 1
+      var result;
+      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+        if (theNum>1){ countTo=number; } }
+      for (var i=0;countTo>i;i++){
+        result=sendDirectToServer("/give_rocket_launcher_weapon " + this.name); // the input should never fail, so this should normally always return true
+      }
+      return result;
+    }
+    this.giveRocketLauncherOP=function (number){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
+      var theNum=toNumIfPossible(number);
+      var countTo=1; // The default times to run the command is 1
+      var result;
+      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+        if (theNum>1){ countTo=number; } }
+      for (var i=0;countTo>i;i++){
+        result=sendDirectToServer("/give_rocket_launcher_op " + this.name); // the input should never fail, so this should normally always return true
+      }
+      return result;
+    }
+    this.giveSniperWeapon=function (number){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
+      var theNum=toNumIfPossible(number);
+      var countTo=1; // The default times to run the command is 1
+      var result;
+      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+        if (theNum>1){ countTo=number; } }
+      for (var i=0;countTo>i;i++){
+        result=sendDirectToServer("/give_sniper_weapon " + this.name); // the input should never fail, so this should normally always return true
+      }
+      return result;
+    }
+    this.giveSniperWeaponOP=function (number){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
+      var theNum=toNumIfPossible(number);
+      var countTo=1; // The default times to run the command is 1
+      var result;
+      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+        if (theNum>1){ countTo=number; } }
+      for (var i=0;countTo>i;i++){
+        result=sendDirectToServer("/give_sniper_weapon_op " + this.name); // the input should never fail, so this should normally always return true
+      }
+      return result;
+    }
+    this.giveTorchWeapon=function (number){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
+      var theNum=toNumIfPossible(number);
+      var countTo=1; // The default times to run the command is 1
+      var result;
+      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+        if (theNum>1){ countTo=number; } }
+      for (var i=0;countTo>i;i++){
+        result=sendDirectToServer("/give_torch_weapon " + this.name); // the input should never fail, so this should normally always return true
+      }
+      return result;
+    }
+    this.giveTorchWeaponOP=function (number){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
+      var theNum=toNumIfPossible(number);
+      var countTo=1; // The default times to run the command is 1
+      var result;
+      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+        if (theNum>1){ countTo=number; } }
+      for (var i=0;countTo>i;i++){
+        result=sendDirectToServer("/give_torch_weapon_op " + this.name); // the input should never fail, so this should normally always return true
+      }
+      return result;
+    }
+    this.kill=function (){ // kills the player
+      return sendDirectToServer("/kill_character plain " + this.name);
+    }
+    this.kick=function (reason){ // Reason is optional.  Note that since reason is optional, this will always return true.
+      if (testIfInput(reason)){
+        return sendDirectToServer("/kick_reason " + this.name + "'" + reason.toString().trim() + "'");
+      } else {
+        return sendDirectToServer("/kick " + this.name);
+      }
+    }
+    this.setFactionRank=function (number){ // expects a number 1-5.  5 is founder, 1 is lowest rank.
+      var theNum=toNumIfPossible(number);
+      if (typeof theNum == "number"){
+        if (theNum>=1 && theNum<=5){
+          return sendDirectToServer("/faction_mod_member " + this.name + " " + number);
+        }
+        return false; // The number was invalid
+      }
+      return false; // the input was invalid
+    }
+    this.addAdmin=function (){ // Adds the player as an admin
+      return sendDirectToServer("/add_admin " + this.name);
+    }
+    this.removeAdmin=function (){ // Removes the player as an admin
+      return sendDirectToServer("/remove_admin " + this.name);
+    }
+    this.addAdminDeniedCommand=function (commandOrCommands){ // Adds denied commands for an admin, input can be an array of commands to deny.  It will cycle through them all.
+      // Note:  This does not check to ensure the command actually exists.
+      var returnVal=true;
+      var result;
+      if (typeof commandOrCommands == "object"){ // An array is an object typeof
+        if (commandOrCommands instanceof Array){ // This is how you figure out it is an array.  We cannot do this directly, because if it is not an object, this will throw an error.
+          if (commandOrCommands.length){ // This is to make sure it isn't an empty array
+            for (var i=0;i<commandOrCommands.length;i++){
+              result=sendDirectToServer("/add_admin_denied_comand " + this.name + " " + commandOrCommands[i]);
+              if (result===false){ returnVal=false; }
+            }
+            return returnVal; // This will return false if ANY of the inputs failed.
+          } else {
+            return false;
+          }
+        }
+        return false; // This handles if an object of another type was given, which would be invalid.
+      }
+      if (testIfInput(commandOrCommands)){ // This would trigger for strings or numbers.
+        return sendDirectToServer("/add_admin_denied_comand " + this.name + " " + commandOrCommands);
+      }
+      return false; // This should never happen.
+    }
+    this.removeAdminDeniedCommand=function (commandOrCommands){ // Adds denied commands for an admin, input can be an array of commands to deny.  It will cycle through them all.
+      // Note:  This does not check to ensure the command actually exists.
+      var returnVal=true;
+      var result;
+      if (typeof commandOrCommands == "object"){ // An array is an object typeof
+        if (commandOrCommands instanceof Array){ // This is how you figure out it is an array.  We cannot do this directly, because if it is not an object, this will throw an error.
+          if (commandOrCommands.length){ // This is to make sure it isn't an empty array
+            for (var i=0;i<commandOrCommands.length;i++){
+              result=sendDirectToServer("/remove_admin_denied_comand " + this.name + " " + commandOrCommands[i]);
+              if (result===false){ returnVal=false; }
+            }
+            return returnVal; // This will return false if ANY of the inputs failed.
+          } else {
+            return false;
+          }
+        }
+        return false; // This handles if an object of another type was given, which would be invalid.
+      }
+      if (testIfInput(commandOrCommands)){ // This would trigger for strings or numbers.
+        return sendDirectToServer("/remove_admin_denied_comand " + this.name + " " + commandOrCommands);
+      }
+      return false; // This should never happen.
+    }
+    this.ban=function (toKick,reason,time){ // All values are mandatory.  toKick should be true/false. Time is in minutes.
+      // Note that a player MUST BE ONLINE in order for this to work. // TODO: create a workaround for the online requirement.
+      if (trueOrFalse(toKick) && testIfInput(reason) && isNum(time)){
+        return sendDirectToServer("/ban " + this.name + " " + toKick + "'" + reason.toString().trim() + "'" + time);
+      } else {
+        return false; // one or more of the inputs was invalid.
+      }
+    }
+    this.giveMetaItem=function (metaItem,number){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
+      // EXAMPLE: /give_metaitem schema blueprint, recipe, log_book, helmet, build_prohibiter, flash_light, virtual_blueprint, block_storage, laser, heal, power_supply, marker, rocket_launcher, sniper_rifle, grapple, torch, transporter_marker
+      // Note:  The primary usage for this is for log_books, helmets, and build_prohibiter
+      var theNum=toNumIfPossible(number);
+      var countTo=1; // The default times to run the command is 1
+      var result;
+      var resultToReturn=true;
+      if (testIfInput(metaItem)){
+        if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+          if (theNum>1){ countTo=theNum; } 
+        }
+        for (var i=0;countTo>i;i++){
+          result=sendDirectToServer("/give_metaitem " + this.name + " " + metaItem.toString().trim()); // the input should never fail, so this should normally always return true
+          if (result===false){
+            resultToReturn=false;
+          }
+        }
+        return resultToReturn; // If any of the commands given to the server are invalid, then this will be false
+      }
+      return false; // The input was invalid, so return false.
+    }
+
+
+    
     // Phase 1 - Add methods which send the command directly to the server.
+    // factionPointProtect(true/false) - (Example: /faction_point_protect_player Benevolent27 true) - Protects a player from faction point loss on death (permanent)
+
+    // banAccount - Bans the player by their registry account - this is a PERM ban
+    // banAccountTemp(NumberInMinutes) - Bans the player by their registry account temporarily
+    // banPlayerName - Bans the player by their playername - this is a PERM ban
+    // banPlayerNameTemp(NumberInMinutes) - Bans the player by their playername temorarily
+    // banIP - Bans the player by IP - PERM BAN - My Notes: Might use "/ban_ip_by_playername [PlayerName]" or "/ban_ip 1.1.1.1" if that is unreliable
+    // banIPTemp(NumberInMinutes) - Bans player by IP - Temp - My Notes: Can use "/ban_ip_by_playername_temp [PlayerName] 1" or "/ban_ip_temp 1.1.1.1 1" if that is unreliable
+
+    
+    // addToFaction([FactionObj/FactionNum]) -- Switches the player to a specific faction
+
+
+
+    // Phase 1 done - sending directly to console.  Phase 2 incomplete.
+    // creativeMode(true/false) - Turns creative mode on or off for the player "/creative_mode player true/false"
+    // godMode(true/false) - Sets godmode to true or false for the player using /god_mode
+    // invisibilityMode(true/false) - Sets invisibility to true or false for the player using /invisibility_mode
     // give(ElementNameString,Count) - Gives the player the number of blocks by element name - ONLY WORKS IF THE PLAYER IS ONLINE - Example: player.give("Power",10)
     // giveID(ElementIDNum,Count) - Gives the player the number of blocks by element ID number - ONLY WORKS IF THE PLAYER IS ONLINE- Example: player.giveID(2,10)
     // giveAllItems(Count) - Gives the player all blocks of a certain number
-    // giveCategoryItems(Count,categoryNameString) - Gives the player all blocks of a certain number by category
+    // giveCategoryItems(Count,categoryNameString) - /give_category_items Gives the player all blocks of a certain number by category
     // giveCredits(Num) - Gives a certain number of credits to the player.  Will subtract if a negative number used.  Returns the new total credits the player has.
-
     // giveGrapple - Gives the player a grapple gun
     // giveGrappleOP - Gives the player an OP grapple gun
     // giveHealWeapon
@@ -521,12 +843,15 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
     // giveSniperWeaponOP
     // giveTorchWeapon
     // giveTorchWeaponOP
-
-
-    // Phase 1 done - sending directly to console.  Phase 2 incomplete.
-    // creativeMode(true/false) - Turns creative mode on or off for the player "/creative_mode player true/false"
-    // godMode(true/false) - Sets godmode to true or false for the player using /god_mode
-    // invisibilityMode(true/false) - Sets invisibility to true or false for the player using /invisibility_mode
+    // kill - kills the player using "/kill_character [Name]"
+    // kick(reasonString) - kicks the player from the server using /kick or /kick_reason  ReasonString is optional.
+    // setFactionRank - Sets the player's rank within their current faction if they are in one.  Example: /faction_mod_member schema 1
+    // addAdmin - Adds this player as an admin to the server
+    // removeAdmin - Removes this player as an admin to the server
+    // addAdminDeniedCommand([One,or,more,commands]) - (example: /add_admin_denied_comand Benevolent27 ban) This can be an array or string.  If an array, it will cycle through the array, adding each denied command for the specific admin
+    // removeAdminDeniedCommand([One,or,more,commands]) - (example: /remove_admin_denied_comand Benevolent27 ban) This can be an array or string.  If an array, it will cycle through the array, removing each denied command for the specific admin.  Uses: /remove_admin_denied_comand [PlayerName] [CommandToRemove]
+    // ban(true/false,ReasonString,Time) - true/false is whether to kick.  Time is in minutes.
+    // giveMetaItem(metaItem,number) - Gives the player a meta item based on it's name, such as recipe, log_book, helmet, build_prohibiter, etc.
 
 
     // TODO: Add Info methods:
@@ -559,33 +884,12 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
     // battleModeSector - Returns the player's designated battlemode sector, which is unique to every player
 
     // Action methods:
-    // kill - kills the player using "/kill_character [Name]"
-    // kick(reasonString) - kicks the player from the server using /kick or /kick_reason  ReasonString is optional.
-    // setFactionRank - Sets the player's rank within their current faction if they are in one.  Example: /faction_mod_member schema 1
-    // addAdmin - Adds this player as an admin to the server
-    // removeAdmin - Removes this player as an admin to the server
-    // addAdminDeniedCommand([One,or,more,commands]) - This can be an array or string.  If an array, it will cycle through the array, adding each denied command for the specific admin
-    // removeAdminDeniedCommand([One,or,more,commands]) - This can be an array or string.  If an array, it will cycle through the array, removing each denied command for the specific admin.  Uses: /remove_admin_denied_comand [PlayerName] [CommandToRemove]
-    // addToFaction([FactionObj/FactionNum]) -- Switches the player to a specific faction
-
-    // ban(true/false,ReasonString,Time) - true/false is whether to kick.  Time is in minutes.
-    // banAccount - Bans the player by their registry account - this is a PERM ban
-    // banAccountTemp(NumberInMinutes) - Bans the player by their registry account temporarily
-    // banPlayerName - Bans the player by their playername - this is a PERM ban
-    // banPlayerNameTemp(NumberInMinutes) - Bans the player by their playername temorarily
-    // banIP - Bans the player by IP - PERM BAN - My Notes: Might use "/ban_ip_by_playername [PlayerName]" or "/ban_ip 1.1.1.1" if that is unreliable
-    // banIPTemp(NumberInMinutes) - Bans player by IP - Temp - My Notes: Can use "/ban_ip_by_playername_temp [PlayerName] 1" or "/ban_ip_temp 1.1.1.1 1" if that is unreliable
 
     // changeSector("[X],[Y],[Z]", SectorObj, or CoordsObj) - teleports the player to a specific sector
     // changeSectorCopy("[X],[Y],[Z]", SectorObj, or CoordsObj) - teleports the player to a specific sector, leaving behind a copy of whatever entity they were in, duplicating it
 
-    // factionCreate(NewFactionNameString) - This creates a new faction and sets the player as the leader - I am unsure what the /faction_create command will do if a faction of the same name already exists, but I'm guessing it will just duplicate it.
+    // factionCreate(NewFactionNameString) - This creates a new faction and sets the player as the leader - I am unsure what the /faction_create command will do if a faction of the same name already exists, but I'm guessing it will just duplicate it. I also do not know what happens if the player is currently in a faction already.
     // factionCreateAs(NewFactionNameString,FactionNum) - This creates a new faction with a specific faction number and sets the player as the leader - I am unsure what the /faction_create_as command will do if the faction number already exists..
-
-
-    // giveLook(Count) - Gives the player a number of whatever block they are currently looking at
-    // giveSlot(Count) - Gives the player a number of whatever block they have selected on their hotbar
-    // giveMetaItem(String) - Gives the player a meta item based on it's name, such as recipe, log_book, helmet, build_prohibiter, etc.
 
     // protect(smNameString/SMNameObj) - Sets this current player name to be protected under a specific registry account
     // unprotect - This unsets registry protection for this player name - WARNING:  This will allow anyone to log in under this name in the future!
