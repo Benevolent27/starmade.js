@@ -706,6 +706,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
 
           console.log("Some blueprint buy event happened.");
         } else if (theArguments[0] == "[BLUEPRINT][LOAD]"){ // New ship from load - possibly /spawn_mobs command
+          // TODO:  Figure out why this isn't firing off on the first blueprint spawn.  It is ALWAYS the second blueprint spawn and all later spawns for some strange reason.
           console.log("Some blueprint load event happened.");
           let theUser=theArguments[1];
           console.log("theUser:" + theUser);
