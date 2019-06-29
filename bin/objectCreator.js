@@ -478,9 +478,18 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
     // var playerName=player.replace(/^ENTITY_PLAYERCHARACTER_/,"").replace(/^ENTITY_PLAYERSTATE_/,""); // strip the UID
     this.name=player.replace(/^ENTITY_PLAYERCHARACTER_/,"").replace(/^ENTITY_PLAYERSTATE_/,""); // strip the UID
 
-    this.msg=function (message){ // Sends a message to the player
+    this.msg=function (message,type){ // Sends a message to the player.  Type is optional.  If not provided "plain" is used.
+      // options for type are:  plain, info, warning, and error.
+      // plain shows as a message in the main chat
+      // info shows as a green pop-up
+      // warning shows as a blue pop-up
+      // error shows as a red pop-up
+      var msgType="plain";
+      if (typeof type=="string"){
+        msgType=type; // This does not validate the message type, in case new message types in the future are released.
+      }
       if (testIfInput(message)){
-        return sendDirectToServer("/server_message_to plain " + this.name + "'" + message.toString().trim() + "'");
+        return sendDirectToServer("/server_message_to " + msgType + " " + this.name + "'" + message.toString().trim() + "'");
       }
       return false;
     }
@@ -715,7 +724,7 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       return result;
     }
     this.kill=function (){ // kills the player
-      return sendDirectToServer("/kill_character plain " + this.name);
+      return sendDirectToServer("/kill_character " + this.name);
     }
     this.kick=function (reason){ // Reason is optional.  Note that since reason is optional, this will always return true.
       if (testIfInput(reason)){
@@ -819,7 +828,7 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
 
     
     // Phase 1 - Add methods which send the command directly to the server.
-    // factionPointProtect(true/false) - (Example: /faction_point_protect_player Benevolent27 true) - Protects a player from faction point loss on death (permanent)
+
 
     // banAccount - Bans the player by their registry account - this is a PERM ban
     // banAccountTemp(NumberInMinutes) - Bans the player by their registry account temporarily
@@ -834,6 +843,7 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
 
 
     // Phase 1 done - sending directly to console.  Phase 2 incomplete.
+    // msg(MessageString,info/warning/error) - Sends a private message to this specific player.  If no method is specified "plain" is used, which shows up on the player's main chat.
     // creativeMode(true/false) - Turns creative mode on or off for the player "/creative_mode player true/false"
     // godMode(true/false) - Sets godmode to true or false for the player using /god_mode
     // invisibilityMode(true/false) - Sets invisibility to true or false for the player using /invisibility_mode
@@ -865,6 +875,7 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
     // removeAdminDeniedCommand([One,or,more,commands]) - (example: /remove_admin_denied_comand Benevolent27 ban) This can be an array or string.  If an array, it will cycle through the array, removing each denied command for the specific admin.  Uses: /remove_admin_denied_comand [PlayerName] [CommandToRemove]
     // ban(true/false,ReasonString,Time) - true/false is whether to kick.  Time is in minutes.
     // giveMetaItem(metaItem,number) - Gives the player a meta item based on it's name, such as recipe, log_book, helmet, build_prohibiter, etc.
+    // factionPointProtect(true/false) - (Example: /faction_point_protect_player Benevolent27 true) - Protects a player from faction point loss on death (permanent)
 
 
     // TODO: Add Info methods:
@@ -907,7 +918,6 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
     // protect(smNameString/SMNameObj) - Sets this current player name to be protected under a specific registry account
     // unprotect - This unsets registry protection for this player name - WARNING:  This will allow anyone to log in under this name in the future!
 
-    // serverMessage(MessageString,info/warning/error) - Sends a private message to this specific player.  If no method is specified "plain" is used, which shows up on the player's main chat.
 
   } else {
     throw new Error("ERROR: No playername provided to playerObj constructor!");
@@ -1271,8 +1281,8 @@ function EntityObj(fullUID,shipName){
     this["type"]=function(){ return starNetHelper.getEntityValue(this.fullUID,"type") };
     // this["objType"]="EntityObj"; // Totally not necessary since we have objHelper.getObjType()
 
-    this["dataMap"]=function(){ return new starNetHelper.ShipInfoUidObj(this.fullUID) };
-    this["dataObj"]=function(){ return new starNetHelper.ShipInfoUidObj(this.fullUID,{"objType":"object"}) };
+    this["dataMap"]=function(){ return new starNetHelper.ShipInfoUidObj(this.fullUID) }; // TODO:  This seems broken
+    this["dataObj"]=function(){ return new starNetHelper.ShipInfoUidObj(this.fullUID,{"objType":"object"}) }; // TODO:  This seems broken
 
 
     this.load=function(){
