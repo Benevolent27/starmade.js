@@ -18,7 +18,12 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   findSameFromTwoArrays, // Finds whatever values exist in both arrays
   isObjHasPropAndEquals, // Checks if input is an object, has a property, and that property strictly equals a value
   objHasPropAndEquals, // For when you have many property checks and you've already ensured what is being fed is an object
-  isObjEmpty // Checks for empty object
+  isObjEmpty, // Checks for empty object
+  testIfInput, // Checks if any valid, non-empty input is given.  Returns false for empty objects, true for any boolean value.
+  isTrue, // Only string "true" or boolean true will return true
+  isFalse, // Only string "false" or boolean false will return true
+  trueOrFalse, // This allows string or boolean true or false values, returning boolean.  Returns undefined if neither true nor false.
+  isTrueOrFalse // This returns true if the input is either true or false as a string or boolean, false for anything else.
 };
 
 const util=require('util');
@@ -59,7 +64,7 @@ function objToStrMap(obj) {
 }
 function toBoolean(input){ // The main purpose of this function is to convert strings of "false" to literal false, rather than them being returned as truthy.
   if (input){ // First try a truthy
-    return input=="false" ? false : Boolean(input); // Interpret a "false" string as false, otherwise convert to Boolean
+    return input=="false" ? false : Boolean(input); // Interpret a "false" string as false, otherwise convert to Boolean.  This will convert ANY input to true.
   } else {
     return false;
   }
@@ -167,4 +172,68 @@ function isObjEmpty(obj) {
         }
     }
     return true;
+}
+
+function testIfInput(input){
+  // This is to test if an input is given.  A "false" boolean value will cause true to be returned, because it was an input.  Empty objects will return false.
+  if (typeof input === 'undefined' || input===null || input==="" || (typeof input=="number" && isNaN(input)) ) { // "" needs to be === otherwise it will trigger under a boolean false
+    return false;
+  } else if (typeof input == "boolean" || input == "0" || input === 0){ // boolean cannot be empty and numbers are input
+    return true;
+  } else if (typeof input == "object"){ // objects, arrays, and maps are more complicated.  False will be returned if the object is empty.
+    if (input instanceof Array){
+      if (input.length){
+        return true;
+      }
+      return false;
+    } else if (input instanceof Map){ // This check must be done before checking for an instanceof Object, since maps seem to hold true for that too.
+      if (input.size){
+        return true;
+      }
+      return false;
+    } else if (input instanceof Object){ // This will handle custom objects the same.
+      for(var key in input) {
+        if (input.hasOwnProperty(key)){ // If there are any properties, then it is not empty.
+          return true;
+        }
+      }
+      return false;
+    }
+  } 
+  // This covers strings and other numbers with a general truthy check.  It's also a catchall for any other circumstance I might not have thought of to check above.
+  if (input){ // This check is just a catch-all, it should always be true.
+    return true;
+  }
+  return false; // This is to cover any other non-true value that I somehow didn't catch.
+};
+
+function isTrue(input){
+  if (input == "true" || input === true){
+    return true;
+  }
+  return false;
+}
+
+function isFalse(input){
+  if (input == "false" || input === false){
+    return true;
+  }
+  return false;
+}
+
+function trueOrFalse(input){ // This allows string or boolean true or false values.  Returns undefined if neither true nor false.
+  var returnVal;
+  if (isTrue(input)){
+    returnVal=true;
+  } else if (isFalse(input)){
+    returnVal=false;
+  }
+  return returnVal;
+}
+
+function isTrueOrFalse(input){ // Returns true if the input value is either true or false, either string or boolean.
+  if (isTrue(input) || isFalse(input)){
+    return true;
+  }
+  return false;
 }
