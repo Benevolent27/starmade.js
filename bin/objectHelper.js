@@ -23,7 +23,8 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   isTrue, // Only string "true" or boolean true will return true
   isFalse, // Only string "false" or boolean false will return true
   trueOrFalse, // This allows string or boolean true or false values, returning boolean.  Returns undefined if neither true nor false.
-  isTrueOrFalse // This returns true if the input is either true or false as a string or boolean, false for anything else.
+  isTrueOrFalse, // This returns true if the input is either true or false as a string or boolean, false for anything else.
+  isNum // This returns true if the value is a number, even if it is a string.
 };
 
 const util=require('util');
@@ -74,9 +75,18 @@ function toNumIfPossible(input){ // This also converts numbers from scientific n
     var output=Number(input);
     if (isNaN(output)){
       return input;
+    } else {
+      return output;
     }
   }
-  return output;
+  return input;
+}
+function isNum(input){ // This checks if the input is a number, either as a string or as a number.
+  if (typeof toNumIfPossible(input) == "number"){
+    return true;
+  } else {
+    return false;
+  }
 }
 
 function getObjType(theObj){ // This will return the name of the constructor function that created the object
