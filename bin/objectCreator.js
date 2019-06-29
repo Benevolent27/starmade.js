@@ -63,6 +63,8 @@ const toNumIfPossible       = objectHelper.toNumIfPossible;
 const subArrayFromAnother   = objectHelper.subArrayFromAnother;
 const findSameFromTwoArrays = objectHelper.findSameFromTwoArrays;
 
+const {testIfInput,trueOrFalse,isTrueOrFalse} = objectHelper;
+
 // Set up prototypes for constructors, such as replacing .toString() functionality with a default value.  Prototypes will not appear as a regular key.
 SectorObj.prototype.toString = function(){ return this.coords.toString() };
 CoordsObj.prototype.toString = function(){ return this.x.toString() + " " + this.y.toString() + " " + this.z.toString() };
@@ -349,7 +351,7 @@ function showResponseCallback(error,output){ // This is a helper function for te
 }
 
 // TESTING END
-var server;  // This is needed so objects can send text to the server directly
+var server;  // This is needed so objects can send text to the server directly.  I may add the global object to this as well.
 function init(theServer) {
   server=theServer;
 }
@@ -469,19 +471,63 @@ function SMName(smName){
   // Using SQL queries:
   // getNames - Returns an array of PlayerObj's for all the usernames associated with this registry account name
 }
+
+
 function PlayerObj(player){ // "Player" must be a string and can be just the player's nickname or their full UID
   if (player){
-    var playerName=player.replace(/^ENTITY_PLAYERCHARACTER_/,"").replace(/^ENTITY_PLAYERSTATE_/,""); // strip the UID
-    this.name=playerName;
+    // var playerName=player.replace(/^ENTITY_PLAYERCHARACTER_/,"").replace(/^ENTITY_PLAYERSTATE_/,""); // strip the UID
+    this.name=player.replace(/^ENTITY_PLAYERCHARACTER_/,"").replace(/^ENTITY_PLAYERSTATE_/,""); // strip the UID
 
     this.msg=function (message){
-      if (message){
-        var theMessage=message.toString().trim();
-        let mMessage="/server_message_to plain " + playerName + "'" + theMessage + "'\n";
-        return server.stdin.write(mMessage);
+      return sendDirectToServer("/server_message_to plain " + this.name + "'" + message.toString().trim() + "'");
+    }
+    this.creativeMode=function (input){ // expects true or false as either boolean or string
+      if (isTrueOrFalse(input)){
+        return sendDirectToServer("/creative_mode " + this.name + input);
       }
       return false;
     }
+    this.godMode=function (input){ // expects true or false as either boolean or string
+      if (isTrueOrFalse(input)){
+        return sendDirectToServer("/god_mode " + this.name + input);
+      }
+      return false;
+    }
+    this.invisibilityMode=function (input){ // expects true or false as either boolean or string
+      if (isTrueOrFalse(input)){
+        return sendDirectToServer("/invisibility_mode " + this.name + input);
+      }
+      return false;
+    }
+
+    // Phase 1 - Add methods which send the command directly to the server.
+    // give(ElementNameString,Count) - Gives the player the number of blocks by element name - ONLY WORKS IF THE PLAYER IS ONLINE - Example: player.give("Power",10)
+    // giveID(ElementIDNum,Count) - Gives the player the number of blocks by element ID number - ONLY WORKS IF THE PLAYER IS ONLINE- Example: player.giveID(2,10)
+    // giveAllItems(Count) - Gives the player all blocks of a certain number
+    // giveCategoryItems(Count,categoryNameString) - Gives the player all blocks of a certain number by category
+    // giveCredits(Num) - Gives a certain number of credits to the player.  Will subtract if a negative number used.  Returns the new total credits the player has.
+
+    // giveGrapple - Gives the player a grapple gun
+    // giveGrappleOP - Gives the player an OP grapple gun
+    // giveHealWeapon
+    // giveLaserWeapon
+    // giveLaserWeaponOP
+    // giveMarkerWeapon
+    // giveTransporterMarkerWeapon
+    // givePowerSupplyWeapon
+    // giveRocketLauncher
+    // giveRocketLauncherOP
+    // giveSniperWeapon
+    // giveSniperWeaponOP
+    // giveTorchWeapon
+    // giveTorchWeaponOP
+
+
+    // Phase 1 done - sending directly to console.  Phase 2 incomplete.
+    // creativeMode(true/false) - Turns creative mode on or off for the player "/creative_mode player true/false"
+    // godMode(true/false) - Sets godmode to true or false for the player using /god_mode
+    // invisibilityMode(true/false) - Sets invisibility to true or false for the player using /invisibility_mode
+
 
     // TODO: Add Info methods:
 
@@ -514,13 +560,14 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
 
     // Action methods:
     // kill - kills the player using "/kill_character [Name]"
-    // kick(reasonString) - kicks the player from the server.  ReasonString is optional.
-    // addToFaction([FactionObj/FactionNum]) -- Switches the player to a specific faction
-    // setFactionRank - Sets the player's rank within their current faction if they are in one.
+    // kick(reasonString) - kicks the player from the server using /kick or /kick_reason  ReasonString is optional.
+    // setFactionRank - Sets the player's rank within their current faction if they are in one.  Example: /faction_mod_member schema 1
     // addAdmin - Adds this player as an admin to the server
     // removeAdmin - Removes this player as an admin to the server
     // addAdminDeniedCommand([One,or,more,commands]) - This can be an array or string.  If an array, it will cycle through the array, adding each denied command for the specific admin
     // removeAdminDeniedCommand([One,or,more,commands]) - This can be an array or string.  If an array, it will cycle through the array, removing each denied command for the specific admin.  Uses: /remove_admin_denied_comand [PlayerName] [CommandToRemove]
+    // addToFaction([FactionObj/FactionNum]) -- Switches the player to a specific faction
+
     // ban(true/false,ReasonString,Time) - true/false is whether to kick.  Time is in minutes.
     // banAccount - Bans the player by their registry account - this is a PERM ban
     // banAccountTemp(NumberInMinutes) - Bans the player by their registry account temporarily
@@ -532,33 +579,9 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
     // changeSector("[X],[Y],[Z]", SectorObj, or CoordsObj) - teleports the player to a specific sector
     // changeSectorCopy("[X],[Y],[Z]", SectorObj, or CoordsObj) - teleports the player to a specific sector, leaving behind a copy of whatever entity they were in, duplicating it
 
-    // creativeMode(true/false) - Turns creative mode on or off for the player "/creative_mode player true/false"
-    // godMode(true/false) - Sets godmode to true or false for the player using /god_mode
-    // invisibilityMode(true/false) - Sets invisibility to true or false for the player using /invisibility_mode
-
     // factionCreate(NewFactionNameString) - This creates a new faction and sets the player as the leader - I am unsure what the /faction_create command will do if a faction of the same name already exists, but I'm guessing it will just duplicate it.
     // factionCreateAs(NewFactionNameString,FactionNum) - This creates a new faction with a specific faction number and sets the player as the leader - I am unsure what the /faction_create_as command will do if the faction number already exists..
 
-    // give(ElementNameString,Count) - Gives the player the number of blocks by element name - ONLY WORKS IF THE PLAYER IS ONLINE - Example: player.give("Power",10)
-    // giveID(ElementIDNum,Count) - Gives the player the number of blocks by element ID number - ONLY WORKS IF THE PLAYER IS ONLINE- Example: player.giveID(2,10)
-    // giveAllItems(Count) - Gives the player all blocks of a certain number
-    // giveCategoryItems(Count,categoryNameString) - Gives the player all blocks of a certain number by category
-    // giveCredits(Num) - Gives a certain number of credits to the player.  Will subtract if a negative number used.  Returns the new total credits the player has.
-
-    // giveGrapple - Gives the player a grapple gun
-    // giveGrappleOP - Gives the player an OP grapple gun
-    // giveHealWeapon
-    // giveLaserWeapon
-    // giveLaserWeaponOP
-    // giveMarkerWeapon
-    // giveTransporterMarkerWeapon
-    // givePowerSupplyWeapon
-    // giveRocketLauncher
-    // giveRocketLauncherOP
-    // giveSniperWeapon
-    // giveSniperWeaponOP
-    // giveTorchWeapon
-    // giveTorchWeaponOP
 
     // giveLook(Count) - Gives the player a number of whatever block they are currently looking at
     // giveSlot(Count) - Gives the player a number of whatever block they have selected on their hotbar
@@ -1577,6 +1600,13 @@ function returnEntityUIDList(coordsString,beginFilter,options){
     }
   }
   return null;
+}
+
+function sendDirectToServer(input){ // Expects a string input, returning "false" if the input wasn't valid.  This sends a command directly to the console with a return character.
+  if (testIfInput(input)){
+    return server.stdin.write(input + "\n");
+  }
+  return false;
 }
 // TODO: Create a function that gives a specific protection a value based on the sectorProtections array.
 // TODO: Create a function that converts an array of protection names to a total number
