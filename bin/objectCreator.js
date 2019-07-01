@@ -919,8 +919,6 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       }
       throw new Error("Invalid parameters given to playerObj setSpawnLocation method!");
     }
-
-
     this.changeSector=function(sector){ // Needs sector and spacial coords.  coordsObj is needed if a SectorObj is given as first parameter.
       // This should accept a location Obj, a pair of sectorObj and coordsObj, or any other pair of input that can translate to a CoordsObj
       var sectorToUse=sector;
@@ -936,15 +934,14 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
         } else { // Invalid objects or objects given as input.
           throw new Error("Invalid object types given to changeSector!");
         }
-      }
-      if (testIfInput(sector)){ // Input given
+      } else if (testIfInput(sector)){ // Non-object input given
         // Let's see if coordinates can be made from the input.  A String (separated by , or spaces) or an Array can be given as input.
-        // try {
+        try {
           sectorToUse=new CoordsObj(sector).toString();
-        // } catch (error){ // Invalid input given.
-        //   console.error("Invalid input given to changeSector!");
-        //   throw error; 
-        // }
+        } catch (error){ // Invalid input given.
+          console.error("Invalid input given to changeSector!");
+          throw error; 
+        }
       } else { // Invalid amount of arguments given
         throw new Error("No sector value given changeSector!");
       }
@@ -961,12 +958,51 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
         }
       }
       throw new Error("Invalid parameters given to playerObj changeSector method!");
-    }    
-    // /change_sector_for Benevolent27 x y z
+    }
+    
+    
 
-    // /teleport_to Benevolent27 x y z
-    // Success: [SERVER, [ADMIN COMMAND] teleported Benevolent27 to , 0]
-    // Fail: [SERVER, [ADMIN COMMAND] [ERROR] player not found for your client, 0]
+    this.teleportTo=function(coords){ // Needs sector and spacial coords.  coordsObj is needed if a SectorObj is given as first parameter.
+      // This should accept a location Obj, a pair of sectorObj and coordsObj, or any other pair of input that can translate to a CoordsObj
+      var spacialCoordsToUse=coords;
+      console.log("coords typeof: " + typeof coords);
+      if (typeof coords=="object"){
+        if (coords instanceof LocationObj){
+          if (coords.hasOwnProperty("spacial")){ // This handles LocationObj objects
+            spacialCoordsToUse=coords.spacial;
+          } else {
+            throw new Error("Invalid LocationObj given to teleportTo!");
+          }
+        } else if (coords instanceof CoordsObj) {
+          spacialCoordsToUse=coords.toString();
+        } else { // Invalid objects or objects given as input.
+          throw new Error("Invalid object type given to teleportTo!");
+        }
+      } else if (testIfInput(coords)){ // Input given
+        // Let's see if coordinates can be made from the input.  A String (separated by , or spaces) or an Array can be given as input.
+        try {
+          spacialCoordsToUse=new CoordsObj(coords).toString();
+        } catch (error){ // Invalid input given.
+          console.error("Invalid input given to teleportTo!");
+          throw error; 
+        }
+      } else { // Invalid amount of arguments given
+        throw new Error("No spacial coords given teleportTo!");
+      }
+      if (typeof spacialCoordsToUse=="string"){
+        // We should be all set to send the command now.
+        var result2=starNetHelper.starNetVerified("/teleport_to " + this.name + " " + spacialCoordsToUse); // This will throw an error if the connection to the server fails.
+        // Success: RETURN: [SERVER, [ADMIN COMMAND] teleported Benevolent27 to , 0]
+        // Fail: RETURN: [SERVER, [ADMIN COMMAND] [ERROR] player not found for your client, 0]
+        var theReg3=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] teleported");
+        if (starNetHelper.checkForLine(result2,theReg3)){ // The command succeeded.
+          return true;
+        } else { // The command failed.  Player either offline or does not exist for some reason.
+          return false;
+        }
+      }
+      throw new Error("Invalid parameters given to playerObj teleportTo method!");
+    }    
 
 
 
@@ -975,7 +1011,8 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
     // isOnline() - /player_list - Check to see if the player is online.  Useful for loops or delayed commands.
     // /player_get_spawn
     // /player_set_spawn_to Benevolent27 X Y Z spacialX spacialY spacialZ
-
+    // changeSector(coords) - /change_sector_for Benevolent27 x y z
+    // teleportTo(coords) - /teleport_to Benevolent27 x y z
 
     
     // Phase 1 - Add methods which send the command directly to the server.
