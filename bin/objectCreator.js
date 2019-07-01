@@ -8,6 +8,7 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   EntityObj,
   SectorObj,
   CoordsObj,
+  LocationObj,
   FactionObj,
   MessageObj,
   ChannelObj,
@@ -18,7 +19,9 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   BluePrintObj,
   RemoteServer: RemoteServerObj,
   LockFileObj,
-  PlayerObj
+  PlayerObj,
+  isPlayerOnline,
+  getPlayerList
 }
 
 // Requires
@@ -353,10 +356,14 @@ function showResponseCallback(error,output){ // This is a helper function for te
 // TESTING END
 var server;  // This is needed so objects can send text to the server directly.  I may add the global object to this as well.
 function init(theServer) {
-  server=theServer;
+  server=theServer; // This is the spawn childprocess.
+}
+function ServerObj(){ // This will be used to run server commands or gather specific information regarding the server.
+  this.onlinePlayers=getPlayerList;
+  this.spawnProcess=server;
 }
 
-function ServerObj(configurationName,lockFileObj){
+function ServerSpawnObj(configurationName,lockFileObj){ // I am discontinuing this idea and focusing on making starmade.js a single-server wrapper to start with. // TODO: Remove this object
   // configurationName is the name of the server from the settings.json file under the section "servers".
   // All configuration values specific to that name will be created if they don't exist alrady.
   // The goal here is to have this object be the root of running server based commands, such as force_save, shutdown, etc.
@@ -400,7 +407,6 @@ function ServerObj(configurationName,lockFileObj){
   // The last thing we do is spawn the StarMade instance
   this.spawn=spawn("java",this.javaArgs,{"cwd": this.settings["starMadeInstallFolder"]});
   // Register the spawn with the lock file and set up exit events.
-
 }
 
 function MessageObj(sender,receiver,receiverType,message){
@@ -824,6 +830,151 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       }
       return false; // The input was invalid, so return false.
     }
+    this.isOnline=function(){ return isPlayerOnline(this.name) };
+    this.spawnLocation=function(){
+      try {
+        var result=starNetHelper.starNetVerified("/player_get_spawn " + this.name);
+        // RETURN: [SERVER, [ADMINCOMMAND][SPAWN][SUCCESS] PlS[Benevolent27 ; id(2)(1)f(10002)] spawn currently absolute; sector: (2, 2, 2); local position: (8.0, -6.5, 0.0), 0]
+        // RETURN: [SERVER, END; Admin command execution ended, 0]
+
+        var resultArray=result.trim().split("\n");
+        // RETURN: [SERVER, [PL] Name: Benevolent27, 0]
+        var theReg=new RegExp("^RETURN: \\[SERVER, \\[ADMINCOMMAND\\]\\[SPAWN\\]\\[SUCCESS\\]");
+        for (let i = 0;i < resultArray.length;i++) {
+          if (theReg.test(resultArray[i])){
+            // This will only trigger if there is a success
+            // RETURN: [SERVER, [ADMINCOMMAND][SPAWN][SUCCESS] PlS[Benevolent27 ; id(2)(1)f(10002)] spawn currently absolute; sector: (2, 2, 2); local position: (8.0, -6.5, 0.0), 0]
+            // Scientific E notation: RETURN: [SERVER, [ADMINCOMMAND][SPAWN][SUCCESS] PlS[Benevolent27 ; id(2)(1)f(10002)] spawn currently absolute; sector: (2, 2, 2); local position: (0.01E5, -6.5, 0.0), 0]
+            var sectorCoords=resultArray[i].match(/sector: \([-]{0,1}[0-9]+, [-]{0,1}[0-9]+, [-]{0,1}[0-9]+/).toString().replace(/sector: \(/,"").split(", ");
+            console.dir(sectorCoords); // temp
+            var sectorCoordsObj=new CoordsObj(sectorCoords);
+            var sectorObj=new SectorObj(sectorCoordsObj.x,sectorCoordsObj.y,sectorCoordsObj.z);
+
+            var spacialCoords=resultArray[i].match(/position: \([-]{0,1}[0-9]+[.]{0,1}[0-9]*[eE]{0,1}[0-9]*, [-]{0,1}[0-9]+[.]{0,1}[0-9]*[eE]{0,1}[0-9]*, [-]{0,1}[0-9]+[.]{0,1}[0-9]*[eE]{0,1}[0-9]*/).toString().replace(/position: \(/,"").split(", "); // Supports scientific e notation, which is used sometimes for spacial coordinates.
+            console.dir(spacialCoords); // temp
+            
+            var coordsObj=new CoordsObj(spacialCoords);
+            // Returns a LocationObj, which has the sector and spacial coordinates in it.
+            return new LocationObj(sectorObj,coordsObj);
+          }
+        }
+        // If failed, the player is offline:
+        // RETURN: [SERVER, [ADMINCOMMAND][SPAWN] Player not found, 0]
+        return false; // The player must have been offline.
+
+      } catch (error){
+        console.error("StarNet command failed when attempting to get the spawn sector for player: " + this.name);
+        return false;
+      }
+    
+    }
+    this.setSpawnLocation=function(location,coordsObj){ // Needs sector and spacial coords.  coordsObj is needed if a SectorObj is given as first parameter.
+      // This should accept a location Obj, a pair of sectorObj and coordsObj, or any other pair of input that can translate to a CoordsObj
+      var sectorToUse=location;
+      var spacialToUse=coordsObj;
+
+      if (typeof location=="object"){
+        if (location instanceof LocationObj){
+          if (location.hasOwnProperty("spacial") && location.hasOwnProperty("sector")){ // This handles LocationObj types given.  This will lead to the coordsObj being ignored if given.
+            spacialToUse=location.spacial;
+            sectorToUse=location.sector;
+          } else {
+            throw new Error("Invalid LocationObj given to setSpawnLocation!");
+          }
+        } else if ((location instanceof SectorObj || location instanceof CoordsObj) && (coordsObj instanceof CoordsObj)) {
+          sectorToUse=location.toString();
+          spacialToUse=coordsObj.toString();
+        } else {
+          // Invalid objects or objects given as input.
+          throw new Error("Invalid object types given to setSpawnLocation!");
+        }
+      }
+      if (testIfInput(location) && testIfInput(coordsObj)){ // Two inputs given
+        // Let's see if coordinates can be made from the input.  String, Array, or object can be given with coordinates.
+        try {
+          sectorToUse=new CoordsObj(location).toString();
+          spacialToUse=new CoordsObj(coordsObj).toString();
+        } catch (error){ // Invalid input given.
+          console.error("Invalid input given to setSpawnLocation!");
+          throw error; 
+        }
+      } else { // Invalid amount of arguments given
+        throw new Error("Invalid number of parameters given to setSpawnLocation!");
+      }
+
+      if (typeof spacialToUse=="string" && typeof sectorToUse=="string"){
+        // We should be all set to send the command now.
+        var result2=starNetHelper.starNetVerified("/player_set_spawn_to " + this.name + " " + sectorToUse + " " + spacialToUse); // This will throw an error if the connection to the server fails.
+        // Success:
+        // RETURN: [SERVER, [ADMINCOMMAND][SPAWN][SUCCESS] set spawn of player PlS[Benevolent27 ; id(2)(1)f(10002)] to sector (1000, 1000, 1000); local position: (0.0, 0.0, 0.0), 0]
+
+        // Fail - either player offline or player does not exist.
+        // RETURN: [SERVER, [ADMINCOMMAND][SPAWN] Player not found, 0]
+        var theReg2=new RegExp("^RETURN: \\[SERVER, \\[ADMINCOMMAND\\]\\[SPAWN\\]\\[SUCCESS\\]");
+        if (starNetHelper.checkForLine(result2,theReg2)){ // The command succeeded.
+          return true;
+        } else { // The command failed.  Player either offline or does not exist for some reason.
+          return false;
+        }
+      }
+      throw new Error("Invalid parameters given to playerObj setSpawnLocation method!");
+    }
+
+
+    this.changeSector=function(sector){ // Needs sector and spacial coords.  coordsObj is needed if a SectorObj is given as first parameter.
+      // This should accept a location Obj, a pair of sectorObj and coordsObj, or any other pair of input that can translate to a CoordsObj
+      var sectorToUse=sector;
+      if (typeof location=="object"){
+        if (sector instanceof LocationObj){
+          if (sector.hasOwnProperty("sector")){ // This handles LocationObj objects
+            sectorToUse=sector.sector;
+          } else {
+            throw new Error("Invalid LocationObj given to setSpawnLocation!");
+          }
+        } else if (sector instanceof SectorObj || sector instanceof CoordsObj) {
+          sectorToUse=sector.toString();
+        } else { // Invalid objects or objects given as input.
+          throw new Error("Invalid object types given to changeSector!");
+        }
+      }
+      if (testIfInput(sector)){ // Input given
+        // Let's see if coordinates can be made from the input.  A String (separated by , or spaces) or an Array can be given as input.
+        // try {
+          sectorToUse=new CoordsObj(sector).toString();
+        // } catch (error){ // Invalid input given.
+        //   console.error("Invalid input given to changeSector!");
+        //   throw error; 
+        // }
+      } else { // Invalid amount of arguments given
+        throw new Error("No sector value given changeSector!");
+      }
+      if (typeof sectorToUse=="string"){
+        // We should be all set to send the command now.
+        var result2=starNetHelper.starNetVerified("/change_sector_for " + this.name + " " + sectorToUse); // This will throw an error if the connection to the server fails.
+        // Success: RETURN: [SERVER, [ADMIN COMMAND] [SUCCESS] changed sector for Benevolent27 to (1000, 1000, 1000), 0]
+        // Fail: RETURN: [SERVER, [ADMIN COMMAND] [ERROR] player not found for your client Benevolent27, 0]
+        var theReg3=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] \\[SUCCESS\\]");
+        if (starNetHelper.checkForLine(result2,theReg3)){ // The command succeeded.
+          return true;
+        } else { // The command failed.  Player either offline or does not exist for some reason.
+          return false;
+        }
+      }
+      throw new Error("Invalid parameters given to playerObj changeSector method!");
+    }    
+    // /change_sector_for Benevolent27 x y z
+
+    // /teleport_to Benevolent27 x y z
+    // Success: [SERVER, [ADMIN COMMAND] teleported Benevolent27 to , 0]
+    // Fail: [SERVER, [ADMIN COMMAND] [ERROR] player not found for your client, 0]
+
+
+
+    // Phase 2 - Add methods that poll information from the server using StarNet.
+
+    // isOnline() - /player_list - Check to see if the player is online.  Useful for loops or delayed commands.
+    // /player_get_spawn
+    // /player_set_spawn_to Benevolent27 X Y Z spacialX spacialY spacialZ
 
 
     
@@ -906,6 +1057,36 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
     // faction - Returns the FactionObj of their faction
     // currentEntity - Returns the EntityObj of the entity they are currently in
     // battleModeSector - Returns the player's designated battlemode sector, which is unique to every player
+
+    // playerInfo - uses /player_info to create an object with all the info available, putting the data into an object or perhaps a map.
+    // playerProtect - uses /player_protect to protect a smname to a username
+    // player_unprotect - opposite of above
+
+    // other commands to utilize:
+    // /player_put_into_entity_uid
+    // /player_suspend_faction
+    // /player_get_inventory
+    // /player_get_block_amount
+    // /list_blueprints_by_owner
+    // kick_player_name_out_of_entity
+
+    // /faction_set_id_member <-- this is buggy and might not be adviseable to utilize.
+    // /faction_join_id Player FactionID
+    // /faction_del_member Player FactionID
+    // isAdmin() - use /list_admins to determine is a player is an admin
+    // /list_blueprints_by_owner and/or /list_blueprints_by_owner_verbose
+    // /list_whitelist_name - See if whitelisted.  Could be useful to do a check of online players to see if everyone is whitelisted.
+    // /list_banned_name - See if banned.  Could be useful if banned but not kicked yet.
+
+    // infiniteInventory(true/false) - /set_infinite_inventory_volume Player true/false
+
+    // moveToSpacialCoords(x,y,z) /teleport_to Name X Y Z
+    // /tint_name x x x x Name - This sets the color of an astronaut.  See the colors.sh file from LvD for some color examples.
+    // /whitelist_name and /whitelist_name_temp
+    
+
+
+
 
     // Action methods:
 
@@ -992,6 +1173,24 @@ function FactionObj(factionNumber){
   // duplicate(Num) - This will create duplicate new open factions with fake names as the leaders with the same name as this faction (uses /faction_create_amount [Name] [Number])
   // serverMessage(MessageString,info/warning/error) - Sends a message to all online players of this faction.  If no method is specified "plain" is used, which shows up on the player's main chat.
 }
+function LocationObj(sectorObj,coordsObj){ // This is to store an exact location, including system, sector, and spacial coordinates.
+  // this.system=sectorObj.getSystem();
+  if (sectorObj instanceof SectorObj){
+    this.sector=sectorObj;
+  } else if (sectorObj instanceof CoordsObj){
+    this.sector=new SectorObj(sectorObj.x,sectorObj.y,sectorObj.z);
+  } else {
+    // Let's try to make it into a coords obj and convert to sectorobj
+    var tryCoords=new CoordsObj(sectorObj); // This will throw an error if invalid input
+    this.sector=new SectorObj(tryCoords.x,tryCoords.y,tryCoords.z);
+  }
+  if (coordsObj instanceof CoordsObj){
+    this.spacial=coordsObj;
+  } else {
+    this.spacial=new CoordsObj(coordsObj); // This will throw an error if invalid input
+  }
+}
+
 function SectorObj(x,y,z){
   // TODO: Add Info methods:
   // getSystem - Returns a SystemObj
@@ -1016,7 +1215,7 @@ function SectorObj(x,y,z){
 
   if (typeof x == "number" && typeof y == "number" && typeof z == "number"){
     this.coords=new CoordsObj(x,y,z);
-    this.toArray=function(){ this.coords.toArray() };
+    this.toArray=function(){ return this.coords.toArray() };
     this.load=function(){
       // This returns "true" if the command ran, false for anything else, such as if the server was down.
       let theResponse=starNet("/load_sector_range " + this.coords.toString() + " " + this.coords.toString());
@@ -1197,14 +1396,29 @@ function CoordsObj(xInput,yInput,zInput){ // xInput can be a string or space or 
       yToUse=objectHelper.toNumIfPossible(tempArray[1].trim());
       zToUse=objectHelper.toNumIfPossible(tempArray[2].trim());
     } else {
-      throw new Error("Invalid amount of numbers given as string to CoordsObj(" + tempArray.length + "): " + x);
+      console.error("Invalid amount of numbers given as string to CoordsObj. (" + tempArray.length + "): " + xInput);
+      throw new Error("Invalid amount of numbers given as string to CoordsObj.");
     }
   } else if (typeof xInput=="object"){ // This handles arrays or other objects
     if (objectHelper.getObjType(xInput) == "Array"){
       if (xInput.length==3){
-        xToUse=objectHelper.toNumIfPossible(xInput[0].trim());
-        yToUse=objectHelper.toNumIfPossible(xInput[1].trim());
-        zToUse=objectHelper.toNumIfPossible(xInput[2].trim());
+        console.log("Working on array: ");
+        console.dir(xInput);
+        if (typeof xInput[0] == "number"){ // This is necessary because .trim() will throw an error if attempted on a number
+          xToUse=xInput[0];
+        } else { 
+          xToUse=objectHelper.toNumIfPossible(xInput[0].trim()); 
+        }
+        if (typeof xInput[1] == "number"){
+          yToUse=xInput[1];
+        } else { 
+          yToUse=objectHelper.toNumIfPossible(xInput[1].trim()); 
+        }
+        if (typeof xInput[2] == "number"){
+          zToUse=xInput[2];
+        } else { 
+          zToUse=objectHelper.toNumIfPossible(xInput[2].trim()); 
+        }
       } else {
         throw new Error("Invalid number of values given in array to CoordsObj (" + x.length + "): " + x)
       }
@@ -1927,6 +2141,37 @@ function returnEntityUIDList(coordsString,beginFilter,options){
     }
   }
   return null;
+}
+
+function isPlayerOnline(name){ // Expects a string.  Returns true if the player is online, false if not.
+  // TODO:  Add support for PlayerObj as input.
+  var results=getPlayerList(); // This will be an array of player objects for all online players.  Will be empty if nobody online.
+  for (var i=0;results.length>i;i++){
+    if (results[i].name == name){
+      return true;
+    }
+  }
+  return false;
+}
+
+function getPlayerList(){ // Returns an array of player objects for all online players or false if the starNet command fails.
+  // returns an array of all online players.  The array will be empty if nobody is online.
+  try {
+    var result=starNetHelper.starNetVerified("/player_list");
+    var resultArray=result.trim().split("\n");
+    var outputArray=[];
+    // RETURN: [SERVER, [PL] Name: Benevolent27, 0]
+    var theReg=new RegExp("^RETURN: \\[SERVER, \\[PL\\] Name: ");
+    for (let i = 0;i < resultArray.length;i++) {
+      if (theReg.test(resultArray[i])){
+        outputArray.push(new PlayerObj(resultArray[i].replace(theReg,"").replace(/, 0]$/,"")));
+      }
+    }
+    return outputArray;
+  } catch (error){
+    console.error("StarNet command failed when attempting to getPlayerList()!");
+    return false;
+  }
 }
 
 function sendDirectToServer(input){ // Expects a string input, returning "false" if the input wasn't valid.  This sends a command directly to the console with a return character.
