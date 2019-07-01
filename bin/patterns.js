@@ -86,6 +86,9 @@ function excluded(){
   excludePatterns.push("^\\[SERVER\\]\\[DISCONNECT\\] Client 'Info-Pinger \\(server-lists\\)'"); // This is in both serverlog.0.log AND console output.  Every time someone refreshes their server list from the main menu of the game, all servers have a message on their console.
   excludePatterns.push(".*Narrowphase of Sector.*");
   excludePatterns.push("^\\[BLUEPRINT\\]\\[SPAWNINDB\\]");
+  excludePatterns.push("^\\[BLUEPRINT\\] BASE PATH:"); // These seem to be firing off in the latest version, very annoying.
+  excludePatterns.push("^\\[BLUEPRINT\\] USING TRANSIENT:"); // These seem to be firing off in the latest version, very annoying.
+
   var excludePatternRegexTemp="(" + excludePatterns[0];
   for (let i=1;i<excludePatterns.length;i++){ excludePatternRegexTemp+="|" + excludePatterns[i]; }
   excludePatternRegexTemp+=")"
