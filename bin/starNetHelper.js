@@ -576,6 +576,8 @@ function verifyResponse(input){ // input should be a full starNet.js response st
 function starNetVerified(string,options){ // Takes a string command.  Options are optional
   // Options right now include displaying the result on screen by giving "{debug:true}" as an option
   // This should probably no be used on longer sort of responses because it has to parse through every line
+
+  // Be careful using this, since it will crash the scripting if the error isn't handled.
   if (typeof string == "string"){
     var starNetResult=starNet(string,options);
     if (verifyResponse(starNetResult)){
