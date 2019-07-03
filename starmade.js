@@ -151,7 +151,8 @@ var showStdout                = false;
 var showServerlog             = true;
 var showAllEvents             = false;
 var enumerateEventArguments   = false;
-var pauseBeforeStartingServer = "2000"; // Default: 2 - After any sort of installs, config verifications, etc, how long should we wait before pulling the trigger on the server spawn in ms?
+// var pauseBeforeStartingServer = "2000"; // Default: 2 - After any sort of installs, config verifications, etc, how long should we wait before pulling the trigger on the server spawn in ms?
+var pauseBeforeStartingServer = "1"; // Default: 2 - After any sort of installs, config verifications, etc, how long should we wait before pulling the trigger on the server spawn in ms?
 var settingsFile              = path.join(mainFolder, "settings.json");
 console.log("Importing settings..");
 var starNetJarURL             = "http://files.star-made.org/StarNet.jar";
