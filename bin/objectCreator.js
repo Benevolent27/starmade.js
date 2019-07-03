@@ -17,6 +17,7 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   SystemObj,
   SpawnObj,
   BluePrintObj,
+  BotObj,
   RemoteServer: RemoteServerObj,
   LockFileObj,
   PlayerObj,
@@ -74,6 +75,7 @@ CoordsObj.prototype.toString = function(){ return this.x.toString() + " " + this
 EntityObj.prototype.toString = function(){ return this.fullUID.toString() };
 IPObj.prototype.toString = function(){ return this.address };
 IPObj.prototype.toArray = function(){ return this.address.split(".") };
+PlayerObj.prototype.toString = function(){ return this.name }; // This allows inputs for functions to use a playerObj or string easily.  Example:  playerObj.toString() works the same as playerString.toString(), resulting in a string of the player's name.
 
 //  #######################
 //  ###     TESTING     ###
@@ -355,12 +357,32 @@ function showResponseCallback(error,output){ // This is a helper function for te
 
 // TESTING END
 var server;  // This is needed so objects can send text to the server directly.  I may add the global object to this as well.
-function init(theServer) {
+var global;
+
+function init(theServer,theGlobal) {
   server=theServer; // This is the spawn childprocess.
+  global=theGlobal;
 }
 function ServerObj(){ // This will be used to run server commands or gather specific information regarding the server.
   this.onlinePlayers=getPlayerList;
   this.spawnProcess=server;
+}
+
+function BotObj(botName){
+  if (typeof botName == "string"){
+    this.name=botName;
+    this.msg=function(playerObj,msgString){
+      // This expects a player object OR a string with a player's name, then the message to send.
+      if (typeof msgString == "string"){
+        var thePlayer=new PlayerObj(playerObj.toString().trim()); // This creates a new playerObj with either a string OR a playerObj
+        thePlayer.msg(this.name + ": " + msgString);
+      } else {
+        console.error("Invalid input given to message player with!")
+      }
+    }
+  } else {
+    throw new Error("Invalid botName given to BotObj!");
+  }
 }
 
 function ServerSpawnObj(configurationName,lockFileObj){ // I am discontinuing this idea and focusing on making starmade.js a single-server wrapper to start with. // TODO: Remove this object
@@ -1406,6 +1428,23 @@ function SectorObj(x,y,z){
   } else {
     throw new Error("ERROR: Invalid values given to SectorObj constructor!");
   }
+}
+function CommandObj(command,theArguments,category,description,options){ // Expects string values
+  var displayInHelp=true; // If this command is registered as a command, the default will be to display it when a player types !help in-game.
+  if (typeof options == "object"){ // Parse the options
+    if (options.hasOwnProperty("displayInHelp")){
+      if (objectHelper.isTrueOrFalse(options.displayInHelp)){
+        displayInHelp=options.displayInHelp;
+      } else {
+        console.error("Invalid parameter given as 'displayInHelp' to CommandObj: " + options.displayInHelp);
+      }
+    }
+  }
+  this.command=command;
+  this.arguments=theArguments;
+  this.category=category;
+  this.description=description;
+  this.displayInHelp=displayInHelp;
 }
 function CoordsObj(xInput,yInput,zInput){ // xInput can be a string or space or comma separated numbers, coordsObj, or a sectorObj
   // test to ensure string, array, CoordsObj, SectorObj, and regular numbers/strings(which are numbers) works.
