@@ -1022,7 +1022,7 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
     }    
     this.sector=function(){
       var returnVal;
-      // try {
+      try {
         var result=starNetHelper.starNetVerified("/player_info " + this.name); // This will throw an error if there is a connection issue.
         // RETURN: [SERVER, [PL] CONTROLLING-POS: (0.0, 5.0, 0.0), 0]
         // RETURN: [SERVER, [PL] CONTROLLING: PlayerCharacter[(ENTITY_PLAYERCHARACTER_Benevolent27)(285)], 0]
@@ -1038,36 +1038,29 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
 
         // I can just use the this.isOnline() to determine whether the player is online or not, but this is lazy and slower.
         var offline=returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] CONTROLLING-POS: <not spawned>/);
-        console.log("offline: " + offline); // temp
         var notExist=returnLineMatch(result,/^RETURN: \[SERVER, \[ADMIN COMMAND\] \[ERROR\]/);
-        console.log("notExist: " + notExist); // temp
         if (!offline && !notExist){
           var sectorLine=returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] SECTOR: \(.*/);
-          console.log("sectorLine: " + sectorLine); // temp
           sectorLine=sectorLine.replace(/^RETURN: \[SERVER, \[PL\] SECTOR: \(/,"");
-          console.log("sectorLine: " + sectorLine); // temp
           sectorLine=sectorLine.replace(/\), 0]$/,"");
-          console.log("sectorLine: " + sectorLine); // temp
           var sectorArray=sectorLine.split(", ");
-          console.log("sectorArray: " + sectorArray); // temp
           return new SectorObj(sectorArray);
         }
         if (offline){
           return false; // The player must have been offline.
         }
         return returnVal; // Returns undefined.  The player did not exist somehow.  This should never happen.
-      // } catch (error){
-      //   var errorMsg="StarNet command failed when attempting to get the sector for player: " + this.name;
-      //   console.error(errorMsg);
-      //   var errorObj=new Error(errorMsg);
-      //   throw errorObj;
-      // }
+      } catch (error){
+        var errorMsg="StarNet command failed when attempting to get the sector for player: " + this.name;
+        console.error(errorMsg);
+        var errorObj=new Error(errorMsg);
+        throw errorObj;
+      }
     }
   
 
 
     // Phase 2 - Add methods that poll information from the server using StarNet.
-    // sector - Returns the player's current sector
     // changeSectorCopy("[X],[Y],[Z]", SectorObj, or CoordsObj) - teleports the player to a specific sector, leaving behind a copy of whatever entity they were in, duplicating it
     // smName - returns a SmNameObj
     // ip - returns an IPObj with the player's last IP in it
@@ -1078,6 +1071,7 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
 
 
     // Phase 2 - Done
+    // sector - Returns the player's current sector as a SectorObj
     // isOnline() - /player_list - Check to see if the player is online.  Useful for loops or delayed commands.
     // /player_get_spawn
     // /player_set_spawn_to Benevolent27 X Y Z spacialX spacialY spacialZ
@@ -1446,7 +1440,7 @@ function SectorObj(xGiven,yGiven,zGiven){
       }
       return returnArray;
     }
-    this.players=function(){
+    this.players=function(){ // I do not think this will actually work.
       var returnArray=[];
       var uidArray=this.listPlayerUIDs();
       if (uidArray){ // Will be Null if the StarNet command fails for some reason
@@ -1473,6 +1467,8 @@ function SectorObj(xGiven,yGiven,zGiven){
   }
 }
 function CommandObj(command,theArguments,category,description,options){ // Expects string values
+  // TODO: Create a process of registering a command through the global object.
+  // TODO: Create an interpreter in starmade.js that detects commands and then only runs them if they are registered
   var displayInHelp=true; // If this command is registered as a command, the default will be to display it when a player types !help in-game.
   if (typeof options == "object"){ // Parse the options
     if (options.hasOwnProperty("displayInHelp")){
