@@ -88,7 +88,8 @@ function excluded(){
   excludePatterns.push("^\\[BLUEPRINT\\]\\[SPAWNINDB\\]");
   excludePatterns.push("^\\[BLUEPRINT\\] BASE PATH:"); // These seem to be firing off in the latest version, very annoying.
   excludePatterns.push("^\\[BLUEPRINT\\] USING TRANSIENT:"); // These seem to be firing off in the latest version, very annoying.
-
+  excludePatterns.push("^\\[BLUEPRINT\\]\\[MIGRATION\\]"); // This happens when the server starts.  Might be useful later, but not now.
+  
   var excludePatternRegexTemp="(" + excludePatterns[0];
   for (let i=1;i<excludePatterns.length;i++){ excludePatternRegexTemp+="|" + excludePatterns[i]; }
   excludePatternRegexTemp+=")"
