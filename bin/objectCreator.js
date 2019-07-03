@@ -68,7 +68,7 @@ const {verifyStarNetResponse,starNetVerified} = starNetHelper;
 const {copyArray,toNumIfPossible,subArrayFromAnother,findSameFromTwoArrays} = objectHelper;
 // const colorize              = objectHelper["colorize"];
 // const getObjType            = objectHelper.getObjType; // Gets the prototype name of an object, so instead of using "typeof", which returns "object" for things like arrays and SectorObj's, etc, this will return their object name instead.
-const {testIfInput,trueOrFalse,isTrueOrFalse,isNum,colorize,getObjType} = objectHelper;
+const {testIfInput,trueOrFalse,isTrueOrFalse,isNum,colorize,getObjType,returnLineMatch} = objectHelper;
 const toNum                 = objectHelper.toNumIfPossible;
 
 // Set up prototypes for constructors, such as replacing .toString() functionality with a default value.  Prototypes will not appear as a regular key.
@@ -606,8 +606,6 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       }
       return result;
     }
-
-
     this.giveHealWeapon=function (number){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
       var theNum=toNumIfPossible(number);
       var countTo=1; // The default times to run the command is 1
@@ -632,7 +630,6 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       }
       return result;
     }
-
     this.giveLaserWeaponOP=function (number){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
       var theNum=toNumIfPossible(number);
       var countTo=1; // The default times to run the command is 1
@@ -890,7 +887,6 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
         console.error("StarNet command failed when attempting to get the spawn sector for player: " + this.name);
         return false;
       }
-    
     }
     this.setSpawnLocation=function(location,coordsObj){ // Needs sector and spacial coords.  coordsObj is needed if a SectorObj is given as first parameter.
       // This should accept a location Obj, a pair of sectorObj and coordsObj, or any other pair of input that can translate to a CoordsObj
@@ -983,9 +979,6 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       }
       throw new Error("Invalid parameters given to playerObj changeSector method!");
     }
-    
-    
-
     this.teleportTo=function(coords){ // Needs sector and spacial coords.  coordsObj is needed if a SectorObj is given as first parameter.
       // This should accept a location Obj, a pair of sectorObj and coordsObj, or any other pair of input that can translate to a CoordsObj
       var spacialCoordsToUse=coords;
@@ -1027,11 +1020,64 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       }
       throw new Error("Invalid parameters given to playerObj teleportTo method!");
     }    
+    this.sector=function(){
+      var returnVal;
+      // try {
+        var result=starNetHelper.starNetVerified("/player_info " + this.name); // This will throw an error if there is a connection issue.
+        // RETURN: [SERVER, [PL] CONTROLLING-POS: (0.0, 5.0, 0.0), 0]
+        // RETURN: [SERVER, [PL] CONTROLLING: PlayerCharacter[(ENTITY_PLAYERCHARACTER_Benevolent27)(285)], 0]
+        // RETURN: [SERVER, [PL] SECTOR: (1000, 1000, 1000), 0]
 
+        // If offline or not spawned:
+        // RETURN: [SERVER, [PL] CONTROLLING-POS: <not spawned>, 0]
+        // RETURN: [SERVER, [PL] CONTROLLING: <not spawned>, 0]
+        // RETURN: [SERVER, [PL] SECTOR: (2, 2, 2), 0]
+
+        // If player does not exist:
+        // RETURN: [SERVER, [ADMIN COMMAND] [ERROR] player Benevolent27dsfsdf not online, and no offline save state found, 0]
+
+        // I can just use the this.isOnline() to determine whether the player is online or not, but this is lazy and slower.
+        var offline=returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] CONTROLLING-POS: <not spawned>/);
+        console.log("offline: " + offline); // temp
+        var notExist=returnLineMatch(result,/^RETURN: \[SERVER, \[ADMIN COMMAND\] \[ERROR\]/);
+        console.log("notExist: " + notExist); // temp
+        if (!offline && !notExist){
+          var sectorLine=returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] SECTOR: \(.*/);
+          console.log("sectorLine: " + sectorLine); // temp
+          sectorLine=sectorLine.replace(/^RETURN: \[SERVER, \[PL\] SECTOR: \(/,"");
+          console.log("sectorLine: " + sectorLine); // temp
+          sectorLine=sectorLine.replace(/\), 0]$/,"");
+          console.log("sectorLine: " + sectorLine); // temp
+          var sectorArray=sectorLine.split(", ");
+          console.log("sectorArray: " + sectorArray); // temp
+          return new SectorObj(sectorArray);
+        }
+        if (offline){
+          return false; // The player must have been offline.
+        }
+        return returnVal; // Returns undefined.  The player did not exist somehow.  This should never happen.
+      // } catch (error){
+      //   var errorMsg="StarNet command failed when attempting to get the sector for player: " + this.name;
+      //   console.error(errorMsg);
+      //   var errorObj=new Error(errorMsg);
+      //   throw errorObj;
+      // }
+    }
+  
 
 
     // Phase 2 - Add methods that poll information from the server using StarNet.
+    // sector - Returns the player's current sector
+    // changeSectorCopy("[X],[Y],[Z]", SectorObj, or CoordsObj) - teleports the player to a specific sector, leaving behind a copy of whatever entity they were in, duplicating it
+    // smName - returns a SmNameObj
+    // ip - returns an IPObj with the player's last IP in it
+    // ips - returns an array of IPObj's with all unique IP's.  Also sets the "date" function for each one.
+    // faction - Returns the FactionObj of their faction
+    // currentEntity - Returns the EntityObj of the entity they are currently in
+    // battleModeSector - Returns the player's designated battlemode sector, which is unique to every player
 
+
+    // Phase 2 - Done
     // isOnline() - /player_list - Check to see if the player is online.  Useful for loops or delayed commands.
     // /player_get_spawn
     // /player_set_spawn_to Benevolent27 X Y Z spacialX spacialY spacialZ
@@ -1112,12 +1158,6 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
     // RETURN: [SERVER, [PL] Name: Benevolent27, 0]
     // RETURN: [SERVER, END; Admin command execution ended, 0]
 
-    // smName - returns a SmNameObj
-    // ip - returns an IPObj with the player's last IP in it
-    // ips - returns an array of IPObj's with all unique IP's.  Also sets the "date" function for each one.
-    // faction - Returns the FactionObj of their faction
-    // currentEntity - Returns the EntityObj of the entity they are currently in
-    // battleModeSector - Returns the player's designated battlemode sector, which is unique to every player
 
     // playerInfo - uses /player_info to create an object with all the info available, putting the data into an object or perhaps a map.
     // playerProtect - uses /player_protect to protect a smname to a username
@@ -1150,10 +1190,6 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
 
 
     // Action methods:
-
-    // changeSector("[X],[Y],[Z]", SectorObj, or CoordsObj) - teleports the player to a specific sector
-    // changeSectorCopy("[X],[Y],[Z]", SectorObj, or CoordsObj) - teleports the player to a specific sector, leaving behind a copy of whatever entity they were in, duplicating it
-
     // factionCreate(NewFactionNameString) - This creates a new faction and sets the player as the leader - I am unsure what the /faction_create command will do if a faction of the same name already exists, but I'm guessing it will just duplicate it. I also do not know what happens if the player is currently in a faction already.
     // factionCreateAs(NewFactionNameString,FactionNum) - This creates a new faction with a specific faction number and sets the player as the leader - I am unsure what the /faction_create_as command will do if the faction number already exists..
 
@@ -1252,7 +1288,7 @@ function LocationObj(sectorObj,coordsObj){ // This is to store an exact location
   }
 }
 
-function SectorObj(x,y,z){
+function SectorObj(xGiven,yGiven,zGiven){
   // TODO: Add Info methods:
   // getSystem - Returns a SystemObj
 
@@ -1274,8 +1310,13 @@ function SectorObj(x,y,z){
   // TODO: add a way to filter entities by a certain regex pattern input, for things like destroying only specifically named ships/stations.
   // TODO: Map out the "creator" possibilities for /sector_info and enable filtering of lists by creator regex patterns
 
+  var theCoordsObj=new CoordsObj(xGiven,yGiven,zGiven); // This will handle any conversions needed of various inputs, either strings of x y z, Array of coordinates, other sector or coords objects, etc.
+  var x=theCoordsObj.x;
+  var y=theCoordsObj.y;
+  var z=theCoordsObj.z;
+  // Only if this is valid should we proceed.
   if (typeof x == "number" && typeof y == "number" && typeof z == "number"){
-    this.coords=new CoordsObj(x,y,z);
+    this.coords=theCoordsObj;
     this.toArray=function(){ return this.coords.toArray() };
     this.load=function(){
       // This returns "true" if the command ran, false for anything else, such as if the server was down.
@@ -1498,7 +1539,8 @@ function CoordsObj(xInput,yInput,zInput){ // xInput can be a string or space or 
           zToUse=objectHelper.toNumIfPossible(xInput[2].trim()); 
         }
       } else {
-        throw new Error("Invalid number of values given in array to CoordsObj (" + x.length + "): " + x)
+        var errMsgObj=new Error("Invalid number of values given in array to CoordsObj (" + x.length + "): " + x);
+        throw errMsgObj;
       }
     } else if (objectHelper.getObjType(xInput) == "CoordsObj" || objectHelper.getObjType(xInput) == "SectorObj"){
       var coordArrayTemp=xInput.toArray();

@@ -24,7 +24,9 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   isFalse, // Only string "false" or boolean false will return true
   trueOrFalse, // This allows string or boolean true or false values, returning boolean.  Returns undefined if neither true nor false.
   isTrueOrFalse, // This returns true if the input is either true or false as a string or boolean, false for anything else.
-  isNum // This returns true if the value is a number, even if it is a string.
+  isNum, // This returns true if the value is a number, even if it is a string.
+  isArray, // This returns true if an array, even if it is empty.
+  returnLineMatch
 };
 
 const util=require('util');
@@ -184,6 +186,15 @@ function isObjEmpty(obj) {
     return true;
 }
 
+function isArray(input){
+  if (typeof input == "object"){ // objects, arrays, and maps are more complicated.  False will be returned if the object is empty.
+    if (input instanceof Array){
+      return true;
+    }
+  }
+  return false;
+}
+
 function testIfInput(input){
   // This is to test if an input is given.  A "false" boolean value will cause true to be returned, because it was an input.  Empty objects will return false.
   if (typeof input === 'undefined' || input===null || input==="" || (typeof input=="number" && isNaN(input)) ) { // "" needs to be === otherwise it will trigger under a boolean false
@@ -246,4 +257,39 @@ function isTrueOrFalse(input){ // Returns true if the input value is either true
     return true;
   }
   return false;
+}
+
+function returnLineMatch(input,matchRegExp,replaceRegExp){ // This will parse through multiple lines and only return the first line that matches a regex pattern
+  // input can be an Array OR a blob of text that needs to be separated by new lines
+  // matchRegExp is mandatory.  This is the matching line that will be returned.
+  // replaceRegExp is optional.  It will replace the value found with nothing.
+  // TODO: Allow infinite number of replaceRegExp's as arguments to cycle through.
+  
+  // if matchRegExp is not a regExp, then create a new one.
+  var matchRegExpToUse=new RegExp(matchRegExp);
+  // if replaceRegExp is not a regExp, then create a new one.
+  var replaceRegExpToUse;
+  var resultArray=[];
+  if (isArray(input)){
+    resultArray=input;
+  } else {
+    resultArray=input.trim().split("\n");
+  }
+  var theTest;
+  for (let i = 0;i < resultArray.length;i++) {
+    if (matchRegExpToUse.test(resultArray[i])){
+      theTest=resultArray[i].match(matchRegExpToUse);
+      if (theTest !== null){ // A result was found
+        theTest=theTest.toString();
+        if (testIfInput(replaceRegExp)){
+          replaceRegExpToUse=new RegExp(replaceRegExp);
+          theTest=theTest.replace(replaceRegExpToUse,"");
+        }
+      }
+      if (typeof theTest == "string"){
+        return theTest; // This breaks out of the loop
+      }
+    }
+  }
+  return theTest; // Returns undefined if no match was found.
 }
