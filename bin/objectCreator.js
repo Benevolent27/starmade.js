@@ -3,24 +3,24 @@
 
 module.exports={ // Always put module.exports at the top so circular dependencies work correctly.
   init, // This is needed so objects can send text directly to the server
-  ServerObj,
-  // SqlQueryObj, // This cannot be defined here because it comes from a require.  It must be injected AFTER being required.
-  EntityObj,
-  SectorObj,
-  CoordsObj,
-  LocationObj,
-  FactionObj,
-  MessageObj,
-  ChannelObj,
-  IPObj,
-  SMName,
-  SystemObj,
-  SpawnObj,
   BluePrintObj,
   BotObj,
-  RemoteServer: RemoteServerObj,
+  ChannelObj,
+  CommandObj,
+  CoordsObj,
+  EntityObj,
+  FactionObj,
+  IPObj,
+  LocationObj,
   LockFileObj,
+  MessageObj,
   PlayerObj,
+  SectorObj,
+  ServerObj,
+  SpawnObj,
+  SMName,
+  SystemObj,
+  RemoteServer: RemoteServerObj,
   isPlayerOnline,
   getPlayerList
 }
@@ -36,6 +36,7 @@ const http                 = require('http');
 const miscHelpers          = require(path.join(binFolder,"miscHelpers.js"));
 const requireBin           = miscHelpers["requireBin"];
 const sqlQuery             = requireBin("sqlQuery.js");
+// SqlQueryObj is not in the module.exports above because it cannot be defined till after sqlQuery.js is required.
 module.exports.SqlQueryObj = sqlQuery.SqlQueryObj; // Module injections should occur as quickly as possible to allow circular dependencies to function properly
 const starNet              = requireBin("starNet.js");
 const starNetHelper        = requireBin("starNetHelper.js");
@@ -54,20 +55,21 @@ const exitHook      = installAndRequire('exit-hook'); // https://github.com/sind
 var lockFile   = path.join(mainFolder,"server.lck");
 
 // Aliases for requires - These are set up for readability
-const colorize              = objectHelper["colorize"];
 const stripFullUIDtoUID     = regExpHelper["stripFullUIDtoUID"]; // Function that removes text like ENTITY_SHIP_ and ENTITY_PLANET_ from the beginning of a full UID so it can be used to perform SQL queries on UID
-const getObjType            = objectHelper.getObjType; // Gets the prototype name of an object, so instead of using "typeof", which returns "object" for things like arrays and SectorObj's, etc, this will return their object name instead.
 const SqlQueryObj           = sqlQuery.SqlQueryObj;
-const toNum                 = objectHelper.toNumIfPossible;
 var sectorProtectionsArray  = regExpHelper.sectorProtections; // This should include all the possible protections a sector can have.
-const verifyStarNetResponse = starNetHelper.verifyResponse; // This can be used to perform a verification on a StarMade response without consuming the response
-const starNetVerified       = starNetHelper.starNetVerified; // If the response does not verify, this consumes the response and throws an error instead
-const copyArray             = objectHelper.copyArray;
-const toNumIfPossible       = objectHelper.toNumIfPossible;
-const subArrayFromAnother   = objectHelper.subArrayFromAnother;
-const findSameFromTwoArrays = objectHelper.findSameFromTwoArrays;
-
-const {testIfInput,trueOrFalse,isTrueOrFalse,isNum} = objectHelper;
+// const verifyStarNetResponse = starNetHelper.verifyResponse; // This can be used to perform a verification on a StarNet response without consuming the response
+// const starNetVerified       = starNetHelper.starNetVerified; // If the response does not verify, this consumes the response and throws an error instead
+const {verifyStarNetResponse,starNetVerified} = starNetHelper;
+// const copyArray             = objectHelper.copyArray;
+// const toNumIfPossible       = objectHelper.toNumIfPossible;
+// const subArrayFromAnother   = objectHelper.subArrayFromAnother;
+// const findSameFromTwoArrays = objectHelper.findSameFromTwoArrays;
+const {copyArray,toNumIfPossible,subArrayFromAnother,findSameFromTwoArrays} = objectHelper;
+// const colorize              = objectHelper["colorize"];
+// const getObjType            = objectHelper.getObjType; // Gets the prototype name of an object, so instead of using "typeof", which returns "object" for things like arrays and SectorObj's, etc, this will return their object name instead.
+const {testIfInput,trueOrFalse,isTrueOrFalse,isNum,colorize,getObjType} = objectHelper;
+const toNum                 = objectHelper.toNumIfPossible;
 
 // Set up prototypes for constructors, such as replacing .toString() functionality with a default value.  Prototypes will not appear as a regular key.
 SectorObj.prototype.toString = function(){ return this.coords.toString() };
