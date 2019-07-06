@@ -1040,9 +1040,13 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
         var offline=returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] CONTROLLING-POS: <not spawned>/);
         var notExist=returnLineMatch(result,/^RETURN: \[SERVER, \[ADMIN COMMAND\] \[ERROR\]/);
         if (!offline && !notExist){
-          var sectorLine=returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] SECTOR: \(.*/);
-          sectorLine=sectorLine.replace(/^RETURN: \[SERVER, \[PL\] SECTOR: \(/,"");
-          sectorLine=sectorLine.replace(/\), 0]$/,"");
+          // Working:
+          // var sectorLine=returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] SECTOR: \(.*/);
+          // sectorLine=sectorLine.replace(/^RETURN: \[SERVER, \[PL\] SECTOR: \(/,"");
+          // sectorLine=sectorLine.replace(/\), 0]$/,"");
+          // Simplified:
+          var sectorLine=returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] SECTOR: \(.*/,/^RETURN: \[SERVER, \[PL\] SECTOR: \(/,/\), 0]$/);
+
           var sectorArray=sectorLine.split(", ");
           return new SectorObj(sectorArray);
         }
