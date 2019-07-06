@@ -212,6 +212,12 @@ function testIfInput(input){
         return true;
       }
       return false;
+    } else if (input instanceof RegExp){ // This will handle RegExp objects.
+      var inputToString=input.toString();
+      if (inputToString == "/(?:)/" || inputToString == "" || typeof inputToString == 'undefined'){
+        return false;
+      }
+      return true;
     } else if (input instanceof Object){ // This will handle custom objects the same.
       for(var key in input) {
         if (input.hasOwnProperty(key)){ // If there are any properties, then it is not empty.
@@ -262,12 +268,9 @@ function isTrueOrFalse(input){ // Returns true if the input value is either true
 function returnLineMatch(input,matchRegExp,replaceRegExp){ // This will parse through multiple lines and only return the first line that matches a regex pattern
   // input can be an Array OR a blob of text that needs to be separated by new lines
   // matchRegExp is mandatory.  This is the matching line that will be returned.
-  // replaceRegExp is optional.  It will replace the value found with nothing.
-  // TODO: Allow infinite number of replaceRegExp's as arguments to cycle through.
+  // replaceRegExp is optional.  It will replace the value found with nothing.  If more arguments are specified, they are treated as additional replaceRegExp arguments and applied sequentially
   
-  // if matchRegExp is not a regExp, then create a new one.
-  var matchRegExpToUse=new RegExp(matchRegExp);
-  // if replaceRegExp is not a regExp, then create a new one.
+  var matchRegExpToUse=new RegExp(matchRegExp); // if matchRegExp is not a regExp, then create a new one.
   var replaceRegExpToUse;
   var resultArray=[];
   if (isArray(input)){
@@ -277,12 +280,12 @@ function returnLineMatch(input,matchRegExp,replaceRegExp){ // This will parse th
   }
   var theTest;
   for (let i = 0;i < resultArray.length;i++) {
-    if (matchRegExpToUse.test(resultArray[i])){
-      theTest=resultArray[i].match(matchRegExpToUse);
-      if (theTest !== null){ // A result was found
-        theTest=theTest.toString();
-        if (testIfInput(replaceRegExp)){
-          replaceRegExpToUse=new RegExp(replaceRegExp);
+    theTest=resultArray[i].match(matchRegExpToUse);
+    if (theTest !== null){ // A result was found
+      theTest=theTest.toString();
+      for (let c=2;c < arguments.length;c++){ // Cycles through any 3rd or greater arguments
+        if (testIfInput(arguments[c])){
+          replaceRegExpToUse=new RegExp(arguments[c]);
           theTest=theTest.replace(replaceRegExpToUse,"");
         }
       }
