@@ -508,30 +508,121 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
     // var playerName=player.replace(/^ENTITY_PLAYERCHARACTER_/,"").replace(/^ENTITY_PLAYERSTATE_/,""); // strip the UID
     this.name=player.replace(/^ENTITY_PLAYERCHARACTER_/,"").replace(/^ENTITY_PLAYERSTATE_/,""); // strip the UID
 
-    this.msg=function (message,type){ // Sends a message to the player.  Type is optional.  If not provided "plain" is used.
+    this.msg=function (message,type,options){ // Sends a message to the player.  Type is optional.  If not provided "plain" is used.
       // options for type are:  plain, info, warning, and error.
       // plain shows as a message in the main chat
       // info shows as a green pop-up
       // warning shows as a blue pop-up
       // error shows as a red pop-up
+      var fast=false;
+      if (options){
+        if (typeof options == "object"){
+          if (options.hasOwnProperty("fast")){
+            if (trueOrFalse(options.fast) == true){
+              fast=true;
+            } else {
+              console.error("Invalid input given to playerObj.msg for options: " + options.toString());
+            }
+          }
+        } else if (options) {
+          console.error("Invalid input given to playerObj.msg for options: " + options.toString());
+        }
+      }
       var msgType="plain";
       if (typeof type=="string"){
-        msgType=type; // This does not validate the message type, in case new message types in the future are released.
+        if (type != ""){
+          msgType=type; // This does not validate the message type, in case new message types in the future are released.
+        }
       }
       if (testIfInput(message)){
-        return sendDirectToServer("/server_message_to " + msgType + " " + this.name + "'" + message.toString().trim() + "'");
+        var theCommand="/server_message_to " + msgType + " " + this.name + "'" + message.toString().trim() + "'";
+        if (fast==true){
+          return sendDirectToServer(theCommand);
+        } else {
+          var msgResult=starNetHelper.starNetVerified(theCommand); // This will throw an error if the connection to the server fails.
+          // RETURN: [SERVER, [ADMIN COMMAND] [ERROR] player Benevolent27 not online, 0] // This is returned if it fails
+          // RETURN: [SERVER, END; Admin command execution ended, 0] // Only this is returned if it succeeded
+          var msgTestFail=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] \\[ERROR\\]");
+          if (starNetHelper.checkForLine(msgResult,msgTestFail)){ // The player was offline or did not exist.
+            return false;
+          } else { // The command appears to have succeeded.
+            return true;
+          }
+        }
       }
       return false;
     }
-    this.creativeMode=function (input){ // expects true or false as either boolean or string
+    this.creativeMode=function (input,options){ // expects true or false as either boolean or string
       if (isTrueOrFalse(input)){
-        return sendDirectToServer("/creative_mode " + this.name + " " + input);
+        var fast=false;
+        if (options){
+          if (typeof options == "object"){
+            if (options.hasOwnProperty("fast")){
+              if (trueOrFalse(options.fast) == true){
+                fast=true;
+              } else {
+                console.error("Invalid input given to playerObj.creativeMode for options: " + options.toString());
+              }
+            }
+          } else if (options) {
+            console.error("Invalid input given to playerObj.creativeMode for options: " + options.toString());
+          }
+        }
+        var theCommand="/creative_mode " + this.name + " " + input;
+        if (fast==true){
+          return sendDirectToServer(theCommand);
+        } else {
+          var msgResult=starNetHelper.starNetVerified(theCommand); // This will throw an error if the connection to the server fails.
+          // Succeeded in activating creativemode
+          // RETURN: [SERVER, [ADMIN COMMAND] activated creative mode for Benevolent27, 0]
+          // RETURN: [SERVER, END; Admin command execution ended, 0]
+          
+          // Succeeded in deactivating creativemode
+          // RETURN: [SERVER, [ADMIN COMMAND] deactivated creative mode for Benevolent27, 0]
+          // RETURN: [SERVER, END; Admin command execution ended, 0]
+
+          // Player offline or doesn't exist:
+          // RETURN: [SERVER, [ADMIN COMMAND] [ERROR] Player not found: "Benevolent27", 0]
+          // RETURN: [SERVER, END; Admin command execution ended, 0]
+          var msgTestFail=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] \\[ERROR\\]");
+          if (starNetHelper.checkForLine(msgResult,msgTestFail)){ // The player was offline or did not exist.
+            return false;
+          } else { // The command appears to have succeeded.
+            return true;
+          }
+        }
       }
       return false;
     }
-    this.godMode=function (input){ // expects true or false as either boolean or string
+    this.godMode=function (input,options){ // expects true or false as either boolean or string
       if (isTrueOrFalse(input)){
-        return sendDirectToServer("/god_mode " + this.name + " " + input);
+        // return sendDirectToServer("/god_mode " + this.name + " " + input);
+        var fast=false;
+        if (options){
+          if (typeof options == "object"){
+            if (options.hasOwnProperty("fast")){
+              if (trueOrFalse(options.fast) == true){
+                fast=true;
+              } else {
+                console.error("Invalid input given to playerObj.godMode for options: " + options.toString());
+              }
+            }
+          } else if (options) {
+            console.error("Invalid input given to playerObj.godMode for options: " + options.toString());
+          }
+        }
+        var theCommand="/god_mode " + this.name + " " + input;
+        if (fast==true){
+          return sendDirectToServer(theCommand);
+        } else {
+          var msgResult=starNetHelper.starNetVerified(theCommand); // This will throw an error if the connection to the server fails.
+          var msgTestFail=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] \\[ERROR\\]");
+          if (starNetHelper.checkForLine(msgResult,msgTestFail)){ // The player was offline or did not exist.
+            return false;
+          } else { // The command appears to have succeeded.
+            return true;
+          }
+        }
       }
       return false;
     }
@@ -1036,42 +1127,143 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
         // If player does not exist:
         // RETURN: [SERVER, [ADMIN COMMAND] [ERROR] player Benevolent27dsfsdf not online, and no offline save state found, 0]
 
-        // I can just use the this.isOnline() to determine whether the player is online or not, but this is lazy and slower.
-        var offline=returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] CONTROLLING-POS: <not spawned>/);
-        var notExist=returnLineMatch(result,/^RETURN: \[SERVER, \[ADMIN COMMAND\] \[ERROR\]/);
-        if (!offline && !notExist){
-          // Working:
-          // var sectorLine=returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] SECTOR: \(.*/);
-          // sectorLine=sectorLine.replace(/^RETURN: \[SERVER, \[PL\] SECTOR: \(/,"");
-          // sectorLine=sectorLine.replace(/\), 0]$/,"");
-          // Simplified:
-          var sectorLine=returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] SECTOR: \(.*/,/^RETURN: \[SERVER, \[PL\] SECTOR: \(/,/\), 0]$/);
-
-          var sectorArray=sectorLine.split(", ");
-          return new SectorObj(sectorArray);
-        }
-        if (offline){
-          return false; // The player must have been offline.
+        if (returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] CONTROLLING-POS: <not spawned>/)){ // Player offline
+          return false;
+        } else if (!returnLineMatch(result,/^RETURN: \[SERVER, \[ADMIN COMMAND\] \[ERROR\]/)){ // Player does not exist
+          return new SectorObj(returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] SECTOR: \(.*/,/^RETURN: \[SERVER, \[PL\] SECTOR: \(/,/\), 0]$/).split(", "));
         }
         return returnVal; // Returns undefined.  The player did not exist somehow.  This should never happen.
       } catch (error){
-        var errorMsg="StarNet command failed when attempting to get the sector for player: " + this.name;
-        console.error(errorMsg);
-        var errorObj=new Error(errorMsg);
+        var errorObj=new Error("StarNet command failed when attempting to get the sector for player: " + this.name);
         throw errorObj;
       }
     }
-  
+    this.personalTestSector=function(){
+      var returnVal;
+      try {
+        var result=starNetHelper.starNetVerified("/player_info " + this.name); // This will throw an error if there is a connection issue.
+        if (returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] CONTROLLING-POS: <not spawned>/)){ // Player offline
+          return false;
+        } else if (!returnLineMatch(result,/^RETURN: \[SERVER, \[ADMIN COMMAND\] \[ERROR\]/)){ // Player does not exist
+          return new SectorObj(returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] PERSONAL-TEST-SECTOR: \(.*/,/^RETURN: \[SERVER, \[PL\] PERSONAL-TEST-SECTOR: \(/,/\), 0]$/).split(", "));
+        }
+        return returnVal; // Returns undefined.  The player did not exist somehow.  This should never happen.
+      } catch (error){
+        var errorObj=new Error("StarNet command failed when attempting to get the PERSONAL-TEST-SECTOR for player: " + this.name);
+        throw errorObj;
+      }
+    }
+    this.spacialCoords=function(){
+      var returnVal;
+      try {
+        var result=starNetHelper.starNetVerified("/player_info " + this.name); // This will throw an error if there is a connection issue.
+        if (returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] CONTROLLING-POS: <not spawned>/)){ // Player offline
+          return false;
+        } else if (!returnLineMatch(result,/^RETURN: \[SERVER, \[ADMIN COMMAND\] \[ERROR\]/)){ // Player does not exist
+          return new CoordsObj(returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] CONTROLLING-POS: \(.*/,/^RETURN: \[SERVER, \[PL\] CONTROLLING-POS: \(/,/\), 0]$/).split(", "));
+        }
+        return returnVal; // Returns undefined.  The player did not exist somehow.  This should never happen.
+      } catch (error){
+        var errorObj=new Error("StarNet command failed when attempting to get the CONTROLLING-POS for player: " + this.name);
+        throw errorObj;
+      }
+    }
+    this.credits=function(){
+      var returnVal;
+      try {
+        var result=starNetHelper.starNetVerified("/player_info " + this.name); // This will throw an error if there is a connection issue.
+        if (returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] CONTROLLING-POS: <not spawned>/)){ // Player offline
+          return false;
+        } else if (!returnLineMatch(result,/^RETURN: \[SERVER, \[ADMIN COMMAND\] \[ERROR\]/)){ // Player does not exist
+          return Number(returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] CREDITS: .*/,/^RETURN: \[SERVER, \[PL\] CREDITS: /,/, 0\]$/));
+        }
+        return returnVal; // Returns undefined.  The player did not exist somehow.  This should never happen.
+      } catch (error){
+        var errorObj=new Error("StarNet command failed when attempting to get the CREDITS for player: " + this.name);
+        throw errorObj;
+      }
+    }
+    this.upgraded=function(){
+      var returnVal;
+      try {
+        var result=starNetHelper.starNetVerified("/player_info " + this.name); // This will throw an error if there is a connection issue.
+        if (returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] CONTROLLING-POS: <not spawned>/)){ // Player offline
+          return false;
+        } else if (!returnLineMatch(result,/^RETURN: \[SERVER, \[ADMIN COMMAND\] \[ERROR\]/)){ // Player does not exist
+          return trueOrFalse(returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] UPGRADED: .*/,/^RETURN: \[SERVER, \[PL\] UPGRADED: /,/, 0\]$/));
+        }
+        return returnVal; // Returns undefined.  The player did not exist somehow.  This should never happen.
+      } catch (error){
+        var errorObj=new Error("StarNet command failed when attempting to get the UPGRADED for player: " + this.name);
+        throw errorObj;
+      }
+    }
+    this.smName=function(){
+      var returnVal;
+      try {
+        var result=starNetHelper.starNetVerified("/player_info " + this.name); // This will throw an error if there is a connection issue.
+        if (returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] CONTROLLING-POS: <not spawned>/)){ // Player offline
+          return false;
+        } else if (!returnLineMatch(result,/^RETURN: \[SERVER, \[ADMIN COMMAND\] \[ERROR\]/)){ // Player does not exist
+          return new SMName(returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] SM-NAME: .*/,/^RETURN: \[SERVER, \[PL\] SM-NAME: /,/, 0\]$/));
+        }
+        return returnVal; // Returns undefined.  The player did not exist somehow.  This should never happen.
+      } catch (error){
+        var errorObj=new Error("StarNet command failed when attempting to get the sm-name for player: " + this.name);
+        throw errorObj;
+      }
+    }
+    this.ip=function(){
+      var returnVal;
+      try {
+        var result=starNetHelper.starNetVerified("/player_info " + this.name); // This will throw an error if there is a connection issue.
+        if (returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] CONTROLLING-POS: <not spawned>/)){ // Player offline
+          return false;
+        } else if (!returnLineMatch(result,/^RETURN: \[SERVER, \[ADMIN COMMAND\] \[ERROR\]/)){ // Player does not exist
+          return new IPObj(returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] IP: \/.*/,/^RETURN: \[SERVER, \[PL\] IP: \//,/, 0\]$/));
+        }
+        return returnVal; // Returns undefined.  The player did not exist somehow.  This should never happen.
+      } catch (error){
+        var errorObj=new Error("StarNet command failed when attempting to get the sm-name for player: " + this.name);
+        throw errorObj;
+      }
+    }
+    this.faction=function(){
+      var returnVal;
+      try {
+        var result=starNetHelper.starNetVerified("/player_info " + this.name); // This will throw an error if there is a connection issue.
+        if (returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] CONTROLLING-POS: <not spawned>/)){ // Player offline
+          return false;
+        } else if (!returnLineMatch(result,/^RETURN: \[SERVER, \[ADMIN COMMAND\] \[ERROR\]/)){ // Player does not exist
+          var factionLine=returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] FACTION: Faction \[.*/,/^RETURN: \[SERVER, \[PL\] FACTION: Faction \[/); // If the person is not in a faction, this will be undefined.
+          // In a faction:  RETURN: [SERVER, [PL] FACTION: Faction [id=10002, name=myFaction, description=Faction name, size: 1; FP: 586], 0]
+          // Not in a faction:  RETURN: [SERVER, [PL] FACTION: null, 0]
+          if (factionLine){
+            return new FactionObj(factionLine.match(/^id=[-]{0,1}[0-9]+/).toString().replace(/^id=/,""));
+          }
+          return factionLine; // Returns undefined if the person is not in a faction.
+        }
+        return returnVal; // Returns undefined.  The player did not exist somehow.  This should never happen.
+      } catch (error){
+        var errorObj=new Error("StarNet command failed when attempting to get the sm-name for player: " + this.name);
+        throw errorObj;
+      }
+    }
 
 
     // Phase 2 - Add methods that poll information from the server using StarNet.
     // changeSectorCopy("[X],[Y],[Z]", SectorObj, or CoordsObj) - teleports the player to a specific sector, leaving behind a copy of whatever entity they were in, duplicating it
+    // currentEntity - Returns the EntityObj of the entity they are currently in or on.  Uses the "CONTROLLING:" line from /player_info
+    // ips - returns an array of IPObj's with all unique IP's, as returned by /player_info.  Also sets the "date" function for each one.
+
+    // Needs testing:
     // smName - returns a SmNameObj
     // ip - returns an IPObj with the player's last IP in it
-    // ips - returns an array of IPObj's with all unique IP's.  Also sets the "date" function for each one.
-    // faction - Returns the FactionObj of their faction
-    // currentEntity - Returns the EntityObj of the entity they are currently in
-    // battleModeSector - Returns the player's designated battlemode sector, which is unique to every player
+    // personalTestSector - Returns the player's designated battlemode sector, which is unique to every player.  Returns a SectorObj.
+    // upgraded - returns true or false if the whether the person has a purchased version of the game or not.  Only works when authentication is required for the server, otherwise always returns false.  Returns Boolean values.
+    // credits - returns the amount of credits a player has on them as a number.
+    // spacialCoords - Returns the spacial coordinates the player is in, in a CoordsObj.
+    // faction - Returns the FactionObj of their faction or undefined if no faction found.
 
 
     // Phase 2 - Done
@@ -1521,8 +1713,6 @@ function CoordsObj(xInput,yInput,zInput){ // xInput can be a string or space or 
   } else if (typeof xInput=="object"){ // This handles arrays or other objects
     if (objectHelper.getObjType(xInput) == "Array"){
       if (xInput.length==3){
-        console.log("Working on array: ");
-        console.dir(xInput);
         if (typeof xInput[0] == "number"){ // This is necessary because .trim() will throw an error if attempted on a number
           xToUse=xInput[0];
         } else { 
