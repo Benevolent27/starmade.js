@@ -502,13 +502,57 @@ function SMName(smName){
   // getNames - Returns an array of PlayerObj's for all the usernames associated with this registry account name
 }
 
+function runSimpleCommand(theCommand,options){
+  // This is used for PlayerObj methods that can be sent to either the console or using StarNet
+  if (theCommand){
+    var fast=false;
+    if (options){
+      if (typeof options == "object"){
+        if (options.hasOwnProperty("fast")){
+          if (trueOrFalse(options.fast) == true){
+            fast=true;
+          } else {
+            console.error("Invalid input given to runSimpleCommand for options: " + options.toString());
+          }
+        }
+      } else if (options) {
+        console.error("Invalid input given to runSimpleCommand for options: " + options.toString());
+      }
+    }
+    if (fast==true){
+      return sendDirectToServer(theCommand);
+    } else {
+      var msgResult=starNetHelper.starNetVerified(theCommand); // This will throw an error if the connection to the server fails.
+      var msgTestFail=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] \\[ERROR\\]");
+      if (starNetHelper.checkForLine(msgResult,msgTestFail)){ // The player was offline, did not exist, or other parameters were incorrect.
+        return false;
+      } else { // The command appears to have succeeded.
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+
 
 function PlayerObj(player){ // "Player" must be a string and can be just the player's nickname or their full UID
   if (player){
     // var playerName=player.replace(/^ENTITY_PLAYERCHARACTER_/,"").replace(/^ENTITY_PLAYERSTATE_/,""); // strip the UID
     this.name=player.replace(/^ENTITY_PLAYERCHARACTER_/,"").replace(/^ENTITY_PLAYERSTATE_/,""); // strip the UID
 
+
     this.msg=function (message,type,options){ // Sends a message to the player.  Type is optional.  If not provided "plain" is used.
+      var msgType="plain";
+      if (typeof type=="string"){
+        if (type != ""){
+          msgType=type; // This does not validate the message type, in case new message types in the future are released.
+        }
+      }
+      return runSimpleCommand("/server_message_to " + msgType + " " + this.name + "'" + message.toString().trim() + "'",options);
+    }
+
+    this.msg2=function (message,type,options){ // Sends a message to the player.  Type is optional.  If not provided "plain" is used.
       // options for type are:  plain, info, warning, and error.
       // plain shows as a message in the main chat
       // info shows as a green pop-up
@@ -552,295 +596,419 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       }
       return false;
     }
+
+
     this.creativeMode=function (input,options){ // expects true or false as either boolean or string
       if (isTrueOrFalse(input)){
-        var fast=false;
-        if (options){
-          if (typeof options == "object"){
-            if (options.hasOwnProperty("fast")){
-              if (trueOrFalse(options.fast) == true){
-                fast=true;
-              } else {
-                console.error("Invalid input given to playerObj.creativeMode for options: " + options.toString());
-              }
-            }
-          } else if (options) {
-            console.error("Invalid input given to playerObj.creativeMode for options: " + options.toString());
-          }
-        }
-        var theCommand="/creative_mode " + this.name + " " + input;
-        if (fast==true){
-          return sendDirectToServer(theCommand);
-        } else {
-          var msgResult=starNetHelper.starNetVerified(theCommand); // This will throw an error if the connection to the server fails.
-          // Succeeded in activating creativemode
-          // RETURN: [SERVER, [ADMIN COMMAND] activated creative mode for Benevolent27, 0]
-          // RETURN: [SERVER, END; Admin command execution ended, 0]
-          
-          // Succeeded in deactivating creativemode
-          // RETURN: [SERVER, [ADMIN COMMAND] deactivated creative mode for Benevolent27, 0]
-          // RETURN: [SERVER, END; Admin command execution ended, 0]
-
-          // Player offline or doesn't exist:
-          // RETURN: [SERVER, [ADMIN COMMAND] [ERROR] Player not found: "Benevolent27", 0]
-          // RETURN: [SERVER, END; Admin command execution ended, 0]
-          var msgTestFail=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] \\[ERROR\\]");
-          if (starNetHelper.checkForLine(msgResult,msgTestFail)){ // The player was offline or did not exist.
-            return false;
-          } else { // The command appears to have succeeded.
-            return true;
-          }
-        }
+        return runSimpleCommand("/creative_mode " + this.name + " " + input,options);
       }
       return false;
     }
+
+    // this.creativeMode2=function (input,options){ // expects true or false as either boolean or string
+    //   if (isTrueOrFalse(input)){
+    //     var fast=false;
+    //     if (options){
+    //       if (typeof options == "object"){
+    //         if (options.hasOwnProperty("fast")){
+    //           if (trueOrFalse(options.fast) == true){
+    //             fast=true;
+    //           } else {
+    //             console.error("Invalid input given to playerObj.creativeMode for options: " + options.toString());
+    //           }
+    //         }
+    //       } else if (options) {
+    //         console.error("Invalid input given to playerObj.creativeMode for options: " + options.toString());
+    //       }
+    //     }
+    //     var theCommand="/creative_mode " + this.name + " " + input;
+    //     if (fast==true){
+    //       return sendDirectToServer(theCommand);
+    //     } else {
+    //       var msgResult=starNetHelper.starNetVerified(theCommand); // This will throw an error if the connection to the server fails.
+    //       // Succeeded in activating creativemode
+    //       // RETURN: [SERVER, [ADMIN COMMAND] activated creative mode for Benevolent27, 0]
+    //       // RETURN: [SERVER, END; Admin command execution ended, 0]
+          
+    //       // Succeeded in deactivating creativemode
+    //       // RETURN: [SERVER, [ADMIN COMMAND] deactivated creative mode for Benevolent27, 0]
+    //       // RETURN: [SERVER, END; Admin command execution ended, 0]
+
+    //       // Player offline or doesn't exist:
+    //       // RETURN: [SERVER, [ADMIN COMMAND] [ERROR] Player not found: "Benevolent27", 0]
+    //       // RETURN: [SERVER, END; Admin command execution ended, 0]
+    //       var msgTestFail=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] \\[ERROR\\]");
+    //       if (starNetHelper.checkForLine(msgResult,msgTestFail)){ // The player was offline or did not exist.
+    //         return false;
+    //       } else { // The command appears to have succeeded.
+    //         return true;
+    //       }
+    //     }
+    //   }
+    //   return false;
+    // }
+
+
     this.godMode=function (input,options){ // expects true or false as either boolean or string
       if (isTrueOrFalse(input)){
-        // return sendDirectToServer("/god_mode " + this.name + " " + input);
-        var fast=false;
-        if (options){
-          if (typeof options == "object"){
-            if (options.hasOwnProperty("fast")){
-              if (trueOrFalse(options.fast) == true){
-                fast=true;
-              } else {
-                console.error("Invalid input given to playerObj.godMode for options: " + options.toString());
-              }
-            }
-          } else if (options) {
-            console.error("Invalid input given to playerObj.godMode for options: " + options.toString());
-          }
-        }
-        var theCommand="/god_mode " + this.name + " " + input;
-        if (fast==true){
-          return sendDirectToServer(theCommand);
-        } else {
-          var msgResult=starNetHelper.starNetVerified(theCommand); // This will throw an error if the connection to the server fails.
-          var msgTestFail=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] \\[ERROR\\]");
-          if (starNetHelper.checkForLine(msgResult,msgTestFail)){ // The player was offline or did not exist.
-            return false;
-          } else { // The command appears to have succeeded.
-            return true;
-          }
-        }
+        return runSimpleCommand("/god_mode " + this.name + " " + input,options);
       }
       return false;
     }
-    this.invisibilityMode=function (input){ // expects true or false as either boolean or string
+
+
+    // this.godMode2=function (input,options){ // expects true or false as either boolean or string
+    //   if (isTrueOrFalse(input)){
+    //     // return sendDirectToServer("/god_mode " + this.name + " " + input);
+    //     var fast=false;
+    //     if (options){
+    //       if (typeof options == "object"){
+    //         if (options.hasOwnProperty("fast")){
+    //           if (trueOrFalse(options.fast) == true){
+    //             fast=true;
+    //           } else {
+    //             console.error("Invalid input given to playerObj.godMode for options: " + options.toString());
+    //           }
+    //         }
+    //       } else if (options) {
+    //         console.error("Invalid input given to playerObj.godMode for options: " + options.toString());
+    //       }
+    //     }
+    //     var theCommand="/god_mode " + this.name + " " + input;
+    //     if (fast==true){
+    //       return sendDirectToServer(theCommand);
+    //     } else {
+    //       var msgResult=starNetHelper.starNetVerified(theCommand); // This will throw an error if the connection to the server fails.
+    //       var msgTestFail=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] \\[ERROR\\]");
+    //       if (starNetHelper.checkForLine(msgResult,msgTestFail)){ // The player was offline or did not exist.
+    //         return false;
+    //       } else { // The command appears to have succeeded.
+    //         return true;
+    //       }
+    //     }
+    //   }
+    //   return false;
+    // }
+
+    this.invisibilityMode=function (input,options){ // expects true or false as either boolean or string
       if (isTrueOrFalse(input)){
-        return sendDirectToServer("/invisibility_mode " + this.name + " " + input);
+        return runSimpleCommand("/invisibility_mode " + this.name + " " + input,options);
       }
       return false;
     }
-    this.factionPointProtect=function (input){ // expects true or false as either boolean or string
+
+    // this.invisibilityMode=function (input,options){ // expects true or false as either boolean or string
+    //   if (isTrueOrFalse(input)){
+    //     // return sendDirectToServer("/god_mode " + this.name + " " + input);
+    //     var fast=false;
+    //     if (options){
+    //       if (typeof options == "object"){
+    //         if (options.hasOwnProperty("fast")){
+    //           if (trueOrFalse(options.fast) == true){
+    //             fast=true;
+    //           } else {
+    //             console.error("Invalid input given to playerObj.invisibilityMode for options: " + options.toString());
+    //           }
+    //         }
+    //       } else if (options) {
+    //         console.error("Invalid input given to playerObj.invisibilityMode for options: " + options.toString());
+    //       }
+    //     }
+    //     var theCommand="/invisibility_mode " + this.name + " " + input;
+    //     if (fast==true){
+    //       return sendDirectToServer(theCommand);
+    //     } else {
+    //       var msgResult=starNetHelper.starNetVerified(theCommand); // This will throw an error if the connection to the server fails.
+    //       var msgTestFail=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] \\[ERROR\\]");
+    //       if (starNetHelper.checkForLine(msgResult,msgTestFail)){ // The player was offline or did not exist.
+    //         return false;
+    //       } else { // The command appears to have succeeded.
+    //         return true;
+    //       }
+    //     }
+    //   }
+    //   return false;
+    // }
+
+    // this.invisibilityMode=function (input){ // expects true or false as either boolean or string
+    //   if (isTrueOrFalse(input)){
+    //     return sendDirectToServer("/invisibility_mode " + this.name + " " + input);
+    //   }
+    //   return false;
+    // }
+
+    this.factionPointProtect=function (input,options){ // expects true or false as either boolean or string
       if (isTrueOrFalse(input)){
-        return sendDirectToServer("/faction_point_protect_player " + this.name + " " + input);
+        return runSimpleCommand("/faction_point_protect_player " + this.name + " " + input,options);
       }
       return false;
     }
-    this.give=function (input,number){ // expects an element name and number of items to give
+
+
+    // this.factionPointProtect=function (input,options){ // expects true or false as either boolean or string
+    //   if (isTrueOrFalse(input)){
+    //     // return sendDirectToServer("/god_mode " + this.name + " " + input);
+    //     var fast=false;
+    //     if (options){
+    //       if (typeof options == "object"){
+    //         if (options.hasOwnProperty("fast")){
+    //           if (trueOrFalse(options.fast) == true){
+    //             fast=true;
+    //           } else {
+    //             console.error("Invalid input given to playerObj.factionPointProtect for options: " + options.toString());
+    //           }
+    //         }
+    //       } else if (options) {
+    //         console.error("Invalid input given to playerObj.factionPointProtect for options: " + options.toString());
+    //       }
+    //     }
+    //     var theCommand="/faction_point_protect_player " + this.name + " " + input;
+    //     if (fast==true){
+    //       return sendDirectToServer(theCommand);
+    //     } else {
+    //       var msgResult=starNetHelper.starNetVerified(theCommand); // This will throw an error if the connection to the server fails.
+    //       var msgTestFail=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] \\[ERROR\\]");
+    //       if (starNetHelper.checkForLine(msgResult,msgTestFail)){ // The player was offline or did not exist.
+    //         return false;
+    //       } else { // The command appears to have succeeded.
+    //         return true;
+    //       }
+    //     }
+    //   }
+    //   return false;
+    // }
+
+
+    // this.factionPointProtect=function (input){ // expects true or false as either boolean or string
+    //   if (isTrueOrFalse(input)){
+    //     return sendDirectToServer("/faction_point_protect_player " + this.name + " " + input);
+    //   }
+    //   return false;
+    // }
+
+
+    this.give=function (input,number,options){ // expects an element name and number of items to give
       if (testIfInput(input) && isNum(number)){
-        return sendDirectToServer("/give " + this.name + " " + input + " " + number);
+        // return sendDirectToServer("/give " + this.name + " " + input + " " + number);
+        return runSimpleCommand("/give " + this.name + " " + input + " " + number,options);
       }
       return false;
     }
-    this.giveId=function (inputNumber,number){ // expects an element id and number of items to give
-      var theNum=toNumIfPossible(number);
-      var theID=toNumIfPossible(inputNumber);
-      if (typeof theID == "number" && typeof theNum == "number"){
-        return sendDirectToServer("/give " + this.name + " " + inputNumber + " " + number);
+    this.giveId=function (inputNumber,number,options){ // expects an element id and number of items to give
+      if (isNum(inputNumber) && isNum(number)){
+        // return sendDirectToServer("/giveid " + this.name + " " + inputNumber + " " + number);
+        return runSimpleCommand("/giveid " + this.name + " " + inputNumber + " " + number,options);
       }
       return false;
     }
-    this.giveAllItems=function (number){ // expects an element name and number of items to give
-      var theNum=toNumIfPossible(number);
-      if (typeof theNum == "number"){
-        return sendDirectToServer("/give_all_items " + this.name + " " + number);
+    this.giveAllItems=function (number,options){ // expects an element name and number of items to give
+      if (isNum(number)){
+        // return sendDirectToServer("/give_all_items " + this.name + " " + number);
+        return runSimpleCommand("/give_all_items " + this.name + " " + number,options);
       }
       return false;
     }
-    this.giveCategoryItems=function (category,number){ // expects a category such as terrain/ship/station and number of items to give
-      var theNum=toNumIfPossible(number);
-      if (testIfInput(category) && typeof theNum == "number"){
-        return sendDirectToServer("/give_category_items " + this.name + " " + number + " " + category);
+    this.giveCategoryItems=function (category,number,options){ // expects a category such as terrain/ship/station and number of items to give
+      if (testIfInput(category) && isNum(number)){
+        // return sendDirectToServer("/give_category_items " + this.name + " " + number + " " + category);
+        return runSimpleCommand("/give_category_items " + this.name + " " + number + " " + category,options);
       }
       return false;
     }
-    this.giveCredits=function (number){ // expects a number of credits to give.  If this value is negative, it will subtract credits.
-      var theNum=toNumIfPossible(number);
-      if (typeof theNum == "number"){
-        return sendDirectToServer("/give_credits " + this.name + " " + number);
+    this.giveCredits=function (number,options){ // expects a number of credits to give.  If this value is negative, it will subtract credits.
+      if (isNum(number)){
+        // return sendDirectToServer("/give_credits " + this.name + " " + number);
+        return runSimpleCommand("/give_credits " + this.name + " " + number,options);
       }
       return false;
     }
-    this.giveGrapple=function (number){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
-      var theNum=toNumIfPossible(number);
+    this.giveGrapple=function (number,options){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
       var countTo=1; // The default times to run the command is 1
       var result;
-      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
-        if (theNum>1){ countTo=number; }
+      if (isNum(number)){ // Only use the input given if it is a number, otherwise ignore it.
+        if (number>1){ countTo=number; }
       }
       for (var i=0;countTo>i;i++){
-        result=sendDirectToServer("/give_grapple_item " + this.name); // the input should never fail, so this should normally always return true
+        // result=sendDirectToServer("/give_grapple_item " + this.name); // the input should never fail, so this should normally always return true
+        result=runSimpleCommand("/give_grapple_item " + this.name,options);
       }
       return result;
     }
-    this.giveGrappleOP=function (number){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
+
+
+    this.giveGrappleOP=function (number,options){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
       var theNum=toNumIfPossible(number);
       var countTo=1; // The default times to run the command is 1
       var result;
-      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+      if (isNum(number)){ // Only use the input given if it is a number, otherwise ignore it.
         if (theNum>1){ countTo=number; } 
       }
       for (var i=0;countTo>i;i++){
-        result=sendDirectToServer("/give_grapple_item_op " + this.name); // the input should never fail, so this should normally always return true
+        // result=sendDirectToServer("/give_grapple_item_op " + this.name); // the input should never fail, so this should normally always return true
+        result=runSimpleCommand("/give_grapple_item_op " + this.name,options);
       }
       return result;
     }
-    this.giveHealWeapon=function (number){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
+    this.giveHealWeapon=function (number,options){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
       var theNum=toNumIfPossible(number);
       var countTo=1; // The default times to run the command is 1
       var result;
-      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+      if (isNum(number)){ // Only use the input given if it is a number, otherwise ignore it.
         if (theNum>1){ countTo=number; } 
       }
       for (var i=0;countTo>i;i++){
-        result=sendDirectToServer("/give_heal_weapon " + this.name); // the input should never fail, so this should normally always return true
+        // result=sendDirectToServer("/give_heal_weapon " + this.name); // the input should never fail, so this should normally always return true
+        result=runSimpleCommand("/give_heal_weapon " + this.name,options);
       }
       return result;
     }
-    this.giveLaserWeapon=function (number){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
+    this.giveLaserWeapon=function (number,options){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
       var theNum=toNumIfPossible(number);
       var countTo=1; // The default times to run the command is 1
       var result;
-      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+      if (isNum(number)){ // Only use the input given if it is a number, otherwise ignore it.
         if (theNum>1){ countTo=number; } 
       }
       for (var i=0;countTo>i;i++){
-        result=sendDirectToServer("/give_laser_weapon " + this.name); // the input should never fail, so this should normally always return true
+        // result=sendDirectToServer("/give_laser_weapon " + this.name); // the input should never fail, so this should normally always return true
+        result=runSimpleCommand("/give_laser_weapon " + this.name,options);
       }
       return result;
     }
-    this.giveLaserWeaponOP=function (number){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
+    this.giveLaserWeaponOP=function (number,options){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
       var theNum=toNumIfPossible(number);
       var countTo=1; // The default times to run the command is 1
       var result;
-      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+      if (isNum(number)){ // Only use the input given if it is a number, otherwise ignore it.
         if (theNum>1){ countTo=number; } 
       }
       for (var i=0;countTo>i;i++){
-        result=sendDirectToServer("/give_laser_weapon_op " + this.name); // the input should never fail, so this should normally always return true
+        // result=sendDirectToServer("/give_laser_weapon_op " + this.name); // the input should never fail, so this should normally always return true
+        result=runSimpleCommand("/give_laser_weapon_op " + this.name,options);
       }
       return result;
     }
-    this.giveMarkerWeapon=function (number){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
+    this.giveMarkerWeapon=function (number,options){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
       var theNum=toNumIfPossible(number);
       var countTo=1; // The default times to run the command is 1
       var result;
-      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+      if (isNum(number)){ // Only use the input given if it is a number, otherwise ignore it.
         if (theNum>1){ countTo=number; } 
       }
       for (var i=0;countTo>i;i++){
-        result=sendDirectToServer("/give_marker_weapon " + this.name); // the input should never fail, so this should normally always return true
+        // result=sendDirectToServer("/give_marker_weapon " + this.name); // the input should never fail, so this should normally always return true
+        result=runSimpleCommand("/give_marker_weapon " + this.name,options);
       }
       return result;
     }
-    this.giveTransporterMarkerWeapon=function (number){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
+    this.giveTransporterMarkerWeapon=function (number,options){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
       var theNum=toNumIfPossible(number);
       var countTo=1; // The default times to run the command is 1
       var result;
-      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+      if (isNum(number)){ // Only use the input given if it is a number, otherwise ignore it.
         if (theNum>1){ countTo=number; } 
       }
       for (var i=0;countTo>i;i++){
-        result=sendDirectToServer("/give_transporter_marker_weapon " + this.name); // the input should never fail, so this should normally always return true
+        // result=sendDirectToServer("/give_transporter_marker_weapon " + this.name); // the input should never fail, so this should normally always return true
+        result=runSimpleCommand("/give_transporter_marker_weapon " + this.name,options);
       }
       return result;
     }
-    this.givePowerSupplyWeapon=function (number){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
+    this.givePowerSupplyWeapon=function (number,options){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
       var theNum=toNumIfPossible(number);
       var countTo=1; // The default times to run the command is 1
       var result;
-      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+      if (isNum(number)){ // Only use the input given if it is a number, otherwise ignore it.
         if (theNum>1){ countTo=number; } 
       }
       for (var i=0;countTo>i;i++){
-        result=sendDirectToServer("/give_power_supply_weapon " + this.name); // the input should never fail, so this should normally always return true
+        // result=sendDirectToServer("/give_power_supply_weapon " + this.name); // the input should never fail, so this should normally always return true
+        result=runSimpleCommand("/give_power_supply_weapon " + this.name,options);
       }
       return result;
     }
-    this.giveRocketLauncher=function (number){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
+    this.giveRocketLauncher=function (number,options){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
       var theNum=toNumIfPossible(number);
       var countTo=1; // The default times to run the command is 1
       var result;
-      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+      if (isNum(number)){ // Only use the input given if it is a number, otherwise ignore it.
         if (theNum>1){ countTo=number; } 
       }
       for (var i=0;countTo>i;i++){
-        result=sendDirectToServer("/give_rocket_launcher_weapon " + this.name); // the input should never fail, so this should normally always return true
+        // result=sendDirectToServer("/give_rocket_launcher_weapon " + this.name); // the input should never fail, so this should normally always return true
+        result=runSimpleCommand("/give_rocket_launcher_weapon " + this.name,options);
       }
       return result;
     }
-    this.giveRocketLauncherOP=function (number){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
+    this.giveRocketLauncherOP=function (number,options){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
       var theNum=toNumIfPossible(number);
       var countTo=1; // The default times to run the command is 1
       var result;
-      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+      if (isNum(number)){ // Only use the input given if it is a number, otherwise ignore it.
         if (theNum>1){ countTo=number; } 
       }
       for (var i=0;countTo>i;i++){
-        result=sendDirectToServer("/give_rocket_launcher_op " + this.name); // the input should never fail, so this should normally always return true
+        // result=sendDirectToServer("/give_rocket_launcher_op " + this.name); // the input should never fail, so this should normally always return true
+        result=runSimpleCommand("/give_rocket_launcher_op " + this.name,options);
       }
       return result;
     }
-    this.giveSniperWeapon=function (number){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
+    this.giveSniperWeapon=function (number,options){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
       var theNum=toNumIfPossible(number);
       var countTo=1; // The default times to run the command is 1
       var result;
-      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+      if (isNum(number)){ // Only use the input given if it is a number, otherwise ignore it.
         if (theNum>1){ countTo=number; } 
       }
       for (var i=0;countTo>i;i++){
-        result=sendDirectToServer("/give_sniper_weapon " + this.name); // the input should never fail, so this should normally always return true
+        // result=sendDirectToServer("/give_sniper_weapon " + this.name); // the input should never fail, so this should normally always return true
+        result=runSimpleCommand("/give_sniper_weapon " + this.name,options);
       }
       return result;
     }
-    this.giveSniperWeaponOP=function (number){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
+    this.giveSniperWeaponOP=function (number,options){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
       var theNum=toNumIfPossible(number);
       var countTo=1; // The default times to run the command is 1
       var result;
-      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+      if (isNum(number)){ // Only use the input given if it is a number, otherwise ignore it.
         if (theNum>1){ countTo=number; } 
       }
       for (var i=0;countTo>i;i++){
-        result=sendDirectToServer("/give_sniper_weapon_op " + this.name); // the input should never fail, so this should normally always return true
+        // result=sendDirectToServer("/give_sniper_weapon_op " + this.name); // the input should never fail, so this should normally always return true
+        result=runSimpleCommand("/give_sniper_weapon_op " + this.name,options);
       }
       return result;
     }
-    this.giveTorchWeapon=function (number){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
+    this.giveTorchWeapon=function (number,options){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
       var theNum=toNumIfPossible(number);
       var countTo=1; // The default times to run the command is 1
       var result;
-      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+      if (isNum(number)){ // Only use the input given if it is a number, otherwise ignore it.
         if (theNum>1){ countTo=number; } 
       }
       for (var i=0;countTo>i;i++){
-        result=sendDirectToServer("/give_torch_weapon " + this.name); // the input should never fail, so this should normally always return true
+        // result=sendDirectToServer("/give_torch_weapon " + this.name); // the input should never fail, so this should normally always return true
+        result=runSimpleCommand("/give_torch_weapon " + this.name,options);
       }
       return result;
     }
-    this.giveTorchWeaponOP=function (number){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
+    this.giveTorchWeaponOP=function (number,options){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
       var theNum=toNumIfPossible(number);
       var countTo=1; // The default times to run the command is 1
       var result;
-      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+      if (isNum(number)){ // Only use the input given if it is a number, otherwise ignore it.
         if (theNum>1){ countTo=number; } 
       }
       for (var i=0;countTo>i;i++){
-        result=sendDirectToServer("/give_torch_weapon_op " + this.name); // the input should never fail, so this should normally always return true
+        // result=sendDirectToServer("/give_torch_weapon_op " + this.name); // the input should never fail, so this should normally always return true
+        result=runSimpleCommand("/give_torch_weapon_op " + this.name,options);
       }
       return result;
     }
+
+
+
+
     this.kill=function (){ // kills the player
       return sendDirectToServer("/kill_character " + this.name);
     }
