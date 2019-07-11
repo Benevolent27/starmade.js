@@ -382,7 +382,7 @@ if (fs.existsSync(lockFile) && ignoreLockFile == false){
     } else {
       console.log("server.lck went poof on it's own!  Wonderful! Contining..");
     }
-    sleep(2000);
+    sleep(200); // Temp
   }
 } else if (fs.existsSync(lockFile)){
   console.log("Ignored existing lock file!");
