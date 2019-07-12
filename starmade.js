@@ -172,8 +172,9 @@ var os                        = process.platform;
 global["starMadeInstallFolder"]=starMadeInstallFolder;
 global["starMadeServerConfigFile"]=starMadeServerConfigFile;
 global["debug"]=debug;
-var botName=settings["botName"];
-const botObj=new BotObj(botName);
+const botObj=new BotObj(settings["botName"]);
+console.log("Created bot object:");
+console.dir(botObj);
 global["bot"]=botObj;
 
 var starMadeStarter;
@@ -632,7 +633,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
         console.log("receiver: " + receiver);
         console.log("receiverType: " + receiverType);
         console.log("message: " + message);
-        eventEmitter.emit('message',new MessageObj(sender,receiver,receiverType,message));
+        eventEmitter.emit('message',new MessageObj(sender,receiver,receiverType,message),global);
 
       // ### Player Spawns ###
       } else if (theArguments[0] == "[SERVER][SPAWN]" ) {
