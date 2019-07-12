@@ -10,7 +10,8 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   checkForLine, // Checks every line of a starNet.js query for a regExp and returns true/false if found or not.
   detectSuccess, // Returns true/false if a chmod command was successful or not.  Can be fed with "false" to return "false", to be stacked with other check types.
   detectSuccess2, // Returns true/false if a ban/unban command was successful or not.  Can be fed with "false" to return "false", to be stacked with other check types.
-  getUIDfromName
+  getUIDfromName,
+  returnMatchingLinesAsArray
 }
 
 var path=require('path');
@@ -561,6 +562,20 @@ function checkForLine(input,regExp){
     return returnVal;
   }
   throw new Error("Invalid parameters given to 'checkForLine' function!");
+}
+
+function returnMatchingLinesAsArray(input,regExp){
+  var returnArray=[];
+  if (typeof input == "string" && getObjType(regExp) == "RegExp"){
+    var theArray=input.trim().split("\n");
+    for (let i = 0;i < theArray.length;i++) {
+      if (regExp.test(theArray[i])){
+        returnArray.push(theArray[i]);
+      }
+    }
+    return returnArray;
+  }
+  throw new Error("Invalid parameters given to 'returnMatchingLinesAsArray' function!");
 }
 
 function verifyResponse(input){ // input should be a full starNet.js response string
