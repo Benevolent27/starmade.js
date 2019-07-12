@@ -378,7 +378,8 @@ function BotObj(botName){
     this.msg=function(playerObj,msgString){
       // This expects a player object OR a string with a player's name, then the message to send.
       if (typeof msgString == "string"){
-        var thePlayer=new PlayerObj(playerObj.toString().trim()); // This creates a new playerObj with either a string OR a playerObj
+        var thePlayerName=playerObj.toString().trim(); // This allows a playerObj or a playername as a string to be used as input
+        var thePlayer=new PlayerObj(thePlayerName); // This creates a new playerObj with the playername string
         thePlayer.msg(this.name + ": " + msgString);
       } else {
         console.error("Invalid input given to message player with!")
@@ -542,8 +543,9 @@ function runSimpleCommand(theCommand,options){
 
 function PlayerObj(player){ // "Player" must be a string and can be just the player's nickname or their full UID
   if (player){
+    var playerName=player.toString().trim(); // This allows the player input to be another PlayerObj
     // var playerName=player.replace(/^ENTITY_PLAYERCHARACTER_/,"").replace(/^ENTITY_PLAYERSTATE_/,""); // strip the UID
-    this.name=player.replace(/^ENTITY_PLAYERCHARACTER_/,"").replace(/^ENTITY_PLAYERSTATE_/,""); // strip the UID
+    this.name=playerName.replace(/^ENTITY_PLAYERCHARACTER_/,"").replace(/^ENTITY_PLAYERSTATE_/,""); // strip the UID
 
 
     this.msg=function (message,type,options){ // Sends a message to the player.  Type is optional.  If not provided "plain" is used.
