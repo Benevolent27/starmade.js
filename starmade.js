@@ -130,14 +130,15 @@ var isPidAlive        = miscHelpers.isPidAlive;
 var {isDirectory,getDirectories,isFile,getFiles}=miscHelpers;  // Sets up file handling
 
 // Object aliases
-var SqlQueryObj    = objectCreator.SqlQueryObj;
-var EntityObj      = objectCreator.EntityObj;
-var SectorObj      = objectCreator.SectorObj;
-var CoordsObj      = objectCreator.CoordsObj;
-var FactionObj     = objectCreator.FactionObj;
-var MessageObj     = objectCreator.MessageObj;
-var BluePrintObj   = objectCreator.BluePrintObj;
-var PlayerObj      = objectCreator.PlayerObj;
+var {BotObj,SqlQueryObj,EntityObj,SectorObj,CoordsObj,FactionObj,MessageObj,BluePrintObj,PlayerObj}=objectCreator;
+// var SqlQueryObj    = objectCreator.SqlQueryObj;
+// var EntityObj      = objectCreator.EntityObj;
+// var SectorObj      = objectCreator.SectorObj;
+// var CoordsObj      = objectCreator.CoordsObj;
+// var FactionObj     = objectCreator.FactionObj;
+// var MessageObj     = objectCreator.MessageObj;
+// var BluePrintObj   = objectCreator.BluePrintObj;
+// var PlayerObj      = objectCreator.PlayerObj;
 
 
 
@@ -171,6 +172,9 @@ var os                        = process.platform;
 global["starMadeInstallFolder"]=starMadeInstallFolder;
 global["starMadeServerConfigFile"]=starMadeServerConfigFile;
 global["debug"]=debug;
+var botName=settings["botName"];
+const botObj=new BotObj(botName);
+global["bot"]=botObj;
 
 var starMadeStarter;
 // TODO: Fix this to use the .exe file properly when doing installs.  Sure the Jar works, but might be a bad idea for some reason.
