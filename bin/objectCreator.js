@@ -60,12 +60,12 @@ const SqlQueryObj           = sqlQuery.SqlQueryObj;
 var sectorProtectionsArray  = regExpHelper.sectorProtections; // This should include all the possible protections a sector can have.
 // const verifyStarNetResponse = starNetHelper.verifyResponse; // This can be used to perform a verification on a StarNet response without consuming the response
 // const starNetVerified       = starNetHelper.starNetVerified; // If the response does not verify, this consumes the response and throws an error instead
-const {verifyStarNetResponse,starNetVerified} = starNetHelper;
+const {verifyStarNetResponse,starNetVerified,returnMatchingLinesAsArray} = starNetHelper;
 // const copyArray             = objectHelper.copyArray;
 // const toNumIfPossible       = objectHelper.toNumIfPossible;
 // const subArrayFromAnother   = objectHelper.subArrayFromAnother;
 // const findSameFromTwoArrays = objectHelper.findSameFromTwoArrays;
-const {copyArray,toNumIfPossible,subArrayFromAnother,findSameFromTwoArrays} = objectHelper;
+const {copyArray,toNumIfPossible,subArrayFromAnother,findSameFromTwoArrays,isInArray} = objectHelper;
 // const colorize              = objectHelper["colorize"];
 // const getObjType            = objectHelper.getObjType; // Gets the prototype name of an object, so instead of using "typeof", which returns "object" for things like arrays and SectorObj's, etc, this will return their object name instead.
 const {testIfInput,trueOrFalse,isTrueOrFalse,isNum,colorize,getObjType,returnLineMatch} = objectHelper;
@@ -79,6 +79,7 @@ EntityObj.prototype.toString = function(){ return this.fullUID.toString() };
 IPObj.prototype.toString = function(){ return this.address };
 IPObj.prototype.toArray = function(){ return this.address.split(".") };
 PlayerObj.prototype.toString = function(){ return this.name }; // This allows inputs for functions to use a playerObj or string easily.  Example:  playerObj.toString() works the same as playerString.toString(), resulting in a string of the player's name.
+SMName.prototype.toString = function(){ return this.name };
 
 //  #######################
 //  ###     TESTING     ###
@@ -1308,6 +1309,60 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       }
       throw new Error("Invalid parameters given to playerObj changeSector method!");
     }
+    this.changeSectorCopy=function(sector,options){ // Needs sector and spacial coords.  coordsObj is needed if a SectorObj is given as first parameter.
+      // This should accept a location Obj, a pair of sectorObj and coordsObj, or any other pair of input that can translate to a CoordsObj
+      var sectorToUse=sector;
+      if (typeof location=="object"){
+        if (sector instanceof LocationObj){
+          if (sector.hasOwnProperty("sector")){ // This handles LocationObj objects
+            sectorToUse=sector.sector;
+          } else {
+            throw new Error("Invalid LocationObj given to changeSectorCopy!");
+          }
+        } else if (sector instanceof SectorObj || sector instanceof CoordsObj) {
+          sectorToUse=sector.toString();
+        } else { // Invalid objects or objects given as input.
+          throw new Error("Invalid object types given to changeSectorCopy!");
+        }
+      } else if (testIfInput(sector)){ // Non-object input given
+        // Let's see if coordinates can be made from the input.  A String (separated by , or spaces) or an Array can be given as input.
+        try {
+          sectorToUse=new CoordsObj(sector).toString();
+        } catch (error){ // Invalid input given.
+          console.error("Invalid input given to changeSectorCopy!");
+          throw error; 
+        }
+      } else { // Invalid amount of arguments given
+        throw new Error("No sector value given changeSectorCopy!");
+      }
+      if (typeof sectorToUse=="string"){
+        // We should be all set to send the command now.
+
+        var fast=false;
+        if (typeof options == "object"){
+          if (options.hasOwnProperty("fast")){
+            if (isTrue(options.fast)){
+              fast=true;
+            }
+          }
+        }
+        var changeSectorCommand="/change_sector_for_copy " + this.name + " " + sectorToUse;
+        if (fast){
+          return sendDirectToServer(changeSectorCommand);         
+        } else {
+          var result2=starNetHelper.starNetVerified(changeSectorCommand); // This will throw an error if the connection to the server fails.
+          // Success: RETURN: [SERVER, [ADMIN COMMAND] [SUCCESS] changed sector for Benevolent27 to (1000, 1000, 1000), 0]
+          // Fail: RETURN: [SERVER, [ADMIN COMMAND] [ERROR] player not found for your client Benevolent27, 0]
+          var theReg3=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] \\[SUCCESS\\]");
+          if (starNetHelper.checkForLine(result2,theReg3)){ // The command succeeded.
+            return true;
+          } else { // The command failed.  Player either offline or does not exist for some reason.
+            return false;
+          }
+        }
+      }
+      throw new Error("Invalid parameters given to playerObj changeSectorCopy method!");
+    }
     this.teleportTo=function(coords,options){ // Needs sector and spacial coords.  coordsObj is needed if a SectorObj is given as first parameter.
       // This should accept a location Obj, a pair of sectorObj and coordsObj, or any other pair of input that can translate to a CoordsObj
       var spacialCoordsToUse=coords;
@@ -1501,14 +1556,200 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
         throw errorObj;
       }
     }
+    this.playerProtect=function (smName,options){ // Requires smName, which can be a string or a SMNameObj
+      var smNameToUse=smName;
+      if (typeof smName == "object"){
+        if (smName instanceof SMName){
+          smNameToUse=smName.toString();
+        }
+      }
+      if (typeof smNameToUse=="string"){
+        return runSimpleCommand("/player_protect " + this.name + " " + smNameToUse,options);
+      } else {
+        throw new Error("Invalid smName given to playerProtect!");
+      }
+    }
+    this.playerUnprotect=function (options){ // Removes registry account protection for the username
+      return runSimpleCommand("/player_unprotect " + this.name,options);
+    }
 
+    this.currentEntity=function(){
+      // This uses the /entity_info_by_player_uid command instead of /player_info command, since that will not work with asteroids and planets
+
+      // RETURN: [SERVER, Attached: [PlS[Benevolent27 ; id(612)(4)f(10001)]], 0]
+      // RETURN: [SERVER, DockedUIDs: , 0]
+      // RETURN: [SERVER, Blocks: 214395, 0]
+      // RETURN: [SERVER, Mass: 0.0, 0]
+      // RETURN: [SERVER, LastModified: ENTITY_PLAYERSTATE_Benevolent27, 0]
+      // RETURN: [SERVER, Creator: , 0]
+      // RETURN: [SERVER, Sector: 953 -> Sector[953](5, 1, 23), 0]
+      // RETURN: [SERVER, Name: Planet, 0]
+      // RETURN: [SERVER, UID: ENTITY_PLANET_5_1_23_10_1562917261498, 0]
+      // RETURN: [SERVER, MinBB(chunks): (-3, 0, -3), 0]
+      // RETURN: [SERVER, MaxBB(chunks): (3, 3, 3), 0]
+      // RETURN: [SERVER, Local-Pos: (83.5057, -0.7602557, -41.887486), 0]
+      // RETURN: [SERVER, Orientation: (0.1676793, 0.45718494, -0.6869378, 0.5394274), 0]
+      // RETURN: [SERVER, Planet, 0]
+      // RETURN: [SERVER, END; Admin command execution ended, 0]
+
+      var returnVal;
+      try {
+        var result=starNetHelper.starNetVerified("/entity_info_by_player_uid " + this.name); // This will throw an error if there is a connection issue.
+        if (!returnLineMatch(result,/^RETURN: \[SERVER, \[ADMIN COMMAND\] \[ERROR\]/)){ // Player does not exist
+          var currentEntityResult=returnLineMatch(result,/^RETURN: \[SERVER, UID: .*/,/^RETURN: \[SERVER, UID: /,/, 0\]$/);
+          // NOTE:  This is currently broken for asteroids.  There seems to be no way to get the entity UID if it is an asteroid, but this does work for planet plates.
+          // TODO:  Bug Schema to fix this for asteroids.
+          if (currentEntityResult){
+            // TODO:  Determine if there really is a reason to have separte entity objects for planets and asteroids, otherwise the below will be fine.
+            return new EntityObj(currentEntityResult);
+          }
+          return false;  // This will always return false if the player is in an asteroid.. so be careful with this.
+        }
+        return returnVal; // Returns undefined.  The player did not exist somehow.  This should never happen.
+      } catch (error){
+        var errorObj=new Error("StarNet command failed when attempting to get the currentEntity for player: " + this.name);
+        throw errorObj;
+      }
+    }
+    this.ips=function(options){ // Returns an array of IPObj of a user as returned by /player_info
+    // Note:  By default it will only return unique IP's, but an option can be specified to return them all, which includes the timestamp of the login from the IP
+      var unique=true;
+      if (typeof options == "object"){
+        if (options.hasOwnProperty("unique")){
+          if (isFalse(options.unique)){
+            unique=false;
+          }
+        }
+      }
+      // try {
+        var result=starNetHelper.starNetVerified("/player_info " + this.name); // This will throw an error if there is a connection issue.
+        var resultArray=returnMatchingLinesAsArray(result,/^RETURN: \[SERVER, \[PL\] LOGIN: \[time=.*/);
+        var outputArray=[];
+        var ipTemp;
+        var ipDateTemp;
+        var ipDateObj={};
+        var ipTrackerArray=[];
+        for (var i=0;i<resultArray.length;i++){
+          ipDateTemp=resultArray[i].match(/\[time=[^,]*/);
+          if (ipDateTemp){
+            ipDateTemp=ipDateTemp.toString().replace(/^\[time=/,"");
+            ipDateObj=new Date(ipDateTemp); // This was tested to be working correctly
+            ipTemp=resultArray[i].match(/ip=[^,]*/);
+            if (ipTemp){
+              ipTemp=ipTemp.toString().replace(/^ip=\//,"");
+              // This does not filter based on unique IP's since there is a date associated with each IP login
+              // TODO:  Make it so the default is to filter only unique IP's but give an option not to
+              if (unique){ // If only pushing unique IP's
+                if (!isInArray(ipTrackerArray,ipTemp)){
+                  outputArray.push(new IPObj(ipTemp,ipDateObj));
+                  ipTrackerArray.push(ipTemp); // Record the unique IP so it isn't added to the resultArray again
+                }
+              } else {
+                outputArray.push(new IPObj(ipTemp,ipDateObj));
+              }
+            }
+          }
+        }
+        return outputArray; // Array is empty if no results found
+      // } catch (error){
+      //   var errorObj=new Error("StarNet command failed when attempting to get the ips for player: " + this.name);
+      //   throw errorObj;
+      // }
+
+      }
+      this.inventory=function(options){ // Returns a player's inventory as an array of objects - Broken right now because it returns the currently open inventory, which could be the personal inventory, cargo, or creative
+      // TODO:  Follow up with Schema about it using the personal inventory by default, and a second command '/player_get_current_inventory' being added.
+      // TODO:  Add an option for the output to be a map object.
+      // TODO:  Create a function that converts an item number to the item name.  This might be pretty complicated though, since it would require parsing the blockProperties.xml file, blockConfig.xml, and customBlockConfig.xml to accurately find the item number's name.
+      // TODO:  Follow up with schema about multi-blocks being broken down into it's invidivdual block counts.  Right now, this is how a multi-block outputs:
+      // RETURN: [SERVER, [INVENTORY] Benevolent27:  SLOT: 27; MULTI: true; TYPE: -32768; META: -1; COUNT: 400, 0]
+      // For built-in blocks, it could be possible to map every single multi-block type and then run individual "/player_get_block_amount" on those id's.. and then reformulate the output to include whichever ones are found.. but that would be very time-consuming, inefficient, and would not work for custom block groupings since I'd have no way of anticipating what those -234234 numbers would look like.
+      var current=false;
+      if (typeof options == "object"){
+        if (options.hasOwnProperty("current")){
+          if (isTrue(options.current)){
+            current=true;
+          }
+        }
+      }
+      var commandToUse="/player_get_inventory ";
+      if (current){
+        commandToUse="/player_get_current_inventory "; // This command does not exist yet, so don't use this till it is.
+      }
+      var result=starNetHelper.starNetVerified(commandToUse + this.name); // This will throw an error if there is a connection issue, false if the command fails, likely due to the player being offline.
+      // C:\coding\starmade.js\bin>node starNet.js "/player_get_inventory Benevolent27"
+      // RETURN: [SERVER, [ADMIN COMMAND] [SUCCESS] Listing player Benevolent27 personal inventory START, 0]
+      // RETURN: [SERVER, [INVENTORY] Benevolent27:  SLOT: 0; MULTI: false; TYPE: 598; META: -1; COUNT: 595, 0]
+      // RETURN: [SERVER, [INVENTORY] Benevolent27:  SLOT: 1; MULTI: false; TYPE: 1010; META: -1; COUNT: 5, 0]
+      // RETURN: [SERVER, [INVENTORY] Benevolent27:  SLOT: 2; MULTI: false; TYPE: -11; META: 100892; COUNT: 1, 0]
+      // RETURN: [SERVER, [INVENTORY] Benevolent27:  SLOT: 3; MULTI: false; TYPE: -11; META: 100893; COUNT: 1, 0]
+      // RETURN: [SERVER, [INVENTORY] Benevolent27:  SLOT: 4; MULTI: false; TYPE: -11; META: 100894; COUNT: 1, 0]
+      // RETURN: [SERVER, [INVENTORY] Benevolent27:  SLOT: 5; MULTI: false; TYPE: 1; META: -1; COUNT: 7, 0]
+      // RETURN: [SERVER, [INVENTORY] Benevolent27:  SLOT: 6; MULTI: false; TYPE: 73; META: -1; COUNT: 17, 0]
+      // RETURN: [SERVER, [INVENTORY] Benevolent27:  SLOT: 7; MULTI: false; TYPE: 74; META: -1; COUNT: 4, 0]
+      // RETURN: [SERVER, [INVENTORY] Benevolent27:  SLOT: 11; MULTI: false; TYPE: -32; META: 100030; COUNT: 1, 0]
+      // RETURN: [SERVER, [INVENTORY] Benevolent27:  SLOT: 12; MULTI: false; TYPE: -32; META: 100031; COUNT: 1, 0]
+      // RETURN: [SERVER, [INVENTORY] Benevolent27:  SLOT: 13; MULTI: false; TYPE: -32; META: 100032; COUNT: 1, 0]
+      // RETURN: [SERVER, [INVENTORY] Benevolent27:  SLOT: 14; MULTI: false; TYPE: -32; META: 100033; COUNT: 1, 0]
+      // RETURN: [SERVER, [INVENTORY] Benevolent27:  SLOT: 15; MULTI: false; TYPE: -12; META: 100034; COUNT: 1, 0]
+      // RETURN: [SERVER, [INVENTORY] Benevolent27:  SLOT: 16; MULTI: false; TYPE: -14; META: 100035; COUNT: 1, 0]
+      // RETURN: [SERVER, [INVENTORY] Benevolent27:  SLOT: 17; MULTI: false; TYPE: -11; META: 100036; COUNT: 1, 0]
+      // RETURN: [SERVER, [INVENTORY] Benevolent27:  SLOT: 91; MULTI: false; TYPE: 4; META: -1; COUNT: 2, 0]
+      // RETURN: [SERVER, [INVENTORY] Benevolent27:  SLOT: 92; MULTI: false; TYPE: 24; META: -1; COUNT: 20, 0]
+      // RETURN: [SERVER, [ADMIN COMMAND] [SUCCESS] Listing player Benevolent27 personal inventory END., 0]
+      // RETURN: [SERVER, END; Admin command execution ended, 0]
+      
+      if (result){
+        // console.log("Result found!"); // temp
+        var outputArray=[];
+        // Parse through the lines, creating new objects and outputting to the outputArray.
+        var theArray=result.trim().split("\n");
+        var theReg=new RegExp("^RETURN: \\[SERVER, \\[INVENTORY\\] Benevolent27: {2}SLOT: .*"); // The {2} here is just to denote 2 spaces.
+        var match;
+        var slot;
+        var multi;
+        var type;
+        var meta;
+        var count;
+        var outputObj={};
+        for (var i=0;i<theArray.length;i++){
+          // console.log("Processing line: " + theArray[i]);  // temp
+          match=theArray[i].match(theReg); // Returns void if not found
+          if (match){
+            // console.log("Match found!  Processing it..");
+            match=match.toString();
+            slot=match.match(/SLOT: [-]{0,1}[0-9]*/).toString().replace("SLOT: ",""); // This should never error out, but a more careful approach might be needed.
+            multi=match.match(/MULTI: [a-zA-Z]*/).toString().replace("MULTI: ","");
+            type=match.match(/TYPE: [-]{0,1}[0-9]*/).toString().replace("TYPE: ","");
+            meta=match.match(/META: [-]{0,1}[0-9]*/).toString().replace("META: ","");
+            count=match.match(/COUNT: [-]{0,1}[0-9]*/).toString().replace("COUNT: ","");
+            outputObj={
+              "slot":toNum(slot),
+              "multi":trueOrFalse(multi),
+              "type":toNum(type),
+              "meta":toNum(meta),
+              "count":toNum(count)
+            }
+            // console.log("Adding object to outputArray:");
+            // console.dir(outputObj);
+            outputArray.push(outputObj);
+          }
+        }
+      }
+      return outputArray; // If inventory is empty, will return an empty array.
+    }
 
     // Phase 2 - Add methods that poll information from the server using StarNet.
-    // changeSectorCopy("[X],[Y],[Z]", SectorObj, or CoordsObj) - teleports the player to a specific sector, leaving behind a copy of whatever entity they were in, duplicating it
-    // currentEntity - Returns the EntityObj of the entity they are currently in or on.  Uses the "CONTROLLING:" line from /player_info
-    // ips - returns an array of IPObj's with all unique IP's, as returned by /player_info.  Also sets the "date" function for each one.
 
     // Needs testing:
+    // changeSectorCopy("[X],[Y],[Z]" -or- SectorObj -or- CoordsObj) - teleports the player to a specific sector, leaving behind a copy of whatever entity they were in, duplicating it
+    // currentEntity() - Returns the EntityObj of the entity they are currently in or on.  Uses the /entity_info_by_player_uid command rather than the "CONTROLLING:" line from /player_info, since that doesn't work with planet plates or asteroids.  Though the /entity_info_by_player_uid command also does not work with asteroids, but does work for planet plates.
+    // playerProtect(smName) - uses /player_protect to protect a smname to a username - Sets this current player name to be protected under a specific registry account
+    // player_unprotect() - opposite of above - WARNING:  This will allow anyone to log in under this name in the future!
+
+    // Phase 2 - Done
+    // inventory(options) -- Working, but problematic.  See notes.
+    // ips(options) - returns an array of IPObj's with all unique IP's, as returned by /player_info.  Also sets the "date" function for each one.  'options' can be an object with "unique" set to false if you want all ip's with their associated dates, otherwise the default is to return only unique ip's.
     // smName - returns a SmNameObj
     // ip - returns an IPObj with the player's last IP in it
     // personalTestSector - Returns the player's designated battlemode sector, which is unique to every player.  Returns a SectorObj.
@@ -1516,9 +1757,6 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
     // credits - returns the amount of credits a player has on them as a number.
     // spacialCoords - Returns the spacial coordinates the player is in, in a CoordsObj.
     // faction - Returns the FactionObj of their faction or undefined if no faction found.
-
-
-    // Phase 2 - Done
     // sector - Returns the player's current sector as a SectorObj
     // isOnline() - /player_list - Check to see if the player is online.  Useful for loops or delayed commands.
     // /player_get_spawn
@@ -1528,8 +1766,6 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
 
     
     // Phase 1 - Add methods which send the command directly to the server.
-
-
     // banAccount - Bans the player by their registry account - this is a PERM ban
     // banAccountTemp(NumberInMinutes) - Bans the player by their registry account temporarily
     // banPlayerName - Bans the player by their playername - this is a PERM ban
@@ -1574,6 +1810,7 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
     // addAdminDeniedCommand([One,or,more,commands]) - (example: /add_admin_denied_comand Benevolent27 ban) This can be an array or string.  If an array, it will cycle through the array, adding each denied command for the specific admin
     // removeAdminDeniedCommand([One,or,more,commands]) - (example: /remove_admin_denied_comand Benevolent27 ban) This can be an array or string.  If an array, it will cycle through the array, removing each denied command for the specific admin.  Uses: /remove_admin_denied_comand [PlayerName] [CommandToRemove]
     // ban(true/false,ReasonString,Time) - true/false is whether to kick.  Time is in minutes.
+    // unban();
     // giveMetaItem(metaItem,number) - Gives the player a meta item based on it's name, such as recipe, log_book, helmet, build_prohibiter, etc.
     // factionPointProtect(true/false) - (Example: /faction_point_protect_player Benevolent27 true) - Protects a player from faction point loss on death (permanent)
 
@@ -1602,8 +1839,6 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
 
 
     // playerInfo - uses /player_info to create an object with all the info available, putting the data into an object or perhaps a map.
-    // playerProtect - uses /player_protect to protect a smname to a username
-    // player_unprotect - opposite of above
 
     // other commands to utilize:
     // /player_put_into_entity_uid
@@ -1635,8 +1870,6 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
     // factionCreate(NewFactionNameString) - This creates a new faction and sets the player as the leader - I am unsure what the /faction_create command will do if a faction of the same name already exists, but I'm guessing it will just duplicate it. I also do not know what happens if the player is currently in a faction already.
     // factionCreateAs(NewFactionNameString,FactionNum) - This creates a new faction with a specific faction number and sets the player as the leader - I am unsure what the /faction_create_as command will do if the faction number already exists..
 
-    // protect(smNameString/SMNameObj) - Sets this current player name to be protected under a specific registry account
-    // unprotect - This unsets registry protection for this player name - WARNING:  This will allow anyone to log in under this name in the future!
 
 
   } else {
