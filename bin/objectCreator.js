@@ -556,6 +556,28 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       }
       return runSimpleCommand("/server_message_to " + msgType + " " + this.name + "'" + message.toString().trim() + "'",options);
     }
+    this.botMsg=function (message,options){ // Sends a plain message to the player with the bot's name.
+      var messageToSend;
+      if (testIfInput(message)){
+        if (typeof message=="string"){
+          messageToSend=message;
+        } else if (typeof message=="object"){
+          try {
+            messageToSend=message.toString();
+          } catch (err) {
+            console.error("Invalid input given to PlayerObj.botMsg!");
+            throw err;
+          }
+        } else {
+          // no message given, so let's just be nice and assume they want a blank bot message
+          messageToSend=" ";
+        }
+      }
+      return global.bot.msg(this.name,messageToSend); // This should throw an error if there is a problem connecting to the server
+      // return runSimpleCommand("/server_message_to " + msgType + " " + this.name + "'" + message.toString().trim() + "'",options);
+    }
+
+    
 
     this.msg2=function (message,type,options){ // Sends a message to the player.  Type is optional.  If not provided "plain" is used.
       // options for type are:  plain, info, warning, and error.
@@ -1749,7 +1771,8 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
     // player_unprotect() - opposite of above - WARNING:  This will allow anyone to log in under this name in the future!
 
     // Phase 2 - Done
-    // inventory(options) -- Working, but problematic.  See notes.
+    // botMsg("message")
+    // inventory({options}) -- Working, but problematic.  See notes.
     // ips(options) - returns an array of IPObj's with all unique IP's, as returned by /player_info.  Also sets the "date" function for each one.  'options' can be an object with "unique" set to false if you want all ip's with their associated dates, otherwise the default is to return only unique ip's.
     // smName - returns a SmNameObj
     // ip - returns an IPObj with the player's last IP in it
