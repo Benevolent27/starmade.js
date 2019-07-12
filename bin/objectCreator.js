@@ -375,11 +375,10 @@ function ServerObj(){ // This will be used to run server commands or gather spec
 function BotObj(botName){
   if (typeof botName == "string"){
     this.name=botName;
-    this.msg=function(playerObj,msgString){
+    this.msg=function(player,msgString){
       // This expects a player object OR a string with a player's name, then the message to send.
       if (typeof msgString == "string"){
-        var thePlayerName=playerObj.toString().trim(); // This allows a playerObj or a playername as a string to be used as input
-        var thePlayer=new PlayerObj(thePlayerName); // This creates a new playerObj with the playername string
+        var thePlayer=new PlayerObj(player); // This creates a new playerObj with the playername string or PlayerObj
         thePlayer.msg(this.name + ": " + msgString);
       } else {
         console.error("Invalid input given to message player with!")
