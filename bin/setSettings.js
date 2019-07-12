@@ -7,6 +7,8 @@
 // var settings = setSettings();
 
 // This should ONLY ever be ran from the starmade.js script, never as itself, otherwise it's script requires won't load properly.
+
+// TODO:  Add formatting options for how a bot message appears.
 if (require.main.filename == __filename){
   console.error("This script should only ever be run by the starmade.js script!  Exiting!");
   process.exit(1);
