@@ -69,6 +69,7 @@ const {copyArray,toNumIfPossible,subArrayFromAnother,findSameFromTwoArrays} = ob
 // const colorize              = objectHelper["colorize"];
 // const getObjType            = objectHelper.getObjType; // Gets the prototype name of an object, so instead of using "typeof", which returns "object" for things like arrays and SectorObj's, etc, this will return their object name instead.
 const {testIfInput,trueOrFalse,isTrueOrFalse,isNum,colorize,getObjType,returnLineMatch} = objectHelper;
+const {isTrue,isFalse}=objectHelper;
 const toNum                 = objectHelper.toNumIfPossible;
 
 // Set up prototypes for constructors, such as replacing .toString() functionality with a default value.  Prototypes will not appear as a regular key.
@@ -524,7 +525,9 @@ function runSimpleCommand(theCommand,options){
     } else {
       var msgResult=starNetHelper.starNetVerified(theCommand); // This will throw an error if the connection to the server fails.
       var msgTestFail=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] \\[ERROR\\]");
-      if (starNetHelper.checkForLine(msgResult,msgTestFail)){ // The player was offline, did not exist, or other parameters were incorrect.
+      // RETURN: [SERVER, Admin command failed: Error packing parameters, 0]
+      var msgTestFail2=new RegExp("^RETURN: \\[SERVER, Admin command failed: Error packing parameters, 0\\]")
+      if (starNetHelper.checkForLine(msgResult,msgTestFail) || starNetHelper.checkForLine(msgResult,msgTestFail2)){ // The player was offline, did not exist, or other parameters were incorrect.
         return false;
       } else { // The command appears to have succeeded.
         return true;
@@ -1009,33 +1012,48 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
 
 
 
-    this.kill=function (){ // kills the player
-      return sendDirectToServer("/kill_character " + this.name);
+    this.kill=function (options){ // kills the player
+      // return sendDirectToServer("/kill_character " + this.name);
+      return runSimpleCommand("/kill_character " + this.name,options);
     }
-    this.kick=function (reason){ // Reason is optional.  Note that since reason is optional, this will always return true.
+    this.kick=function (reason,options){ // Reason is optional.  Note that since reason is optional, this will always return true.
       if (testIfInput(reason)){
-        return sendDirectToServer("/kick_reason " + this.name + "'" + reason.toString().trim() + "'");
+        // return sendDirectToServer("/kick_reason " + this.name + "'" + reason.toString().trim() + "'");
+        return runSimpleCommand("/kick_reason " + this.name + "'" + reason.toString().trim() + "'",options);
       } else {
-        return sendDirectToServer("/kick " + this.name);
+        // return sendDirectToServer("/kick " + this.name);
+        return runSimpleCommand("/kick " + this.name,options);
       }
     }
+
+
+
     this.setFactionRank=function (number){ // expects a number 1-5.  5 is founder, 1 is lowest rank.
-      var theNum=toNumIfPossible(number);
-      if (typeof theNum == "number"){
-        if (theNum>=1 && theNum<=5){
-          return sendDirectToServer("/faction_mod_member " + this.name + " " + number);
+      if (isNum(number)){
+        if (number>=1 && number<=5){
+          // return sendDirectToServer("/faction_mod_member " + this.name + " " + number);
+          return runSimpleCommand("/faction_mod_member " + this.name + " " + number);
         }
         return false; // The number was invalid
       }
       return false; // the input was invalid
     }
-    this.addAdmin=function (){ // Adds the player as an admin
-      return sendDirectToServer("/add_admin " + this.name);
+
+
+    this.addAdmin=function (options){ // Adds the player as an admin
+      // this gives a warning if player does not exist on the server, so runSimpleCommand will not work
+      // TODO: I need separate text processing for this:
+      // RETURN: [SERVER, [ADMIN COMMAND] [WARNING] 'sdflkjdsf' is NOT online. Please make sure you have the correct name. Name was still added to admin list, 0]
+      // When successful, no specific message returned.
+      // return sendDirectToServer("/add_admin " + this.name);
+      return runSimpleCommand("/add_admin " + this.name,options); 
+      // Since this will add a player that is even offline, there is no check to ensure the name is a valid one and so this will not return false if the player is offline either.
     }
-    this.removeAdmin=function (){ // Removes the player as an admin
-      return sendDirectToServer("/remove_admin " + this.name);
+    this.removeAdmin=function (options){ // Removes the player as an admin
+      // return sendDirectToServer("/remove_admin " + this.name);
+      return runSimpleCommand("/remove_admin " + this.name,options);
     }
-    this.addAdminDeniedCommand=function (commandOrCommands){ // Adds denied commands for an admin, input can be an array of commands to deny.  It will cycle through them all.
+    this.addAdminDeniedCommand=function (commandOrCommands,options){ // Adds denied commands for an admin, input can be an array of commands to deny.  It will cycle through them all.
       // Note:  This does not check to ensure the command actually exists.
       var returnVal=true;
       var result;
@@ -1043,7 +1061,32 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
         if (commandOrCommands instanceof Array){ // This is how you figure out it is an array.  We cannot do this directly, because if it is not an object, this will throw an error.
           if (commandOrCommands.length){ // This is to make sure it isn't an empty array
             for (var i=0;i<commandOrCommands.length;i++){
-              result=sendDirectToServer("/add_admin_denied_comand " + this.name + " " + commandOrCommands[i]);
+              // result=sendDirectToServer("/add_admin_denied_comand " + this.name + " " + commandOrCommands[i]);
+              result=runSimpleCommand("/add_admin_denied_comand " + this.name + " " + commandOrCommands[i],options);
+              if (result===false){ returnVal=false; } // This works as a latch, so that if ANY of the commands fail, it returns false
+            }
+            return returnVal; // This will return false if ANY of the inputs failed.
+          } else {
+            return false;
+          }
+        }
+        return false; // This handles if an object of another type was given, which would be invalid.
+      } else if (testIfInput(commandOrCommands)){ // This would trigger for strings or numbers.
+        // return sendDirectToServer("/add_admin_denied_comand " + this.name + " " + commandOrCommands);
+        return runSimpleCommand("/add_admin_denied_comand " + this.name + " " + commandOrCommands,options);
+      }
+      return false; // This should never happen.
+    }
+    this.removeAdminDeniedCommand=function (commandOrCommands,options){ // Adds denied commands for an admin, input can be an array of commands to deny.  It will cycle through them all.
+      // Note:  This does not check to ensure the command actually exists.
+      var returnVal=true;
+      var result;
+      if (typeof commandOrCommands == "object"){ // An array is an object typeof
+        if (commandOrCommands instanceof Array){ // This is how you figure out it is an array.  We cannot do this directly, because if it is not an object, this will throw an error.
+          if (commandOrCommands.length){ // This is to make sure it isn't an empty array
+            for (var i=0;i<commandOrCommands.length;i++){
+              // result=sendDirectToServer("/remove_admin_denied_comand " + this.name + " " + commandOrCommands[i]);
+              result=runSimpleCommand("/remove_admin_denied_comand " + this.name + " " + commandOrCommands[i],options);
               if (result===false){ returnVal=false; }
             }
             return returnVal; // This will return false if ANY of the inputs failed.
@@ -1054,42 +1097,43 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
         return false; // This handles if an object of another type was given, which would be invalid.
       }
       if (testIfInput(commandOrCommands)){ // This would trigger for strings or numbers.
-        return sendDirectToServer("/add_admin_denied_comand " + this.name + " " + commandOrCommands);
+        // return sendDirectToServer("/remove_admin_denied_comand " + this.name + " " + commandOrCommands);
+        return runSimpleCommand("/remove_admin_denied_comand " + this.name + " " + commandOrCommands,options);
       }
       return false; // This should never happen.
     }
-    this.removeAdminDeniedCommand=function (commandOrCommands){ // Adds denied commands for an admin, input can be an array of commands to deny.  It will cycle through them all.
-      // Note:  This does not check to ensure the command actually exists.
-      var returnVal=true;
-      var result;
-      if (typeof commandOrCommands == "object"){ // An array is an object typeof
-        if (commandOrCommands instanceof Array){ // This is how you figure out it is an array.  We cannot do this directly, because if it is not an object, this will throw an error.
-          if (commandOrCommands.length){ // This is to make sure it isn't an empty array
-            for (var i=0;i<commandOrCommands.length;i++){
-              result=sendDirectToServer("/remove_admin_denied_comand " + this.name + " " + commandOrCommands[i]);
-              if (result===false){ returnVal=false; }
-            }
-            return returnVal; // This will return false if ANY of the inputs failed.
-          } else {
-            return false;
-          }
-        }
-        return false; // This handles if an object of another type was given, which would be invalid.
-      }
-      if (testIfInput(commandOrCommands)){ // This would trigger for strings or numbers.
-        return sendDirectToServer("/remove_admin_denied_comand " + this.name + " " + commandOrCommands);
-      }
-      return false; // This should never happen.
+    this.unban=function (options){
+      return runSimpleCommand("/unban_name " + this.name,options);
+      // Note that this does not unban their ip or smname
     }
-    this.ban=function (toKick,reason,time){ // All values are mandatory.  toKick should be true/false. Time is in minutes.
-      // Note that a player MUST BE ONLINE in order for this to work. // TODO: create a workaround for the online requirement.
-      if (trueOrFalse(toKick) && testIfInput(reason) && isNum(time)){
-        return sendDirectToServer("/ban " + this.name + " " + toKick + "'" + reason.toString().trim() + "'" + time);
+    this.ban=function (toKick,reason,time,options){ // No value is mandatory, but toKick will be true by default if not specified.  toKick should be true/false. Time is in minutes.
+      // Note that a player MUST BE ONLINE in order for the kick to work.
+      // Note that no reason is given to the player if they are not kicked.
+      // Also note that this ban does not apear to actually work.  It will kick the player, but then they can just rejoin.  An IP ban or ban via SMName will actually be effective.
+      // If options are specified, the other values can be ""
+      console.log("Banning player: " + this.name);
+      // return sendDirectToServer("/ban " + this.name + " " + toKick + " '" + reason.toString().trim() + "' " + time);
+      var banArray=[];
+      banArray.push("/ban");
+      banArray.push(this.name);
+      if (isTrueOrFalse(toKick)){
+        banArray.push(toKick);
       } else {
-        return false; // one or more of the inputs was invalid.
+        banArray.push(true); // By default the command will kick the player. But this will lead to "false" being returned if they are offline
       }
+      if (testIfInput(reason)){
+        banArray.push("'" + reason + "'");
+      } else {
+        banArray.push("''");
+      }
+      if (isNum(time)){
+        banArray.push(time);
+      }
+      var banString=banArray.join(" ");
+      console.log("Banning player with string: " + banString);
+      return runSimpleCommand(banString,options);
     }
-    this.giveMetaItem=function (metaItem,number){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
+    this.giveMetaItem=function (metaItem,number,options){ // number is optional, but if options are given, it should be "".  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
       // EXAMPLE: /give_metaitem schema blueprint, recipe, log_book, helmet, build_prohibiter, flash_light, virtual_blueprint, block_storage, laser, heal, power_supply, marker, rocket_launcher, sniper_rifle, grapple, torch, transporter_marker
       // Note:  The primary usage for this is for log_books, helmets, and build_prohibiter
       var theNum=toNumIfPossible(number);
@@ -1097,11 +1141,12 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       var result;
       var resultToReturn=true;
       if (testIfInput(metaItem)){
-        if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+        if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.  We don't use 'isNum()' since this would be duplicating efforts.
           if (theNum>1){ countTo=theNum; } 
         }
         for (var i=0;countTo>i;i++){
-          result=sendDirectToServer("/give_metaitem " + this.name + " " + metaItem.toString().trim()); // the input should never fail, so this should normally always return true
+          // result=sendDirectToServer("/give_metaitem " + this.name + " " + metaItem.toString().trim()); // the input should never fail, so this should normally always return true
+          result=runSimpleCommand("/give_metaitem " + this.name + " " + metaItem.toString().trim(),options);
           if (result===false){
             resultToReturn=false;
           }
@@ -1110,7 +1155,7 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       }
       return false; // The input was invalid, so return false.
     }
-    this.isOnline=function(){ return isPlayerOnline(this.name) };
+    this.isOnline=function(){ return isPlayerOnline(this.name) }; // Conforms to the standard of throwing an error on connection error, but gives false if player is offline.  There is no error for a failure of command since this should never happen.
     this.spawnLocation=function(){
       try {
         var result=starNetHelper.starNetVerified("/player_get_spawn " + this.name);
@@ -1126,13 +1171,9 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
             // RETURN: [SERVER, [ADMINCOMMAND][SPAWN][SUCCESS] PlS[Benevolent27 ; id(2)(1)f(10002)] spawn currently absolute; sector: (2, 2, 2); local position: (8.0, -6.5, 0.0), 0]
             // Scientific E notation: RETURN: [SERVER, [ADMINCOMMAND][SPAWN][SUCCESS] PlS[Benevolent27 ; id(2)(1)f(10002)] spawn currently absolute; sector: (2, 2, 2); local position: (0.01E5, -6.5, 0.0), 0]
             var sectorCoords=resultArray[i].match(/sector: \([-]{0,1}[0-9]+, [-]{0,1}[0-9]+, [-]{0,1}[0-9]+/).toString().replace(/sector: \(/,"").split(", ");
-            console.dir(sectorCoords); // temp
             var sectorCoordsObj=new CoordsObj(sectorCoords);
             var sectorObj=new SectorObj(sectorCoordsObj.x,sectorCoordsObj.y,sectorCoordsObj.z);
-
             var spacialCoords=resultArray[i].match(/position: \([-]{0,1}[0-9]+[.]{0,1}[0-9]*[eE]{0,1}[0-9]*, [-]{0,1}[0-9]+[.]{0,1}[0-9]*[eE]{0,1}[0-9]*, [-]{0,1}[0-9]+[.]{0,1}[0-9]*[eE]{0,1}[0-9]*/).toString().replace(/position: \(/,"").split(", "); // Supports scientific e notation, which is used sometimes for spacial coordinates.
-            console.dir(spacialCoords); // temp
-            
             var coordsObj=new CoordsObj(spacialCoords);
             // Returns a LocationObj, which has the sector and spacial coordinates in it.
             return new LocationObj(sectorObj,coordsObj);
@@ -1143,11 +1184,11 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
         return false; // The player must have been offline.
 
       } catch (error){
-        console.error("StarNet command failed when attempting to get the spawn sector for player: " + this.name);
-        return false;
+        var spawnLocationError="StarNet command failed when attempting to get the spawn sector for player: " + this.name;
+        throw new Error(spawnLocationError);
       }
     }
-    this.setSpawnLocation=function(location,coordsObj){ // Needs sector and spacial coords.  coordsObj is needed if a SectorObj is given as first parameter.
+    this.setSpawnLocation=function(location,coordsObj,options){ // Needs sector and spacial coords.  coordsObj is needed if a SectorObj is given as first parameter.
       // This should accept a location Obj, a pair of sectorObj and coordsObj, or any other pair of input that can translate to a CoordsObj
       var sectorToUse=location;
       var spacialToUse=coordsObj;
@@ -1158,7 +1199,7 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
             spacialToUse=location.spacial;
             sectorToUse=location.sector;
           } else {
-            throw new Error("Invalid LocationObj given to setSpawnLocation!");
+            throw new Error("Invalid LocationObj given to setSpawnLocation!"); // This is redundant and should never happen.
           }
         } else if ((location instanceof SectorObj || location instanceof CoordsObj) && (coordsObj instanceof CoordsObj)) {
           sectorToUse=location.toString();
@@ -1168,37 +1209,52 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
           throw new Error("Invalid object types given to setSpawnLocation!");
         }
       }
-      if (testIfInput(location) && testIfInput(coordsObj)){ // Two inputs given
+      if (testIfInput(sectorToUse) && testIfInput(spacialToUse)){ // Two inputs given
         // Let's see if coordinates can be made from the input.  String, Array, or object can be given with coordinates.
         try {
           sectorToUse=new CoordsObj(location).toString();
           spacialToUse=new CoordsObj(coordsObj).toString();
         } catch (error){ // Invalid input given.
-          console.error("Invalid input given to setSpawnLocation!");
-          throw error; 
+          var setSpawnLocationError="Invalid input given to setSpawnLocation!";
+          throw new Error(setSpawnLocationError); 
         }
       } else { // Invalid amount of arguments given
         throw new Error("Invalid number of parameters given to setSpawnLocation!");
       }
 
-      if (typeof spacialToUse=="string" && typeof sectorToUse=="string"){
+      if (typeof spacialToUse=="string" && typeof sectorToUse=="string"){ // This is redundant, an error should have been thrown by now if there was a problem.
         // We should be all set to send the command now.
-        var result2=starNetHelper.starNetVerified("/player_set_spawn_to " + this.name + " " + sectorToUse + " " + spacialToUse); // This will throw an error if the connection to the server fails.
-        // Success:
-        // RETURN: [SERVER, [ADMINCOMMAND][SPAWN][SUCCESS] set spawn of player PlS[Benevolent27 ; id(2)(1)f(10002)] to sector (1000, 1000, 1000); local position: (0.0, 0.0, 0.0), 0]
 
-        // Fail - either player offline or player does not exist.
-        // RETURN: [SERVER, [ADMINCOMMAND][SPAWN] Player not found, 0]
-        var theReg2=new RegExp("^RETURN: \\[SERVER, \\[ADMINCOMMAND\\]\\[SPAWN\\]\\[SUCCESS\\]");
-        if (starNetHelper.checkForLine(result2,theReg2)){ // The command succeeded.
-          return true;
-        } else { // The command failed.  Player either offline or does not exist for some reason.
-          return false;
+        // TODO:  This needs a "fast" option
+        var fast=false;
+        if (typeof options == "object"){
+          if (options.hasOwnProperty("fast")){
+            if (isTrue(options.fast)){
+              fast=true;
+            }
+          }
+        }
+        var setSpawnLocationCommand="/player_set_spawn_to " + this.name + " " + sectorToUse + " " + spacialToUse;
+        if (fast){
+          return sendDirectToServer(setSpawnLocationCommand);
+        } else {
+          var result2=starNetHelper.starNetVerified(setSpawnLocationCommand); // This will throw an error if the connection to the server fails.
+          // Success:
+          // RETURN: [SERVER, [ADMINCOMMAND][SPAWN][SUCCESS] set spawn of player PlS[Benevolent27 ; id(2)(1)f(10002)] to sector (1000, 1000, 1000); local position: (0.0, 0.0, 0.0), 0]
+
+          // Fail - either player offline or player does not exist.
+          // RETURN: [SERVER, [ADMINCOMMAND][SPAWN] Player not found, 0]
+          var theReg2=new RegExp("^RETURN: \\[SERVER, \\[ADMINCOMMAND\\]\\[SPAWN\\]\\[SUCCESS\\]");
+          if (starNetHelper.checkForLine(result2,theReg2)){ // The command succeeded.
+            return true;
+          } else { // The command failed.  Player either offline or does not exist for some reason.
+            return false;
+          }
         }
       }
       throw new Error("Invalid parameters given to playerObj setSpawnLocation method!");
     }
-    this.changeSector=function(sector){ // Needs sector and spacial coords.  coordsObj is needed if a SectorObj is given as first parameter.
+    this.changeSector=function(sector,options){ // Needs sector and spacial coords.  coordsObj is needed if a SectorObj is given as first parameter.
       // This should accept a location Obj, a pair of sectorObj and coordsObj, or any other pair of input that can translate to a CoordsObj
       var sectorToUse=sector;
       if (typeof location=="object"){
@@ -1226,19 +1282,33 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       }
       if (typeof sectorToUse=="string"){
         // We should be all set to send the command now.
-        var result2=starNetHelper.starNetVerified("/change_sector_for " + this.name + " " + sectorToUse); // This will throw an error if the connection to the server fails.
-        // Success: RETURN: [SERVER, [ADMIN COMMAND] [SUCCESS] changed sector for Benevolent27 to (1000, 1000, 1000), 0]
-        // Fail: RETURN: [SERVER, [ADMIN COMMAND] [ERROR] player not found for your client Benevolent27, 0]
-        var theReg3=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] \\[SUCCESS\\]");
-        if (starNetHelper.checkForLine(result2,theReg3)){ // The command succeeded.
-          return true;
-        } else { // The command failed.  Player either offline or does not exist for some reason.
-          return false;
+
+        var fast=false;
+        if (typeof options == "object"){
+          if (options.hasOwnProperty("fast")){
+            if (isTrue(options.fast)){
+              fast=true;
+            }
+          }
+        }
+        var changeSectorCommand="/change_sector_for " + this.name + " " + sectorToUse;
+        if (fast){
+          return sendDirectToServer(changeSectorCommand);         
+        } else {
+          var result2=starNetHelper.starNetVerified(changeSectorCommand); // This will throw an error if the connection to the server fails.
+          // Success: RETURN: [SERVER, [ADMIN COMMAND] [SUCCESS] changed sector for Benevolent27 to (1000, 1000, 1000), 0]
+          // Fail: RETURN: [SERVER, [ADMIN COMMAND] [ERROR] player not found for your client Benevolent27, 0]
+          var theReg3=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] \\[SUCCESS\\]");
+          if (starNetHelper.checkForLine(result2,theReg3)){ // The command succeeded.
+            return true;
+          } else { // The command failed.  Player either offline or does not exist for some reason.
+            return false;
+          }
         }
       }
       throw new Error("Invalid parameters given to playerObj changeSector method!");
     }
-    this.teleportTo=function(coords){ // Needs sector and spacial coords.  coordsObj is needed if a SectorObj is given as first parameter.
+    this.teleportTo=function(coords,options){ // Needs sector and spacial coords.  coordsObj is needed if a SectorObj is given as first parameter.
       // This should accept a location Obj, a pair of sectorObj and coordsObj, or any other pair of input that can translate to a CoordsObj
       var spacialCoordsToUse=coords;
       console.log("coords typeof: " + typeof coords);
@@ -1267,14 +1337,28 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       }
       if (typeof spacialCoordsToUse=="string"){
         // We should be all set to send the command now.
-        var result2=starNetHelper.starNetVerified("/teleport_to " + this.name + " " + spacialCoordsToUse); // This will throw an error if the connection to the server fails.
-        // Success: RETURN: [SERVER, [ADMIN COMMAND] teleported Benevolent27 to , 0]
-        // Fail: RETURN: [SERVER, [ADMIN COMMAND] [ERROR] player not found for your client, 0]
-        var theReg3=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] teleported");
-        if (starNetHelper.checkForLine(result2,theReg3)){ // The command succeeded.
-          return true;
-        } else { // The command failed.  Player either offline or does not exist for some reason.
-          return false;
+
+        var fast=false;
+        if (typeof options == "object"){
+          if (options.hasOwnProperty("fast")){
+            if (isTrue(options.fast)){
+              fast=true;
+            }
+          }
+        }
+        var teleportToCommand="/teleport_to " + this.name + " " + spacialCoordsToUse;
+        if (fast){
+          return sendDirectToServer(teleportToCommand);         
+        } else {
+          var result2=starNetHelper.starNetVerified(teleportToCommand); // This will throw an error if the connection to the server fails.
+          // Success: RETURN: [SERVER, [ADMIN COMMAND] teleported Benevolent27 to , 0]
+          // Fail: RETURN: [SERVER, [ADMIN COMMAND] [ERROR] player not found for your client, 0]
+          var theReg3=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] teleported");
+          if (starNetHelper.checkForLine(result2,theReg3)){ // The command succeeded.
+            return true;
+          } else { // The command failed.  Player either offline or does not exist for some reason.
+            return false;
+          }
         }
       }
       throw new Error("Invalid parameters given to playerObj teleportTo method!");
@@ -2624,12 +2708,16 @@ function returnEntityUIDList(coordsString,beginFilter,options){
 function isPlayerOnline(name){ // Expects a string.  Returns true if the player is online, false if not.
   // TODO:  Add support for PlayerObj as input.
   var results=getPlayerList(); // This will be an array of player objects for all online players.  Will be empty if nobody online.
-  for (var i=0;results.length>i;i++){
-    if (results[i].name == name){
-      return true;
+  if (results){ // This should spark even if the player list is empty
+    for (var i=0;results.length>i;i++){
+      if (results[i].name == name){
+        return true;
+      }
     }
+    return false;
   }
-  return false;
+  // This only happens if there is a connection error when attempting to get the player list.  This is to conform with the standard used elsewhere.
+  throw new Error("Connection failed when attempting to obtain player list in isPlayerOnline");
 }
 
 function getPlayerList(){ // Returns an array of player objects for all online players or false if the starNet command fails.
