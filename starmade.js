@@ -482,7 +482,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   // initialize the objectCreator so it can send text directly to the server through "server". 
   //  IMPORTANT:  THIS MUST BE DONE BEFORE ANY OBJECTS ARE CREATED!
   console.log("############## INITIALIZING OBJECT CREATOR ###############");
-  objectCreator.init(server);
+  objectCreator.init(server,global);
 
     // ###################
     // #### MODLOADER ####
