@@ -169,6 +169,20 @@ module.exports = function() {
       }
       changeMadeToSettings=true;
     }
+    if (!settings.hasOwnProperty('botName')) {
+      if (settingsLoadedCheck == true) { console.log("Your bot name has not been set up yet!"); }
+      console.log("\nWhat shall we call your bot?  Please use only alphanumeric characters!");
+      var botName;
+      while (!(settings["botName"])) {
+        botName=prompt(": ");
+        if (isAlphaNumeric(botName)) { 
+          settings["botName"]=botName;
+        }
+      }
+      console.log("Successfully named your bot " + settings["botName"]);
+      changeMadeToSettings=true;
+    }
+    // botName
 
 
     function complete(commands) {
