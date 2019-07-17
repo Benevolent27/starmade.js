@@ -1052,11 +1052,11 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
 
 
 
-    this.setFactionRank=function (number){ // expects a number 1-5.  5 is founder, 1 is lowest rank.
+    this.setFactionRank=function (number,options){ // expects a number 1-5.  5 is founder, 1 is lowest rank.
       if (isNum(number)){
         if (number>=1 && number<=5){
           // return sendDirectToServer("/faction_mod_member " + this.name + " " + number);
-          return runSimpleCommand("/faction_mod_member " + this.name + " " + number);
+          return runSimpleCommand("/faction_mod_member " + this.name + " " + number,options);
         }
         return false; // The number was invalid
       }
@@ -1159,7 +1159,7 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
     }
     this.giveMetaItem=function (metaItem,number,options){ // number is optional, but if options are given, it should be "".  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
       // EXAMPLE: /give_metaitem schema blueprint, recipe, log_book, helmet, build_prohibiter, flash_light, virtual_blueprint, block_storage, laser, heal, power_supply, marker, rocket_launcher, sniper_rifle, grapple, torch, transporter_marker
-      // Note:  The primary usage for this is for log_books, helmets, and build_prohibiter
+      // Note:  The primary usage for this is for log_book, helmet, and build_prohibiter
       var theNum=toNumIfPossible(number);
       var countTo=1; // The default times to run the command is 1
       var result;
@@ -1180,7 +1180,7 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       return false; // The input was invalid, so return false.
     }
     this.isOnline=function(){ return isPlayerOnline(this.name) }; // Conforms to the standard of throwing an error on connection error, but gives false if player is offline.  There is no error for a failure of command since this should never happen.
-    this.spawnLocation=function(){
+    this.spawnLocation=function(){ // Returns a LocationObj of the player's spawn coordinates, but can only be successful if the player is online.  Will return false if offline.
       try {
         var result=starNetHelper.starNetVerified("/player_get_spawn " + this.name);
         // RETURN: [SERVER, [ADMINCOMMAND][SPAWN][SUCCESS] PlS[Benevolent27 ; id(2)(1)f(10002)] spawn currently absolute; sector: (2, 2, 2); local position: (8.0, -6.5, 0.0), 0]
@@ -1278,7 +1278,7 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       }
       throw new Error("Invalid parameters given to playerObj setSpawnLocation method!");
     }
-    this.changeSector=function(sector,options){ // Needs sector and spacial coords.  coordsObj is needed if a SectorObj is given as first parameter.
+    this.changeSector=function(sector,options){ // sector can be a LocationObj, SectorObj, CoordsObj, or other input that can be translated to a CoordsObj.
       // This should accept a location Obj, a pair of sectorObj and coordsObj, or any other pair of input that can translate to a CoordsObj
       var sectorToUse=sector;
       if (typeof location=="object"){
@@ -1332,7 +1332,7 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       }
       throw new Error("Invalid parameters given to playerObj changeSector method!");
     }
-    this.changeSectorCopy=function(sector,options){ // Needs sector and spacial coords.  coordsObj is needed if a SectorObj is given as first parameter.
+    this.changeSectorCopy=function(sector,options){ // sector can be a LocationObj, SectorObj, CoordsObj, or other input that can be translated to a CoordsObj.
       // This should accept a location Obj, a pair of sectorObj and coordsObj, or any other pair of input that can translate to a CoordsObj
       var sectorToUse=sector;
       if (typeof location=="object"){
@@ -1498,13 +1498,25 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
         throw errorObj;
       }
     }
-    this.credits=function(){
+    this.credits=function(options){
+      // TODO:  the credits from /player_info actually appears to be accurate, even when a player is offline.  I should change the default behavior to return the credits, but give an option to only display credits if the player is offline.
       var returnVal;
+      var onlyIfOnline=false;
+      if (typeof options == "object"){
+        if (options.hasOwnProperty("onlyIfOnline")){  // This can be used to perform an online check simultaneously and only return credit amount if the player is online.
+          if (isTrue(options.onlyIfOnline)){
+            onlyIfOnline=true;
+          }
+        }
+      }
       try {
         var result=starNetHelper.starNetVerified("/player_info " + this.name); // This will throw an error if there is a connection issue.
-        if (returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] CONTROLLING-POS: <not spawned>/)){ // Player offline
-          return false;
-        } else if (!returnLineMatch(result,/^RETURN: \[SERVER, \[ADMIN COMMAND\] \[ERROR\]/)){ // Player does not exist
+        if (onlyIfOnline===true){
+          if (returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] CONTROLLING-POS: <not spawned>/)){ // Player offline
+            return false;
+          }
+        }
+        if (!returnLineMatch(result,/^RETURN: \[SERVER, \[ADMIN COMMAND\] \[ERROR\]/)){ // Player does not exist
           return Number(returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] CREDITS: .*/,/^RETURN: \[SERVER, \[PL\] CREDITS: /,/, 0\]$/));
         }
         return returnVal; // Returns undefined.  The player did not exist somehow.  This should never happen.
@@ -1554,7 +1566,7 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
         }
         return returnVal; // Returns undefined.  The player did not exist somehow.  This should never happen.
       } catch (error){
-        var errorObj=new Error("StarNet command failed when attempting to get the sm-name for player: " + this.name);
+        var errorObj=new Error("StarNet command failed when attempting to get the ip for player: " + this.name);
         throw errorObj;
       }
     }
@@ -1597,7 +1609,7 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
     }
 
     this.currentEntity=function(){
-      // This uses the /entity_info_by_player_uid command instead of /player_info command, since that will not work with asteroids and planets
+      // This uses the /entity_info_by_player_uid command instead of /player_info command, since that will not work with asteroids and planets.  This does not work with asteroids currently.
 
       // RETURN: [SERVER, Attached: [PlS[Benevolent27 ; id(612)(4)f(10001)]], 0]
       // RETURN: [SERVER, DockedUIDs: , 0]
