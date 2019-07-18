@@ -27,12 +27,24 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   isTrueOrFalse, // This returns true if the input is either true or false as a string or boolean, false for anything else.
   isNum, // This returns true if the value is a number, even if it is a string.
   isArray, // This returns true if an array, even if it is empty.
-  returnLineMatch
+  returnLineMatch,
+  repeatString
 };
 
 const util=require('util');
 const path=require('path');
 const binFolder=path.resolve(__dirname,"../bin/");
+
+function repeatString(inputStr,repeatCount){ // This repeats a string a number of times
+  if (typeof inputStr == "string" && typeof repeatCount=="number"){
+    var outputString="";
+    for (var i=0;i<repeatCount;i++){
+      outputString+=inputStr;
+    }
+    return outputString;
+  }
+  return false; // input was invalid
+}
 
 function copyObj(obj) { // This will create a new object from an existing one, rather than linking to the original.  From:  https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/forEach
   const copy = Object.create(Object.getPrototypeOf(obj)); // Ignore the ESLint warnings, it really doesn't know what it's talking about.  I looked into it, it's suggesting to use functions of Reflect that don't exist.
