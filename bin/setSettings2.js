@@ -1,4 +1,7 @@
+// THIS IDEA HAS BEEN DISCONTINUED.  THIS IS ONLY USED IN objectCreator.js for the ServerSpawnObj, which was discontinued.
+
 // EDITING TO BE ABLE TO SET UP SETTINGS FOR MULTIPLE SERVER NAMES
+
 
 
 // This script ensures a "settings.json" file exists and has valid settings.
