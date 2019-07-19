@@ -460,7 +460,7 @@ function ChannelObj(channelName){
     this.type="faction";
     var factionNumber=toNumIfPossible(channelName.match(getFactionNumberReg));
     if (testIfInput(factionNumber)){
-      this.factionNumber=factionNumber.toString());
+      this.factionNumber=factionNumber.toString();
     }
     if (testIfInput(this.factionNumber)){
       this.faction=new FactionObj(this.factionNumber);
@@ -485,6 +485,7 @@ function IPObj(ipAddressString,date,options){
     }
   }
   if (possibleDate){ this.date = possibleDate } // If date information is given, but it is invalid, it will NOT be included in this object.
+  // TODO:  Redo this section to standardize with the same options given as the PlayerObj
   this.ban=function(minutes){ return ipBan(this.address,minutes,options) };
   this.unban=function(){ return ipUnBan(this.address,options) };
   // TODO: Add Info Methods:
@@ -2587,7 +2588,7 @@ function getServerListArray(cb){ // This must be provided with a callback functi
 
 // Support Functions
 
-function ipBan(ipAddress,minutes){ // minutes are optional.  A perm ban is applied if none provided.
+function ipBan(ipAddress,minutes,options){ // minutes are optional.  A perm ban is applied if none provided. options are optional
   if (ipAddress){
     var ipToUse=ipAddress.toString(); // This allows ipObj's to be fed in, and this should translate to an ip string.
     if (minutes){
