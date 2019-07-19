@@ -456,11 +456,15 @@ function ChannelObj(channelName){
   if (channelName == "all"){
     this.type="global";
   } else if (factionTest.test(channelName)){
-    var getFactionNumber=new RegExp("-{0,1}[0-9]+$");
-
+    var getFactionNumberReg=new RegExp("-{0,1}[0-9]+$");
     this.type="faction";
-    this.factionNumber=toNumIfPossible(channelName.match(getFactionNumber).toString());
-    this.faction=new FactionObj(this.factionNumber);
+    var factionNumber=toNumIfPossible(channelName.match(getFactionNumberReg));
+    if (testIfInput(factionNumber)){
+      this.factionNumber=factionNumber.toString());
+    }
+    if (testIfInput(this.factionNumber)){
+      this.faction=new FactionObj(this.factionNumber);
+    }
   } else {
     this.type="named";
   }
