@@ -79,6 +79,16 @@ console.debug=function (vals,sleepTime) { // for only displaying text when the -
 global["debugLog"]=console.debug;
 
 function regCommand(myCommandObj){ // This is used by mods to register a command object, which is later used by !help and to trigger command events.
+  // Example of a commandObj:
+  // {
+  //   "name":"home",
+  //   "category":"General"
+  // }
+  // TODO: allow "adminOnly":true/false
+  // TODO: allow "playersAuthorized":["Array","of","playernames"]
+
+
+
   var myCommandName=myCommandObj.name.toLowerCase();
   commands[myCommandName]=myCommandObj;
   console.log("Registered new command: " + myCommandName);
@@ -437,7 +447,8 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
 
     // Here we will need to see if the "commands" object has the command.
     
-    if (messageObj.text[0] == settings["commandOperator"]){
+    if (messageObj.text[0] == settings["commandOperator"]){ // Process any commands, whether valid or not.
+      // TODO:  Add admin only commands and commands that will only be given to specific players.
       var textArray=messageObj.text.split(" ");
       var theCommand=textArray.shift().replace(settings["commandOperator"],""); // This only replaces the first instance
       if (objectHelper.testIfInput(theCommand)){ // This will exclude any empty values.  For example, typing ! by itself.
@@ -492,11 +503,8 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
             var maxLineCount=60; // This is the max size a line can be before command spill out to the next line.
             // var commandSpacerNum=2;
             // var commandSpacer=repeatString(" ",commandSpacerNum);
-            var commandSpacer=" / ";
+            var commandSpacer="  /  ";
             var commandSpacerNum=commandSpacer.length;
-            var spacerAfterCategoryNum=2;
-            var spacerAfterCategory=repeatString(" ",spacerAfterCategoryNum);
-
             var theArrayToWorkOn=[];
             var tempArrayOfStrings=[];
             var tempArrayOfStringsCounter=0;
@@ -545,7 +553,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
                     messageObj.sender.msg("-- " + finalCategory + " --",{"fast":true});
                     categoriesListed.push(finalCategory);
                   }
-                  messageObj.sender.msg(spacerAfterCategory + theFinalArray[i],{"fast":true});
+                  messageObj.sender.msg("  " + theFinalArray[i],{"fast":true});
                 }
               }
             }
