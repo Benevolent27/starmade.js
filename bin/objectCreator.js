@@ -554,10 +554,26 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
 
     this.msg=function (message,type,options){ // Sends a message to the player.  Type is optional.  If not provided "plain" is used.
       var msgType="plain";
-      if (typeof type=="string"){
+      if (options){
+        if (typeof options == "object"){
+          if (options.hasOwnProperty("type")){ // This is redundant
+            if (testIfInput(options.type)){
+              msgType=options.type;
+            } else {
+              let theError=new Error("Invalid input given to playerObj.msg for options: " + options);
+              throw theError;
+            }
+          }
+        } else if (options) {
+          let theError=new Error("Invalid input given to playerObj.msg for options: " + options);
+          throw theError;
+        }
+      }
+      if (typeof type=="string"){ // Always use the type
         if (type != ""){
           msgType=type; // This does not validate the message type, in case new message types in the future are released.
         }
+        // No error is thrown here if it is blank because this is intended, to allow 'plain' to be the default when options are given
       }
       return runSimpleCommand("/server_message_to " + msgType + " " + this.name + "'" + message.toString().trim() + "'",options);
     }
@@ -1445,11 +1461,39 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
         }
       }
       throw new Error("Invalid parameters given to playerObj teleportTo method!");
-    }    
-    this.sector=function(){
+    }
+    
+    this.info=function(){
+      // This returns whatever accurate info it can from the /player_info command.
+      var returnObj={};
+      var result=starNetHelper.starNetVerified("/player_info " + this.name); // This will throw an error if there is a connection issue.
+      if (!returnLineMatch(result,/^RETURN: \[SERVER, \[ADMIN COMMAND\] \[ERROR\]/)){ // Player exists
+        if (!returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] CONTROLLING-POS: <not spawned>/)){ // Player online
+          // These values can only be obtained when the player is online
+          // returnObj["controlling"]=this.controlling(result); // this.controlling does not exist yet.
+          returnObj["sector"]=this.sector(result);
+          returnObj["spacialCoords"]=this.spacialCoords(result);
+          returnObj["upgraded"]=this.upgraded(result);
+          returnObj["smName"]=this.smName(result);
+          returnObj["ip"]=this.ip(result);
+        }
+        // These are always accurate, even if a player is offline
+        returnObj["personalTestSector"]=this.personalTestSector(result);
+        returnObj["credits"]=this.credits("",result);
+        returnObj["faction"]=this.faction(result);
+        return returnObj;
+      }
+      return false; // There was an error with the command. This should never happen
+    }
+    this.sector=function(input){
       var returnVal;
       try {
-        var result=starNetHelper.starNetVerified("/player_info " + this.name); // This will throw an error if there is a connection issue.
+        var result;
+        if (input){
+          result=input;
+        } else {
+          result=starNetHelper.starNetVerified("/player_info " + this.name); // This will throw an error if there is a connection issue.
+        }
         // RETURN: [SERVER, [PL] CONTROLLING-POS: (0.0, 5.0, 0.0), 0]
         // RETURN: [SERVER, [PL] CONTROLLING: PlayerCharacter[(ENTITY_PLAYERCHARACTER_Benevolent27)(285)], 0]
         // RETURN: [SERVER, [PL] SECTOR: (1000, 1000, 1000), 0]
@@ -1473,10 +1517,15 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
         throw errorObj;
       }
     }
-    this.personalTestSector=function(){
+    this.personalTestSector=function(input){
       var returnVal;
       try {
-        var result=starNetHelper.starNetVerified("/player_info " + this.name); // This will throw an error if there is a connection issue.
+        var result;
+        if (input){
+          result=input;
+        } else {
+          result=starNetHelper.starNetVerified("/player_info " + this.name); // This will throw an error if there is a connection issue.
+        }
         if (returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] CONTROLLING-POS: <not spawned>/)){ // Player offline
           return false;
         } else if (!returnLineMatch(result,/^RETURN: \[SERVER, \[ADMIN COMMAND\] \[ERROR\]/)){ // Player does not exist
@@ -1488,10 +1537,15 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
         throw errorObj;
       }
     }
-    this.spacialCoords=function(){
+    this.spacialCoords=function(input){
       var returnVal;
       try {
-        var result=starNetHelper.starNetVerified("/player_info " + this.name); // This will throw an error if there is a connection issue.
+        var result;
+        if (input){
+          result=input;
+        } else {
+          result=starNetHelper.starNetVerified("/player_info " + this.name); // This will throw an error if there is a connection issue.
+        }
         if (returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] CONTROLLING-POS: <not spawned>/)){ // Player offline
           return false;
         } else if (!returnLineMatch(result,/^RETURN: \[SERVER, \[ADMIN COMMAND\] \[ERROR\]/)){ // Player does not exist
@@ -1503,7 +1557,7 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
         throw errorObj;
       }
     }
-    this.credits=function(options){
+    this.credits=function(options,input){
       // TODO:  the credits from /player_info actually appears to be accurate, even when a player is offline.  I should change the default behavior to return the credits, but give an option to only display credits if the player is offline.
       var returnVal;
       var onlyIfOnline=false;
@@ -1515,7 +1569,12 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
         }
       }
       try {
-        var result=starNetHelper.starNetVerified("/player_info " + this.name); // This will throw an error if there is a connection issue.
+        var result;
+        if (input){
+          result=input;
+        } else {
+          result=starNetHelper.starNetVerified("/player_info " + this.name); // This will throw an error if there is a connection issue.
+        }
         if (onlyIfOnline===true){
           if (returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] CONTROLLING-POS: <not spawned>/)){ // Player offline
             return false;
@@ -1530,10 +1589,15 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
         throw errorObj;
       }
     }
-    this.upgraded=function(){
+    this.upgraded=function(input){
       var returnVal;
       try {
-        var result=starNetHelper.starNetVerified("/player_info " + this.name); // This will throw an error if there is a connection issue.
+        var result;
+        if (input){
+          result=input;
+        } else {
+          result=starNetHelper.starNetVerified("/player_info " + this.name); // This will throw an error if there is a connection issue.
+        }
         if (returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] CONTROLLING-POS: <not spawned>/)){ // Player offline
           return false;
         } else if (!returnLineMatch(result,/^RETURN: \[SERVER, \[ADMIN COMMAND\] \[ERROR\]/)){ // Player does not exist
@@ -1545,10 +1609,15 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
         throw errorObj;
       }
     }
-    this.smName=function(){
+    this.smName=function(input){
       var returnVal;
       try {
-        var result=starNetHelper.starNetVerified("/player_info " + this.name); // This will throw an error if there is a connection issue.
+        var result;
+        if (input){
+          result=input;
+        } else {
+          result=starNetHelper.starNetVerified("/player_info " + this.name); // This will throw an error if there is a connection issue.
+        }
         if (returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] CONTROLLING-POS: <not spawned>/)){ // Player offline
           return false;
         } else if (!returnLineMatch(result,/^RETURN: \[SERVER, \[ADMIN COMMAND\] \[ERROR\]/)){ // Player does not exist
@@ -1560,10 +1629,15 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
         throw errorObj;
       }
     }
-    this.ip=function(){
+    this.ip=function(input){
       var returnVal;
       try {
-        var result=starNetHelper.starNetVerified("/player_info " + this.name); // This will throw an error if there is a connection issue.
+        var result;
+        if (input){
+          result=input;
+        } else {
+          result=starNetHelper.starNetVerified("/player_info " + this.name); // This will throw an error if there is a connection issue.
+        }
         if (returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] CONTROLLING-POS: <not spawned>/)){ // Player offline
           return false;
         } else if (!returnLineMatch(result,/^RETURN: \[SERVER, \[ADMIN COMMAND\] \[ERROR\]/)){ // Player does not exist
@@ -1575,10 +1649,15 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
         throw errorObj;
       }
     }
-    this.faction=function(){
+    this.faction=function(input){
       var returnVal;
       try {
-        var result=starNetHelper.starNetVerified("/player_info " + this.name); // This will throw an error if there is a connection issue.
+        var result;
+        if (input){
+          result=input;
+        } else {
+          result=starNetHelper.starNetVerified("/player_info " + this.name); // This will throw an error if there is a connection issue.
+        }
         if (returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] CONTROLLING-POS: <not spawned>/)){ // Player offline
           return false;
         } else if (!returnLineMatch(result,/^RETURN: \[SERVER, \[ADMIN COMMAND\] \[ERROR\]/)){ // Player does not exist
@@ -1596,6 +1675,8 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
         throw errorObj;
       }
     }
+    // TODO - create this: // this.controlling=function(input){ } // This is an alternative for currentEntity.  It cannot return the UID for asteroids or planets, but it will at least return SOMETHING.  currentEntity will return false if the player is in an asteroid.
+
     this.playerProtect=function (smName,options){ // Requires smName, which can be a string or a SMNameObj
       var smNameToUse=smName;
       if (typeof smName == "object"){
@@ -1613,7 +1694,7 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       return runSimpleCommand("/player_unprotect " + this.name,options);
     }
 
-    this.currentEntity=function(){
+    this.currentEntity=function(input){
       // This uses the /entity_info_by_player_uid command instead of /player_info command, since that will not work with asteroids and planets.  This does not work with asteroids currently.
 
       // RETURN: [SERVER, Attached: [PlS[Benevolent27 ; id(612)(4)f(10001)]], 0]
@@ -1661,7 +1742,7 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
           }
         }
       }
-      // try {
+      try {
         var result=starNetHelper.starNetVerified("/player_info " + this.name); // This will throw an error if there is a connection issue.
         var resultArray=returnMatchingLinesAsArray(result,/^RETURN: \[SERVER, \[PL\] LOGIN: \[time=.*/);
         var outputArray=[];
@@ -1691,13 +1772,13 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
           }
         }
         return outputArray; // Array is empty if no results found
-      // } catch (error){
-      //   var errorObj=new Error("StarNet command failed when attempting to get the ips for player: " + this.name);
-      //   throw errorObj;
-      // }
-
+      } catch (error){
+         var errorObj=new Error("StarNet command failed when attempting to get the ips for player: " + this.name);
+         throw errorObj;
       }
-      this.inventory=function(options){ // Returns a player's inventory as an array of objects - Broken right now because it returns the currently open inventory, which could be the personal inventory, cargo, or creative
+
+    }
+    this.inventory=function(options){ // Returns a player's inventory as an array of objects - Broken right now because it returns the currently open inventory, which could be the personal inventory, cargo, or creative
       // TODO:  Follow up with Schema about it using the personal inventory by default, and a second command '/player_get_current_inventory' being added.
       // TODO:  Add an option for the output to be a map object.
       // TODO:  Create a function that converts an item number to the item name.  This might be pretty complicated though, since it would require parsing the blockProperties.xml file, blockConfig.xml, and customBlockConfig.xml to accurately find the item number's name.
@@ -1778,6 +1859,53 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       }
       return outputArray; // If inventory is empty, will return an empty array.
     }
+    this.blueprints = function (options){
+      var verbose=false;
+      if (typeof options == "object"){
+        if (options.hasOwnProperty("verbose")){
+          if (isTrue(options.current)){
+            verbose=true;
+          }
+        }
+      }
+      var result=starNetHelper.starNetVerified("/list_blueprints_by_owner " + this.name); // This will throw an error if there is a connection issue, false if the command fails, likely due to the player being offline.
+      // RETURN: [SERVER, [CATALOG] START, 0]
+      // RETURN: [SERVER, [CATALOG] INDEX 0: Another ship of mine with     spaces, 0]
+      // RETURN: [SERVER, [CATALOG] INDEX 1: A catalogue test, 0]
+      // RETURN: [SERVER, [CATALOG] END, 0]
+      // RETURN: [SERVER, END; Admin command execution ended, 0]
+      if (result){
+        // console.log("Result found!"); // temp
+        var outputArray=[];
+        // Parse through the lines, creating new objects and outputting to the outputArray.
+        var theArray=result.trim().split("\n");
+        var theReg=new RegExp("^RETURN: \\[SERVER, \\[CATALOG\\] INDEX.*"); // This will only search for only the lines with catalogue names
+        var theCatalogString;
+        for (let i=0;i<theArray.length;i++){
+          theCatalogString=theArray[i].match(theReg);
+          if (theCatalogString){
+            theCatalogString=theCatalogString.toString().replace(/^RETURN: \[SERVER, \[CATALOG\] INDEX [0-9]+: /,"").replace(/, 0\]$/,"");
+            console.log("Pushing catalogue name to array: " + theCatalogString); // temp
+
+            outputArray.push(new BluePrintObj(theCatalogString));
+          }
+        }
+        if (outputArray.length > 0){
+          return outputArray;
+        }
+        return false; // The player had no blueprints
+      }
+      return false; // This will only happen if there is an error with the command, but it was not a connection error.  This should not happen.
+    }
+    // blueprints()[1].blueprint_delete()
+    // EXAMPLE: /blueprint_delete my_ship
+    
+    // blueprints()[1].blueprint_info()
+    // EXAMPLE: /blueprint_info my_ship
+    
+    // server.blueprints[2].blueprint_set_owner(player) // include find functionality.
+
+
 
     // Phase 2 - Add methods that poll information from the server using StarNet.
 
@@ -1910,9 +2038,6 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
     // Action methods:
     // factionCreate(NewFactionNameString) - This creates a new faction and sets the player as the leader - I am unsure what the /faction_create command will do if a faction of the same name already exists, but I'm guessing it will just duplicate it. I also do not know what happens if the player is currently in a faction already.
     // factionCreateAs(NewFactionNameString,FactionNum) - This creates a new faction with a specific faction number and sets the player as the leader - I am unsure what the /faction_create_as command will do if the faction number already exists..
-
-
-
   } else {
     throw new Error("ERROR: No playername provided to playerObj constructor!");
   }
@@ -1955,7 +2080,122 @@ function BluePrintObj(bluePrintName){
   // folder - Gets the path to the folder the blueprint is in
 
   // Action Methods:
-  //
+
+  // spawn_entity
+  // PARAMETERS: BlueprintName(String), ShipName(String), X(Integer), Y(Integer), Z(Integer), factionID(Integer), ActiveAI(True/False)
+  // EXAMPLE: /spawn_entity mySavedShip shipName sectorX sectorY sectorZ -1 true
+  
+  // spawn_entity_pos
+  // PARAMETERS: BlueprintName(String), ShipName(String), SecX(Integer), SecY(Integer), SecZ(Integer), PosX(Float), PosY(Float), PosZ(Float), factionID(Integer), ActiveAI(True/False)
+  // EXAMPLE: /spawn_entity_pos mySavedShip shipName sectorX sectorY sectorZ local-X local-Y local-Z -1 true
+
+  // blueprint_delete
+  // DESCRIPTION: removes blueprint permanently (warning: cannot be undone)
+  // PARAMETERS: blueprintname(String)
+  // EXAMPLE: /blueprint_delete my_ship
+  this.del=function(options){
+    return runSimpleCommand("/blueprint_delete \"" + this.name + "\"",options);
+    // c:\coding\starmade.js\bin>node starNet.js "/blueprint_delete \"A test blueprint\""
+    // RETURN: [SERVER, [ADMIN COMMAND] [ERROR] blueprint not found (name is case sensitive): A test blueprint, 0]
+    // RETURN: [SERVER, END; Admin command execution ended, 0]
+    
+    // c:\coding\starmade.js\bin>node starNet.js "/blueprint_delete \"this test blueprint has     spaces\""
+    // RETURN: [SERVER, [ADMIN COMMAND] [SUCCESS] Removing blueprint: this test blueprint has     spaces, 0]
+    // RETURN: [SERVER, END; Admin command execution ended, 0]
+
+    // c:\coding\starmade.js\bin>node starNet.js "/blueprint_delete 'this is' bad"
+    // RETURN: [SERVER, Admin command failed: Error packing parameters, 0]
+    // RETURN: [SERVER, END; Admin command execution ended, 0]
+  }
+  this.delete=this.del;
+  // blueprint_info
+  // DESCRIPTION: blueprint information
+  // PARAMETERS: blueprintname(String)
+  // EXAMPLE: /blueprint_info my_ship
+      // // SUCCESS:
+      // RETURN: [SERVER, [ADMIN COMMAND] [SUCCESS] Blueprint info on: A catalogue test
+      // UID: A catalogue test
+      // Owner: Benevolent27
+      // DateMS: 1563515221426
+      // DateReadable: Fri Jul 19 01:47:01 EDT 2019
+      // Description: no description given
+      // Mass: 418.46503
+      // SpawnCount: 0
+      // Price: 687524
+      // Rating: 0.0
+      // Blocks: 2774
+      // BlocksInclChilds: 2774
+      // DockCountOnMother: 0
+      // DimensionInclChilds: [ (-16.001, -7.0, -11.156709) | (17.001, 8.04331, 16.0) ]
+      // PermissionMask: 16
+      // PermissionFaction: false
+      // PermissionHomeOnly: false
+      // PermissionOthers: false
+      // PermissionEnemyUsable: true
+      // PermissionLocked: false
+      // , 0]
+      // RETURN: [SERVER, END; Admin command execution ended, 0]  
+
+      // // Blueprint not found:
+      // RETURN: [SERVER, [ADMIN COMMAND] [ERROR] blueprint not found (name is case sensitive): A catalogue testdfdf, 0]
+      // RETURN: [SERVER, END; Admin command execution ended, 0]
+  this.info = function(options){
+    var output={};
+    var result=starNetHelper.starNetVerified("/blueprint_info '" + this.name + "'"); // Throws an error if connection problem to the server
+    if (result){
+      output["UID"]=returnLineMatch(result,/^UID: .*/,/^UID: /);
+      var theTest=returnLineMatch(result,/^Owner: .*/,/^Owner: /);
+      console.log("### OWNED BY PLAYER: " + theTest);
+      output["owner"]=new PlayerObj(returnLineMatch(result,/^Owner: .*/,/^Owner: /));
+      output["date"]=new Date(toNumIfPossible(returnLineMatch(result,/^DateMS: .*/,/^DateMS: /)));
+      output["description"]=returnLineMatch(result,/^Description: .*/,/^Description: /);
+      output["mass"]=toNumIfPossible(returnLineMatch(result,/^Mass: .*/,/^Mass: /));
+      output["spawnCount"]=toNumIfPossible(returnLineMatch(result,/^SpawnCount: .*/,/^SpawnCount: /));
+      output["price"]=toNumIfPossible(returnLineMatch(result,/^Price: .*/,/^Price: /));
+      output["rating"]=toNumIfPossible(returnLineMatch(result,/^Rating: .*/,/^Rating: /));
+      output["blocks"]=toNumIfPossible(returnLineMatch(result,/^Blocks: .*/,/^Blocks: /));
+      output["blocksInclChilds"]=toNumIfPossible(returnLineMatch(result,/^BlocksInclChilds: .*/,/^BlocksInclChilds: /));
+      output["dockCountOnMother"]=toNumIfPossible(returnLineMatch(result,/^DockCountOnMother: .*/,/^DockCountOnMother: /));
+      var DimensionInclChilds=returnLineMatch(result,/^DimensionInclChilds: .*/,/^DimensionInclChilds: /);
+      DimensionInclChilds=DimensionInclChilds.replace("[","").replace("]","").replace(/\(/g,"").replace(/\)/g,"").split("|");
+      for (let i=0;i<DimensionInclChilds.length;i++){
+        DimensionInclChilds[i]=new CoordsObj(DimensionInclChilds[i].split(", "));
+      }
+      output["dimensionInclChilds"]=DimensionInclChilds; // This is an array with 2 CoordsObj in it
+      output["permissionMask"]=toNumIfPossible(returnLineMatch(result,/^PermissionMask: .*/,/^PermissionMask: /));
+      output["permissionFaction"]=trueOrFalse(returnLineMatch(result,/^PermissionFaction: .*/,/^PermissionFaction: /));
+      output["permissionHomeOnly"]=trueOrFalse(returnLineMatch(result,/^PermissionHomeOnly: .*/,/^PermissionHomeOnly: /));
+      output["permissionOthers"]=trueOrFalse(returnLineMatch(result,/^PermissionOthers: .*/,/^PermissionOthers: /));
+      output["permissionEnemyUsable"]=trueOrFalse(returnLineMatch(result,/^PermissionEnemyUsable: .*/,/^PermissionEnemyUsable: /));
+      output["permissionLocked"]=trueOrFalse(returnLineMatch(result,/^PermissionLocked: .*/,/^PermissionLocked: /));
+      return output;
+    }
+    return false;
+  }
+  this.UID=function(){ return this.info().UID };
+  this.owner=function(){ return this.info().owner };
+  this.date=function(){ return this.info().date };
+  this.description=function(){ return this.info().description };
+  this.mass=function(){ return this.info().mass };
+  this.spawnCount=function(){ return this.info().spawnCount };
+  this.price=function(){ return this.info().price };
+  this.rating=function(){ return this.info().rating };
+  this.blocks=function(){ return this.info().blocks };
+  this.blocksInclChilds=function(){ return this.info().blocksInclChilds };
+  this.dockCountOnMother=function(){ return this.info().dockCountOnMother };
+  this.dimensionInclChilds=function(){ return this.info().dimensionInclChilds };
+  this.permissionMask=function(){ return this.info().permissionMask };
+  this.permissionFaction=function(){ return this.info().permissionFaction };
+  this.permissionHomeOnly=function(){ return this.info().permissionHomeOnly };
+  this.permissionOthers=function(){ return this.info().permissionOthers };
+  this.permissionEnemyUsable=function(){ return this.info().permissionEnemyUsable };
+  this.permissionLocked=function(){ return this.info().permissionLocked };
+
+  // blueprint_set_owner
+  // DESCRIPTION: sets owner for a blueprint
+  // PARAMETERS: blueprintname(String), playername(String)
+  // EXAMPLE: /blueprint_set_owner my_ship schema
+
 }
 function FactionObj(factionNumber){
   this.number=factionNumber;
