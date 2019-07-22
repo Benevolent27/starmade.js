@@ -375,11 +375,11 @@ function ServerObj(){ // This will be used to run server commands or gather spec
 function BotObj(botName){
   if (typeof botName == "string"){
     this.name=botName;
-    this.msg=function(player,msgString){
+    this.msg=function(player,msgString,options){
       // This expects a player object OR a string with a player's name, then the message to send.
       if (typeof msgString == "string"){
         var thePlayer=new PlayerObj(player); // This creates a new playerObj with the playername string or PlayerObj
-        thePlayer.msg(this.name + ": " + msgString);
+        thePlayer.msg(this.name + ": " + msgString,"",options);
       } else {
         console.error("Invalid input given to message player with!")
       }
@@ -544,37 +544,26 @@ function runSimpleCommand(theCommand,options){
 }
 
 
+function getOption(options,optionToLookFor,whatToUseIfNoOption){ // This is used to parse options given to a command.
+  if (typeof options == "object"){
+    if (options.hasOwnProperty(optionToLookFor)){ // This is redundant
+      if (testIfInput(options.optionToLookFor)){ // This ensures the value is not empty
+        return options.optionToLookFor; // Perhaps this should validate that the entry can be converted to a string and is not an object or array, but meh.
+      }
+    }
+  }
+  return whatToUseIfNoOption;
+}
+
 
 function PlayerObj(player){ // "Player" must be a string and can be just the player's nickname or their full UID
   if (player){
     var playerName=player.toString().trim(); // This allows the player input to be another PlayerObj
     // var playerName=player.replace(/^ENTITY_PLAYERCHARACTER_/,"").replace(/^ENTITY_PLAYERSTATE_/,""); // strip the UID
     this.name=playerName.replace(/^ENTITY_PLAYERCHARACTER_/,"").replace(/^ENTITY_PLAYERSTATE_/,""); // strip the UID
-
-
     this.msg=function (message,type,options){ // Sends a message to the player.  Type is optional.  If not provided "plain" is used.
       var msgType="plain";
-      if (options){
-        if (typeof options == "object"){
-          if (options.hasOwnProperty("type")){ // This is redundant
-            if (testIfInput(options.type)){
-              msgType=options.type;
-            } else {
-              let theError=new Error("Invalid input given to playerObj.msg for options: " + options);
-              throw theError;
-            }
-          }
-        } else if (options) {
-          let theError=new Error("Invalid input given to playerObj.msg for options: " + options);
-          throw theError;
-        }
-      }
-      if (typeof type=="string"){ // Always use the type
-        if (type != ""){
-          msgType=type; // This does not validate the message type, in case new message types in the future are released.
-        }
-        // No error is thrown here if it is blank because this is intended, to allow 'plain' to be the default when options are given
-      }
+      msgType=getOption(options,"type",msgType); // This does not throw an error if invalid options are specified.
       return runSimpleCommand("/server_message_to " + msgType + " " + this.name + "'" + message.toString().trim() + "'",options);
     }
     this.botMsg=function (message,options){ // Sends a plain message to the player with the bot's name.
@@ -594,7 +583,7 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
           messageToSend=" ";
         }
       }
-      return global.bot.msg(this.name,messageToSend); // This should throw an error if there is a problem connecting to the server
+      return global.bot.msg(this.name,messageToSend,options); // This should throw an error if there is a problem connecting to the server
       // return runSimpleCommand("/server_message_to " + msgType + " " + this.name + "'" + message.toString().trim() + "'",options);
     }
 
@@ -2031,10 +2020,6 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
     // /tint_name x x x x Name - This sets the color of an astronaut.  See the colors.sh file from LvD for some color examples.
     // /whitelist_name and /whitelist_name_temp
     
-
-
-
-
     // Action methods:
     // factionCreate(NewFactionNameString) - This creates a new faction and sets the player as the leader - I am unsure what the /faction_create command will do if a faction of the same name already exists, but I'm guessing it will just duplicate it. I also do not know what happens if the player is currently in a faction already.
     // factionCreateAs(NewFactionNameString,FactionNum) - This creates a new faction with a specific faction number and sets the player as the leader - I am unsure what the /faction_create_as command will do if the faction number already exists..
@@ -2042,6 +2027,8 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
     throw new Error("ERROR: No playername provided to playerObj constructor!");
   }
 }
+
+
 function SystemObj(x,y,z){
   this.coords=new CoordsObj(x,y,z);
   // TODO: Add Info methods:
@@ -2169,6 +2156,27 @@ function BluePrintObj(bluePrintName){
       output["permissionEnemyUsable"]=trueOrFalse(returnLineMatch(result,/^PermissionEnemyUsable: .*/,/^PermissionEnemyUsable: /));
       output["permissionLocked"]=trueOrFalse(returnLineMatch(result,/^PermissionLocked: .*/,/^PermissionLocked: /));
       return output;
+      // Output looks like this:
+      // }
+      //   "UID":string
+      //   "owner":PlayerObj
+      //   "date":Date Object
+      //   "description":string,
+      //   "mass":Number,
+      //   "spawnCount":Number,
+      //   "price":Number,
+      //   "rating":Number,
+      //   "blocks":Number,
+      //   "blocksInclChilds":Number,
+      //   "dockCountOnMother":Number,
+      //   "dimensionInclChilds":Array containing 2 CoordsObj,
+      //   "permissionMask":Number,
+      //   "permissionFaction":true/false,
+      //   "permissionHomeOnly":true/false,
+      //   "permissionOthers":true/false,
+      //   "permissionEnemyUsable":true/false,
+      //   "permissionLocked":true/false
+      // }
     }
     return false;
   }
