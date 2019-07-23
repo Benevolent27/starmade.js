@@ -22,7 +22,7 @@ But for now, if you would like to be a contributor, just send me a message and w
 **Spawn a test build!**
 If you'd like to spawn a test build, the scripting has been successfully running a server on linux but could use some testing on windows. 
 It requires node.js and git to be installed first.
-* https://nodejs.org/  <-- get eeett, nodejs is a pretty awesome language.
+* https://nodejs.org/  <-- version 10.  get eeett, nodejs is a pretty awesome engine.
 * https://git-scm.com/downloads  <-- git, yus, it is good.
 
 Then you can clone my repository and run it.  No other install required.
