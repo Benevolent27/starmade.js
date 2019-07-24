@@ -1,4 +1,5 @@
 module.exports={ // Always put module.exports at the top so circular dependencies work correctly.
+  log, // This should only ever be used from the global object or from starmade.js directly, so we don't open multiple write streams to the log file.
   requireBin,
   isPidAlive,
   smartSpawnSync, // This allows executing a jar file or .exe file with the same spawn command, specifying arguments to use and ignoring any java arguments provided if it's not a jar file.
@@ -19,10 +20,16 @@ const http              = require('http');
 const fs                = require('fs');
 var mainFolder          = path.dirname(require.main.filename); // This is where the starmade.js is.  I use this method instead of __filename because starmade.js might load itself or be started from another script
 const binFolder         = path.resolve(__dirname,"../bin/");
+const logFolder         = path.resolve(mainFolder,"logs/");
 // const objectCreator=require(path.join(binFolder,"objectCreator.js"));
 const installAndRequire = requireBin("installAndRequire");
 const makeDir           = installAndRequire('make-dir'); // https://www.npmjs.com/package/make-dir This allows creating folders recursively if they do not exist, with either async or sync functionality.
 const sleep             = requireBin("mySleep.js").softSleep;
+const objectHelper      = requireBin("objectHelper.js");
+ensureFolderExists(logFolder); // Let's just do this once the helper being loaded.
+
+// Set up aliases
+const {getOption,trueOrFalse}       = objectHelper;
 
 // TESTING BEGIN
 if (__filename == require.main.filename){ // Only run the arguments IF this script is being run by itself and NOT as a require.
@@ -203,24 +210,82 @@ function getFiles(source) {
   return fs.readdirSync(source).map((name) => path.join(source, name)).filter(isFile);
 };
 
-function deleteFile (fileToDelete){
+function deleteFile (fileToDelete,options){ // options can be:  {"quiet":true/false}  This will still display an error if the file exists but cannot be deleted for some reason.
   // Resolves files to use main script path as root if given relative path.
   // Also throws an error if it cannot delete the file.
+  var quiet=trueOrFalse(getOption(options,"quiet",false));
   let resolvedFile = path.resolve(mainFolder,fileToDelete); // This will resolve relative paths back to the main script's root dir as the base
   if (fs.existsSync(resolvedFile)){
     try {
       fs.unlinkSync(resolvedFile);
-      console.log("Deleting: " + fileToDelete);
+      if (quiet != true){
+        console.log("Deleting: " + fileToDelete);
+      }
     } catch (err) {
       console.error("ERROR: Could not delete file: " + resolvedFile);
       console.error("Please manually remove this file and ENSURE you have access to delete files at this location!")
       throw err;
     }
-  } else {
-    console.error("ERROR: Cannot delete file.  File not found: " + resolvedFile);
+  } else if (quiet != true){
+      console.error("ERROR: Cannot delete file.  File not found: " + resolvedFile);
   }
 }
 
 function touch (file){ // This creates an empty file quickly.
   fs.closeSync(fs.openSync(file, 'w'));
+}
+
+function getSimpleDate(input){
+  let theDate;
+  if (input){
+    theDate=input;
+  } else {
+    theDate=new Date();
+  }
+  let theMonth=theDate.getMonth() + 1;
+  let output=theMonth + "-" + theDate.getDate() + "-" + theDate.getFullYear();
+  return output;
+}
+function getSimpleTime(input){
+  let theDate;
+  if (input){
+    theDate=input;
+  } else {
+    theDate=new Date();
+  }  
+  let hours=theDate.getHours();
+  let amPM="AM";
+  if (hours>11 && hours!=24){
+    amPM="PM";
+  }
+  if (hours>11 && hours!=24){
+    hours-=12;
+  } else if (hours==24){
+    hours=12;
+  }
+  let output=hours + ":" + theDate.getMinutes() + " " + amPM;
+  return output;
+}
+var logFileName=getSimpleDate() + ".log";
+var logFilePath=path.join(logFolder,logFileName);
+var logStream=fs.createWriteStream(logFilePath, {flags:'a'}); // We create a stream here so the handle will not be opened a million times.  This will automatically close when the program ends, and does not need to be ended.
+
+function log (logMsg){ // Writes to a log file with the current date into the /log subfolder
+  // ensureFolderExists(logFolder);  // This shouldn't be necessary since the folder is created if it doesn't exist at the beginning of this script
+  if (typeof logMsg=="string"){
+    let lineWrite=getSimpleTime() + " - " + logMsg;
+    // First check to ensure the correct date will be used.
+    let logFileNameTemp=getSimpleDate() + ".log";
+    if (logFileNameTemp != logFileName){ // The date must have changed
+      logFileName=logFileNameTemp; // Set up the filenames correctly, end the old log stream, and create a new one.
+      logFilePath=path.join(logFolder,logFileName);
+      logStream.end();
+      logStream=fs.createWriteStream(logFilePath, {"flags":'a'});
+    }
+    // touch(logFilePath);
+    logStream.write(lineWrite + "\n");
+  } else {
+    console.error("ERROR:  Invalid input given to log function!  Expects a string!");
+  }
+
 }
