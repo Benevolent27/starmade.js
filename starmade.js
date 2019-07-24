@@ -147,8 +147,9 @@ global["exitHook"]=exitHook;
 
 // ### Set up submodules and aliases from requires.
 var eventEmitter      = new events.EventEmitter(); // This is for custom events
+global["eventEmitter"]=eventEmitter;
 var isPidAlive        = miscHelpers.isPidAlive;
-var {isDirectory,getDirectories,isFile,getFiles}=miscHelpers;  // Sets up file handling
+var {isDirectory,getDirectories,isFile,getFiles,log}=miscHelpers;  // Sets up file handling
 
 // Object aliases
 var {BotObj,SqlQueryObj,EntityObj,SectorObj,CoordsObj,FactionObj,MessageObj,BluePrintObj,PlayerObj}=objectCreator;
@@ -160,7 +161,7 @@ var {BotObj,SqlQueryObj,EntityObj,SectorObj,CoordsObj,FactionObj,MessageObj,Blue
 // var MessageObj     = objectCreator.MessageObj;
 // var BluePrintObj   = objectCreator.BluePrintObj;
 // var PlayerObj      = objectCreator.PlayerObj;
-var {repeatString,isInArray}=objectHelper;
+var {repeatString,isInArray,getRandomAlphaNumericString,arrayMinus}=objectHelper;
 
 
 
@@ -197,6 +198,7 @@ const botObj=new BotObj(settings["botName"]);
 console.log("Created bot object:");
 console.dir(botObj);
 global["bot"]=botObj;
+global["log"]=log;
 
 var starMadeStarter;
 // TODO: Fix this to use the .exe file properly when doing installs.  Sure the Jar works, but might be a bad idea for some reason.
@@ -270,7 +272,7 @@ var excludePatternServerLogRegex   = patterns.serverLogExcluded();
 
 // Optional: /list_control_Units
 
-
+log("starmade.js launched.");
 
 
 // ##############################
@@ -540,7 +542,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
             // If there are no categories, then the bot should just state there are no commands presently on the server.
             var theFinalArray=[];
             var categoriesListed=[];
-            messageObj.sender.botMsg("I can perform the following commands:",{"fast":true});
+            messageObj.sender.botMsg("I can perform the following commands:","",{"fast":true});
             for (var finalCategory in commandCategories) {
               if (commandCategories.hasOwnProperty(finalCategory)) {
                 theFinalArray=commandCategories[finalCategory];
@@ -549,22 +551,22 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
                     // messageObj.sender.msg("- " + repeatString(" ",finalCategory.length * 2) + spacerAfterCategory + theFinalArray[i],{"fast":true});
                   // } else {
                     // messageObj.sender.msg("- [ " + finalCategory + " ]:" + spacerAfterCategory + theFinalArray[i],{"fast":true});
-                    messageObj.sender.msg(" ",{"fast":true});
-                    messageObj.sender.msg("-- " + finalCategory + " --",{"fast":true});
+                    messageObj.sender.msg(" ","",{"fast":true});
+                    messageObj.sender.msg("-- " + finalCategory + " --","",{"fast":true});
                     categoriesListed.push(finalCategory);
                   }
-                  messageObj.sender.msg("  " + theFinalArray[i],{"fast":true});
+                  messageObj.sender.msg("  " + theFinalArray[i],"",{"fast":true});
                 }
               }
             }
-            messageObj.sender.msg(" ",{"fast":true});
-            messageObj.sender.msg("To use a command, type " + settings["commandOperator"] + " + the command.",{"fast":true});
-            messageObj.sender.msg("For help on a command, type !help [command]",{"fast":true});
+            messageObj.sender.msg(" ","",{"fast":true});
+            messageObj.sender.msg("To use a command, type " + settings["commandOperator"] + " + the command.","",{"fast":true});
+            messageObj.sender.msg("For help on a command, type !help [command]","",{"fast":true});
           }
           console.log("Help command finished.");
         } else {
-          messageObj.sender.msg("ERROR:  " + theCommand + " is not a valid command!");
-          messageObj.sender.msg("To view a list of wrapper commands, type: !help",{"fast":true});
+          messageObj.sender.msg("ERROR:  " + theCommand + " is not a valid command!","",{"fast":true});
+          messageObj.sender.msg("To view a list of wrapper commands, type: !help","",{"fast":true});
         }
       }
     }
@@ -634,57 +636,8 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
     // #### MODLOADER ####
     // ###################
     console.log("############## Loading Mods ###############");
-
-    // Find all modfolders   // Source: https://stackoverflow.com/questions/18112204/get-all-directories-within-directory-nodejs
-    // const isDirectory = source => lstatSync(source).isDirectory()
-
-    //    Working but throws errors with ESLINT due to the way the function is declared
-    // const isDirectory = function (source) { 
-    //   return lstatSync(source).isDirectory(); 
-    // };
-    // const getDirectories = function(source) {
-    //   return readdirSync(source).map((name) => join(source, name)).filter(isDirectory); // working
-    // }
-    // const isFile = function (source) { 
-    //   return lstatSync(source).isFile(); 
-    // };
-    // const getFiles = function(source) {
-    //   return readdirSync(source).map((name) => join(source, name)).filter(isFile); // testing
-    // }
-
-    // Working but I'd rather just use fs.lstatSync and fs.readdirSync directly when needed.
-    // const {lstatSync, readdirSync} = require('fs')
-    // const {join} = require('path')
-    // function isDirectory(source) { 
-    //   return lstatSync(source).isDirectory(); 
-    // };
-    // function getDirectories(source) {
-    //   return readdirSync(source).map((name) => join(source, name)).filter(isDirectory);
-    // }
-    // function isFile(source) { 
-    //   return lstatSync(source).isFile(); 
-    // };
-    // function getFiles(source) {
-    //   return readdirSync(source).map((name) => join(source, name)).filter(isFile);
-    // }
-
-    // Final - simplified to functions -- And exported to miscHelpers
-    // function isDirectory(source) { 
-    //   return fs.lstatSync(source).isDirectory(); 
-    // };
-    // function getDirectories(source) {
-    //   return fs.readdirSync(source).map((name) => path.join(source, name)).filter(isDirectory);
-    // }
-    // function isFile(source) { 
-    //   return fs.lstatSync(source).isFile(); 
-    // };
-    // function getFiles(source) {
-    //   return fs.readdirSync(source).map((name) => path.join(source, name)).filter(isFile);
-    // }
-
     var modFolders=getDirectories(modsFolder)
     global["modFolders"]=modFolders;
-
     // Testing for loading mods  TODO: Change the way it loads to use a map instead, with each directory name being paired with the require
     // Require all scripts found in mod folders
     var fileList=[];
@@ -692,7 +645,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
     for (var i = 0;i < modFolders.length;i++) {
       console.log("Mod Folder found: " + modFolders[i] + " Looking for scripts..");
       fileList=getFiles(modFolders[i]);
-      console.dir(fileList);
+      // console.dir(fileList);
       for (var e=0;e<fileList.length;e++){
         if (fileList[e].match(/.\.js$/)) {
           console.log("Loading JS file: " + fileList[e]);
@@ -1324,27 +1277,6 @@ eventEmitter.on('asyncDone', installDepsSync);
 // ###  FUNCTIONS  #### -- The standard practice for functions is first write in place, then make a multi-purpose function that handles what you need and can be used elsewhere, then bundle it in a require and change over functionality.  This is to keep the main script at a maintainable length and also have high re-usability value for code created.
 // ####################
 
-
-function getRandomAlphaNumericString(charLength){ // If no charlength given or it is invalid, it will output 10 and throw an error message. // Original code from: https://stackoverflow.com/questions/1349404/generate-random-string-characters-in-javascript
-  var text = "";
-  var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  var outputLength=10;
-  if (charLength){
-    if (isNaN(parseInt(charLength))){
-      console.error("ERROR: Invalid length given to getRandomAlphaNumeric function!  Set to default length of 10.  Here is what as given as input: " + charLength);
-    } else {
-      outputLength=parseInt(charLength);
-    }
-  } else {
-    console.error("ERROR:  No charLength specified, using default of 10!");
-  }
-  for (var i = 0;i < outputLength;i++){
-    text += possible.charAt(Math.floor(Math.random() * possible.length)).toString();
-  }
-  return text;
-}
-
-
 // function sleep(ms) { // This will only work within async functions.
 //   // Usage: await sleep(ms);
 //   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -1359,8 +1291,10 @@ function writeSettings() {
     settingsFileStream.write(JSON.stringify(settings, null, 4));
     settingsFileStream.end();
     console.log("Updated '" + settingsFileName + "' file.");
+    log("Updated '" + settingsFileName + "' file.");
   } catch (err) {
     console.error("ERROR: Could not write to the '" + settingsFileName + "' file!");
+    log("ERROR: Could not write to the '" + settingsFileName + "' file!");
     throw err;
   }
 }
@@ -1402,7 +1336,7 @@ function preDownload(httpURL,fileToPlace){ // This function handles the pre-down
   // Code adapted from: https://stackoverflow.com/questions/11944932/how-to-download-a-file-with-node-js-without-using-third-party-libraries
   asyncOperation("start","preDownload: " + fileToPlace);
   let tempFileToPlace=path.resolve(mainFolder,fileToPlace + ".tmp");
-  miscHelpers.deleteFile(tempFileToPlace);
+  miscHelpers.deleteFile(tempFileToPlace,{"quiet":true});
   let resolvedFileToPlace=path.resolve(mainFolder,fileToPlace);
   let baseFileToPlace=path.basename(resolvedFileToPlace);
   let baseDirForFile=path.dirname(resolvedFileToPlace);
@@ -1539,7 +1473,7 @@ function addServerPID (serverPID){
     writeLockFile();
     return true;
   }
-  return new Error("No PID given to addServerPID function!");
+  throw new Error("No PID given to addServerPID function!");
 }
 function delServerPID (serverPID){
   if (serverPID){
@@ -1552,14 +1486,7 @@ function delServerPID (serverPID){
   }
   return new Error("No PID given to delServerPID function!");
 }
-function arrayMinus(theArray,val){ // Returns an array MINUS any values that match val
-  if (val && theArray){
-    return theArray.filter(function(e){
-      return e !== val;
-    });
-  }
-  return new Error("Insufficient parameters given to arrayMinus function!");
-}
+
 function writeLockFile(){
   // var lockFileWriteObj = fs.createWriteStream(lockFile);
   // lockFileWriteObj.write(JSON.stringify(lockFileObj));
