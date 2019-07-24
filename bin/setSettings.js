@@ -21,6 +21,8 @@ module.exports = function() {
   var mainFolder = path.dirname(require.main.filename);
   var binFolder  = path.join(mainFolder,"bin");
   var installAndRequire = require(path.join(binFolder, "installAndRequire.js")); // This is used to install missing NPM modules and then require them without messing up the require cache.
+  var objectHelper = require(path.join(binFolder, "objectHelper.js"));
+  var {isAlphaNumeric,testIfInput,toNumIfPossible}=objectHelper; // Aliases
   var settingsFile=path.join(mainFolder, "/settings.json");
 
   // console.log("Loading dependencies..");
@@ -28,12 +30,8 @@ module.exports = function() {
   const isInvalidPath = installAndRequire("is-invalid-path"); // https://www.npmjs.com/package/is-invalid-path -- Not using the "is-valid-path" because my force require scripting won't work with it since it uses a non-standard path to it's scripts
   const mkdirp = installAndRequire("mkdirp"); // https://www.npmjs.com/package/mkdirp - Great for sync or async folder creation, creating all folders necessary up to the end folder
 
-  function isAlphaNumeric(testString){
-    return /^[A-Za-z0-9]+$/.test(testString);
-  }
   function isValidCommandOperator(testString){
     // Command operators cannot be / characters, alphanumeric, blank, and must be 1 character
-
     if (!testString){
       return true;
     } else if (isAlphaNumeric(testString) || testString.indexOf("/") != -1 || testString.length > 1){
@@ -41,16 +39,43 @@ module.exports = function() {
     }
     return true;
   }
-
-  function isRamValue(testVal) {
-    let testTextArray=testVal.toString().toLowerCase().split("");
-    if (/[0-9kmg]/.test(testTextArray.pop())){ // Check to see if the last value is a number, k, m, or g.  Pop also removes it from the array.
-      for (let i=0;i<testTextArray.length;i++) { // Loop through the rest of values
-        if (!(/[0-9]/).test(testTextArray[i])) { // if the current value we are checking is NOT a number, then return false
-          return false;
-        }
+  function ramValueToBytes(input){
+    var output;
+    if (isRamValue(input)){
+      let testTextArray=input.toString().toLowerCase().split("");
+      let lastNum=testTextArray.length - 1;
+      let modifier;
+      let modifierNum=1;
+      if ((/[kmg]/i).test(testTextArray[lastNum])){
+        modifier=testTextArray.pop();
       }
-      return true; // After checking all the  values, they were all numbers, so return true.
+      if (modifier=="k"){
+        modifierNum=1024;
+      } else if (modifier=="m"){
+        modifierNum=1024 * 1024;
+      } else if (modifier=="g"){
+        modifierNum=1024 * 1024 * 1024;
+      }
+      let testVal=toNumIfPossible(testTextArray.join(""));
+      if (typeof testVal=="number"){
+        output=testVal * modifierNum;
+      }
+    }
+    return output; // Returns undefined if the input was invalid.
+  }
+  function isRamValue(testVal) {
+    let testTextArray;
+    if (testIfInput(testVal)){
+      testTextArray=testVal.toString().toLowerCase().split("");
+      if ((/[0-9kmg]/i).test(testTextArray.pop())){ // Check to see if the last value is a number, k, m, or g.  Pop also removes it from the array.
+        for (let i=0;i<testTextArray.length;i++) { // Loop through the rest of values
+          if (!(/[0-9]/).test(testTextArray[i])) { // if the current value we are checking is NOT a number, then return false
+            return false;
+          }
+        }
+        return true; // After checking all the values, they were all numbers, so return true.
+      }
+      return false; // No valid input given
     }
     return false; // The first check failed.  The last value in the string was not a number, k, m, nor g, so return false.
   }
@@ -114,14 +139,36 @@ module.exports = function() {
       // Also add protection to ensure the min value is not higher than the max and that neither exceeds the RAM of the PC.  Perhaps add a warning if over 80% if this is possible.
       console.log("");
       if (settingsLoadedCheck == true) { console.log("Well that's funny, this ole setting seems to have been unset.."); }
-      while (!isRamValue(settings["javaMin"]=prompt("Java MIN RAM to use? (Recommended: 512m or higher): "))){ console.log("Please specify a number!  Note: It can end in k, m, or g."); }
+      var javaMin;
+      while (!isRamValue(javaMin)){
+        javaMin=prompt("Java MIN RAM to use? (Recommended: 512m or higher): ");
+        if (!isRamValue(javaMin)){ 
+          console.log("ERROR: Input invalid!  Please specify a number!  Note: It can end in k, m, or g.");
+        } else if (ramValueToBytes("128m") > ramValueToBytes(javaMin)){ // Minimum value here is 128m
+          console.log("ERROR: Input number too small!  Please specify a number larger than 128m!");
+          javaMin="";
+        }
+      }
+      settings["javaMin"]=javaMin; // Only set the value after it is successfully created
+      // while (!isRamValue(settings["javaMin"]=prompt("Java MIN RAM to use? (Recommended: 512m or higher): "))){ console.log("Please specify a number!  Note: It can end in k, m, or g."); }
       console.log("Min RAM usage set to: " + settings["javaMin"]);
       changeMadeToSettings=true;
     }
     if (!settings.hasOwnProperty('javaMax')) {
       console.log("");
       if (settingsLoadedCheck == true) { console.log("Hmm.. A setting has gone missing!"); }
-      while (!isRamValue(settings["javaMax"]=prompt("Java MAX RAM to use? (Recommended: 4096m or higher): "))){ console.log("Please specify a number!  Note: It can end in k, m, or g."); }
+      var javaMax;
+      while (!isRamValue(javaMax)){
+        javaMax=prompt("Java MAX RAM to use? (Recommended: 4096m or higher): ");
+        if (!isRamValue(javaMax)){ 
+          console.log("ERROR: Input invalid!  Please specify a number!  Note: It can end in k, m, or g.");
+        } else if (ramValueToBytes("512m") > ramValueToBytes(javaMax)){ // Minimum value here is 512m
+          console.log("ERROR: Input number too small!  Please specify a number larger than 512m!");
+          javaMax="";
+        }
+      }
+      settings["javaMax"]=javaMax; // Only set the value after it is successfully created
+      // while (!isRamValue(settings["javaMax"]=prompt("Java MAX RAM to use? (Recommended: 4096m or higher): "))){ console.log("Please specify a number!  Note: It can end in k, m, or g."); }
       console.log("Max RAM usage set to: " + settings["javaMax"]);
       changeMadeToSettings=true;
     }
