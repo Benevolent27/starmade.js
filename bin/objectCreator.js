@@ -69,7 +69,7 @@ const {copyArray,toNumIfPossible,subArrayFromAnother,findSameFromTwoArrays,isInA
 // const colorize              = objectHelper["colorize"];
 // const getObjType            = objectHelper.getObjType; // Gets the prototype name of an object, so instead of using "typeof", which returns "object" for things like arrays and SectorObj's, etc, this will return their object name instead.
 const {testIfInput,trueOrFalse,isTrueOrFalse,isNum,colorize,getObjType,returnLineMatch} = objectHelper;
-const {isTrue,isFalse}=objectHelper;
+const {isTrue,isFalse,getOption}=objectHelper;
 const toNum                 = objectHelper.toNumIfPossible;
 
 // Set up prototypes for constructors, such as replacing .toString() functionality with a default value.  Prototypes will not appear as a regular key.
@@ -542,19 +542,6 @@ function runSimpleCommand(theCommand,options){
   }
   return false;
 }
-
-
-function getOption(options,optionToLookFor,whatToUseIfNoOption){ // This is used to parse options given to a command.
-  if (typeof options == "object"){
-    if (options.hasOwnProperty(optionToLookFor)){ // This is redundant
-      if (testIfInput(options.optionToLookFor)){ // This ensures the value is not empty
-        return options.optionToLookFor; // Perhaps this should validate that the entry can be converted to a string and is not an object or array, but meh.
-      }
-    }
-  }
-  return whatToUseIfNoOption;
-}
-
 
 function PlayerObj(player){ // "Player" must be a string and can be just the player's nickname or their full UID
   if (player){
