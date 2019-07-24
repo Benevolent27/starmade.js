@@ -77,25 +77,6 @@ console.debug=function (vals,sleepTime) { // for only displaying text when the -
 }
 global["debugLog"]=console.debug;
 
-function regCommand(myCommandObj){ // This is used by mods to register a command object, which is later used by !help and to trigger command events.
-  // Example of a commandObj:
-  // {
-  //   "name":"home",
-  //   "category":"General"
-  // }
-  // TODO: allow "adminOnly":true/false
-  // TODO: allow "playersAuthorized":["Array","of","playernames"]
-
-
-
-  var myCommandName=myCommandObj.name.toLowerCase();
-  commands[myCommandName]=myCommandObj;
-  console.log("Registered new command: " + myCommandName);
-  console.dir(myCommandObj);
-}
-global["regCommand"]=regCommand;
-
-
 // #######################
 // ### SCRIPT REQUIRES ###
 // #######################
@@ -152,7 +133,7 @@ var isPidAlive        = miscHelpers.isPidAlive;
 var {isDirectory,getDirectories,isFile,getFiles,log}=miscHelpers;  // Sets up file handling
 
 // Object aliases
-var {BotObj,SqlQueryObj,EntityObj,SectorObj,CoordsObj,FactionObj,MessageObj,BluePrintObj,PlayerObj}=objectCreator;
+var {BotObj,SqlQueryObj,EntityObj,SectorObj,CoordsObj,FactionObj,MessageObj,BluePrintObj,PlayerObj,ServerObj}=objectCreator;
 // var SqlQueryObj    = objectCreator.SqlQueryObj;
 // var EntityObj      = objectCreator.EntityObj;
 // var SectorObj      = objectCreator.SectorObj;
@@ -489,6 +470,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
     global["serverSpawn"] = spawn("java",javaArgs,{"cwd": starMadeInstallFolder});
     // global["serverSpawn"]=server;
     var server=global["serverSpawn"];
+    global["server"]=new ServerObj(global["serverSpawn"]); // TODO:  Clean this up and standardize where the server spawn should go
 
   } catch (err) { // This does NOT handle errors returned by the spawn process.  This only handles errors actually spawning the process in the first place, such as if we type "javaBlah" instead of "java".  Cannot run "javaBlah" since it doesn't exist.
     console.error("ERROR: Could not spawn server!")
@@ -522,7 +504,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
       for (var e=0;e<fileList.length;e++){
         if (fileList[e].match(/.\.js$/)) {
           console.log("Loading JS file: " + fileList[e]);
-          mods.push(require(fileList[e]));
+          mods.push(require(fileList[e])); // This will load and run the mod
         }
       }
     }
@@ -532,13 +514,12 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
 
 
     // Instead of running any "init" function in a mod, we can just have an "init" event..
-    for (i=0;i<mods.length;i++){
-      if (mods[i].hasOwnProperty("init")){  // Only run the init function for scripts that have it
-        mods[i].init(eventEmitter,global);
-      }
-    }
-
-    eventEmitter.emit("init");
+    // for (i=0;i<mods.length;i++){
+    //   if (mods[i].hasOwnProperty("init")){  // Only run the init function for scripts that have it
+    //     mods[i].init(eventEmitter,global);
+    //   }
+    // }
+    eventEmitter.emit("init"); // This event happens AFTER all the mods are loaded in through require.  Prerequisites should be done by now.
     
 
     //    process.exit();
