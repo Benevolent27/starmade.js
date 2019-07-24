@@ -11,3 +11,5 @@ temp*
 */old/*
 *.old
 /mods/*
+!/mods/default/*
+/logs/*
