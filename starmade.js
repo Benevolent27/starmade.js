@@ -480,14 +480,15 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   // Running the starmade server process
   try { // This is to catch an error if spawn cannot start the java process
     console.debug("Starting server with arguments: " + javaArgs,2000);
-    var server;
+    // var server;
     // if (os == "win32"){
     //   server = spawn("java", ["-Xms" + settings["javaMin"], "-Xmx" + settings["javaMax"],"-Xincgc","-Xshare:off","-jar", starMadeJar,"-server", "-port:" + settings["port"]], {"cwd": starMadeInstallFolder});
     // } else {
     //   server = spawn("java", ["-Xms" + settings["javaMin"], "-Xmx" + settings["javaMax"],"-jar", starMadeJar,"-server", "-port:" + settings["port"]], {"cwd": starMadeInstallFolder});
     // }
-    server = spawn("java",javaArgs,{"cwd": starMadeInstallFolder});
-    global["serverSpawn"]=server;
+    global["serverSpawn"] = spawn("java",javaArgs,{"cwd": starMadeInstallFolder});
+    // global["serverSpawn"]=server;
+    var server=global["serverSpawn"];
 
   } catch (err) { // This does NOT handle errors returned by the spawn process.  This only handles errors actually spawning the process in the first place, such as if we type "javaBlah" instead of "java".  Cannot run "javaBlah" since it doesn't exist.
     console.error("ERROR: Could not spawn server!")
@@ -499,8 +500,10 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
 
   // initialize the objectCreator so it can send text directly to the server through "server". 
   //  IMPORTANT:  THIS MUST BE DONE BEFORE ANY OBJECTS ARE CREATED!
-  console.log("############## INITIALIZING OBJECT CREATOR ###############");
-  objectCreator.init(server,global);
+  
+  // The following is obsolete since we're using the global object now, which stores the server.
+  // console.log("############## INITIALIZING OBJECT CREATOR ###############");
+  // objectCreator.init(server,global);
 
     // ###################
     // #### MODLOADER ####
@@ -527,11 +530,15 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
     global["modFiles"]=mods;
     //  No more variables should be added to the globalObject after this, since all the mods will be initialized NOW.  ie. global["whatever"]=whatever;
 
+
+    // Instead of running any "init" function in a mod, we can just have an "init" event..
     for (i=0;i<mods.length;i++){
       if (mods[i].hasOwnProperty("init")){  // Only run the init function for scripts that have it
         mods[i].init(eventEmitter,global);
       }
     }
+
+    eventEmitter.emit("init");
     
 
     //    process.exit();
@@ -856,13 +863,9 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   }
 
   // For serverlog.0.log
-  function processServerlogDataInput(dataInput){ // This function is run on every single line that is output by the server console.
+  function processServerlogDataInput(dataInput){ // This function is run on every single line that is output by the server log.
     if (testMatchServerLog(dataInput)) { // Check to see if the message fits any of the regex patterns
-      if (showAllEvents == true) {
-        console.log("Event found (serverlog)!: " + dataInput + "Arguments: " + arguments.length);
-      }
       let theArguments=arguments[0].split(" "); // This is to allow easier parsing of each individual word in the line
-      
       // enumerateEventArguments=true; // Temporary
       if (enumerateEventArguments == true){
         for (let i=0;i<theArguments.length;i++){ console.log("theArguments[" + i + "]: " + theArguments[i]); }
@@ -907,7 +910,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   server.stdout.on('data', function (data) { // Displays the standard output from the starmade server
     let dataString=data.toString().trim(); // Clear out any blank lines
     if (dataString){
-      if (showStdout == true) {
+      if (showStdout == true || showAllEvents == true) {
         console.log("stdout: " + dataString);
       }
       processDataInput(dataString); // Process the line to see if it matches any events and then trigger the appropriate event
@@ -917,7 +920,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   server.stderr.on('data', function (data) { // Displays the error output from the starmade server
     let dataString=data.toString().trim(); // Clear out any blank lines
     if (dataString){
-      if (showStderr == true) {
+      if (showStderr == true || showAllEvents == true) {
         console.log("stderr: " + dataString);
       }
       processDataInput(dataString); // Process the line to see if it matches any events and then trigger the appropriate event
@@ -929,7 +932,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
     // let dataString=data.toString().trim().replace(/^\[[^\[]*\] */,''); // This was throwing ESLINTER areas I guess.
     let dataString=data.toString().trim().replace(/^\[[^[]*\] */,''); // This removes the timestamp from the beginning of each line so each line looks the same as a console output line, which has no timestamps.
     if (dataString){
-      if (showServerlog == true ) {
+      if (showServerlog == true || showAllEvents == true) {
         console.log("serverlog: " + dataString);
       }
       // There needs to be a separate processor for serverlog stuff, since there can be duplicates found in the console and serverlog.0.log file.  This should also be faster once streamlined.
@@ -963,33 +966,11 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
       // }
       console.log('Server instance exited with code: ' + code.toString());
     }
-    console.log("Here's some listener listings:");
-    // console.log("process:");  // Commenting out this and below to make ESLint happy
-    // console.dir(process.listeners());
-    // console.log("server:");
-    // console.dir(server.listeners());
-    // console.log("eventEmitter:");
-    // console.dir(eventEmitter.listeners());
-
     console.log("serverTail:");
     console.dir(serverTail.listeners());
-
-
-
     console.log("Shutting down server log tail..");
     serverTail.unwatch();
-    // server.stdin.end();
 
-    // console.log("Removing listeners..");
-    // serverTail.removeAllListeners();
-    // server.removeAllListeners();
-
-    // eventEmitter.removeAllListeners();
-    // process.stdin.removeAllListeners();
-    // process.removeAllListeners(); // We don't want to do this because this removes the exit hooks.
-    // process.stdout.removeAllListeners();
-
-    // TODO: This needs to be obsoleted.  At this point in the script, we should NOT have force it to shut down.
     // exitNow(code); // This is temporary, we don't necessarily want to kill the wrapper when the process dies.  For example, maybe we want to respawn it?  Ya know?!
     process.exit(); // This is necessary for now because something is holding up the natural exit of the script
 
@@ -1262,7 +1243,7 @@ function preDownload(httpURL,fileToPlace){ // This function handles the pre-down
 }
 
 function testMatch(valToCheck) { // This function will be called on EVERY line the wrapper outputs to see if the line matches a known event or not.
-  // TODO: It would be much better to simply run the match, then forward for processing, rather than running a test and processing the matches against it.
+  // TODO: It might be better to simply return the match, then forward for processing, rather than running a test and processing the matches against it.
   // So really this should simply be replaced with a "getMatch" function which only returns the line if it matches
   
   // TODO:  There needs to be a separate check AND processing for the serverlog.0.log file, since there are some duplicates between the console.  This would also be faster.

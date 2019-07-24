@@ -10,6 +10,10 @@ StarMade-Starter.jar
 temp*
 */old/*
 *.old
-/mods/*
-!/mods/default/*/
+!mods/default/*
+!mods/default/*/*
+!mods/exampleMods/*
+!mods/exampleMods/*/*
+/mods/testMod
 /logs/*
+/bin/test.js

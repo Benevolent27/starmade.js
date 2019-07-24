@@ -14,6 +14,9 @@ ini
 objectHelper
 regExpHelper
 
+eventEmitter
+
+
 treeKill // https://www.npmjs.com/package/tree-kill To kill the server and any sub-processes
 prompt // https://www.npmjs.com/package/prompt-sync This creates sync prompts and can have auto-complete capabilties.  The sigint true part makes it so pressing CTRL + C sends the normal SIGINT to the parent javascript process
 Tail // https://github.com/lucagrulla/node-tail/blob/master/README.md For following the server log.  I forgot that the console output does NOT have everything.  This is NOT a perfect solution because whenever file rotation occurs, there is a 1 second gap in coverage.  Argh.

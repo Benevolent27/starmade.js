@@ -2,7 +2,7 @@
 // This script assists with creating all custom object types used by the wrapper.
 
 module.exports={ // Always put module.exports at the top so circular dependencies work correctly.
-  init, // This is needed so objects can send text directly to the server
+  // init, // This is needed so objects can send text directly to the server
   BluePrintObj,
   BotObj,
   ChannelObj,
@@ -71,6 +71,12 @@ const {copyArray,toNumIfPossible,subArrayFromAnother,findSameFromTwoArrays,isInA
 const {testIfInput,trueOrFalse,isTrueOrFalse,isNum,colorize,getObjType,returnLineMatch} = objectHelper;
 const {isTrue,isFalse,getOption}=objectHelper;
 const toNum                 = objectHelper.toNumIfPossible;
+
+// Set up aliases from the global variable
+var server=global["serverSpawn"];
+console.log("### OBJECT CREATOR - SET SERVER VARIABLE");
+
+
 
 // Set up prototypes for constructors, such as replacing .toString() functionality with a default value.  Prototypes will not appear as a regular key.
 SectorObj.prototype.toString = function(){ return this.coords.toString() };
@@ -360,18 +366,20 @@ function showResponseCallback(error,output){ // This is a helper function for te
 }
 
 // TESTING END
-var server;  // This is needed so objects can send text to the server directly.  I may add the global object to this as well.
-var global;
 
-function init(theServer,theGlobal) {
-  server=theServer; // This is the spawn childprocess.
-  global=theGlobal;
-}
+// The following is outdated since I'm using the global object for javascript instead of passing along the info.
+// var server;  // This is needed so objects can send text to the server directly.  I may add the global object to this as well.
+// var global;
+
+// function init(theServer,theGlobal) {
+//   server=theServer; // This is the spawn childprocess.
+//   global=theGlobal;
+// }
+
 function ServerObj(){ // This will be used to run server commands or gather specific information regarding the server.
   this.onlinePlayers=getPlayerList;
   this.spawnProcess=server;
-}
-
+};
 function BotObj(botName){
   if (typeof botName == "string"){
     this.name=botName;
@@ -387,8 +395,7 @@ function BotObj(botName){
   } else {
     throw new Error("Invalid botName given to BotObj!");
   }
-}
-
+};
 function ServerSpawnObj(configurationName,lockFileObj){ // I am discontinuing this idea and focusing on making starmade.js a single-server wrapper to start with. // TODO: Remove this object
   // configurationName is the name of the server from the settings.json file under the section "servers".
   // All configuration values specific to that name will be created if they don't exist alrady.
@@ -433,8 +440,7 @@ function ServerSpawnObj(configurationName,lockFileObj){ // I am discontinuing th
   // The last thing we do is spawn the StarMade instance
   this.spawn=spawn("java",this.javaArgs,{"cwd": this.settings["starMadeInstallFolder"]});
   // Register the spawn with the lock file and set up exit events.
-}
-
+};
 function MessageObj(sender,receiver,receiverType,message){
   // Takes string values and converts to strings or objects of the correct types
   this.sender=new PlayerObj(sender); // This should ALWAYS be a player sending a message
@@ -450,7 +456,7 @@ function MessageObj(sender,receiver,receiverType,message){
     console.error("ERROR: Unknown Receiever type for message! Set receiver and type as string! " + receiverType);
   }
   this.text=message;
-}
+};
 function ChannelObj(channelName){
   var factionTest=new RegExp("^Faction-{0,1}[0-9]+");
   if (channelName == "all"){
@@ -469,8 +475,7 @@ function ChannelObj(channelName){
     this.type="named";
   }
   this.name=channelName;
-}
-
+};
 function IPObj(ipAddressString,date,options){
   // Example:  var myIPObj = new IpObj("192.0.0.100",Date.now());
   // ipAddressString should look something like "7.7.7.7"
@@ -496,7 +501,7 @@ function IPObj(ipAddressString,date,options){
 
   // Optional:
   // crawl(Num) - reveals all players who share the same IP.  If a Num is provided, then will crawl that level deep, gathering more IP's and ipcrawling those.
-}
+};
 function SMName(smName){
   this.name=smName;
   // TODO: Add Info methods:
@@ -507,8 +512,7 @@ function SMName(smName){
 
   // Using SQL queries:
   // getNames - Returns an array of PlayerObj's for all the usernames associated with this registry account name
-}
-
+};
 function runSimpleCommand(theCommand,options){
   // This is used for PlayerObj methods that can be sent to either the console or using StarNet
   if (theCommand){
@@ -541,8 +545,7 @@ function runSimpleCommand(theCommand,options){
     }
   }
   return false;
-}
-
+};
 function PlayerObj(player){ // "Player" must be a string and can be just the player's nickname or their full UID
   if (player){
     var playerName=player.toString().trim(); // This allows the player input to be another PlayerObj
@@ -2013,9 +2016,7 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
   } else {
     throw new Error("ERROR: No playername provided to playerObj constructor!");
   }
-}
-
-
+};
 function SystemObj(x,y,z){
   this.coords=new CoordsObj(x,y,z);
   // TODO: Add Info methods:
@@ -2033,7 +2034,7 @@ function SystemObj(x,y,z){
     }
     this.extraInfo=extraInfoArray;
   }
-}
+};
 function SpawnObj(playerName,date){ // date is optional.  Current time is used if not provided.
   var possibleDate;
   if (typeof date == "undefined"){ // We're using typeof because we don't want to do a truthy assessment
@@ -2047,7 +2048,7 @@ function SpawnObj(playerName,date){ // date is optional.  Current time is used i
   if (possibleDate){ this.date = possibleDate } // If date information is given, but it is invalid, it will NOT be included in this object.
   this.player=new PlayerObj(playerName);
   // Right now there really are no console commands for spawn mechanics, but a separate object is used here in case there are in the future.
-}
+};
 function BluePrintObj(bluePrintName){
   this.name=bluePrintName;
   // Info Methods to add:
@@ -2191,7 +2192,7 @@ function BluePrintObj(bluePrintName){
   // PARAMETERS: blueprintname(String), playername(String)
   // EXAMPLE: /blueprint_set_owner my_ship schema
 
-}
+};
 function FactionObj(factionNumber){
   this.number=factionNumber;
   // TODO: Add Info methods:
@@ -2220,7 +2221,7 @@ function FactionObj(factionNumber){
   //Optional:
   // duplicate(Num) - This will create duplicate new open factions with fake names as the leaders with the same name as this faction (uses /faction_create_amount [Name] [Number])
   // serverMessage(MessageString,info/warning/error) - Sends a message to all online players of this faction.  If no method is specified "plain" is used, which shows up on the player's main chat.
-}
+};
 function LocationObj(sectorObj,coordsObj){ // This is to store an exact location, including system, sector, and spacial coordinates.
   // this.system=sectorObj.getSystem();
   if (sectorObj instanceof SectorObj){
@@ -2237,8 +2238,7 @@ function LocationObj(sectorObj,coordsObj){ // This is to store an exact location
   } else {
     this.spacial=new CoordsObj(coordsObj); // This will throw an error if invalid input
   }
-}
-
+};
 function SectorObj(xGiven,yGiven,zGiven){
   // TODO: Add Info methods:
   // getSystem - Returns a SystemObj
@@ -2293,31 +2293,31 @@ function SectorObj(xGiven,yGiven,zGiven){
         console.error("Error setting one of the chmod values for " + this.coords + " with values for chmod number, " + newNum + "!");
       }
       return chmodResults;
-    }
+    };
     this.listEntityUIDs=function(filter,options){
       return returnEntityUIDList(this.coords.toString(),filter,options);
-    }
+    };
     this.listShipUIDs=function(){
       return returnEntityUIDList(this.coords.toString(),"ENTITY_SHIP_");
-    }
+    };
     this.listStationUIDs=function(){
       return returnEntityUIDList(this.coords.toString(),"ENTITY_SPACESTATION_");
-    }
+    };
     this.listShopUIDs=function(){
       return returnEntityUIDList(this.coords.toString(),"ENTITY_SHOP_");
-    }
+    };
     this.listCreatureUIDs=function(){
       return returnEntityUIDList(this.coords.toString(),"ENTITY_CREATURE_");
-    }
+    };
     this.listAsteroidUIDs=function(){
       return returnEntityUIDList(this.coords.toString(),"(ENTITY_FLOATINGROCK_|ENTITY_FLOATINGROCKMANAGED_)");
-    }
+    };
     this.listPlanetUIDs=function(){
       return returnEntityUIDList(this.coords.toString(),"(ENTITY_PLANET_|ENTITY_PLANETCORE_)");
-    }
+    };
     this.listPlayerUIDs=function(){
       return returnEntityUIDList(this.coords.toString(),"(ENTITY_PLAYERCHARACTER_|ENTITY_PLAYERSTATE_)");
-    }
+    };
     this.entities=function(filter,options){
       // "filter" is optional, it should look something like this "(ENTITY_SHIP_|ENTITY_CREATURE_)".  This will return all ships and creatures.
       // "options" are simply forwarded to the listEntityUIDs method and are also optional
@@ -2336,7 +2336,7 @@ function SectorObj(xGiven,yGiven,zGiven){
         }
       }
       return returnArray;
-    }
+    };
     this.ships=function(){
       var returnArray=[];
       var uidArray=this.listShipUIDs();
@@ -2346,7 +2346,7 @@ function SectorObj(xGiven,yGiven,zGiven){
         }
       }
       return returnArray;
-    }
+    };
     this.stations=function(){
       var returnArray=[];
       var uidArray=this.listStationUIDs();
@@ -2356,7 +2356,7 @@ function SectorObj(xGiven,yGiven,zGiven){
         }
       }
       return returnArray;
-    }
+    };
     this.shops=function(){
       var returnArray=[];
       var uidArray=this.listShopUIDs();
@@ -2366,7 +2366,7 @@ function SectorObj(xGiven,yGiven,zGiven){
         }
       }
       return returnArray;
-    }
+    };
     this.creatures=function(){ // This includes NPC's, spiders, hoppies, or custom creations
       var returnArray=[];
       var uidArray=this.listCreatureUIDs();
@@ -2376,7 +2376,7 @@ function SectorObj(xGiven,yGiven,zGiven){
         }
       }
       return returnArray;
-    }
+    };
     this.asteroids=function(){ // TODO: Consider creating an AsteroidObj as opposed to entity if there are commands that won't work correctly with them
       var returnArray=[];
       var uidArray=this.listAsteroidUIDs();
@@ -2386,7 +2386,7 @@ function SectorObj(xGiven,yGiven,zGiven){
         }
       }
       return returnArray;
-    }
+    };
     this.planets=function(){ // TODO: Consider creating an PlanetObj as opposed to entity if there are commands that won't work correctly with them
       var returnArray=[];
       var uidArray=this.listPlanetUIDs();
@@ -2396,7 +2396,7 @@ function SectorObj(xGiven,yGiven,zGiven){
         }
       }
       return returnArray;
-    }
+    };
     this.players=function(){ // I do not think this will actually work.
       var returnArray=[];
       var uidArray=this.listPlayerUIDs();
@@ -2406,9 +2406,7 @@ function SectorObj(xGiven,yGiven,zGiven){
         }
       }
       return returnArray;
-    }
-
-
+    };
     // This can be expanded to allow storing information, such as a description, if more than values than expected are given to the constructor
     if (arguments.length > SectorObj.length){
       var extraInfoArray=[];
@@ -2418,11 +2416,10 @@ function SectorObj(xGiven,yGiven,zGiven){
       this.extraInfo=extraInfoArray;
     }
     // this.toString=function(){ return this.coords.toString() }; // We don't want to set this here because then it shows up as a key.  Instead we set up the prototype at the top of the script.
-
   } else {
     throw new Error("ERROR: Invalid values given to SectorObj constructor!");
   }
-}
+};
 function CommandObj(command,theArguments,category,description,options){ // Expects string values
   // TODO: Create a process of registering a command through the global object.
   // TODO: Create an interpreter in starmade.js that detects commands and then only runs them if they are registered
@@ -2441,7 +2438,7 @@ function CommandObj(command,theArguments,category,description,options){ // Expec
   this.category=category;
   this.description=description;
   this.displayInHelp=displayInHelp;
-}
+};
 function CoordsObj(xInput,yInput,zInput){ // xInput can be a string or space or comma separated numbers, coordsObj, or a sectorObj
   // test to ensure string, array, CoordsObj, SectorObj, and regular numbers/strings(which are numbers) works.
   var x=objectHelper.toNumIfPossible(xInput);
@@ -2521,15 +2518,12 @@ function CoordsObj(xInput,yInput,zInput){ // xInput can be a string or space or 
     this.extraInfo=extraInfoArray;
   }
   // this.toString=function(){ return this.string };
-}
-
+};
 function CreatureObj(fullUID){ // TODO: create creature object
   console.log("Complete me plz.");
   this["UID"]=stripFullUIDtoUID(fullUID);
   this["fullUID"]=fullUID;
-}
-
-
+};
 function EntityObj(fullUID,shipName){
   // This builds an entity object based on the full UID
   // This can be used for ships and stations.  Please use PlanetObj for planets and AsteroidObj for asteroids.
@@ -2604,14 +2598,12 @@ function EntityObj(fullUID,shipName){
   } else {
     throw new Error("ERROR: No UID provided to EntityObj constructor!");
   }
-}
-
+};
 function RemoteServerObj(ip,domain,port){
   this.ip=new IPObj(ip);
   this.domain=domain;
   this.port=port;
-}
-
+};
 function LockFileObj(pathToLockFile){
   // Example uses:
   // new LockFileObj("myNewLockFile.lck")
@@ -2785,8 +2777,7 @@ function LockFileObj(pathToLockFile){
         this.deleteFile();
       }
   });
-}
-
+};
 // Array generators
 function getServerListArray(cb){ // This must be provided with a callback function that has standard error first handling.  Example:  cb(err,response)
   var fileURL="http://files-origin.star-made.org/serverlist"  // This is where the server list is currently.
@@ -2817,10 +2808,7 @@ function getServerListArray(cb){ // This must be provided with a callback functi
     });
   } catch (err){ return cb(err,rawData) }
   return request;
-}
-
-
-
+};
 // Support Functions
 
 function ipBan(ipAddress,minutes,options){ // minutes are optional.  A perm ban is applied if none provided. options are optional
@@ -2843,7 +2831,7 @@ function ipBan(ipAddress,minutes,options){ // minutes are optional.  A perm ban 
   } else {
     throw new Error("No ipAddress given to function, 'ipBan'!");
   }
-}
+};
 function ipUnBan(ipAddress,options){ // options are optional and should be an object.
   if (ipAddress){
     var ipToUse=ipAddress.toString(); // This allows ipObj's to be fed in, and this should translate to an ip string.
@@ -2852,7 +2840,7 @@ function ipUnBan(ipAddress,options){ // options are optional and should be an ob
   } else {
     throw new Error("No ipAddress given to function, 'ipUnBan'!");
   }
-}
+};
 function createDateObjIfPossible(input){ // Takes either a date string that "new Date" can turn into an object, passes along a Date object fed to it, or returns false if no new Date could be created.
   // This can be used to return a date object from some dates provided by StarMade directly, such as the ip dates returned by the /player_info command.
   if (typeof input != "undefined" && input != "" && getObjType(input) != "Null"){ // if an input is nulled out using null, it actually appears as an "object" to typeof
@@ -2872,7 +2860,7 @@ function createDateObjIfPossible(input){ // Takes either a date string that "new
     }
   }
   return false; // Returns false if no input given
-}
+};
 function getChmodNum(sectorObjArrayOrString){
   // This performs a sql query and returns the protections number for a sector as a number
   // Input can be a SectorObj,CoordsObj, Array of 3 numbers, or a string with a space or comma separating each value.  The preferred type is a SectorObj
@@ -2923,7 +2911,7 @@ function getChmodNum(sectorObjArrayOrString){
     throw new Error("ERROR: Invalid number of coordinates given to function, getChmodNum! Coordinates given: " + coordsToUse.length);
   }
   return toNum(returnNum);
-}
+};
 function decodeChmodNum(num){ // A number should be provided, but a number as a string should be coerced into a number.
   // This converts a chmod number value from a sql query to an array of strings, such as ["peace","protected","noindications"].  Values are always returned in an array, even if only a single protection is in the number.  A 0 number will return an empty array.
   var theNum=toNum(num);
@@ -2950,7 +2938,7 @@ function decodeChmodNum(num){ // A number should be provided, but a number as a 
   } else {
     throw new Error("ERROR: Invalid input given to function, decodeChmodNum!  Expected a number!");
   }
-}
+};
 function sectorSetChmod(coordsObj,stringOrArray){ // val can be a string or an array of strings
   // This can be used to set multiple chmod values at the same time
   // Simple example:  sectorSetChmod(mySectorObj,"+ protected"); // This sets the sector number from mySectorObj to add protected, returning true or false depending on the success.
@@ -2980,7 +2968,7 @@ function sectorSetChmod(coordsObj,stringOrArray){ // val can be a string or an a
   } else {
     return new Error("Invalid sector chmod value given!");
   }
-}
+};
 function sectorSetChmodNum(coordsOrSectorObj,newChmodNum,options){ // Options are optional.
   // There are two strategies we can use here:
   // 1. We can do a force save, pulling the existing values for the sector and only add or remove the ones needed.  This way will display an annoying auto-save popup for everyone everytime it runs, but will be slightly faster.
@@ -3015,7 +3003,7 @@ function sectorSetChmodNum(coordsOrSectorObj,newChmodNum,options){ // Options ar
   } else {
     return [true]; // Since no changes were needed, we can just return an array with a single true value to indicate success
   }
-}
+};
 function getChmodArrayFromNum(newChmodNum){ // This outputs the chmod values for a chmod number as an array, including values it should have and subtracting values it should NOT have
   // Example: [ "+ protected","+ peace","- nofploss","- noindications","- noexit","- noenter" ]
   // This kind of array can be fed directly to the sectorSetChmod function.
@@ -3029,7 +3017,7 @@ function getChmodArrayFromNum(newChmodNum){ // This outputs the chmod values for
     outputArray.push("- " + chmodValuesToRemove[e]);
   }
   return outputArray;
-}
+};
 function getProtectionsDifferentialString(currentProtectNum,newProtectNum){ // The current sector protection number and what the new number should be
   // Returns an array of strings to set and remove needed chmod values based on what the end result should be.
   var currentProtection=decodeChmodNum(currentProtectNum);
@@ -3045,11 +3033,11 @@ function getProtectionsDifferentialString(currentProtectNum,newProtectNum){ // T
     outputArray.push("- " + whatItNeedsRemoved[i]);
   }
   return outputArray; // An array of strings, ready for chmodding
-}
+};
 function getInverseProtectionsArrayFromNum(num){
     var array=decodeChmodNum(num);
     return getInverseProtectionsArrayFromArray(array);
-}
+};
 function getInverseProtectionsArrayFromArray(arrayToInvert,baseProtectionsArray){ // baseProtectionsArray is optional.  This is used to whittle down based on pre-existing protections, scheduling for removal.
   var arrayToUse=[];
   if (baseProtectionsArray){
@@ -3058,8 +3046,7 @@ function getInverseProtectionsArrayFromArray(arrayToInvert,baseProtectionsArray)
     arrayToUse=copyArray(regExpHelper.sectorProtections);
   }
   return subArrayFromAnother(arrayToInvert,arrayToUse);
-}
-
+};
 function returnEntityUIDList(coordsString,beginFilter,options){
   // TODO: Test to ensure the options for filtering work
   // Example: returnEntityUIDList("2 2 2")
@@ -3212,8 +3199,7 @@ function returnEntityUIDList(coordsString,beginFilter,options){
     }
   }
   return null;
-}
-
+};
 function isPlayerOnline(name){ // Expects a string.  Returns true if the player is online, false if not.
   // TODO:  Add support for PlayerObj as input.
   var results=getPlayerList(); // This will be an array of player objects for all online players.  Will be empty if nobody online.
@@ -3227,8 +3213,7 @@ function isPlayerOnline(name){ // Expects a string.  Returns true if the player 
   }
   // This only happens if there is a connection error when attempting to get the player list.  This is to conform with the standard used elsewhere.
   throw new Error("Connection failed when attempting to obtain player list in isPlayerOnline");
-}
-
+};
 function getPlayerList(){ // Returns an array of player objects for all online players or false if the starNet command fails.
   // returns an array of all online players.  The array will be empty if nobody is online.
   try {
@@ -3247,13 +3232,13 @@ function getPlayerList(){ // Returns an array of player objects for all online p
     console.error("StarNet command failed when attempting to getPlayerList()!");
     return false;
   }
-}
-
+};
 function sendDirectToServer(input){ // Expects a string input, returning "false" if the input wasn't valid.  This sends a command directly to the console with a return character.
   if (testIfInput(input)){
-    return server.stdin.write(input + "\n");
+    // return global.serverSpawn.stdin.write(input + "\n");
+    return global.serverSpawn.stdin.write(input + "\n");
   }
   return false;
-}
+};
 // TODO: Create a function that gives a specific protection a value based on the sectorProtections array.
 // TODO: Create a function that converts an array of protection names to a total number
