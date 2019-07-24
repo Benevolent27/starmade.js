@@ -4,8 +4,21 @@ var {event,eventEmitter,commands,objectHelper,settings}=global;
 var {isInArray}=objectHelper;
 
 
-
-
+function regCommand(myCommandObj){ // This is used by mods to register a command object, which is later used by !help and to trigger command events.
+    // Example of a commandObj:
+    // {
+    //   "name":"home",
+    //   "category":"General",
+    //   "adminOnly":true/fase // optional
+    // }
+    // TODO: allow "adminOnly":true/false
+    // TODO: allow "playersAuthorized":["Array","of","playernames"]
+    var myCommandName=myCommandObj.name.toLowerCase();
+    commands[myCommandName]=myCommandObj;
+    console.log("Registered new command: " + myCommandName);
+    console.dir(myCommandObj);
+}
+global["regCommand"]=regCommand;
 
 
 event.on('message', function(messageObj) { // Handle messages sent from players
