@@ -22,7 +22,8 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   SystemObj,
   RemoteServer: RemoteServerObj,
   isPlayerOnline,
-  getPlayerList
+  getPlayerList,
+  getAdminsList
 }
 
 // Requires
@@ -376,14 +377,15 @@ function showResponseCallback(error,output){ // This is a helper function for te
 //   global=theGlobal;
 // }
 
-function ServerObj(){ // This will be used to run server commands or gather specific information regarding the server.
+function ServerObj(spawn){ // This will be used to run server commands or gather specific information regarding the server.
   this.onlinePlayers=getPlayerList;
-  this.spawnProcess=server;
+  this.spawn=spawn;
+  this.getAdmins=function(options){ return getAdminsList(options) };
 };
 function BotObj(botName){
   if (typeof botName == "string"){
     this.name=botName;
-    this.msg=function(player,msgString,options){
+    this.msg=function(player,msgString,options){ // TODO: Change this so the msgType must be specified in the options
       // This expects a player object OR a string with a player's name, then the message to send.
       if (typeof msgString == "string"){
         var thePlayer=new PlayerObj(player); // This creates a new playerObj with the playername string or PlayerObj
@@ -551,9 +553,10 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
     var playerName=player.toString().trim(); // This allows the player input to be another PlayerObj
     // var playerName=player.replace(/^ENTITY_PLAYERCHARACTER_/,"").replace(/^ENTITY_PLAYERSTATE_/,""); // strip the UID
     this.name=playerName.replace(/^ENTITY_PLAYERCHARACTER_/,"").replace(/^ENTITY_PLAYERSTATE_/,""); // strip the UID
-    this.msg=function (message,type,options){ // Sends a message to the player.  Type is optional.  If not provided "plain" is used.
-      var msgType="plain";
-      msgType=getOption(options,"type",msgType); // This does not throw an error if invalid options are specified.
+    this.msg=function (message,type,options){ // TODO: Change this so the msgType must be specified in the options
+      // Sends a message to the player.  Type is optional.  If not provided "plain" is used.
+      var msgType=getOption(options,"type","plain"); // This does not throw an error if invalid options are specified.
+      // console.log("#### MsgType set to: " + msgType);
       return runSimpleCommand("/server_message_to " + msgType + " " + this.name + "'" + message.toString().trim() + "'",options);
     }
     this.botMsg=function (message,options){ // Sends a plain message to the player with the bot's name.
@@ -574,57 +577,7 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
         }
       }
       return global.bot.msg(this.name,messageToSend,options); // This should throw an error if there is a problem connecting to the server
-      // return runSimpleCommand("/server_message_to " + msgType + " " + this.name + "'" + message.toString().trim() + "'",options);
     }
-
-    
-
-    this.msg2=function (message,type,options){ // Sends a message to the player.  Type is optional.  If not provided "plain" is used.
-      // options for type are:  plain, info, warning, and error.
-      // plain shows as a message in the main chat
-      // info shows as a green pop-up
-      // warning shows as a blue pop-up
-      // error shows as a red pop-up
-      var fast=false;
-      if (options){
-        if (typeof options == "object"){
-          if (options.hasOwnProperty("fast")){
-            if (trueOrFalse(options.fast) == true){
-              fast=true;
-            } else {
-              console.error("Invalid input given to playerObj.msg for options: " + options.toString());
-            }
-          }
-        } else if (options) {
-          console.error("Invalid input given to playerObj.msg for options: " + options.toString());
-        }
-      }
-      var msgType="plain";
-      if (typeof type=="string"){
-        if (type != ""){
-          msgType=type; // This does not validate the message type, in case new message types in the future are released.
-        }
-      }
-      if (testIfInput(message)){
-        var theCommand="/server_message_to " + msgType + " " + this.name + "'" + message.toString().trim() + "'";
-        if (fast==true){
-          return sendDirectToServer(theCommand);
-        } else {
-          var msgResult=starNetHelper.starNetVerified(theCommand); // This will throw an error if the connection to the server fails.
-          // RETURN: [SERVER, [ADMIN COMMAND] [ERROR] player Benevolent27 not online, 0] // This is returned if it fails
-          // RETURN: [SERVER, END; Admin command execution ended, 0] // Only this is returned if it succeeded
-          var msgTestFail=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] \\[ERROR\\]");
-          if (starNetHelper.checkForLine(msgResult,msgTestFail)){ // The player was offline or did not exist.
-            return false;
-          } else { // The command appears to have succeeded.
-            return true;
-          }
-        }
-      }
-      return false;
-    }
-
-
     this.creativeMode=function (input,options){ // expects true or false as either boolean or string
       if (isTrueOrFalse(input)){
         return runSimpleCommand("/creative_mode " + this.name + " " + input,options);
@@ -1180,6 +1133,15 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       return false; // The input was invalid, so return false.
     }
     this.isOnline=function(){ return isPlayerOnline(this.name) }; // Conforms to the standard of throwing an error on connection error, but gives false if player is offline.  There is no error for a failure of command since this should never happen.
+    this.isAdmin=function (options){
+      let adminList=getAdminsList(options);
+      for (let i=0;i<adminList.length;i++){
+        if (this.name.toLowerCase() == adminList[i].toString()){
+          return true;
+        }
+      }
+      return false;
+    }
     this.spawnLocation=function(){ // Returns a LocationObj of the player's spawn coordinates, but can only be successful if the player is online.  Will return false if offline.
       try {
         var result=starNetHelper.starNetVerified("/player_get_spawn " + this.name);
@@ -1895,6 +1857,7 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
     // player_unprotect() - opposite of above - WARNING:  This will allow anyone to log in under this name in the future!
 
     // Phase 2 - Done
+    // isAdmin() - uses /list_admins OR reads from the admins.txt file to determine is a player is an admin.  {"fast":true/false,"unrestricted":true/false}
     // botMsg("message")
     // inventory({options}) -- Working, but problematic.  See notes.
     // ips(options) - returns an array of IPObj's with all unique IP's, as returned by /player_info.  Also sets the "date" function for each one.  'options' can be an object with "unique" set to false if you want all ip's with their associated dates, otherwise the default is to return only unique ip's.
@@ -1999,7 +1962,6 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
     // /faction_set_id_member <-- this is buggy and might not be adviseable to utilize.
     // /faction_join_id Player FactionID
     // /faction_del_member Player FactionID
-    // isAdmin() - use /list_admins to determine is a player is an admin
     // /list_blueprints_by_owner and/or /list_blueprints_by_owner_verbose
     // /list_whitelist_name - See if whitelisted.  Could be useful to do a check of online players to see if everyone is whitelisted.
     // /list_banned_name - See if banned.  Could be useful if banned but not kicked yet.
@@ -2778,6 +2740,8 @@ function LockFileObj(pathToLockFile){
       }
   });
 };
+
+
 // Array generators
 function getServerListArray(cb){ // This must be provided with a callback function that has standard error first handling.  Example:  cb(err,response)
   var fileURL="http://files-origin.star-made.org/serverlist"  // This is where the server list is currently.
@@ -2809,6 +2773,8 @@ function getServerListArray(cb){ // This must be provided with a callback functi
   } catch (err){ return cb(err,rawData) }
   return request;
 };
+
+
 // Support Functions
 
 function ipBan(ipAddress,minutes,options){ // minutes are optional.  A perm ban is applied if none provided. options are optional
@@ -3233,6 +3199,63 @@ function getPlayerList(){ // Returns an array of player objects for all online p
     return false;
   }
 };
+
+
+function getAdminsList(options){ // Returns an array of PlayerObj, will be an empty array if no admins returned
+  // Note: ALWAYS RETURNS NAMES IN LOWERCASE
+  // example:
+  // RETURN: [SERVER, Admins: {thrace_vega=>thrace_vega, andyp=>andyp, weedle=>weedle, modr4de=>modr4de, melvin=>melvin, build_lonebluewolf=>build_lonebluewolf, arkwulff=>arkwulff, dukeofrealms=>dukeofrealms, borednl=>borednl, mod_lonebluewolf=>mod_lonebluewolf, mod_caribe=>mod_caribe, benevolent27=>benevolent27, pezz=>pezz, lancake=>lancake, nikodaemos=>nikodaemos, char_aznable=>char_aznable, mod_flagitious=>mod_flagitious, arbiter=>arbiter, benevolent37=>benevolent37, nastral=>nastral, benevolent327=>benevolent327}, 0]
+  // returns an array of admins.  The array will be empty if there are no admins.
+  // options can be {"fast":true}, which will cause this scripting to read from the admins.txt file in the StarMade folder rather than run the command.
+  // another option can be {"unrestricted":true}, which will only return admins that have no restrictions - note that this forces reading from the admins.txt file.
+  let unrestricted=trueOrFalse(getOption(options,"unrestricted",false));
+  let fast=trueOrFalse(getOption(options,"fast",false));
+  if (unrestricted){
+    fast=true;
+  }
+
+  var processArray=[];
+  if (fast===true){ // TODO:  Test this
+    let adminsTxtFile=path.join(global.starMadeInstallFolder,"admins.txt");
+    let adminFileContents=fs.readFileSync(adminsTxtFile,"UTF-8").replace(/\r/g,"");
+    var adminFileContentsArray=[];
+    if (adminFileContents){
+      adminFileContentsArray=adminFileContents.split("\n");
+      for (let i=0;i<adminFileContentsArray.length;i++){
+        if (adminFileContentsArray[i].trim()){ // Test to see if the line is blank or not.  Only process it if there is text.
+          if (unrestricted){ // Only add the playerObj if it is an unrestricted admin
+            if (!(/#.*$/).test(adminFileContentsArray[i])){
+              processArray.push(new PlayerObj(adminFileContentsArray[i].replace(/#.*$/g,"").trim()));
+            }
+          } else {
+            processArray.push(new PlayerObj(adminFileContentsArray[i].replace(/#.*$/g,"").trim()));
+          }
+        }
+      }
+    }
+  } else {
+    try {
+      let result=starNetHelper.starNetVerified("/list_admins");
+      // console.log("Results:" + result);
+      let theReg=new RegExp("^RETURN: \\[SERVER, Admins: {.*");
+      let processLine=returnLineMatch(result,theReg,/^RETURN: \[SERVER, Admins: {/,/}, 0\]$/);
+      // console.log("processLine:" + processLine);
+      processArray=processLine.split(", ");
+      // console.log("### BEFORE");
+      // console.dir(processArray);
+      for (let i=0;i<processArray.length;i++){
+        processArray[i]=new PlayerObj(processArray[i].split("=>")[0]);
+      }
+    } catch (error){
+      throw new Error("StarNet command failed when attempting to getAdmins()!");
+    }
+    // console.log("### AFTER");
+    // console.dir(processArray);
+  }
+  return processArray;
+  // return false;
+};
+
 function sendDirectToServer(input){ // Expects a string input, returning "false" if the input wasn't valid.  This sends a command directly to the console with a return character.
   if (testIfInput(input)){
     // return global.serverSpawn.stdin.write(input + "\n");
