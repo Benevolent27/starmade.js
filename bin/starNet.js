@@ -65,9 +65,6 @@ function getSuperAdminPassword(){ // We're using a latch variable setter and ret
   }
   return "";
 }
-
-
-
 module.debug=false;
 
 if (__filename == require.main.filename){ // Only run the arguments IF this script is being run by itself and NOT as a require.
