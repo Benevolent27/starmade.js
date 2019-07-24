@@ -32,7 +32,6 @@
 // Provided a NPM package seems stable enough, we can use them to expand the functionality of our scripting and decrease production time.  Care must be taken to ensure that performance isn't decreased significantly though.  -- NO GHETTO PACKAGES PLZ
 
 
-
 // ######################
 // ###   EXIT CODES   ###
 // ######################
@@ -46,14 +45,14 @@
 // ############################
 const http   = require('http');
 const fs     = require('fs');
-const events = require('events');
+global["events"]=require('events');
 const spawn  = require('child_process').spawn;
 const path   = require('path'); // This is needed to build file and directory paths that will work in windows or linux or macosx.  For example, The / character is used in linu, but windows uses \ characters.  Windows also uses hard drive characters, wherease linux has mount points.  For example, in linux a path looks like "/path/to/somewhere", but in windows it looks like "c:\path\to\somewhere".  The path module takes care of this for us to build the path correctly.
 // const stream   = require('stream'); // For creating streams.  Not used right now but may be later.
 
 // ### Main Vars ### - Don't change these
 console.log("Setting main vars..");
-var global={ }; // This will be used to pass variables to mods to be readily available
+// var global={ }; // This will be used to pass variables to mods to be readily available
 var commands={ };
 var mainFolder      = path.dirname(require.main.filename); // This is where the starmade.js is.  I use this method instead of __filename because starmade.js might load itself or be started from another script
 var binFolder       = path.join(mainFolder,"bin");
@@ -146,7 +145,8 @@ global["exitHook"]=exitHook;
 
 
 // ### Set up submodules and aliases from requires.
-var eventEmitter      = new events.EventEmitter(); // This is for custom events
+var eventEmitter      = new global.events.EventEmitter(); // This is for custom events
+global["event"]=eventEmitter; // temp
 global["eventEmitter"]=eventEmitter;
 var isPidAlive        = miscHelpers.isPidAlive;
 var {isDirectory,getDirectories,isFile,getFiles,log}=miscHelpers;  // Sets up file handling
@@ -443,145 +443,15 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   console.log("Starting server..");
 
   // #####  PLAYER MESSAGES  #####  TODO:  Remove this section since the modloader is working now.
+
+  // temp:  This has been disabled by renaming the event it listens for from 'message' to 'message2'.  It should be handled by a default mod now.
   eventEmitter.on('message', function(messageObj) { // Handle messages sent from players
     // Expects message to be a message type object
     console.log("Message (type: " + messageObj.type +") DETECTED from " + messageObj.sender.name + " to " + messageObj.receiver.name + ": " + messageObj.text);
 
-    // Here we will need to see if the "commands" object has the command.
-    
-    if (messageObj.text[0] == settings["commandOperator"]){ // Process any commands, whether valid or not.
-      // TODO:  Add admin only commands and commands that will only be given to specific players.
-      var textArray=messageObj.text.split(" ");
-      var theCommand=textArray.shift().replace(settings["commandOperator"],""); // This only replaces the first instance
-      if (objectHelper.testIfInput(theCommand)){ // This will exclude any empty values.  For example, typing ! by itself.
-        var lowerCaseCommand=theCommand.toLowerCase();
-        if (commands.hasOwnProperty(lowerCaseCommand)){ // If it is a valid command, it will have been registered.
-          // Note:  the default "help" command can be replaced by a mod if desired.
-          eventEmitter.emit('command',messageObj.sender,lowerCaseCommand,textArray,messageObj);
-          console.log("'command' event emitted!"); // temp
-        } else if (lowerCaseCommand=="help"){ // This only fires if a mod hasn't replaced the default help.
-          // If an argument is given, run the command with help, which is the same as "!command help"
-          if (objectHelper.testIfInput(textArray[0])){
-            var subCommand=textArray[0];
-            var lowerCaseSubCommand=textArray[0].replace(settings["commandOperator"],"").toLowerCase();
-            if (commands.hasOwnProperty(lowerCaseSubCommand)){
-              textArray.unshift("help");
-              eventEmitter.emit('command',messageObj.sender,lowerCaseSubCommand,textArray,messageObj); // The messageObj is unchanged, so a mod can detect if it was ran with the !help command or "!command help" if needed for some reason.
-              // This expects the mod to handle any help request. If it doesn't process the help request, this is the mod creator's fault.  This cannot verify help exists for the command.
-            } else {
-              messageObj.sender.botMsg("ERROR:  \"" + subCommand + "\" is not a valid command, so there is no help for it!");
-              messageObj.sender.botMsg("To view a list of wrapper commands, type: !help");
-            }
-          } else {
-            // If no arguments are given, then display all the commands in an orderly way
-            // First we need to build the values needed to display
-            var commandCategories={};
-            var theCategory="";
-            for (var property in commands) {
-              if (commands.hasOwnProperty(property)) {
-                // This enumerates through all commands to get a list of unique categories
-
-                if (commands[property].hasOwnProperty("category")){
-                  if (objectHelper.testIfInput(commands[property].category)){
-                    if (typeof commands[property].category == "string"){
-                      theCategory=commands[property].category;
-                    }
-                  }
-                }
-                if (!objectHelper.testIfInput(theCategory)){ // If no category listed, give it the default
-                  theCategory="General";
-                }
-                // isInArray, // Checks an array for a value.  Usage:  isInArray(inputArray,ValueToCompare)
-                if (!commandCategories.hasOwnProperty(theCategory)){ // If the commandCategories doesn't have the array for the unique category yet, create it.
-                  commandCategories[theCategory]=[];
-                }
-                commandCategories[theCategory].push(commands[property].name);
-                theCategory=""; // Reset the category
-              }
-            }
-            // commandCategories should now be an object that contains all the unique categories with arrays for each command in that category
-            console.dir(commandCategories); // temp
-
-            var maxLineCount=60; // This is the max size a line can be before command spill out to the next line.
-            // var commandSpacerNum=2;
-            // var commandSpacer=repeatString(" ",commandSpacerNum);
-            var commandSpacer="  /  ";
-            var commandSpacerNum=commandSpacer.length;
-            var theArrayToWorkOn=[];
-            var tempArrayOfStrings=[];
-            var tempArrayOfStringsCounter=0;
-            var theCommandTemp="";
-            for (var theCategoryFromArray in commandCategories) { // This cycles through all the unique command categories
-              if (commandCategories.hasOwnProperty(theCategoryFromArray)) {
-                // We need to rebuild the arrays to a max length
-                theArrayToWorkOn=commandCategories[theCategoryFromArray];
-                for (let i=0;i<theArrayToWorkOn.length;i++){ // Cycle through the array of commands for the category
-                  theCommandTemp=theArrayToWorkOn[i];
-                  if (tempArrayOfStrings[tempArrayOfStringsCounter]){ 
-                    // it has been created, so see if adding the command would put it over the top, and if so, add to the next array
-                    if (tempArrayOfStrings[tempArrayOfStringsCounter].length + commandSpacerNum + theArrayToWorkOn[i].length <= maxLineCount){
-                      tempArrayOfStrings[tempArrayOfStringsCounter]+=commandSpacer + theArrayToWorkOn[i]; // This adds to the array entry string
-                    } else {
-                      tempArrayOfStringsCounter++
-                      tempArrayOfStrings.push(theCommandTemp); // This creates a new array entry
-                    }
-                  } else {
-                    // The split array hasn't been created yet, so just add the command to it
-                    tempArrayOfStrings.push(theCommandTemp);
-                  }
-                }
-                // We should now have a new array of strings chopped to the desired length
-                commandCategories[theCategoryFromArray]=tempArrayOfStrings;
-                tempArrayOfStrings=[];
-                tempArrayOfStringsCounter=0;
-              }
-            }
-            // The commandCategories object should now be rebuilt so each category has arrays of strings that can be provided to the player
-            console.dir(commandCategories); // temp
-            // Assuming there are categories, we need to cycle through the categories again, only displaying them once per player and adding filler to lines that do not contain the category
-            // If there are no categories, then the bot should just state there are no commands presently on the server.
-            var theFinalArray=[];
-            var categoriesListed=[];
-            messageObj.sender.botMsg("I can perform the following commands:","",{"fast":true});
-            for (var finalCategory in commandCategories) {
-              if (commandCategories.hasOwnProperty(finalCategory)) {
-                theFinalArray=commandCategories[finalCategory];
-                for (let i=0;i<theFinalArray.length;i++){
-                  if (!isInArray(categoriesListed,finalCategory)){
-                    // messageObj.sender.msg("- " + repeatString(" ",finalCategory.length * 2) + spacerAfterCategory + theFinalArray[i],{"fast":true});
-                  // } else {
-                    // messageObj.sender.msg("- [ " + finalCategory + " ]:" + spacerAfterCategory + theFinalArray[i],{"fast":true});
-                    messageObj.sender.msg(" ","",{"fast":true});
-                    messageObj.sender.msg("-- " + finalCategory + " --","",{"fast":true});
-                    categoriesListed.push(finalCategory);
-                  }
-                  messageObj.sender.msg("  " + theFinalArray[i],"",{"fast":true});
-                }
-              }
-            }
-            messageObj.sender.msg(" ","",{"fast":true});
-            messageObj.sender.msg("To use a command, type " + settings["commandOperator"] + " + the command.","",{"fast":true});
-            messageObj.sender.msg("For help on a command, type !help [command]","",{"fast":true});
-          }
-          console.log("Help command finished.");
-        } else {
-          messageObj.sender.msg("ERROR:  " + theCommand + " is not a valid command!","",{"fast":true});
-          messageObj.sender.msg("To view a list of wrapper commands, type: !help","",{"fast":true});
-        }
-      }
-    }
-
-    if (messageObj.text == settings["commandOperator"] + "command" ){
-      console.log("!command found bitches!");
-      let mMessage="/server_message_to plain " + messageObj.sender.name + " 'Melvin: What the fack do you want?'";
-      server.stdin.write(mMessage.toString().trim() + "\n");
-      // server.stdin.end();
-    }
   });
   eventEmitter.on('playerSpawn', function(playerSpawn) {
     console.log("playerSpawn detected.");
-    let mMessage="/server_message_to plain " + playerSpawn.name + " 'Melvin: Well hello there, " + playerSpawn.name + "!  Thanks for spawning in!'";
-    server.stdin.write(mMessage.toString().trim() + "\n");
   });
   eventEmitter.on('shipSpawn', function(shipSpawn) {
     console.log("shipSpawn detected.");
