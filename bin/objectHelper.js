@@ -13,10 +13,12 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   addNumToErrorObj, // This adds an errno element to an error object equal to the number specified.
   copyArray, // This copies an array rather than linking a value to the same array.
   copyObj,
+  isAlphaNumeric,
   isArrayAllEqualTo, // Compares all values in an array to a single value.  This is used to process arrays of true/false values, where each value indicates a success or failure of an individual operation.
   isInArray, // Checks an array for a value.  Usage:  isInArray(inputArray,ValueToCompare)
   subArrayFromAnother, // Subtracts any values that exist in one array from another.
-  findSameFromTwoArrays, // Finds whatever values exist in both arrays
+  findSameFromTwoArrays,  // Finds whatever values exist in both arrays
+  getOption, // Processes options given to objects {"whatever":true}.  getOption(input,elementToLookFor,whatToUseIfNotFound)
   isObjHasPropAndEquals, // Checks if input is an object, has a property, and that property strictly equals a value
   objHasPropAndEquals, // For when you have many property checks and you've already ensured what is being fed is an object
   isObjEmpty, // Checks for empty object
@@ -28,12 +30,50 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   isNum, // This returns true if the value is a number, even if it is a string.
   isArray, // This returns true if an array, even if it is empty.
   returnLineMatch,
-  repeatString
+  repeatString,
+  getRandomAlphaNumericString,
+  arrayMinus
 };
 
 const util=require('util');
 const path=require('path');
 const binFolder=path.resolve(__dirname,"../bin/");
+
+
+function arrayMinus(theArray,val){ // Returns an array MINUS any values that match val
+  if (val && theArray){
+    return theArray.filter(function(e){
+      return e !== val;
+    });
+  }
+  throw new Error("Insufficient parameters given to arrayMinus function!");
+}
+
+function getRandomAlphaNumericString(charLength){ // If no charlength given or it is invalid, it will output 10 and throw an error message. // Original code from: https://stackoverflow.com/questions/1349404/generate-random-string-characters-in-javascript
+  var text = "";
+  var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  var outputLength=10;
+  if (charLength){
+    if (isNaN(parseInt(charLength))){
+      console.error("ERROR: Invalid length given to getRandomAlphaNumeric function!  Set to default length of 10.  Here is what as given as input: " + charLength);
+    } else {
+      outputLength=parseInt(charLength);
+    }
+  } else {
+    console.error("ERROR:  No charLength specified, using default of 10!");
+  }
+  for (var i = 0;i < outputLength;i++){
+    text += possible.charAt(Math.floor(Math.random() * possible.length)).toString();
+  }
+  return text;
+}
+
+function isAlphaNumeric(testString){ // Only accepts string inputs
+  if (typeof testString == "string"){
+    return (/^[A-Za-z0-9]+$/).test(testString);
+  }
+  return false;
+}
 
 function repeatString(inputStr,repeatCount){ // This repeats a string a number of times
   if (typeof inputStr == "string" && typeof repeatCount=="number"){
@@ -322,3 +362,14 @@ function returnLineMatch(input,matchRegExp,replaceRegExp){ // This will parse th
   }
   return theTest; // Returns undefined if no match was found.
 }
+function getOption(options,optionToLookFor,whatToUseIfNoOption){ // This is used to parse options given to a command.
+  if (typeof options == "object"){
+    if (options.hasOwnProperty(optionToLookFor)){ // This is redundant
+      if (testIfInput(options[optionToLookFor])){ // This ensures the value is not empty
+        return options[optionToLookFor]; // Perhaps this should validate that the entry can be converted to a string and is not an object or array, but meh.
+      }
+    }
+  }
+  return whatToUseIfNoOption;
+}
+
