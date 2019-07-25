@@ -118,7 +118,7 @@ event.on('message', function(messageObj) { // Handle messages sent from players
             // If there are no categories, then the bot should just state there are no commands presently on the server.
             var theFinalArray=[];
             var categoriesListed=[];
-            messageObj.sender.botMsg("I can perform the following commands:","",{"fast":true});
+            messageObj.sender.botMsg("I can perform the following commands:",{"fast":true});
             for (var finalCategory in commandCategories) {
                 if (commandCategories.hasOwnProperty(finalCategory)) {
                 theFinalArray=commandCategories[finalCategory];
@@ -127,22 +127,22 @@ event.on('message', function(messageObj) { // Handle messages sent from players
                     // messageObj.sender.msg("- " + repeatString(" ",finalCategory.length * 2) + spacerAfterCategory + theFinalArray[i],{"fast":true});
                     // } else {
                     // messageObj.sender.msg("- [ " + finalCategory + " ]:" + spacerAfterCategory + theFinalArray[i],{"fast":true});
-                    messageObj.sender.msg(" ","",{"fast":true});
-                    messageObj.sender.msg("-- " + finalCategory + " --","",{"fast":true});
+                    messageObj.sender.msg(" ",{"fast":true});
+                    messageObj.sender.msg("-- " + finalCategory + " --",{"fast":true});
                     categoriesListed.push(finalCategory);
                     }
-                    messageObj.sender.msg("  " + theFinalArray[i],"",{"fast":true});
+                    messageObj.sender.msg("  " + theFinalArray[i],{"fast":true});
                 }
                 }
             }
-            messageObj.sender.msg(" ","",{"fast":true});
-            messageObj.sender.msg("To use a command, type " + settings["commandOperator"] + " + the command.","",{"fast":true});
-            messageObj.sender.msg("For help on a command, type !help [command]","",{"fast":true});
+            messageObj.sender.msg(" ",{"fast":true});
+            messageObj.sender.msg("To use a command, type " + settings["commandOperator"] + " + the command.",{"fast":true});
+            messageObj.sender.msg("For help on a command, type !help [command]",{"fast":true});
             }
             console.log("Help command finished.");
         } else {
-            messageObj.sender.msg("ERROR:  " + theCommand + " is not a valid command!","",{"fast":true});
-            messageObj.sender.msg("To view a list of wrapper commands, type: !help","",{"fast":true});
+            messageObj.sender.msg("ERROR:  " + theCommand + " is not a valid command!",{"fast":true});
+            messageObj.sender.msg("To view a list of wrapper commands, type: !help",{"fast":true});
         }
         }
     }
