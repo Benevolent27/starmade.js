@@ -126,7 +126,7 @@ global["exitHook"]=exitHook;
 
 
 // ### Set up submodules and aliases from requires.
-var eventEmitter      = new global.events.EventEmitter(); // This is for custom events
+var eventEmitter      = new global["events"].EventEmitter(); // This is for custom events
 global["event"]=eventEmitter; // temp
 global["eventEmitter"]=eventEmitter;
 var isPidAlive        = miscHelpers.isPidAlive;
