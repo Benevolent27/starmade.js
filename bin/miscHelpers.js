@@ -9,8 +9,10 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   touch,
   isDirectory,
   getDirectories,
-  isFile,
+  isFile, // Will throw an error if it does not exist.
   getFiles,
+  isSeen,
+  existsAndIsFile, // Returns false if the path exists but is not a file, ie. it is a directory.
   areCoordsBetween // TODO: Test to ensure this works correctly
 };
 
@@ -76,6 +78,23 @@ function areCoordsBetween(compare,first,second){ // Takes CoordsObj as input for
   return cX >= sX && cX <= bX && cY >= sY && cY <= bY && cZ >= sZ && cZ <= bZ;
 }
 
+function existsAndIsFile(pathToFile){ // This returns false if the path is to a directory
+  if (isSeen(pathToFile)){
+    if (isFile(pathToFile)){
+      return true;
+    }
+  }
+  return false;
+}
+
+function isSeen(thePath){ // This checks to see if a file/folder/symlink/whatever can simply be seen.
+  try {
+    fs.accessSync(thePath,fs.constants.F_OK);
+    return true;
+  } catch (error){
+    return false;
+  }
+}
 
 function ensureFolderExists (folderPath){ // Returns true if the folder exists or if it can be created and then exists, otherwise throws an error.
   let resolvedFolderPath=path.resolve(folderPath); // Using resolve to ensure the path is specified in the right way for the OS.  Resolve tack on the current working directory to make it a full path if needed, which may NOT be the same as the folder starmade.js is in because this is meant to be a general purpose function and not necessarily tied to the starmade.js script.
