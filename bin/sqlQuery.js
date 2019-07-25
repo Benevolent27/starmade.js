@@ -2,10 +2,7 @@ module.exports={ // top exporting to allow circular dependencies to work.
   SqlQueryObj, // DO NOT USE THE OBJECT DIRECTLY FROM THIS FILE, USE THE objectCreator.js script for that to avoid unsupported circular dependencies, since that script uses export injection to provide this object.
   mapifyColumnsAndAllData // This takes an array with columns, and another array with all the data, spitting out an array of maps
 };
-
-
 const path=require('path');
-
 const binFolder=path.resolve(__dirname);
 const starNet=require(path.resolve(binFolder,"starNet.js"));
 const objHelper=require(path.resolve(binFolder,"objectHelper.js"));
@@ -40,7 +37,6 @@ if (__filename == require.main.filename){ // Only run starnet with command line 
     }
   }
 }
-
 function getSQLquery(query){ // This will preprocess a query so that it should work with starNet.js to run correctly.
   // This should correct for improper quote types.
   // For example if someone tries to use a " character instead of a ' character when performing "like" operators
@@ -93,8 +89,7 @@ function SqlQueryObj(sqlQuery){
             }
             return returnArray;
           };
-		  this.objArray=convertMapArrayToObjectArray(this.mapArray);
-		  
+          this.objArray=convertMapArrayToObjectArray(this.mapArray);
           this.columns=theResults["columns"];
           // I'm changing this to be a value rather than function, because it occured to me that if there are 0 results, the map should be empty
           // this.columns=function(){
@@ -117,7 +112,6 @@ function SqlQueryObj(sqlQuery){
     }
   }
 }
-
 function ReturnObj(theArray){ // This simply shifts a 2 part array into an object.  This can probably be obsoleted, but meh.
   var tempArray=theArray;
   var tempColumns=tempArray.shift(); // This will return undefined if there was no value
@@ -128,7 +122,6 @@ function ReturnObj(theArray){ // This simply shifts a 2 part array into an objec
   }
   this.data=tempArray;
 };
-
 function mapifyColumnsAndAllData(columnArray,dataArray){ // this assists the SQL query constructor
   // dataArray should be an array of nested arrays, which each contain one individual result
   // If the dataArray is empty, then an empty array is returned.
@@ -146,11 +139,10 @@ function mapFromColumnsAndDataSet(columnArray,dataArray){ // this assists the SQ
   }
   return tempMap;
 };
-
 function convertMapArrayToObjectArray(theMap){
-	var returnArray=[];
-	for (let i=0;i<theMap.length;i++){
-		returnArray.push(objHelper.strMapToObj(theMap[i]));
-	}
+  var returnArray=[];
+  for (let i=0;i<theMap.length;i++){
+    returnArray.push(objHelper.strMapToObj(theMap[i]));
+  }
 return returnArray;
 };
