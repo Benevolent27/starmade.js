@@ -18,7 +18,7 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   SectorObj,
   ServerObj,
   SpawnObj,
-  SMName,
+  SMNameObj,
   SystemObj,
   RemoteServer: RemoteServerObj,
   isPlayerOnline,
@@ -86,7 +86,7 @@ EntityObj.prototype.toString = function(){ return this.fullUID.toString() };
 IPObj.prototype.toString = function(){ return this.address };
 IPObj.prototype.toArray = function(){ return this.address.split(".") };
 PlayerObj.prototype.toString = function(){ return this.name }; // This allows inputs for functions to use a playerObj or string easily.  Example:  playerObj.toString() works the same as playerString.toString(), resulting in a string of the player's name.
-SMName.prototype.toString = function(){ return this.name };
+SMNameObj.prototype.toString = function(){ return this.name };
 
 //  #######################
 //  ###     TESTING     ###
@@ -381,15 +381,23 @@ function ServerObj(spawn){ // This will be used to run server commands or gather
   this.onlinePlayers=getPlayerList;
   this.spawn=spawn;
   this.getAdmins=function(options){ return getAdminsList(options) };
+
+  this.getBannedAccounts=function(options){ return getBannedAccountsList(options) };
+  this.getBannedIPs=function(options){ return getBannedIPList(options) };
+  this.getBannedNames=function(options){ return getBannedNameList(options) };
+
+  // accepts input from getBannedAccountsList, getBannedIPList, or getBannedNameList
+
 };
 function BotObj(botName){
-  if (typeof botName == "string"){
-    this.name=botName;
-    this.msg=function(player,msgString,options){ // TODO: Change this so the msgType must be specified in the options
-      // This expects a player object OR a string with a player's name, then the message to send.
-      if (typeof msgString == "string"){
+  var theBotName=botName.toString(); // This is to allow other objects that can be converted to a string to be used, such as mimicking a player's name.
+  if (typeof theBotName == "string"){
+    this.name=theBotName;
+    this.msg=function(player,msgString,options){ // This expects a player object OR a string with a player's name, then the message to send, either as a string or an object that can be converted to a string with .toString()
+      var theMessage=msgString.toString(); // This allows certain objects that can be converted to strings to be used, such as matches or other objects
+      if (typeof theMessage == "string"){
         var thePlayer=new PlayerObj(player); // This creates a new playerObj with the playername string or PlayerObj
-        thePlayer.msg(this.name + ": " + msgString,"",options);
+        thePlayer.msg("[" + this.name + "]: " + theMessage,"",options); // Any options PlayerObj.msg can take will be forwarded to it.
       } else {
         console.error("Invalid input given to message player with!")
       }
@@ -453,7 +461,7 @@ function MessageObj(sender,receiver,receiverType,message){
     this.type="channel";
     this.receiver=new ChannelObj(receiver);
   } else { // This should never happen, but hey maybe in the future they'll expand on the receiverTypes
-    this.receiver=receiver; // This is only temporary till receiverTypes are broken down
+    this.receiver=receiver; // This is a string, which is no bueno, and is only temporary till receiverTypes are broken down
     this.type=receiverType;
     console.error("ERROR: Unknown Receiever type for message! Set receiver and type as string! " + receiverType);
   }
@@ -495,6 +503,13 @@ function IPObj(ipAddressString,date,options){
   // TODO:  Redo this section to standardize with the same options given as the PlayerObj
   this.ban=function(minutes){ return ipBan(this.address,minutes,options) };
   this.unban=function(){ return ipUnBan(this.address,options) };
+
+  this.isBanned=function(){
+    return isIPBanned(this.address);
+  }
+  // To test:
+  // isBanned()
+
   // TODO: Add Info Methods:
   // date - This will only be set if the IP is attached to a date somehow, such as when listing all the IP's for a player
 
@@ -504,16 +519,41 @@ function IPObj(ipAddressString,date,options){
   // Optional:
   // crawl(Num) - reveals all players who share the same IP.  If a Num is provided, then will crawl that level deep, gathering more IP's and ipcrawling those.
 };
-function SMName(smName){
+function SMNameObj(smName){
   this.name=smName;
-  // TODO: Add Info methods:
+  // TODO:
+  // isBanned()
 
-  // Action methods:
-  // ban
-  // banTemp(Minutes)
+  // TO TEST:
+  // ban(time,options) // /ban_account Benevolent27
 
-  // Using SQL queries:
+  // DONE:
   // getNames - Returns an array of PlayerObj's for all the usernames associated with this registry account name
+  this.isBanned=function (){ // Returns true or false depending on whether it is banned or not
+    return isAccountBanned(this.name);
+  }
+  this.ban=function (timeToBan,options){ // timeToBan is optional.  If no number given, it will be a perm ban.  Options can be {"fast":true}
+    var theTimeToUse=toNumIfPossible(timeToBan);
+    if (typeof theTimeToUse=="number"){ // temp ban
+      console.log("Banning player account: " + this.name);
+      return runSimpleCommand("/ban_account_temp " + this.name,options + " " + theTimeToUse);
+    } else { // permban
+      console.log("Banning player account: " + this.name);
+      return runSimpleCommand("/ban_account " + this.name,options);    
+    }
+  }
+  this.getNames=function(){ // Returns an array of PlayerObj's for all the usernames associated with this registry account name
+    var theSmNameToUse=this.name.toLowerCase(); // This is in case the smname returned has uppercase letters.  The sql db will ALWAYS have it in lowercase.
+    var sqlQuery=new SqlQueryObj("SELECT NAME FROM PUBLIC.PLAYERS WHERE STARMADE_NAME='" + theSmNameToUse + "'");
+    console.dir(sqlQuery);
+    var outputArray=[];
+    if (!sqlQuery.error){ // This will be false if there was no error
+      for (let i=0;i<sqlQuery.objArray.length;i++){
+        outputArray.push(new PlayerObj(sqlQuery.objArray[i].NAME));
+      }
+    }
+    return outputArray;
+  }
 };
 function runSimpleCommand(theCommand,options){
   // This is used for PlayerObj methods that can be sent to either the console or using StarNet
@@ -553,29 +593,26 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
     var playerName=player.toString().trim(); // This allows the player input to be another PlayerObj
     // var playerName=player.replace(/^ENTITY_PLAYERCHARACTER_/,"").replace(/^ENTITY_PLAYERSTATE_/,""); // strip the UID
     this.name=playerName.replace(/^ENTITY_PLAYERCHARACTER_/,"").replace(/^ENTITY_PLAYERSTATE_/,""); // strip the UID
-    this.msg=function (message,type,options){ // TODO: Change this so the msgType must be specified in the options
+    this.msg=function (message,options){ // TODO: Change this so the msgType must be specified in the options
       // Sends a message to the player.  Type is optional.  If not provided "plain" is used.
-      var msgType=getOption(options,"type","plain"); // This does not throw an error if invalid options are specified.
+      var msgType=getOption(options,"type","plain").toLowerCase(); // This does not throw an error if invalid options are specified.
       // console.log("#### MsgType set to: " + msgType);
       return runSimpleCommand("/server_message_to " + msgType + " " + this.name + "'" + message.toString().trim() + "'",options);
     }
     this.botMsg=function (message,options){ // Sends a plain message to the player with the bot's name.
       var messageToSend;
       if (testIfInput(message)){
-        if (typeof message=="string"){
-          messageToSend=message;
-        } else if (typeof message=="object"){
           try {
             messageToSend=message.toString();
           } catch (err) {
             console.error("Invalid input given to PlayerObj.botMsg!");
             throw err;
           }
-        } else {
-          // no message given, so let's just be nice and assume they want a blank bot message
-          messageToSend=" ";
-        }
+      } else {
+        // no message given, so let's just be nice and assume they want a blank bot message
+        messageToSend=" ";
       }
+      console.log("Sending bot message: " + messageToSend);
       return global.bot.msg(this.name,messageToSend,options); // This should throw an error if there is a problem connecting to the server
     }
     this.creativeMode=function (input,options){ // expects true or false as either boolean or string
@@ -584,247 +621,77 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       }
       return false;
     }
-
-    // this.creativeMode2=function (input,options){ // expects true or false as either boolean or string
-    //   if (isTrueOrFalse(input)){
-    //     var fast=false;
-    //     if (options){
-    //       if (typeof options == "object"){
-    //         if (options.hasOwnProperty("fast")){
-    //           if (trueOrFalse(options.fast) == true){
-    //             fast=true;
-    //           } else {
-    //             console.error("Invalid input given to playerObj.creativeMode for options: " + options.toString());
-    //           }
-    //         }
-    //       } else if (options) {
-    //         console.error("Invalid input given to playerObj.creativeMode for options: " + options.toString());
-    //       }
-    //     }
-    //     var theCommand="/creative_mode " + this.name + " " + input;
-    //     if (fast==true){
-    //       return sendDirectToServer(theCommand);
-    //     } else {
-    //       var msgResult=starNetHelper.starNetVerified(theCommand); // This will throw an error if the connection to the server fails.
-    //       // Succeeded in activating creativemode
-    //       // RETURN: [SERVER, [ADMIN COMMAND] activated creative mode for Benevolent27, 0]
-    //       // RETURN: [SERVER, END; Admin command execution ended, 0]
-          
-    //       // Succeeded in deactivating creativemode
-    //       // RETURN: [SERVER, [ADMIN COMMAND] deactivated creative mode for Benevolent27, 0]
-    //       // RETURN: [SERVER, END; Admin command execution ended, 0]
-
-    //       // Player offline or doesn't exist:
-    //       // RETURN: [SERVER, [ADMIN COMMAND] [ERROR] Player not found: "Benevolent27", 0]
-    //       // RETURN: [SERVER, END; Admin command execution ended, 0]
-    //       var msgTestFail=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] \\[ERROR\\]");
-    //       if (starNetHelper.checkForLine(msgResult,msgTestFail)){ // The player was offline or did not exist.
-    //         return false;
-    //       } else { // The command appears to have succeeded.
-    //         return true;
-    //       }
-    //     }
-    //   }
-    //   return false;
-    // }
-
-
     this.godMode=function (input,options){ // expects true or false as either boolean or string
       if (isTrueOrFalse(input)){
         return runSimpleCommand("/god_mode " + this.name + " " + input,options);
       }
       return false;
     }
-
-
-    // this.godMode2=function (input,options){ // expects true or false as either boolean or string
-    //   if (isTrueOrFalse(input)){
-    //     // return sendDirectToServer("/god_mode " + this.name + " " + input);
-    //     var fast=false;
-    //     if (options){
-    //       if (typeof options == "object"){
-    //         if (options.hasOwnProperty("fast")){
-    //           if (trueOrFalse(options.fast) == true){
-    //             fast=true;
-    //           } else {
-    //             console.error("Invalid input given to playerObj.godMode for options: " + options.toString());
-    //           }
-    //         }
-    //       } else if (options) {
-    //         console.error("Invalid input given to playerObj.godMode for options: " + options.toString());
-    //       }
-    //     }
-    //     var theCommand="/god_mode " + this.name + " " + input;
-    //     if (fast==true){
-    //       return sendDirectToServer(theCommand);
-    //     } else {
-    //       var msgResult=starNetHelper.starNetVerified(theCommand); // This will throw an error if the connection to the server fails.
-    //       var msgTestFail=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] \\[ERROR\\]");
-    //       if (starNetHelper.checkForLine(msgResult,msgTestFail)){ // The player was offline or did not exist.
-    //         return false;
-    //       } else { // The command appears to have succeeded.
-    //         return true;
-    //       }
-    //     }
-    //   }
-    //   return false;
-    // }
-
     this.invisibilityMode=function (input,options){ // expects true or false as either boolean or string
       if (isTrueOrFalse(input)){
         return runSimpleCommand("/invisibility_mode " + this.name + " " + input,options);
       }
       return false;
     }
-
-    // this.invisibilityMode=function (input,options){ // expects true or false as either boolean or string
-    //   if (isTrueOrFalse(input)){
-    //     // return sendDirectToServer("/god_mode " + this.name + " " + input);
-    //     var fast=false;
-    //     if (options){
-    //       if (typeof options == "object"){
-    //         if (options.hasOwnProperty("fast")){
-    //           if (trueOrFalse(options.fast) == true){
-    //             fast=true;
-    //           } else {
-    //             console.error("Invalid input given to playerObj.invisibilityMode for options: " + options.toString());
-    //           }
-    //         }
-    //       } else if (options) {
-    //         console.error("Invalid input given to playerObj.invisibilityMode for options: " + options.toString());
-    //       }
-    //     }
-    //     var theCommand="/invisibility_mode " + this.name + " " + input;
-    //     if (fast==true){
-    //       return sendDirectToServer(theCommand);
-    //     } else {
-    //       var msgResult=starNetHelper.starNetVerified(theCommand); // This will throw an error if the connection to the server fails.
-    //       var msgTestFail=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] \\[ERROR\\]");
-    //       if (starNetHelper.checkForLine(msgResult,msgTestFail)){ // The player was offline or did not exist.
-    //         return false;
-    //       } else { // The command appears to have succeeded.
-    //         return true;
-    //       }
-    //     }
-    //   }
-    //   return false;
-    // }
-
-    // this.invisibilityMode=function (input){ // expects true or false as either boolean or string
-    //   if (isTrueOrFalse(input)){
-    //     return sendDirectToServer("/invisibility_mode " + this.name + " " + input);
-    //   }
-    //   return false;
-    // }
-
+    this.isBanned=function(){
+      return isNameBanned(this.name);
+    }
     this.factionPointProtect=function (input,options){ // expects true or false as either boolean or string
       if (isTrueOrFalse(input)){
         return runSimpleCommand("/faction_point_protect_player " + this.name + " " + input,options);
       }
       return false;
     }
-
-
-    // this.factionPointProtect=function (input,options){ // expects true or false as either boolean or string
-    //   if (isTrueOrFalse(input)){
-    //     // return sendDirectToServer("/god_mode " + this.name + " " + input);
-    //     var fast=false;
-    //     if (options){
-    //       if (typeof options == "object"){
-    //         if (options.hasOwnProperty("fast")){
-    //           if (trueOrFalse(options.fast) == true){
-    //             fast=true;
-    //           } else {
-    //             console.error("Invalid input given to playerObj.factionPointProtect for options: " + options.toString());
-    //           }
-    //         }
-    //       } else if (options) {
-    //         console.error("Invalid input given to playerObj.factionPointProtect for options: " + options.toString());
-    //       }
-    //     }
-    //     var theCommand="/faction_point_protect_player " + this.name + " " + input;
-    //     if (fast==true){
-    //       return sendDirectToServer(theCommand);
-    //     } else {
-    //       var msgResult=starNetHelper.starNetVerified(theCommand); // This will throw an error if the connection to the server fails.
-    //       var msgTestFail=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] \\[ERROR\\]");
-    //       if (starNetHelper.checkForLine(msgResult,msgTestFail)){ // The player was offline or did not exist.
-    //         return false;
-    //       } else { // The command appears to have succeeded.
-    //         return true;
-    //       }
-    //     }
-    //   }
-    //   return false;
-    // }
-
-
-    // this.factionPointProtect=function (input){ // expects true or false as either boolean or string
-    //   if (isTrueOrFalse(input)){
-    //     return sendDirectToServer("/faction_point_protect_player " + this.name + " " + input);
-    //   }
-    //   return false;
-    // }
-
-
     this.give=function (input,number,options){ // expects an element name and number of items to give
       if (testIfInput(input) && isNum(number)){
-        // return sendDirectToServer("/give " + this.name + " " + input + " " + number);
         return runSimpleCommand("/give " + this.name + " " + input + " " + number,options);
       }
       return false;
     }
     this.giveId=function (inputNumber,number,options){ // expects an element id and number of items to give
       if (isNum(inputNumber) && isNum(number)){
-        // return sendDirectToServer("/giveid " + this.name + " " + inputNumber + " " + number);
         return runSimpleCommand("/giveid " + this.name + " " + inputNumber + " " + number,options);
       }
       return false;
     }
     this.giveAllItems=function (number,options){ // expects an element name and number of items to give
       if (isNum(number)){
-        // return sendDirectToServer("/give_all_items " + this.name + " " + number);
         return runSimpleCommand("/give_all_items " + this.name + " " + number,options);
       }
       return false;
     }
     this.giveCategoryItems=function (category,number,options){ // expects a category such as terrain/ship/station and number of items to give
       if (testIfInput(category) && isNum(number)){
-        // return sendDirectToServer("/give_category_items " + this.name + " " + number + " " + category);
         return runSimpleCommand("/give_category_items " + this.name + " " + number + " " + category,options);
       }
       return false;
     }
     this.giveCredits=function (number,options){ // expects a number of credits to give.  If this value is negative, it will subtract credits.
       if (isNum(number)){
-        // return sendDirectToServer("/give_credits " + this.name + " " + number);
         return runSimpleCommand("/give_credits " + this.name + " " + number,options);
       }
       return false;
     }
     this.giveGrapple=function (number,options){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
+      var theNum=toNumIfPossible(number);
       var countTo=1; // The default times to run the command is 1
       var result;
-      if (isNum(number)){ // Only use the input given if it is a number, otherwise ignore it.
-        if (number>1){ countTo=number; }
+      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+        if (number>1){ countTo=theNum; }
       }
       for (var i=0;countTo>i;i++){
-        // result=sendDirectToServer("/give_grapple_item " + this.name); // the input should never fail, so this should normally always return true
         result=runSimpleCommand("/give_grapple_item " + this.name,options);
       }
       return result;
     }
-
-
     this.giveGrappleOP=function (number,options){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
       var theNum=toNumIfPossible(number);
       var countTo=1; // The default times to run the command is 1
       var result;
-      if (isNum(number)){ // Only use the input given if it is a number, otherwise ignore it.
-        if (theNum>1){ countTo=number; } 
+      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+        if (theNum>1){ countTo=theNum; } 
       }
       for (var i=0;countTo>i;i++){
-        // result=sendDirectToServer("/give_grapple_item_op " + this.name); // the input should never fail, so this should normally always return true
         result=runSimpleCommand("/give_grapple_item_op " + this.name,options);
       }
       return result;
@@ -833,11 +700,10 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       var theNum=toNumIfPossible(number);
       var countTo=1; // The default times to run the command is 1
       var result;
-      if (isNum(number)){ // Only use the input given if it is a number, otherwise ignore it.
-        if (theNum>1){ countTo=number; } 
+      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+        if (theNum>1){ countTo=theNum; } 
       }
       for (var i=0;countTo>i;i++){
-        // result=sendDirectToServer("/give_heal_weapon " + this.name); // the input should never fail, so this should normally always return true
         result=runSimpleCommand("/give_heal_weapon " + this.name,options);
       }
       return result;
@@ -846,11 +712,10 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       var theNum=toNumIfPossible(number);
       var countTo=1; // The default times to run the command is 1
       var result;
-      if (isNum(number)){ // Only use the input given if it is a number, otherwise ignore it.
-        if (theNum>1){ countTo=number; } 
+      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+        if (theNum>1){ countTo=theNum; } 
       }
       for (var i=0;countTo>i;i++){
-        // result=sendDirectToServer("/give_laser_weapon " + this.name); // the input should never fail, so this should normally always return true
         result=runSimpleCommand("/give_laser_weapon " + this.name,options);
       }
       return result;
@@ -859,11 +724,10 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       var theNum=toNumIfPossible(number);
       var countTo=1; // The default times to run the command is 1
       var result;
-      if (isNum(number)){ // Only use the input given if it is a number, otherwise ignore it.
-        if (theNum>1){ countTo=number; } 
+      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+        if (theNum>1){ countTo=theNum; } 
       }
       for (var i=0;countTo>i;i++){
-        // result=sendDirectToServer("/give_laser_weapon_op " + this.name); // the input should never fail, so this should normally always return true
         result=runSimpleCommand("/give_laser_weapon_op " + this.name,options);
       }
       return result;
@@ -872,11 +736,10 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       var theNum=toNumIfPossible(number);
       var countTo=1; // The default times to run the command is 1
       var result;
-      if (isNum(number)){ // Only use the input given if it is a number, otherwise ignore it.
-        if (theNum>1){ countTo=number; } 
+      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+        if (theNum>1){ countTo=theNum; } 
       }
       for (var i=0;countTo>i;i++){
-        // result=sendDirectToServer("/give_marker_weapon " + this.name); // the input should never fail, so this should normally always return true
         result=runSimpleCommand("/give_marker_weapon " + this.name,options);
       }
       return result;
@@ -885,11 +748,10 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       var theNum=toNumIfPossible(number);
       var countTo=1; // The default times to run the command is 1
       var result;
-      if (isNum(number)){ // Only use the input given if it is a number, otherwise ignore it.
-        if (theNum>1){ countTo=number; } 
+      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+        if (theNum>1){ countTo=theNum; } 
       }
       for (var i=0;countTo>i;i++){
-        // result=sendDirectToServer("/give_transporter_marker_weapon " + this.name); // the input should never fail, so this should normally always return true
         result=runSimpleCommand("/give_transporter_marker_weapon " + this.name,options);
       }
       return result;
@@ -898,11 +760,10 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       var theNum=toNumIfPossible(number);
       var countTo=1; // The default times to run the command is 1
       var result;
-      if (isNum(number)){ // Only use the input given if it is a number, otherwise ignore it.
-        if (theNum>1){ countTo=number; } 
+      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+        if (theNum>1){ countTo=theNum; } 
       }
       for (var i=0;countTo>i;i++){
-        // result=sendDirectToServer("/give_power_supply_weapon " + this.name); // the input should never fail, so this should normally always return true
         result=runSimpleCommand("/give_power_supply_weapon " + this.name,options);
       }
       return result;
@@ -911,8 +772,8 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       var theNum=toNumIfPossible(number);
       var countTo=1; // The default times to run the command is 1
       var result;
-      if (isNum(number)){ // Only use the input given if it is a number, otherwise ignore it.
-        if (theNum>1){ countTo=number; } 
+      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+        if (theNum>1){ countTo=theNum; } 
       }
       for (var i=0;countTo>i;i++){
         // result=sendDirectToServer("/give_rocket_launcher_weapon " + this.name); // the input should never fail, so this should normally always return true
@@ -924,8 +785,8 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       var theNum=toNumIfPossible(number);
       var countTo=1; // The default times to run the command is 1
       var result;
-      if (isNum(number)){ // Only use the input given if it is a number, otherwise ignore it.
-        if (theNum>1){ countTo=number; } 
+      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+        if (theNum>1){ countTo=theNum; } 
       }
       for (var i=0;countTo>i;i++){
         // result=sendDirectToServer("/give_rocket_launcher_op " + this.name); // the input should never fail, so this should normally always return true
@@ -937,8 +798,8 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       var theNum=toNumIfPossible(number);
       var countTo=1; // The default times to run the command is 1
       var result;
-      if (isNum(number)){ // Only use the input given if it is a number, otherwise ignore it.
-        if (theNum>1){ countTo=number; } 
+      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+        if (theNum>1){ countTo=theNum; } 
       }
       for (var i=0;countTo>i;i++){
         // result=sendDirectToServer("/give_sniper_weapon " + this.name); // the input should never fail, so this should normally always return true
@@ -950,8 +811,8 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       var theNum=toNumIfPossible(number);
       var countTo=1; // The default times to run the command is 1
       var result;
-      if (isNum(number)){ // Only use the input given if it is a number, otherwise ignore it.
-        if (theNum>1){ countTo=number; } 
+      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+        if (theNum>1){ countTo=theNum; } 
       }
       for (var i=0;countTo>i;i++){
         // result=sendDirectToServer("/give_sniper_weapon_op " + this.name); // the input should never fail, so this should normally always return true
@@ -963,8 +824,8 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       var theNum=toNumIfPossible(number);
       var countTo=1; // The default times to run the command is 1
       var result;
-      if (isNum(number)){ // Only use the input given if it is a number, otherwise ignore it.
-        if (theNum>1){ countTo=number; } 
+      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+        if (theNum>1){ countTo=theNum; } 
       }
       for (var i=0;countTo>i;i++){
         // result=sendDirectToServer("/give_torch_weapon " + this.name); // the input should never fail, so this should normally always return true
@@ -976,8 +837,8 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       var theNum=toNumIfPossible(number);
       var countTo=1; // The default times to run the command is 1
       var result;
-      if (isNum(number)){ // Only use the input given if it is a number, otherwise ignore it.
-        if (theNum>1){ countTo=number; } 
+      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+        if (theNum>1){ countTo=theNum; } 
       }
       for (var i=0;countTo>i;i++){
         // result=sendDirectToServer("/give_torch_weapon_op " + this.name); // the input should never fail, so this should normally always return true
@@ -985,10 +846,6 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       }
       return result;
     }
-
-
-
-
     this.kill=function (options){ // kills the player
       // return sendDirectToServer("/kill_character " + this.name);
       return runSimpleCommand("/kill_character " + this.name,options);
@@ -1002,9 +859,6 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
         return runSimpleCommand("/kick " + this.name,options);
       }
     }
-
-
-
     this.setFactionRank=function (number,options){ // expects a number 1-5.  5 is founder, 1 is lowest rank.
       if (isNum(number)){
         if (number>=1 && number<=5){
@@ -1015,8 +869,6 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       }
       return false; // the input was invalid
     }
-
-
     this.addAdmin=function (options){ // Adds the player as an admin
       // this gives a warning if player does not exist on the server, so runSimpleCommand will not work
       // TODO: I need separate text processing for this:
@@ -1086,7 +938,7 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
     this.ban=function (toKick,reason,time,options){ // No value is mandatory, but toKick will be true by default if not specified.  toKick should be true/false. Time is in minutes.
       // Note that a player MUST BE ONLINE in order for the kick to work.
       // Note that no reason is given to the player if they are not kicked.
-      // Also note that this ban does not apear to actually work.  It will kick the player, but then they can just rejoin.  An IP ban or ban via SMName will actually be effective.
+      // Also note that this ban does not apear to actually work.  It will kick the player, but then they can just rejoin.  An IP ban or ban via SMNameObj will actually be effective.
       // If options are specified, the other values can be ""
       console.log("Banning player: " + this.name);
       // return sendDirectToServer("/ban " + this.name + " " + toKick + " '" + reason.toString().trim() + "' " + time);
@@ -1134,13 +986,14 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
     }
     this.isOnline=function(){ return isPlayerOnline(this.name) }; // Conforms to the standard of throwing an error on connection error, but gives false if player is offline.  There is no error for a failure of command since this should never happen.
     this.isAdmin=function (options){
-      let adminList=getAdminsList(options);
-      for (let i=0;i<adminList.length;i++){
-        if (this.name.toLowerCase() == adminList[i].toString()){
-          return true;
-        }
-      }
-      return false;
+      return isPlayerAdmin(this.name,options);
+      // let adminList=getAdminsList(options);
+      // for (let i=0;i<adminList.length;i++){
+      //   if (this.name.toLowerCase() == adminList[i].toString()){
+      //     return true;
+      //   }
+      // }
+      // return false;
     }
     this.spawnLocation=function(){ // Returns a LocationObj of the player's spawn coordinates, but can only be successful if the player is online.  Will return false if offline.
       try {
@@ -1562,7 +1415,7 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
         if (returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] CONTROLLING-POS: <not spawned>/)){ // Player offline
           return false;
         } else if (!returnLineMatch(result,/^RETURN: \[SERVER, \[ADMIN COMMAND\] \[ERROR\]/)){ // Player does not exist
-          return new SMName(returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] SM-NAME: .*/,/^RETURN: \[SERVER, \[PL\] SM-NAME: /,/, 0\]$/));
+          return new SMNameObj(returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] SM-NAME: .*/,/^RETURN: \[SERVER, \[PL\] SM-NAME: /,/, 0\]$/));
         }
         return returnVal; // Returns undefined.  The player did not exist somehow.  This should never happen.
       } catch (error){
@@ -1617,11 +1470,10 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       }
     }
     // TODO - create this: // this.controlling=function(input){ } // This is an alternative for currentEntity.  It cannot return the UID for asteroids or planets, but it will at least return SOMETHING.  currentEntity will return false if the player is in an asteroid.
-
     this.playerProtect=function (smName,options){ // Requires smName, which can be a string or a SMNameObj
       var smNameToUse=smName;
       if (typeof smName == "object"){
-        if (smName instanceof SMName){
+        if (smName instanceof SMNameObj){
           smNameToUse=smName.toString();
         }
       }
@@ -1927,27 +1779,6 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
 
 
     // TODO: Add Info methods:
-
-    // Example from "/player_info Benevolent27":
-    // RETURN: [SERVER, [PL] LOGIN: [time=Thu Apr 26 21:28:51 EDT 2018, ip=/127.0.0.1, starmadeName=], 0] // var myDate=new Date("Thu Apr 26 21:28:51 EDT 2018");   Then to display in local time:  myDate.toLocaleString())  or to grab epoch:  myDate.getTime()
-    // RETURN: [SERVER, [PL] LOGIN: [time=Thu Apr 26 21:34:10 EDT 2018, ip=/127.0.0.1, starmadeName=], 0]
-    // RETURN: [SERVER, [PL] LOGIN: [time=Thu Apr 26 21:36:20 EDT 2018, ip=/127.0.0.1, starmadeName=], 0]
-    // RETURN: [SERVER, [PL] LOGIN: [time=Thu Apr 26 23:18:35 EDT 2018, ip=/127.0.0.1, starmadeName=], 0]
-    // RETURN: [SERVER, [PL] LOGIN: [time=Sun Apr 29 00:27:53 EDT 2018, ip=/127.0.0.1, starmadeName=], 0]
-    // RETURN: [SERVER, [PL] LOGIN: [time=Thu May 03 04:07:48 EDT 2018, ip=/127.0.0.1, starmadeName=], 0]
-    // RETURN: [SERVER, [PL] PERSONAL-TEST-SECTOR: (2147483615, 16, 2147483615), 0]
-    // RETURN: [SERVER, [PL] PERSONAL-BATTLE_MODE-SECTOR: (2147483615, 16, 2147483615), 0]
-    // RETURN: [SERVER, [PL] CONTROLLING-POS: <not spawned>, 0]
-    // RETURN: [SERVER, [PL] CONTROLLING: <not spawned>, 0]
-    // RETURN: [SERVER, [PL] SECTOR: (2, 2, 2), 0]
-    // RETURN: [SERVER, [PL] FACTION: null, 0]
-    // RETURN: [SERVER, [PL] CREDITS: 50000, 0]
-    // RETURN: [SERVER, [PL] UPGRADED: false, 0]
-    // RETURN: [SERVER, [PL] SM-NAME: null, 0]
-    // RETURN: [SERVER, [PL] IP: null, 0]
-    // RETURN: [SERVER, [PL] Name: Benevolent27, 0]
-    // RETURN: [SERVER, END; Admin command execution ended, 0]
-
 
     // playerInfo - uses /player_info to create an object with all the info available, putting the data into an object or perhaps a map.
 
@@ -3166,19 +2997,37 @@ function returnEntityUIDList(coordsString,beginFilter,options){
   }
   return null;
 };
-function isPlayerOnline(name){ // Expects a string.  Returns true if the player is online, false if not.
-  // TODO:  Add support for PlayerObj as input.
-  var results=getPlayerList(); // This will be an array of player objects for all online players.  Will be empty if nobody online.
+function isPlayerAdmin(name,options){
+  let thisName=name.toString().toLowerCase();
+  let adminList=getAdminsList(options);
+  if (adminList){ // If the list was retrieved successfully and there were no admins, it will be an empty array, so this should still be truthy true
+    for (let i=0;i<adminList.length;i++){
+      if (thisName == adminList[i].toString()){
+        return true;
+      }
+    }
+    return false;
+  }
+  var theError=new Error("Connection failed when attempting to obtain admin list in isPlayerAdmin");
+  theError.code=1;
+  throw theError;
+}
+
+function isPlayerOnline(name,options){ // Expects a string or PlayerObj as input for name.  Returns true if the player is online, false if not.
+  var theName=name.toString().toLowerCase();
+  var results=getPlayerList(options); // This will be an array of player objects for all online players.  Will be empty if nobody online.
   if (results){ // This should spark even if the player list is empty
     for (var i=0;results.length>i;i++){
-      if (results[i].name == name){
+      if (results[i].name == theName){
         return true;
       }
     }
     return false;
   }
   // This only happens if there is a connection error when attempting to get the player list.  This is to conform with the standard used elsewhere.
-  throw new Error("Connection failed when attempting to obtain player list in isPlayerOnline");
+  var theError=new Error("Connection failed when attempting to obtain player list in isPlayerOnline");
+  theError.code=1;
+  throw theError;
 };
 function getPlayerList(){ // Returns an array of player objects for all online players or false if the starNet command fails.
   // returns an array of all online players.  The array will be empty if nobody is online.
@@ -3199,6 +3048,101 @@ function getPlayerList(){ // Returns an array of player objects for all online p
     return false;
   }
 };
+
+
+function isAccountBanned(account){
+  let bannedArray=getBannedAccountsList();
+  return isBanned(bannedArray,account);
+}
+function isIPBanned(ip){
+  let bannedArray=getBannedIPList();
+  return isBanned(bannedArray,ip);
+}
+function isNameBanned(name){
+  var bannedArray=getBannedNameList();
+  return isBanned(bannedArray,name);
+}
+
+
+function isBanned(inputArray,whatToLookFor){
+  // accepts input from getBannedAccountsList, getBannedIPList, or getBannedNameList
+  var theCheck=whatToLookFor.toString().toLowerCase(); // Allows objects that can be turned into strings to be used as input
+  for (let i=0;i<inputArray.length;i++){
+    if (inputArray[i].toString() == theCheck){
+      return true;
+    }
+  }
+  return false;
+}
+
+
+function getBannedAccountsList(options){ // Returns an array of SMNameObj
+  // /list_banned_accounts
+  // RETURN: [SERVER, Banned: {three, two, one}, 0]
+  // .match(/{[^}]*}/);
+  try {
+    var result=starNetHelper.starNetVerified("/list_banned_accounts");
+    var theReg=new RegExp('^RETURN: \\[SERVER, Banned: {.*');
+    var theLine=returnLineMatch(result,theReg,/^RETURN: \[SERVER, Banned: {/,/}, 0\]$/);
+    var outputArray=[];
+    
+    if (theLine){ // this will be empty if there were no results
+      var tempArray=theLine.split(", "); // If only 1 result, it will still be in an array
+      for (let i=0;i<tempArray.length;i++){
+        outputArray.push(new SMNameObj(tempArray[i]));
+      }
+    }
+    return outputArray;
+  } catch (error){
+    var theError=new Error("StarNet command failed when attempting to getBannedAccountsList()!");
+    theError.code=1;
+    throw theError;
+  }
+}
+function getBannedIPList(options){
+  // /list_banned_ip
+  // RETURN: [SERVER, Banned: {1.2.3.6, 1.2.3.5, 1.2.3.4}, 0]
+  try {
+    var result=starNetHelper.starNetVerified("/list_banned_ip");
+    var theReg=new RegExp('^RETURN: \\[SERVER, Banned: {.*');
+    var theLine=returnLineMatch(result,theReg,/^RETURN: \[SERVER, Banned: {/,/}, 0\]$/);
+    var outputArray=[];
+    
+    if (theLine){ // this will be empty if there were no results
+      var tempArray=theLine.split(", "); // If only 1 result, it will still be in an array
+      for (let i=0;i<tempArray.length;i++){
+        outputArray.push(new IPObj(tempArray[i]));
+      }
+    }
+    return outputArray;
+  } catch (error){
+    var theError=new Error("StarNet command failed when attempting to getBannedIPList()!");
+    theError.code=1;
+    throw theError;
+  }
+}
+function getBannedNameList(options){
+  // /list_banned_name
+  // RETURN: [SERVER, Banned: {six, four, five}, 0]
+  try {
+    var result=starNetHelper.starNetVerified("/list_banned_name");
+    var theReg=new RegExp('^RETURN: \\[SERVER, Banned: {.*');
+    var theLine=returnLineMatch(result,theReg,/^RETURN: \[SERVER, Banned: {/,/}, 0\]$/);
+    var outputArray=[];
+    
+    if (theLine){ // this will be empty if there were no results
+      var tempArray=theLine.split(", "); // If only 1 result, it will still be in an array
+      for (let i=0;i<tempArray.length;i++){
+        outputArray.push(new PlayerObj(tempArray[i]));
+      }
+    }
+    return outputArray;
+  } catch (error){
+    var theError=new Error("StarNet command failed when attempting to getBannedNameList()!");
+    theError.code=1;
+    throw theError;
+  }
+}
 
 
 function getAdminsList(options){ // Returns an array of PlayerObj, will be an empty array if no admins returned
