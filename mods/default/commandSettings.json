@@ -1,0 +1,12 @@
+
+{
+    "defaultCategory":"General",
+    "defaultAdminOnly":false,
+    "defaultDisplayInHelp":true,
+    "defaultHelpWidth":60,
+    "commandPrefix":"",
+    "commandSpacer":"  /  ",
+    "commandSuffix":"",
+    "categoryPrefix":"---[",
+    "categorySuffix":"]---"
+}
