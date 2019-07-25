@@ -6,7 +6,6 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   BluePrintObj,
   BotObj,
   ChannelObj,
-  CommandObj,
   CoordsObj,
   EntityObj,
   FactionObj,
@@ -87,6 +86,19 @@ IPObj.prototype.toString = function(){ return this.address };
 IPObj.prototype.toArray = function(){ return this.address.split(".") };
 PlayerObj.prototype.toString = function(){ return this.name }; // This allows inputs for functions to use a playerObj or string easily.  Example:  playerObj.toString() works the same as playerString.toString(), resulting in a string of the player's name.
 SMNameObj.prototype.toString = function(){ return this.name };
+
+
+// BluePrintObj.prototype.toString = function(){ return this.address };
+// BotObj.prototype.toString = function(){ return this.address };
+// ChannelObj.prototype.toString = function(){ return this.address };
+// CommandObj.prototype.toString = function(){ return this.address };
+// FactionObj.prototype.toString = function(){ return this.address };
+// LocationObj.prototype.toString = function(){ return this.address };
+// MessageObj.prototype.toString = function(){ return this.address };
+// ServerObj.prototype.toString = function(){ return this.address };
+// SystemObj.prototype.toString = function(){ return this.address };
+
+
 
 //  #######################
 //  ###     TESTING     ###
@@ -397,7 +409,7 @@ function BotObj(botName){
       var theMessage=msgString.toString(); // This allows certain objects that can be converted to strings to be used, such as matches or other objects
       if (typeof theMessage == "string"){
         var thePlayer=new PlayerObj(player); // This creates a new playerObj with the playername string or PlayerObj
-        thePlayer.msg("[" + this.name + "]: " + theMessage,"",options); // Any options PlayerObj.msg can take will be forwarded to it.
+        thePlayer.msg("[" + this.name + "]: " + theMessage,options); // Any options PlayerObj.msg can take will be forwarded to it.
       } else {
         console.error("Invalid input given to message player with!")
       }
@@ -2213,25 +2225,7 @@ function SectorObj(xGiven,yGiven,zGiven){
     throw new Error("ERROR: Invalid values given to SectorObj constructor!");
   }
 };
-function CommandObj(command,theArguments,category,description,options){ // Expects string values
-  // TODO: Create a process of registering a command through the global object.
-  // TODO: Create an interpreter in starmade.js that detects commands and then only runs them if they are registered
-  var displayInHelp=true; // If this command is registered as a command, the default will be to display it when a player types !help in-game.
-  if (typeof options == "object"){ // Parse the options
-    if (options.hasOwnProperty("displayInHelp")){
-      if (objectHelper.isTrueOrFalse(options.displayInHelp)){
-        displayInHelp=options.displayInHelp;
-      } else {
-        console.error("Invalid parameter given as 'displayInHelp' to CommandObj: " + options.displayInHelp);
-      }
-    }
-  }
-  this.command=command;
-  this.arguments=theArguments;
-  this.category=category;
-  this.description=description;
-  this.displayInHelp=displayInHelp;
-};
+
 function CoordsObj(xInput,yInput,zInput){ // xInput can be a string or space or comma separated numbers, coordsObj, or a sectorObj
   // test to ensure string, array, CoordsObj, SectorObj, and regular numbers/strings(which are numbers) works.
   var x=objectHelper.toNumIfPossible(xInput);
