@@ -1,4 +1,5 @@
 // The purpose of this default mod is to process commands and fire off the command event.
+// It also provides the !help command.
 
 const path=require('path');
 // Pull the needed objects from the global variable.
@@ -19,7 +20,7 @@ if (isSeen(settingsFile)){
 } else {
     console.log("Settings file for commands.js not found, skipping!");
 }
-// Verify that all the default settings exist, and use hardcoded defaults if not.
+// Verify that all the settings were specified from the .json file, using hardcoded defaults for any not specified.
 if (!defaultSettings.hasOwnProperty("defaultCategory")){
     defaultSettings["defaultCategory"]="General";
 }
@@ -145,7 +146,7 @@ event.on('message', function(messageObj) { // Handle messages sent from players
             // Note:  the default "help" command can be replaced by a mod if desired.
             let playerAdminCheck=true;
             if (commands[lowerCaseCommand].adminOnly){
-                playerAdminCheck=messageObj.sender.isAdmin({"fast":true}); // Fast makes it read from the file rather than perform a StarNet command, which is much faster.
+                playerAdminCheck=messageObj.sender.isAdmin({"fast":true}); // Fast makes it read from the file rather than perform a StarNet command.
             }
             if (playerAdminCheck){
                 eventEmitter.emit('command',messageObj.sender,lowerCaseCommand,textArray,messageObj);
@@ -156,6 +157,14 @@ event.on('message', function(messageObj) { // Handle messages sent from players
             console.log("'command' event emitted!"); // temp
         } else if (lowerCaseCommand=="help"){ // This only fires if a mod hasn't replaced the default help.
             // If an argument is given, run the command with help, which is the same as "!command help"
+            var showAll=false;
+            if (typeof textArray[0] == "string"){
+                if (textArray[0].toLowerCase() == "-showall"){
+                    console.log("Showing all help commands, even hidden ones, if the player is an admin.");
+                    showAll=true;
+                    textArray.shift();
+                }
+            }
             if (objectHelper.testIfInput(textArray[0])){
                 var subCommand=textArray[0];
                 var lowerCaseSubCommand=textArray[0].replace(settings["commandOperator"],"").toLowerCase();
@@ -205,9 +214,8 @@ event.on('message', function(messageObj) { // Handle messages sent from players
                     }
 
                     // Before adding the command name to the category, check to ensure the command is hidden or an admin only command.
-                    console.log("Checking command, " + property + ", to see if should be added to help.  commands[property].displayInHelp: " + commands[property].displayInHelp);
-
-                    if ((!commands[property].adminOnly || playerAdminCheck) && commands[property].displayInHelp){ // If the command is NOT adminonly OR the player is an admin, let it show up.  If the command is not set to displayInHelp, then do not show it.
+                    // console.log("Checking command, " + property + ", to see if should be added to help.  commands[property].displayInHelp: " + commands[property].displayInHelp);
+                    if ((!commands[property].adminOnly || playerAdminCheck) && (commands[property].displayInHelp || (playerAdminCheck && showAll))){ // If the command is NOT adminonly OR the player is an admin, let it show up.  If the command is not set to displayInHelp, then do not show it.
                         commandCategories[theCategory].push(commands[property].name);
                         commandsAddedNum++;
                     }
@@ -232,11 +240,6 @@ event.on('message', function(messageObj) { // Handle messages sent from players
                     for (let i=0;i<theArrayToWorkOn.length;i++){ // Cycle through the array of commands for the category
                         theCommandTemp=theArrayToWorkOn[i];
                         if (tempArrayOfStrings[tempArrayOfStringsCounter]){ 
-                            // defaultSettings["commandPrefix"]
-                            // defaultSettings["commandSpacer"]
-                            // defaultSettings["commandSuffix"]
-
-
                             // it has been created, so see if adding the command would put it over the top, and if so, add to the next array
                             if (tempArrayOfStrings[tempArrayOfStringsCounter].length + commandSpacerNum + theArrayToWorkOn[i].length <= defaultSettings["defaultHelpWidth"]){
                                 tempArrayOfStrings[tempArrayOfStringsCounter]+=defaultSettings["commandSpacer"] + defaultSettings["commandPrefix"] + theArrayToWorkOn[i] + defaultSettings["commandSuffix"]; // This adds to the array entry string
