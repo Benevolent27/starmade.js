@@ -3,10 +3,10 @@
     "defaultCategory":"General",
     "defaultAdminOnly":false,
     "defaultDisplayInHelp":true,
-    "defaultHelpWidth":60,
+    "defaultHelpWidth":100,
     "commandPrefix":"",
-    "commandSpacer":"  /  ",
+    "commandSpacer":" / ",
     "commandSuffix":"",
-    "categoryPrefix":"---[",
-    "categorySuffix":"]---"
+    "categoryPrefix":"-=[",
+    "categorySuffix":"]=-"
 }
