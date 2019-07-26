@@ -4,49 +4,62 @@
 const path=require('path');
 // Pull the needed objects from the global variable.
 var {event,eventEmitter,commands,objectHelper,settings,objectCreator,miscHelpers}=global;
-var {isInArray,testIfInput,getOption,isArray}=objectHelper;
-
+var {isInArray,testIfInput,getOption,isArray,toNumIfPossible}=objectHelper;
 var {isFile,isSeen}=miscHelpers;
 
+var commandOperator=global.settings["commandOperator"];
 const settingsFile=path.join(__dirname,"commandSettings.json");
 var defaultSettings={};
-if (isSeen(settingsFile)){
-    if (isFile(settingsFile)){
-        defaultSettings=require(settingsFile);
-        console.log("Imported default settings for command.js:");
+importSettingsFile();
+verifySettings();
+function importSettingsFile(){
+    if (isSeen(settingsFile)){
+        if (isFile(settingsFile)){
+            defaultSettings=require(settingsFile);
+            console.log("Imported default settings for command.js:");
+        } else {
+            console.log("Settings file was not a file?  Skipping!");
+        }
     } else {
-        console.log("Settings file was not a file?  Skipping!");
+        console.log("Settings file for commands.js not found, skipping!");
     }
-} else {
-    console.log("Settings file for commands.js not found, skipping!");
 }
-// Verify that all the settings were specified from the .json file, using hardcoded defaults for any not specified.
-if (!defaultSettings.hasOwnProperty("defaultCategory")){
-    defaultSettings["defaultCategory"]="General";
+
+function verifySettings(){
+    // Verify that all the settings were specified from the .json file, using hardcoded defaults for any not specified.
+    if (!defaultSettings.hasOwnProperty("defaultCategory")){
+        defaultSettings["defaultCategory"]="General";
+    }
+    if (!defaultSettings.hasOwnProperty("defaultAdminOnly")){
+        defaultSettings["defaultAdminOnly"]=false;
+    }
+    if (!defaultSettings.hasOwnProperty("defaultDisplayInHelp")){
+        defaultSettings["defaultDisplayInHelp"]=true;
+    }
+    if (!defaultSettings.hasOwnProperty("defaultHelpWidth")){
+        defaultSettings["defaultHelpWidth"]=80;
+    }
+    if (!defaultSettings.hasOwnProperty("commandPrefix")){
+        defaultSettings["commandPrefix"]="";
+    }
+    if (!defaultSettings.hasOwnProperty("commandSpacer")){
+        defaultSettings["commandSpacer"]="  /  ";
+    }
+    if (!defaultSettings.hasOwnProperty("commandSuffix")){
+        defaultSettings["commandSuffix"]="";
+    }
+    if (!defaultSettings.hasOwnProperty("categoryPrefix")){
+        defaultSettings["categoryPrefix"]="--- ";
+    }
+    if (!defaultSettings.hasOwnProperty("categorySuffix")){
+        defaultSettings["categorySuffix"]=" ---";
+    }
 }
-if (!defaultSettings.hasOwnProperty("defaultAdminOnly")){
-    defaultSettings["defaultAdminOnly"]=false;
-}
-if (!defaultSettings.hasOwnProperty("defaultDisplayInHelp")){
-    defaultSettings["defaultDisplayInHelp"]=true;
-}
-if (!defaultSettings.hasOwnProperty("defaultHelpWidth")){
-    defaultSettings["defaultHelpWidth"]=60;
-}
-if (!defaultSettings.hasOwnProperty("commandPrefix")){
-    defaultSettings["commandPrefix"]="";
-}
-if (!defaultSettings.hasOwnProperty("commandSpacer")){
-    defaultSettings["commandSpacer"]="  /  ";
-}
-if (!defaultSettings.hasOwnProperty("commandSuffix")){
-    defaultSettings["commandSuffix"]="";
-}
-if (!defaultSettings.hasOwnProperty("categoryPrefix")){
-    defaultSettings["categoryPrefix"]="--- ";
-}
-if (!defaultSettings.hasOwnProperty("categorySuffix")){
-    defaultSettings["categorySuffix"]=" ---";
+function reloadSettingsFile(){
+    delete require.cache[require.resolve(settingsFile)];
+    importSettingsFile();
+    verifySettings();
+    return true;
 }
 
 
@@ -56,6 +69,106 @@ console.dir(defaultSettings);
 objectCreator["CommandObj"]=CommandObj;
 global["regCommand"]=regCommand;
 global["commandSettings"]=defaultSettings;
+
+
+global.event.on("init", function(){
+    // These are admin-only commands to temporarily change the style of the help for testing purposes
+    // name,category,adminOnly,displayInHelp,playersArray
+    global.regCommand("changeHelpWidth","HiddenHelpers",true,false);
+    global.regCommand("togglehide","HiddenHelpers",true,false);
+
+    global.regCommand("helpCommandPrefix","HiddenHelpers",true,false);
+    global.regCommand("helpCommandSpacer","HiddenHelpers",true,false);
+    global.regCommand("helpCommandSuffix","HiddenHelpers",true,false);
+    global.regCommand("helpCategoryPrefix","HiddenHelpers",true,false);
+    global.regCommand("helpCategorySuffix","HiddenHelpers",true,false);
+    global.regCommand("reloadHelpSettings","HiddenHelpers",true,false);
+});
+event.on('command', function(player,command,args,messageObj) { // Normally we would not use the messageObj, but it's here if for some reason we want the command to operate differently depending on channel sent to
+    if (command == "changehelpwidth"){
+        var theNewNum=toNumIfPossible(args[0]);
+        if (typeof theNewNum=="number"){
+            if (theNewNum>10){
+                global["commandSettings"]["defaultHelpWidth"]=theNewNum;
+                player.botMsg("Changed help width to: " + theNewNum);
+            } else {
+                player.botMsg("ERROR:  Please specify a positive number that is larger than 10!");
+            }
+        } else {
+            player.botMsg("This command is used to change the width of the help to a certain number of max characters.");
+            player.botMsg("Example: " + commandOperator + "changehelpwidth 90");
+        }
+    }  else if (command == "reloadhelpsettings"){
+        player.botMsg("Reloading the Help settings file.");
+        reloadSettingsFile();
+    }  else if (command == "helpcategorysuffix"){
+        if (args[0]){
+            let valToUse=args[0].replace('"',"").replace("'","");
+            player.botMsg("Set the Help Category Suffix to: " + valToUse);
+            defaultSettings["categorySuffix"]=valToUse;
+        } else {
+           player.botMsg("Usage: " + commandOperator + "helpCategorySuffix aStringValue");
+        }
+    }  else if (command == "helpcategoryprefix"){
+        if (args[0]){
+            let valToUse=args[0].replace('"',"").replace("'","");
+            player.botMsg("Set the Help Category Prefix to: " + valToUse);
+            defaultSettings["categoryPrefix"]=valToUse;
+        } else {
+           player.botMsg("Usage: " + commandOperator + "helpCategoryPrefix aStringValue");
+        }
+    }  else if (command == "helpcommandsuffix"){
+        if (args[0]){
+            let valToUse=args[0].replace('"',"").replace("'","");
+            player.botMsg("Set the Help Command Suffix to: " + valToUse);
+            defaultSettings["commandSuffix"]=valToUse;
+        } else {
+           player.botMsg("Usage: " + commandOperator + "helpCommandSpacer aStringValue");
+        }
+    }  else if (command == "helpcommandspacer"){
+        if (args[0]){
+            let valToUse=args[0].replace('"',"").replace("'","");
+            player.botMsg("Set the Help Command Spacer to: " + valToUse);
+            defaultSettings["commandSpacer"]=valToUse;
+        } else {
+           player.botMsg("Usage: " + commandOperator + "helpCommandSpacer aStringValue");
+        }
+    }  else if (command == "helpcommandprefix"){
+        if (args[0]){
+            let valToUse=args[0].replace('"',"").replace("'","");
+            player.botMsg("Set the Help Command Prefix to: " + valToUse);
+            defaultSettings["commandPrefix"]=valToUse;
+        } else {
+           player.botMsg("Usage: " + commandOperator + "helpCommandPrefix aStringValue");
+        }
+
+
+    }  else if (command == "togglehide"){
+        if (testIfInput(args[0])){
+            var lowerCaseArg=args[0].toLowerCase();
+            if (commands.hasOwnProperty(lowerCaseArg)){
+                var tempObj=commands[lowerCaseArg];
+                if (tempObj.displayInHelp){
+                    player.botMsg("Hiding the \"" + args[0] + "\" command!");
+                    tempObj["displayInHelp"]=false;
+                } else {
+                    player.botMsg("Unhiding the \"" + args[0] + "\" command!");
+                    tempObj["displayInHelp"]=true;
+                }
+                global.regCommand(tempObj); // the regCommand function can accept an object input.
+            } else {
+                player.botMsg("ERROR:  Could not hide the \"" + args[0] + "\" command!  It does not exist!");
+            }
+        } else {
+            player.botMsg("ERROR:  Please give a valid command to toggle hide for.");
+            player.msg("Example: " + commandOperator + "togglehide SomeCommand");
+        }
+    }
+});
+
+
+
+
 
 function CommandObj(name,category,adminOnly,displayInHelp,playersArray){ // Expects string values or an object as the first argument.
     // If given an object, it will add to it as necessary.
