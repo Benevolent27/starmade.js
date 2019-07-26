@@ -113,6 +113,20 @@ function runStarNetReturn(command,options){
   if (command){
     if (getSuperAdminPassword()){
       var results=child.spawnSync("java",["-jar",starNetJar,"127.0.0.1:" + settings["port"],getSuperAdminPassword(),command],{"cwd":binFolder});
+
+      // For testing purposes only to ascertain errors
+      // wrong ip - destination unreachable
+      // var results=child.spawnSync("java",["-jar",starNetJar,"128.0.0.1:" + settings["port"],getSuperAdminPassword(),command],{"cwd":binFolder});
+
+      // wrong port
+      // var results=child.spawnSync("java",["-jar",starNetJar,"127.0.0.1:" + 6767,getSuperAdminPassword(),command],{"cwd":binFolder});
+
+      // wrong superadmin password
+      // var results=child.spawnSync("java",["-jar",starNetJar,"127.0.0.1:" + settings["port"],"This is wrong",command],{"cwd":binFolder});
+
+      // invalid parameters
+      // var results=child.spawnSync("java",["-jar",starNetJar,"This is wrong",command],{"cwd":binFolder});
+
       if (debug == true){ process.stdout.write(results.stderr.toString()); }
       // return results.stderr.toString().trim();
       return results.stderr.toString().trim().replace(/(\r)/g,""); // This is needed for windows
@@ -121,9 +135,59 @@ function runStarNetReturn(command,options){
   }
   return false;
 }
-// Obsoleting
-// function ReturnObj(theArray){
-//   var tempArray=theArray;
-//   this.columns=tempArray.shift();
-//   this.data=tempArray;
-// }
+
+// ###########################
+// ### StarNet.jar errors: ###
+// ###########################
+
+// java.io.EOFException
+// java.net.ConnectException: Connection timed out: connect
+// java.net.ConnectException: Connection refused: connect
+
+// Buffer overflow (happens with sql queries with too many results):
+// java.io.EOFException
+//  at java.io.DataInputStream.readFully(DataInputStream.java:197)
+//  at java.io.DataInputStream.readFully(DataInputStream.java:169)
+//  at util.StarMadeNetUtil.executeAdminCommand(StarMadeNetUtil.java:178)
+//  at gui.StarNet.main(StarNet.java:32)
+ 
+ 
+// Connection error - destination unreachable - seems to time out after about 30 seconds
+//  java.net.ConnectException: Connection timed out: connect
+//         at java.net.DualStackPlainSocketImpl.connect0(Native Method)
+//         at java.net.DualStackPlainSocketImpl.socketConnect(Unknown Source)
+//         at java.net.AbstractPlainSocketImpl.doConnect(Unknown Source)
+//         at java.net.AbstractPlainSocketImpl.connectToAddress(Unknown Source)
+//         at java.net.AbstractPlainSocketImpl.connect(Unknown Source)
+//         at java.net.PlainSocketImpl.connect(Unknown Source)
+//         at java.net.SocksSocketImpl.connect(Unknown Source)
+//         at java.net.Socket.connect(Unknown Source)
+//         at java.net.Socket.connect(Unknown Source)
+//         at java.net.Socket.<init>(Unknown Source)
+//         at java.net.Socket.<init>(Unknown Source)
+//         at util.StarMadeNetUtil.executeAdminCommand(StarMadeNetUtil.java:122)
+//         at gui.StarNet.main(StarNet.java:32)
+
+
+// Connection error - no service running on that port
+// java.net.ConnectException: Connection refused: connect
+//         at java.net.DualStackPlainSocketImpl.connect0(Native Method)
+//         at java.net.DualStackPlainSocketImpl.socketConnect(Unknown Source)
+//         at java.net.AbstractPlainSocketImpl.doConnect(Unknown Source)
+//         at java.net.AbstractPlainSocketImpl.connectToAddress(Unknown Source)
+//         at java.net.AbstractPlainSocketImpl.connect(Unknown Source)
+//         at java.net.PlainSocketImpl.connect(Unknown Source)
+//         at java.net.SocksSocketImpl.connect(Unknown Source)
+//         at java.net.Socket.connect(Unknown Source)
+//         at java.net.Socket.connect(Unknown Source)
+//         at java.net.Socket.<init>(Unknown Source)
+//         at java.net.Socket.<init>(Unknown Source)
+//         at util.StarMadeNetUtil.executeAdminCommand(StarMadeNetUtil.java:122)
+//         at gui.StarNet.main(StarNet.java:32)
+		
+
+// Wrong super admin password
+// RETURN: [SERVER, END; ERROR: wrong super password, 0]
+
+// Invalid parameters
+// usage: <host:port> <password> <commandParam> <commandParam> ...
