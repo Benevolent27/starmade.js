@@ -18,9 +18,10 @@ var path=require('path');
 var binFolder=path.resolve(__dirname,"../bin/");
 var starNet=require(path.join(binFolder,"starNet.js"));
 var objHelper=require(path.join(binFolder,"objectHelper.js"));
+const sleep = require(path.join(binFolder,"mySleep.js")).softSleep; // Only accurate for 100ms or higher wait times.
 
 // Aliases
-var getObjType=objHelper.getObjType;
+var {getObjType,getOption}=objHelper;
 
 // The goal of this import is to provide all the functions needed for object methods
 // Done:
@@ -506,30 +507,6 @@ function getEntityValue(uidOrShipObj,valueString,options){ // Options are option
   }
 }
 
-function detectRan(input){
-  // This checks the last line of a starNet response to see if it ran.
-  // This is intended to be used ONLY for commands which have no other response, such as the "/load_sector_range" command.
-  // If the server is down and the command fails, this will return false.
-  // Returns true if the command ran (even if invalid parameters were given)
-  // Either the last line of a starNet.js response can be provided or a single line
-  var theReg=new RegExp("^RETURN: \\[SERVER, END; Admin command execution ended, [0-9]\\]");
-  var theArray=input.trim().split("\n");
-  if (theReg.test(theArray[theArray.length - 1])){
-    return true;
-  }
-  return false;
-}
-
-function detectError(input){ // Input should be a string.
-  // This will scan through a starNet response for a 'java.net' line, which should only ever appear when there is an error, such as failure to connect to the server.
-  // This function is not intended to be ran on every starNet response.  It can be used to parse individual lines or the whole response.
-  // Returns true if there was an error, otherwise false.
-  var theReg=new RegExp("^java.net.");
-  return checkForLine(input,theReg);
-  // Example of an error connecting due to the server not running:
-  // java.net.ConnectException: Connection refused (Connection refused) //  <-- line detected, so will return true
-}
-
 function detectSuccess(input){ // input should be a full starNet.js response as a string
   // This will look for "RETURN: [SERVER, [ADMIN COMMAND] [SUCCESS]" and return true if found.
   // Commands that use this formatting include:
@@ -578,6 +555,31 @@ function returnMatchingLinesAsArray(input,regExp){
   throw new Error("Invalid parameters given to 'returnMatchingLinesAsArray' function!");
 }
 
+function detectError(input){ // Input should be a string.
+  // This will scan through a starNet response for a 'java.net' line, which should only ever appear when there is an error, such as failure to connect to the server.
+  // This function is not intended to be ran on every starNet response.  It can be used to parse individual lines or the whole response.
+  // Returns true if there was an error, otherwise false.
+
+  // var theReg=new RegExp("^java.net."); // This did not catch io errors
+  var theReg=new RegExp("^java.");
+  return checkForLine(input,theReg);
+  // Example of an error connecting due to the server not running:
+  // java.net.ConnectException: Connection refused (Connection refused) //  <-- line detected, so will return true
+}
+function detectRan(input){
+  // This checks the last line of a starNet response to see if it ran.
+  // This is intended to be used ONLY for commands which have no other response, such as the "/load_sector_range" command.
+  // If the server is down and the command fails, this will return false.
+  // Returns true if the command ran (even if invalid parameters were given)
+  // Either the last line of a starNet.js response can be provided or a single line
+  var theReg=new RegExp("^RETURN: \\[SERVER, END; Admin command execution ended, [0-9]\\]");
+  var theArray=input.trim().split("\n");
+  if (theReg.test(theArray[theArray.length - 1])){
+    return true;
+  }
+  return false;
+}
+
 function verifyResponse(input){ // input should be a full starNet.js response string
   // This only checks if there was a java error and that the command actually ran.
   // This does NOT check to verify the command was successful, as the success response can vary from command to command.
@@ -590,18 +592,164 @@ function verifyResponse(input){ // input should be a full starNet.js response st
 
 function starNetVerified(string,options){ // Takes a string command.  Options are optional
   // Options right now include displaying the result on screen by giving "{debug:true}" as an option
-  // This should probably no be used on longer sort of responses because it has to parse through every line
+  // This should probably not be used on longer sort of responses because it has to parse through every line
 
   // Be careful using this, since it will crash the scripting if the error isn't handled.
+  
+  // By default keep retrying till successful on a connection error.  This will still throw an error if a different kind of problem occurs, such as a buffer overflow (which is a response that is too long for StarNet.jar to handle)
+  var retryOnConnectionProblem=getOption(options,"retryOnConnectionProblem",true); 
+  var retryOnConnectionProblemMs=getOption(options,"retryOnConnectionProblemMs",1000);
+  var maxRetriesOnConnectionProblem=getOption(options,"maxRetriesOnConnectionProblem",60); // This is the maximum amount of retries
+  var maxTimeToRetry=getOption(options,"maxTimeToRetry",60000); // This is to keep trying for a certain number of MS.
+
+
+  var retrySecondsLeft=0;
+  var keepGoing=true; // Don't change this.
+  var starNetResult;
   if (typeof string == "string"){
-    var starNetResult=starNet(string,options);
-    if (verifyResponse(starNetResult)){
-      return starNetResult;
-    } else {
-      throw new Error("Could not verify StarNet command ran successfully: " + string);
+    var retryCount=0;
+    var timeToRetryTill=new Date().getTime() + maxTimeToRetry; // The time right now in ms
+    var timeStamp;
+    while (keepGoing){ // Loop forever till a return value is given or error thrown.
+      starNetResult=starNet(string,options);
+      if (verifyResponse(starNetResult)){
+        keepGoing=false; // This is just to make ESLint happy.. returning a value would break the while loop..
+        return starNetResult;
+      } else {
+        var theCode=99; // This is an unknown error
+        var getCode=getStarNetErrorType(starNetResult,{"returnNum":true});
+        if (getCode){
+          theCode=getCode;
+        }
+
+        var connectionProblem=false;
+        if (theCode==1 || theCode==2){
+          connectionProblem=true;
+        }
+        timeStamp=new Date().getTime();
+        // This method of retrying might work ok, but it holds up the entire wrapper..  I might need to rethink the structure of the wrapper to use callbacks for everything.
+        if (retryOnConnectionProblem && connectionProblem && retryCount < maxRetriesOnConnectionProblem && timeToRetryTill > timeStamp){ // Only sleep and then continue to loop IF there was a connection problem.
+          // When a connection error happens,
+          retrySecondsLeft=Math.ceil((timeToRetryTill-timeStamp)/1000);
+          retryCount++;
+          console.error("ERROR:  Connection problem to server when attempting command: " + string);
+          console.error("Trying again in " + retryOnConnectionProblemMs + " seconds.  (Retry " + retryCount + "/" + maxRetriesOnConnectionProblem + ")  Giving up in " + retrySecondsLeft + " seconds.");
+          sleep(retryOnConnectionProblemMs);
+        } else {
+          // Only throw an error IF retryOnConnectionProblem was falsey.
+          var theError=new Error("Could not verify StarNet command ran successfully: " + string);
+          theError["code"]=theCode; // Some kind of connection or overflow error.  TODO:  Separate out errors, since a buffer overflow SHOULD NOT be treated the same as a connection problem.
+          throw theError;
+        }
+      }
     }
+    return false; // This will never happen.  This is just to make ESlint happy.
   } else {
     throw new Error("Invalid parameters given to starNetVerified function!");
+    // no code given because this is not a connection problem.
   }
-  // Returns the result of the command if it verifies, meaning it ran AND there were no java errors.  This does not guarantee the command was successful, like when a person gives an invalid amount of parameters.
+  // Returns the result of the command if it verifies, meaning it ran AND there were no java errors.  
+  // This does not guarantee the command was successful, like when a person gives an invalid amount of parameters, so the output still needs to be further processed to determine success/fail/warning
 }
+
+function getStarNetErrorType(input,options){ // parses through a starNet.jar string return to detect StarNet.jar errors.
+  // Usage:  getStarNetErrorType(input,{"returnNum":true})
+
+  var returnNum=getOption(options,"returnNum",false);
+  var undef;
+  var overflow=checkForLine(input,/^java.io.EOFException.*/);
+  if (overflow){
+    if (returnNum){
+      return 11;
+    }
+    return "overflow";
+  }
+  var timeout=checkForLine(input,/^java.net.ConnectException: Connection timed out.*/);
+  if (timeout){
+    if (returnNum){
+      return 1;
+    }
+    return "timeout";
+  }
+  var refused=checkForLine(input,/^java.net.ConnectException: Connection refused.*/);
+  if (refused){
+    if (returnNum){
+      return 2;
+    }
+    return "refused";
+  }
+  var wrongSuperAdminPassword=checkForLine(input,/^RETURN: \[SERVER, END; ERROR: wrong super password, 0\].*/);
+  if (wrongSuperAdminPassword){
+    if (returnNum){
+      return 22;
+    }
+    return "wrongSuperAdminPassword";
+  }
+  var badParameters=checkForLine(input,/^usage: <host:port> <password> <commandParam> <commandParam>.*/);
+  if (badParameters){
+    if (returnNum){
+      return 21;
+    }
+    return "badParameters";
+  }
+  return undef; // No recognized error, so return undefined.
+}
+
+// ###########################
+// ### StarNet.jar errors: ###
+// ###########################
+
+// java.io.EOFException
+// java.net.ConnectException: Connection timed out: connect
+// java.net.ConnectException: Connection refused: connect
+
+
+
+// Buffer overflow (happens with sql queries with too many results):
+// java.io.EOFException
+//  at java.io.DataInputStream.readFully(DataInputStream.java:197)
+//  at java.io.DataInputStream.readFully(DataInputStream.java:169)
+//  at util.StarMadeNetUtil.executeAdminCommand(StarMadeNetUtil.java:178)
+//  at gui.StarNet.main(StarNet.java:32)
+ 
+ 
+// Connection error - destination unreachable - seems to time out after about 30 seconds
+//  java.net.ConnectException: Connection timed out: connect
+//         at java.net.DualStackPlainSocketImpl.connect0(Native Method)
+//         at java.net.DualStackPlainSocketImpl.socketConnect(Unknown Source)
+//         at java.net.AbstractPlainSocketImpl.doConnect(Unknown Source)
+//         at java.net.AbstractPlainSocketImpl.connectToAddress(Unknown Source)
+//         at java.net.AbstractPlainSocketImpl.connect(Unknown Source)
+//         at java.net.PlainSocketImpl.connect(Unknown Source)
+//         at java.net.SocksSocketImpl.connect(Unknown Source)
+//         at java.net.Socket.connect(Unknown Source)
+//         at java.net.Socket.connect(Unknown Source)
+//         at java.net.Socket.<init>(Unknown Source)
+//         at java.net.Socket.<init>(Unknown Source)
+//         at util.StarMadeNetUtil.executeAdminCommand(StarMadeNetUtil.java:122)
+//         at gui.StarNet.main(StarNet.java:32)
+
+
+// Connection error - no service running on that port
+// java.net.ConnectException: Connection refused: connect
+//         at java.net.DualStackPlainSocketImpl.connect0(Native Method)
+//         at java.net.DualStackPlainSocketImpl.socketConnect(Unknown Source)
+//         at java.net.AbstractPlainSocketImpl.doConnect(Unknown Source)
+//         at java.net.AbstractPlainSocketImpl.connectToAddress(Unknown Source)
+//         at java.net.AbstractPlainSocketImpl.connect(Unknown Source)
+//         at java.net.PlainSocketImpl.connect(Unknown Source)
+//         at java.net.SocksSocketImpl.connect(Unknown Source)
+//         at java.net.Socket.connect(Unknown Source)
+//         at java.net.Socket.connect(Unknown Source)
+//         at java.net.Socket.<init>(Unknown Source)
+//         at java.net.Socket.<init>(Unknown Source)
+//         at util.StarMadeNetUtil.executeAdminCommand(StarMadeNetUtil.java:122)
+//         at gui.StarNet.main(StarNet.java:32)
+
+
+// Wrong super admin password:
+// RETURN: [SERVER, END; ERROR: wrong super password, 0]
+
+
+// Invalid parameters:
+// usage: <host:port> <password> <commandParam> <commandParam> ...
