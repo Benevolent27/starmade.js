@@ -398,26 +398,19 @@ function ServerObj(spawn){ // This will be used to run server commands or gather
   this.getBannedNames=function(options){ return getBannedNameList(options) };
 
   // accepts input from getBannedAccountsList, getBannedIPList, or getBannedNameList
-  this.msg=function (message,options){
-    // Sends a message to the whole server using the /chat command or if the type is provided, uses /server_message_broadcast
-    // server_message_broadcast
-    // DESCRIPTION: Sends a custom message to all players
-    // PARAMETERS: Type(String), Message(String)
-    // EXAMPLE: /server_message_broadcast plain/info/warning/error Hello!
-    // This is the same as player messages
-    let messageToSend;
-    if (testIfInput(message)){
-        try {
-          messageToSend=message.toString();
-        } catch (err) {
-          console.error("Invalid input given to ServerObj.msg!");
-          throw err;
-        }
+  this.msg=function (message,options){ // Sends a message to online players.
+    // options can be {"type":plain/info/warning/error} <-- pick one.
+    let msgType=getOption(options,"type","plain"); // Default is a plain message, which sends to main chat.
+    let messageToSend=toStringIfPossible(message);
+    if (testIfInput(messageToSend)){
+      if (typeof messageToSend != "string"){
+        throw new Error("Invalid input given to ServerObj.msg!");
+      }
     } else {
-      // no message given, so let's just be nice and assume they want a blank bot message
-      messageToSend=" ";
+      messageToSend=" "; // no message given, so let's just be nice and assume they want a blank message
     }    
-    return runSimpleCommand("/chat '" + messageToSend.toString().trim() + "'",options);
+    // I don't think there is any difference between using "plain" with this command and the /chat command.
+    return runSimpleCommand("/server_message_broadcast " + msgType + " '" + messageToSend.toString().trim() + "'",options);
   }
   this.botMsg=function (message,options){ // Sends a plain message to the player with the bot's name.
     let messageToSend;
