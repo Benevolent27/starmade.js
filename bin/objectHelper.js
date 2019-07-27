@@ -7,6 +7,7 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   objToStrMap, // This converts an object to a map
   toBoolean, // This converts a value to Boolean, handling "false" string as false
   toNumIfPossible, // This converts a value to a number if possible, otherwise returns the value back.
+  toStringIfPossible, // This converts a value to a string if possible, otherwise returns the value back.
   getObjType, // This checks the object.constructor.name value for any object.  All constructor names should be capitalized.  Otherwise returns the typeof value, which should be lowercase.
   "type":getObjType, // This is just an alias.. not sure why I did this..
   colorize, // This adds ANSI values to colorize text
@@ -121,7 +122,7 @@ function objToStrMap(obj) {
 function toBoolean(input){ // The main purpose of this function is to convert strings of "false" to literal false, rather than them being returned as truthy.
   if (input){ // First try a truthy
     return input=="false" ? false : Boolean(input); // Interpret a "false" string as false, otherwise convert to Boolean.  This will convert ANY input to true.
-  } else {
+  } else { // any falsey gets turned to false
     return false;
   }
 }
@@ -136,6 +137,22 @@ function toNumIfPossible(input){ // This also converts numbers from scientific n
   }
   return input;
 }
+function toStringIfPossible(input){ // This also converts numbers from scientific notation to floating point
+  if (typeof input != "undefined" && input != ""){ // This check is necessary since Number will create a 0 number using them
+    try {
+      var output=input.toString();
+    } catch (err){
+      return input;
+    }
+    if (typeof output == "string"){
+      return output;
+    }
+    return input;
+  }
+  return input;
+}
+
+
 function isNum(input){ // This checks if the input is a number, either as a string or as a number.
   if (typeof toNumIfPossible(input) == "number"){
     return true;
