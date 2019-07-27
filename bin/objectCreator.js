@@ -390,14 +390,14 @@ function showResponseCallback(error,output){ // This is a helper function for te
 // }
 
 function ServerObj(spawn){ // This will be used to run server commands or gather specific information regarding the server.
+
+  // TODO:  Need to test all the methods below.
   this.onlinePlayers=getPlayerList;
   this.spawn=spawn;
   this.getAdmins=function(options){ return getAdminsList(options) };
   this.getBannedAccounts=function(options){ return getBannedAccountsList(options) };
   this.getBannedIPs=function(options){ return getBannedIPList(options) };
   this.getBannedNames=function(options){ return getBannedNameList(options) };
-
-  // accepts input from getBannedAccountsList, getBannedIPList, or getBannedNameList
   this.msg=function (message,options){ // Sends a message to online players.
     // options can be {"type":plain/info/warning/error} <-- pick one.
     let msgType=getOption(options,"type","plain"); // Default is a plain message, which sends to main chat.
@@ -413,21 +413,17 @@ function ServerObj(spawn){ // This will be used to run server commands or gather
     return runSimpleCommand("/server_message_broadcast " + msgType + " '" + messageToSend.toString().trim() + "'",options);
   }
   this.botMsg=function (message,options){ // Sends a plain message to the player with the bot's name.
-    let messageToSend;
+    let messageToSend=toStringIfPossible(message);
     if (testIfInput(message)){
-        try {
-          messageToSend=message.toString();
-        } catch (err) {
+        if (typeof messageToSend != "string"){
           console.error("Invalid input given to ServerObj.botMsg!");
-          throw err;
         }
     } else {
-      // no message given, so let's just be nice and assume they want a blank bot message
-      messageToSend=" ";
+      messageToSend=" "; // no message given, so let's just be nice and assume they want a blank bot message
     }
-    console.log("Sending bot message: " + messageToSend);
-    return global.bot.msg(this.name,messageToSend,options); // This should throw an error if there is a problem connecting to the server
+    return global.bot.serverMsg(messageToSend,options); // This should throw an error if there is a problem connecting to the server
   }
+
 
   // shutdown("message",countDownInSeconds) // if no message given, a generic shutdown message happens.  If no time is given, the default is 1 second.  If a shutdown message IS given, the default time is 10 seconds.
   // ip
@@ -446,6 +442,14 @@ function BotObj(botName){
         thePlayer.msg("[" + this.name + "]: " + theMessage,options); // Any options PlayerObj.msg can take will be forwarded to it.
       } else {
         console.error("Invalid input given to message player with!")
+      }
+    }
+    this.serverMsg=function(msgString,options){ // This expects the message to send either as a string or an object that can be converted to a string
+      var theMessage=toStringIfPossible(msgString); // This allows certain objects that can be converted to strings to be used, such as matches or other objects
+      if (typeof theMessage == "string"){
+        global.server.msg("[" + this.name + "]: " + theMessage,options); // options are forwarded to server.msg
+      } else {
+        throw new Error("Invalid message given to BotObj.serverMsg!");
       }
     }
   } else {
