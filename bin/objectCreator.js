@@ -65,7 +65,7 @@ const {verifyStarNetResponse,starNetVerified,returnMatchingLinesAsArray} = starN
 // const toNumIfPossible       = objectHelper.toNumIfPossible;
 // const subArrayFromAnother   = objectHelper.subArrayFromAnother;
 // const findSameFromTwoArrays = objectHelper.findSameFromTwoArrays;
-const {copyArray,toNumIfPossible,subArrayFromAnother,findSameFromTwoArrays,isInArray} = objectHelper;
+const {copyArray,toNumIfPossible,toStringIfPossible,subArrayFromAnother,findSameFromTwoArrays,isInArray} = objectHelper;
 // const colorize              = objectHelper["colorize"];
 // const getObjType            = objectHelper.getObjType; // Gets the prototype name of an object, so instead of using "typeof", which returns "object" for things like arrays and SectorObj's, etc, this will return their object name instead.
 const {testIfInput,trueOrFalse,isTrueOrFalse,isNum,colorize,getObjType,returnLineMatch} = objectHelper;
@@ -393,12 +393,53 @@ function ServerObj(spawn){ // This will be used to run server commands or gather
   this.onlinePlayers=getPlayerList;
   this.spawn=spawn;
   this.getAdmins=function(options){ return getAdminsList(options) };
-
   this.getBannedAccounts=function(options){ return getBannedAccountsList(options) };
   this.getBannedIPs=function(options){ return getBannedIPList(options) };
   this.getBannedNames=function(options){ return getBannedNameList(options) };
 
   // accepts input from getBannedAccountsList, getBannedIPList, or getBannedNameList
+  this.msg=function (message,options){
+    // Sends a message to the whole server using the /chat command or if the type is provided, uses /server_message_broadcast
+    // server_message_broadcast
+    // DESCRIPTION: Sends a custom message to all players
+    // PARAMETERS: Type(String), Message(String)
+    // EXAMPLE: /server_message_broadcast plain/info/warning/error Hello!
+    // This is the same as player messages
+    let messageToSend;
+    if (testIfInput(message)){
+        try {
+          messageToSend=message.toString();
+        } catch (err) {
+          console.error("Invalid input given to ServerObj.msg!");
+          throw err;
+        }
+    } else {
+      // no message given, so let's just be nice and assume they want a blank bot message
+      messageToSend=" ";
+    }    
+    return runSimpleCommand("/chat '" + messageToSend.toString().trim() + "'",options);
+  }
+  this.botMsg=function (message,options){ // Sends a plain message to the player with the bot's name.
+    let messageToSend;
+    if (testIfInput(message)){
+        try {
+          messageToSend=message.toString();
+        } catch (err) {
+          console.error("Invalid input given to ServerObj.botMsg!");
+          throw err;
+        }
+    } else {
+      // no message given, so let's just be nice and assume they want a blank bot message
+      messageToSend=" ";
+    }
+    console.log("Sending bot message: " + messageToSend);
+    return global.bot.msg(this.name,messageToSend,options); // This should throw an error if there is a problem connecting to the server
+  }
+
+  // shutdown("message",countDownInSeconds) // if no message given, a generic shutdown message happens.  If no time is given, the default is 1 second.  If a shutdown message IS given, the default time is 10 seconds.
+  // ip
+  // 
+
 
 };
 function BotObj(botName){
@@ -593,7 +634,7 @@ function runSimpleCommand(theCommand,options){
       var msgTestFail2=new RegExp("^RETURN: \\[SERVER, Admin command failed: Error packing parameters, 0\\]")
       if (starNetHelper.checkForLine(msgResult,msgTestFail) || starNetHelper.checkForLine(msgResult,msgTestFail2)){ // The player was offline, did not exist, or other parameters were incorrect.
         return false;
-      } else { // The command appears to have succeeded.
+      } else { // The command appears to have not failed, so let's assume it succeeded.
         return true;
       }
     }
@@ -1830,6 +1871,57 @@ function SystemObj(x,y,z){
 
   // Action Methods:
   // load - Uses "/load_system x y z" to load the whole system.
+  this.spawnNPCFaction=function(npcName,npcFactionName,npcDescription,initialGrowth,options){ // Normally options would never be given since who cares about making this fast?
+    // DOES NOT GIVE AN ERROR IF THE NPC TYPE IS NOT CORRECT - NEED TO DO MY OWN CHECKING HERE TO SEE IF VALID.
+    if (!testIfInput(npcName)){
+      throw new Error("No NPC name given to SystemObj.spawnNPCFaction!"); // Input was either blank or a blank object or something.
+    }
+    var npcNameToUse=npcName.toString(); // If it's an object or something that can be converted to a string, we can use the string.  This will throw an error if it cannot be converted to a string.
+    if (typeof npcNameToUse != "string"){
+      throw new Error("Invalid NPC name given to SystemObj.spawnNPCFaction!");
+    }
+    if (!testIfInput(npcFactionName)){
+      throw new Error("No NPC faction name given to SystemObj.spawnNPCFaction!"); // Input was either blank or a blank object or something.
+    }
+    var npcFactionNameToUse=npcFactionName.toString();
+    if (typeof npcFactionNameToUse != "string"){
+      throw new Error("Invalid NPC faction name given to SystemObj.spawnNPCFaction!");
+    }
+
+    // Description and initial growth can be blank, but throw error if invalid input given
+    var npcDescriptionToUse="";
+    if (testIfInput(npcDescription)){
+      npcDescriptionToUse=npcDescription.toString();
+    }
+    var initialGrowthToUse=10;
+    if (isNum(initialGrowth)){
+      initialGrowthToUse=initialGrowth;
+    }
+    // /npc_spawn_faction_pos_fixed
+    // DESCRIPTION: Spawns a faction on a fixed position
+    // PARAMETERS: name(String), description(String), preset (npc faction config folder name)(String), Initial Growth(Integer), System X(Integer), System Y(Integer), System Z(Integer)
+    // EXAMPLE: /npc_spawn_faction_pos_fixed "My NPC Faction" "My Faction's description" "Outcasts" 10 12 3 22
+    return runSimpleCommand("/npc_spawn_faction_pos_fixed \"" + npcNameToUse + "\" \"" + npcFactionNameToUse + "\" \"" + npcDescriptionToUse + "\"" + initialGrowthToUse + this.coords.toString(),options);
+  }
+  this.territoryMakeUnclaimable=function(options){
+    return runSimpleCommand("/territory_make_unclaimable " + this.coords.toString(),options);
+  }
+  this.territoryReset=function(options){
+    return runSimpleCommand("/territory_reset " + this.coords.toString(),options);
+  }
+
+
+  
+  // /territory_make_unclaimable // This is broken and will probably not be fixed.
+  // DESCRIPTION: makes a system unclaimable (use system coords, reset with /territory_reset)
+  // PARAMETERS: SystemX(Integer), SystemY(Integer), SystemZ(Integer)
+  // EXAMPLE: /territory_make_unclaimable 10 12 15
+  
+  // /territory_reset
+  // DESCRIPTION: takes away claim of a system (use system coords)
+  // PARAMETERS: SystemX(Integer), SystemY(Integer), SystemZ(Integer)
+  // EXAMPLE: /territory_reset 10 12 15
+
 
   // This can be expanded to allow storing information, such as a description, if more than values than expected are given to the constructor
   if (arguments.length > SystemObj.length){
@@ -2066,6 +2158,19 @@ function SectorObj(xGiven,yGiven,zGiven){
   // TODO: add a way to filter entities by a certain regex pattern input, for things like destroying only specifically named ships/stations.
   // TODO: Map out the "creator" possibilities for /sector_info and enable filtering of lists by creator regex patterns
 
+
+  // Needs testing:
+  // clearMines()
+  // clearOverheating()
+  // despawn
+  // isLoaded()
+  // importSector
+  // exportSector
+  // populate
+  // repair
+  // spawnEntity
+
+
   var theCoordsObj=new CoordsObj(xGiven,yGiven,zGiven); // This will handle any conversions needed of various inputs, either strings of x y z, Array of coordinates, other sector or coords objects, etc.
   var x=theCoordsObj.x;
   var y=theCoordsObj.y;
@@ -2073,20 +2178,155 @@ function SectorObj(xGiven,yGiven,zGiven){
   // Only if this is valid should we proceed.
   if (typeof x == "number" && typeof y == "number" && typeof z == "number"){
     this.coords=theCoordsObj;
+    this.clearMines=function(options){
+      // RETURN: [SERVER, Mines cleared in 2, 2, 2!, 0]
+      return runSimpleCommand("/clear_mines_sector " + this.coords.toString(),options);
+    }
+    this.clearOverheating=function(options){
+      // Will error and return false if the sector is unloaded.
+      return runSimpleCommand("/clear_overheating_sector " + this.coords.toString(),options);
+    }
+    this.despawn=function(partOfShipName,used,shipOnly,options){
+      // /despawn_sector
+      // EXAMPLE: /despawn_sector MOB_ unused true 2 2 2
+      // Will error and return false if the sector is unloaded.
+      var partOfShipNameToUse=toStringIfPossible(partOfShipName);
+      if (typeof partOfShipNameToUse != "string"){
+        throw new Error("Invalid input given to SectorObj.despawn!");
+      }
+      var usedToUse="all";
+      var usedTest=toStringIfPossible(used);
+      if (typeof usedTest == "string"){
+        usedTest=usedTest.toLowerCase();
+      }
+      if (usedTest == "all" || usedTest == "used" || usedTest == "unused"){
+        usedToUse=usedTest;
+      }
+      var shipOnlyToUse="false";
+      if (isTrueOrFalse(shipOnly)){
+        shipOnlyToUse=shipOnly;
+      }
+      return runSimpleCommand("/despawn_sector \"" + partOfShipNameToUse + "\" " + usedToUse + " " + shipOnlyToUse + " " + this.coords.toString(),options);
+    }
+    this.isLoaded=function(){
+      // ^RETURN\: \[SERVER, LOADED SECTOR INFO\:
+      // RETURN: [SERVER, LOADED SECTOR INFO: Sector[132](2, 2, 2); Permission[Peace,Protected,NoEnter,NoExit,NoIndication,NoFpLoss]: 000000; Seed: -4197430019395025102; Type: VOID;, 0]
+      let result=starNetVerified("/sector_info " + this.coords.toString());
+      let theReg=new RegExp("^RETURN: \\[SERVER, LOADED SECTOR INFO:.*");
+      return starNetHelper.checkForLine(result,theReg);
+    }
+    this.importSector=function(sectorExport,options){
+      // /import_sector
+      // DESCRIPTION: make sure that the target sector is unloaded
+      // PARAMETERS: toX(Integer), toY(Integer), toZ(Integer), name(String)
+      // EXAMPLE: /import_sector 2 3 4 mySavedSector
+
+      // No success message when successful
+      // No error when file does not exist.
+
+      // Only gives errors if parameters incorrect.  RETURN: [SERVER, Admin command failed: Error packing parameters, 0]
+
+      // global.starMadeInstallFolder
+      if (typeof sectorExport == "string"){
+        var sectorExportFile=sectorExport;
+        if (!(/\.smsec$/i).test(sectorExportFile)){
+          sectorExportFile+=".smsec";
+        }
+        var exportFolder=path.join(global.starMadeInstallFolder,"sector-export/");
+        var sectorExportFilePath=path.join(exportFolder,sectorExportFile);
+        // StarMade seems to behave in a case insensitive way on windows, but case sensitive on linux and probably mac
+        var theTest=false;
+        if (process.platform=="win32"){
+          theTest=miscHelpers.isFileInFolderCaseInsensitive(sectorExportFilePath); // This is literal for the path but not for the file.
+        } else {
+          theTest=miscHelpers.existsAndIsFile(sectorExportFilePath); // This does a literal check.
+        }
+        if (theTest){ // Does a lowercase test of the filename because I believe StarMade does not care.  This needs to be tested on linux.
+          // File exists
+          if (this.isLoaded()){
+            return false;
+          }
+          // This will not return any errors unless the parameters are incorrect.
+          return runSimpleCommand("/import_sector " + this.coords.toString() + " " + sectorExport,options);
+        }
+      }
+      return false;
+    }
+    this.exportSector=function(sectorExport,options){
+      // Will not give any error whether it did anything or not, unless parameters are incorrect
+      var sectorExportToUse=toStringIfPossible(sectorExport);
+      if (typeof sectorExportToUse == "string"){
+        return runSimpleCommand("/export_sector " + this.coords.toString() + " " + sectorExport,options);
+      }
+      throw new Error("Invalid input given to SectorObj.exportSector as sectorExport!");
+    }
+    this.populate=function(options){
+      // Will not give any error whether it did anything or not, unless parameters are incorrect
+      // DESCRIPTION: WARNING: this will populate the sector. Use this as a reset after using /despawn_sector!
+      return runSimpleCommand("/populate_sector " + this.coords.toString(),options);
+    }
+    this.repair=function(options){
+      // WARNING - I think this is broken via StarNet.jar or through the console.  It ALWAYS gives the following error:
+      // RETURN: [SERVER, [ADMIN COMMAND] [ERROR] player not found for your client, 0]
+      // DESCRIPTION: attempts to correct the regitry of the sector
+      return runSimpleCommand("/repair_sector " + this.coords.toString(),options);
+    }
+    this.spawnEntity=function(blueprintObj,shipName,factionNum,aiActiveBoolean,options){
+      // factionNum and aiActive are optional
+      // factionNum can be a faction object.
+
+      var blueprintName=toStringIfPossible(blueprintObj);
+      if (typeof blueprintName != "string"){
+        throw new Error("Invalid input given to SectorObj.spawnEntity as blueprintObj!");
+      }
+      var shipNameToUse=toStringIfPossible(shipName);
+      if (typeof shipNameToUse != "string"){
+        throw new Error("Invalid input given to SectorObj.spawnEntity as shipName!");
+      }
+
+      var factionNumToUse=0;
+      if (testIfInput(factionNum)){ // If no input given, that is ok, we'll just use 0.
+        var factionNumTest=toStringIfPossible(factionNum); // This handles a factionObj
+        if (isNum(factionNumTest)){ // Will be true if the string is a number.
+          factionNumToUse=factionNumTest;
+        } else { // Some invalid string or object was given
+          throw new Error("Invalid input given to SectorObj.spawnEntity as factionNum!");
+        }
+      }
+      var aiActiveBooleanToUse=false;
+      if (testIfInput(aiActiveBoolean)){ // If no input, that is ok.  We'll just use false.
+        if (isTrueOrFalse(aiActiveBoolean)){
+          aiActiveBooleanToUse=aiActiveBoolean;
+        } else {
+          throw new Error("Invalid input given to SectorObj.spawnEntity as aiActiveBoolean!");
+        }
+      }
+      return runSimpleCommand("/spawn_entity \"" + blueprintName + "\" \"" + shipNameToUse + "\" " + this.coords.toString() + " " + factionNumToUse + " " + aiActiveBooleanToUse,options);
+      // /spawn_entity // Also in the BluePrintObj
+      // DESCRIPTION: Spawns a ship in any sector with a faction tag and AI tag.
+      // PARAMETERS: BlueprintName(String), ShipName(String), X(Integer), Y(Integer), Z(Integer), factionID(Integer), ActiveAI(True/False)
+      // EXAMPLE: /spawn_entity mySavedShip shipName sectorX sectorY sectorZ -1 true
+    }
+
+
+    // Below needs to be brought up to the current standard of true=success,false=fail, throw error on connection problem.
+
     this.toArray=function(){ return this.coords.toArray() };
     this.load=function(){
+      // old method:
       // This returns "true" if the command ran, false for anything else, such as if the server was down.
-      let theResponse=starNet("/load_sector_range " + this.coords.toString() + " " + this.coords.toString());
-      return starNetHelper.detectRan(theResponse);
+      // let theResponse=starNet("/load_sector_range " + this.coords.toString() + " " + this.coords.toString());
+      // return starNetHelper.detectRan(theResponse);
+      return runSimpleCommand("/load_sector_range " + this.coords.toString() + " " + this.coords.toString());
     };
-    this.setChmod=function(val){ // val should be a string
+    this.setChmod=function(val,options){ // val should be a string
       // This will return true if it was a success, false otherwise.
       // Example vals:  "+ peace" or "- protected"
-      return sectorSetChmod(this.coords,val)
+      return sectorSetChmod(this.coords,val,options);
     };
-    this.getChmodArray=function(){
+    this.getChmodArray=function(options){
       // This really should do a force save before pulling the values.. wish there was a way to do it silently..
-      return decodeChmodNum(getChmodNum(this.coords))
+      return decodeChmodNum(getChmodNum(this.coords,options));
     };
     this.getChmodNum=function(){
       // This really should do a force save before pulling the values.. wish there was a way to do it silently..
@@ -2130,7 +2370,7 @@ function SectorObj(xGiven,yGiven,zGiven){
       var uidArray=this.listEntityUIDs(filter,options);
       if (uidArray){ // Will be Null if the StarNet command fails for some reason
         for (let i=0;i<uidArray.length;i++){
-          // Set the correct type of object for each entity in the sector
+          // Set the correct type of object for each entity in the sector.  If new commands come out for planets or asteroids, we should prefer those types.
           if (uidArray[i].match(/^(ENTITY_SHIP_|ENTITY_SPACESTATION_|ENTITY_SHOP_|ENTITY_FLOATINGROCK_|ENTITY_FLOATINGROCKMANAGED_|ENTITY_PLANET_|ENTITY_PLANETCORE_)/)){
             returnArray.push(new EntityObj(uidArray[i]));
           } else if (uidArray[i].match(/^(ENTITY_PLAYERCHARACTER_|ENTITY_PLAYERSTATE_)/)){
@@ -2652,7 +2892,7 @@ function createDateObjIfPossible(input){ // Takes either a date string that "new
   }
   return false; // Returns false if no input given
 };
-function getChmodNum(sectorObjArrayOrString){
+function getChmodNum(sectorObjArrayOrString,options){
   // This performs a sql query and returns the protections number for a sector as a number
   // Input can be a SectorObj,CoordsObj, Array of 3 numbers, or a string with a space or comma separating each value.  The preferred type is a SectorObj
   // Example inputs:
@@ -2730,7 +2970,7 @@ function decodeChmodNum(num){ // A number should be provided, but a number as a 
     throw new Error("ERROR: Invalid input given to function, decodeChmodNum!  Expected a number!");
   }
 };
-function sectorSetChmod(coordsObj,stringOrArray){ // val can be a string or an array of strings
+function sectorSetChmod(coordsObj,stringOrArray,options){ // val can be a string or an array of strings
   // This can be used to set multiple chmod values at the same time
   // Simple example:  sectorSetChmod(mySectorObj,"+ protected"); // This sets the sector number from mySectorObj to add protected, returning true or false depending on the success.
   // Using Array: sectorSetChmod(mySectorObj,["+ protected","- peace","- noindications"]); // This will cycle through the array and set each chmod, and then will return an array of true/false values corresponding to each string given.
@@ -2743,14 +2983,17 @@ function sectorSetChmod(coordsObj,stringOrArray){ // val can be a string or an a
     // console.log("Setting " + val + " for sector: " + coordsObj.toString());
     let theValLower=stringOrArray.toLowerCase();
     let theCommand="/sector_chmod " + coordsObj.toString() + " " + theValLower;
-    return starNetHelper.detectSuccess(starNet(theCommand));
+    // This needs to be changed to throw an error if the connection fails.
+    // return starNetHelper.detectSuccess(starNet(theCommand));
+    let theResult=starNetVerified(theCommand,options);
+    return starNetHelper.detectSuccess(theResult);
   } else if (theType == "Array"){
     var resultsArray=[];
     for (let i=0;i<stringOrArray.length;i++){
       let theSubType=objectHelper.getObjType(stringOrArray[i]);
       if (theSubType == "string"){
         let theValLower=stringOrArray[i].toLowerCase();
-        resultsArray.push(starNetHelper.detectSuccess(starNet("/sector_chmod " + coordsObj.toString() + " " + theValLower)));
+        resultsArray.push(starNetHelper.detectSuccess(starNetVerified("/sector_chmod " + coordsObj.toString() + " " + theValLower,options)));
       } else {
         resultsArray.push(false);
       }
