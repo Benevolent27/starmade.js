@@ -611,9 +611,47 @@ function ServerObj(spawn){ // This will be used to run server commands or gather
     // this returns a string for now.. I'm not interested in discovery and parsing of the data at this time.
     return starNetVerified("/simulation_info",options);
   }
+  this.factionList=function(options){ // Returns an array of FactionObj for all factions on the server.
+    var returnArray=[];
+    var results=starNetVerified("/faction_list",options);
+    // RETURN: [SERVER, FACTION: Faction [id=-9999992
+    let theReg=new RegExp("^RETURN: \\[SERVER, FACTION: Faction \\[id=[-]{0,1}[0-9]+.*");
+    var theArray=results.trim().split("\n");
+    var theLine;
+    for (let i = 0;i < theArray.length;i++) {
+      if (theReg.test(theArray[i])){
+        theLine=theArray[i].match(/^RETURN: \[SERVER, FACTION: Faction \[id=[-]{0,1}[0-9]+/).toString();
+        theLine=theLine.match(/[-]{0,1}[0-9]+$/).toString();
+        returnArray.push(new FactionObj(theLine));
+        theLine="";
+      }
+    }
+    return returnArray; // Array is empty if no factions were found.
+  }
+  this.blueprintList=function(options){ // Returns an array of FactionObj for all factions on the server.
+    var returnArray=[];
+    var results=starNetVerified("/list_blueprints",options);
+    // RETURN: [SERVER, [CATALOG] INDEX 0: This is another test, 0]
+    let theReg=new RegExp("^RETURN: \\[SERVER, \\[CATALOG\\] INDEX.*");
+    var theArray=results.trim().split("\n");
+    var theLine;
+    for (let i = 0;i < theArray.length;i++) {
+      if (theReg.test(theArray[i])){
+        theLine=theArray[i].replace(/^RETURN: \[SERVER, \[CATALOG\] INDEX [0-9]+: /,"");
+        theLine=theLine.replace(/, 0\]$/,"");
+        returnArray.push(new BluePrintObj(theLine));
+        theLine="";
+      }
+    }
+    return returnArray; // Array is empty if no factions were found.
+  }
 
+  this.listControlUnits=function(options){ // Prints info about characters and entities
+    // this returns a string for now.. I'm not interested in discovery and parsing of the data at this time, since other commands have better info than this.
+    return starNetVerified("/list_control_units",options);
+  }
 
-
+  
 
   // shutdown(seconds,"message") // message is optional.  If given, a countdown timer will be used and then a 1 second shutdown when it is set to expire.
   // ip
