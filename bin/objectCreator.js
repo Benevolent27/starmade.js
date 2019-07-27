@@ -423,9 +423,199 @@ function ServerObj(spawn){ // This will be used to run server commands or gather
     }
     return global.bot.serverMsg(messageToSend,options); // This should throw an error if there is a problem connecting to the server
   }
+  this.clearShipSpawns=function(options){ // clears all ship entities not spawned by a player ie. admin spawned or mobs
+    // Note: Be careful with this!  This applies to the entire universe!
+    // Does not have success or fail messages
+    return runSimpleCommand("/clear_system_ship_spawns_all",options);
+  }
+  this.daytime=function(timeInHours,options){
+    let timeToUse=toNumIfPossible(timeInHours);
+    // Does not have success or fail messages
+    if (typeof timeToUse == "number"){
+      return runSimpleCommand("/daytime " + timeToUse,options);
+    } else {
+      throw new Error("Invalid input given to Server.daytime() for timeInHours!");
+    }
+  }
+  this.delaySave=function(timeInSeconds,options){
+    let timeToUse=toNumIfPossible(timeInSeconds);
+    // Does not have success or fail messages
+    if (typeof timeToUse == "number"){
+      return runSimpleCommand("/delay_save " + timeToUse,options);
+    } else {
+      throw new Error("Invalid input given to Server.delaySave() for timeInSeconds!");
+    }
+  }
+  this.despawn=function(partOfShipName,used,shipOnly,options){ // Only partOfShipName input is mandatory.
+    // Note: Becareful with this because this will despawn ALL ships in the entire universe that match!
+    // EXAMPLE: /despawn_all MOB_ unused true
+    var partOfShipNameToUse=toStringIfPossible(partOfShipName);
+    if (typeof partOfShipNameToUse != "string"){
+      throw new Error("Invalid input given to Server.despawn as partOfShipNameToUse!");
+    }
+    var usedToUse="all";
+    var usedTest=toStringIfPossible(used);
+    if (typeof usedTest == "string"){
+      usedTest=usedTest.toLowerCase();
+    }
+    if (usedTest == "all" || usedTest == "used" || usedTest == "unused"){
+      usedToUse=usedTest;
+    }
+    var shipOnlyToUse="false";
+    if (isTrueOrFalse(shipOnly)){
+      shipOnlyToUse=shipOnly;
+    }
+    return runSimpleCommand("/despawn_all \"" + partOfShipNameToUse + "\" " + usedToUse + " " + shipOnlyToUse,options);
+  }
+  this.exportSector=function(sector,nameToUse,options){
+    var sectorToUse=new SectorObj(sector); // Throws an error if input is bad.
+    return sectorToUse.exportSector(nameToUse,options);
+  }
+  this.importSector=function(sector,nameToUse,options){
+    var sectorToUse=new SectorObj(sector); // Throws an error if input is bad.
+    return sectorToUse.importSector(nameToUse,options);
+  }
+  this.exportSectorBulk=function(textFileToUse,options){
+    let textFileToUseToUse=toStringIfPossible(textFileToUse);
+    if (typeof textFileToUseToUse == "string"){
+      return runSimpleCommand("/export_sector_bulk " + textFileToUse,options);
+    }
+    throw new Error("Invalid textFileToUse specified for Server.exportSectorBulk");
+  }
+  this.importSectorBulk=function(textFileToUse,options){
+    // I should actually check to see if the file specified exists, because I'm guessing no error is returned if the file does not exist, but meh I'll be lazy on this for now.
+    let textFileToUseToUse=toStringIfPossible(textFileToUse);
+    if (typeof textFileToUseToUse == "string"){
+      return runSimpleCommand("/import_sector_bulk " + textFileToUse,options);
+    }
+    throw new Error("Invalid textFileToUse specified for Server.importSectorBulk");
+  }
+  this.factionSanityCheck=function(options){ // checks sanity of factions (removes leftover/invalid factions)
+    // Does not have success or fail messages
+    return runSimpleCommand("/faction_check",options);
+  }
+  this.factionCreate=function(factionName,playerName,factionNumber,options){ // factionNumber is optional. Can take strings or objects as input
+    // Creates a new faction, assigning a player to it.  The faction description will be blank!
+    var factionNameToUse=toStringIfPossible(factionName);
+    var playerNameToUse=toStringIfPossible(playerName);
+    var factionNumberToUse=toNumIfPossible(factionNumber);
+
+    if (typeof factionNameToUse == "string" && typeof playerNameToUse == "string"){
+      if (typeof factionNumberToUse == "number"){ // If a faction number is provided
+        // Warning:  I do not know what happens if a faction number is given for one that already exists!
+        return runSimpleCommand("/faction_create_as " + factionNumberToUse + " " + factionNameToUse + " " + playerNameToUse,options);
+      }
+      return runSimpleCommand("/faction_create " + factionNameToUse + " " + playerNameToUse,options);
+    }
+    throw new Error("Invalid parameters given to Server.factionCreate!");
+  }
+  this.factionCreateAmount=function(factionName,numberOfFactions,options){ // accepts inputs that can be converted to string or number
+    // Creates empty, open factions with the same name -- I'm not sure what the purpose of this is exactly.
+    var factionNameToUse=toStringIfPossible(factionName);
+    var numberOfFactionsToUse=toNumIfPossible(numberOfFactions);
+    if (typeof factionNameToUse == "string" && typeof numberOfFactionsToUse == "number"){
+      return runSimpleCommand("/faction_create_amount " + factionNameToUse + " " + numberOfFactionsToUse,options);
+    }
+    throw new Error("Invalid parameters given to Server.factionCreateAmount!");
+  }
+
+  this.factionPointTurn=function(options){ // Forces the next faction point calculation turn
+    // Does not have success or fail messages
+    return runSimpleCommand("/faction_point_turn",options);
+  }
+  this.fleetSpeed=function(timeInMs,options){
+    let numberToUse=toNumIfPossible(timeInMs);
+    // Does not have success or fail messages
+    if (typeof numberToUse == "number"){
+      return runSimpleCommand("/fleet_speed " + numberToUse,options);
+    } else {
+      throw new Error("Invalid input given to Server.fleetSpeed() for timeInMs!");
+    }
+  }
+  this.fogOfWar=function(trueOrFalse,options){ // Turns fog of war on or off
+    let booleanToUse=trueOrFalse(trueOrFalse); // allows truthy values to convert to the words, "true" or "false"
+    // Does not have success or fail messages
+    if (isTrueOrFalse(booleanToUse)){
+      return runSimpleCommand("/fog_of_war " + booleanToUse,options);
+    } else {
+      throw new Error("Invalid input given to Server.fogOfWar() for trueOrFalse!");
+    }
+  }
+  this.ignoreDockingArea=function(trueOrFalse,options){ //  enables/disables docking area validation (default off)
+    let booleanToUse=trueOrFalse(trueOrFalse); // allows truthy values to convert to the words, "true" or "false"
+    // Does not have success or fail messages
+    if (isTrueOrFalse(booleanToUse)){
+      return runSimpleCommand("/ignore_docking_area " + booleanToUse,options);
+    } else {
+      throw new Error("Invalid input given to Server.ignoreDockingArea() for trueOrFalse!");
+    }
+  }
+  this.forceSave=function(options){ // Performs a force save
+    // Does not have success or fail messages
+    return runSimpleCommand("/force_save",options);
+  }
+  this.activateWhitelist=function(trueOrFalse,options){ //  activates the whitelist, so only players listed in the whitelist.txt file can join the server.
+    let booleanToUse=trueOrFalse(trueOrFalse); // allows truthy values to convert to the words, "true" or "false"
+    // Does not have success or fail messages
+    if (isTrueOrFalse(booleanToUse)){
+      return runSimpleCommand("/whitelist_activate " + booleanToUse,options);
+    } else {
+      throw new Error("Invalid input given to Server.activateWhitelist() for trueOrFalse!");
+    }
+  }
+  this.updateShopPrices=function(options){ // Updates shop prices.
+    // Does not have success or fail messages
+    return runSimpleCommand("/update_shop_prices",options);
+  }
+  this.sectorSize=function(sizeInM,options){ // Resizes the sector for the server - writes to the server.cfg file
+    // WARNING: Setting sector sizes to be smaller can cause some really bizarre issues if entities are now outside of the sector but still inside it!
+    let numberToUse=toNumIfPossible(sizeInM);
+    if (typeof numberToUse == "number"){
+      return runSimpleCommand("/sector_size " + numberToUse,options);
+    } else {
+      throw new Error("Invalid input given to Server.sectorSize() for sizeInM!");
+    }
+  }
+  this.setWeaponRangeReference=function(sizeInM,options){ // Sets the weapon reference range distance in meters, which config values are multiplied with (default is sector distance)
+    let numberToUse=toNumIfPossible(sizeInM);
+    if (typeof numberToUse == "number"){
+      return runSimpleCommand("/set_weapon_range_reference " + numberToUse,options);
+    } else {
+      throw new Error("Invalid input given to Server.setWeaponRangeReference() for sizeInM!");
+    }
+  }
+  this.aiSimulation=function(trueOrFalse,options){ //  activates or deactivates AI simulation
+    let booleanToUse=trueOrFalse(trueOrFalse); // allows truthy values to convert to the words, "true" or "false"
+    // Does not have success or fail messages
+    if (isTrueOrFalse(booleanToUse)){
+      return runSimpleCommand("/simulation_ai_enable " + booleanToUse,options);
+    } else {
+      throw new Error("Invalid input given to Server.aiSimulation() for trueOrFalse!");
+    }
+  }
+  this.simulationClear=function(options){ // Clears all AI from simulation
+    // Does not have success or fail messages
+    return runSimpleCommand("/simulation_clear_all",options);
+  }
+
+  this.simulationSpawnDelay=function(timeInSeconds,options){ // Not sure what this does.  If I had to guess what this is for, it's the delay before pirates come attack when near a pirate station or in void space?  I think the help for this command is wrong which is:  sets the time of the day in hours
+    let timeToUse=toNumIfPossible(timeInSeconds);
+    if (typeof timeToUse == "number"){
+      return runSimpleCommand("/set_weapon_range_reference " + timeToUse,options);
+    } else {
+      throw new Error("Invalid input given to Server.simulationSpawnDelay() for sizeInM!");
+    }
+  }
+
+  this.simulationInfo=function(options){ // Prints info about macro AI Simulation
+    // this returns a string for now.. I'm not interested in discovery and parsing of the data at this time.
+    return starNetVerified("/simulation_info",options);
+  }
 
 
-  // shutdown("message",countDownInSeconds) // if no message given, a generic shutdown message happens.  If no time is given, the default is 1 second.  If a shutdown message IS given, the default time is 10 seconds.
+
+
+  // shutdown(seconds,"message") // message is optional.  If given, a countdown timer will be used and then a 1 second shutdown when it is set to expire.
   // ip
   // 
 
