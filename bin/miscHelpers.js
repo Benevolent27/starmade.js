@@ -13,6 +13,7 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   getFiles,
   isSeen,
   existsAndIsFile, // Returns false if the path exists but is not a file, ie. it is a directory.
+  isFileInFolderCaseInsensitive, // Only performs an insensitive search on the file, not directory path.
   areCoordsBetween // TODO: Test to ensure this works correctly
 };
 
@@ -228,6 +229,28 @@ function isFile(source) {
 function getFiles(source) {
   return fs.readdirSync(source).map((name) => path.join(source, name)).filter(isFile);
 };
+
+function isFileInFolderCaseInsensitive(filePath){ // This does a case insensitive match search for a file.  The path still needs to be 100% right.
+  //  This should probably not be used in linux unless StarMade doesn't mind it.
+  var filePathToUse=path.resolve(filePath);
+  var sourceDir=path.dirname(filePathToUse);
+  var baseFile=path.basename(filePath);
+  var baseFileTest;
+  var theReg;
+  if (isSeen(sourceDir)){
+    if (isDirectory(sourceDir)){
+      var theFiles=getFiles(sourceDir);
+      for (let i=0;i<theFiles.length;i++){
+        baseFileTest=path.basename(theFiles[i]);
+        theReg=new RegExp('^' + baseFileTest + '$',"i");
+        if (theReg.test(baseFile)){
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
 
 function deleteFile (fileToDelete,options){ // options can be:  {"quiet":true/false}  This will still display an error if the file exists but cannot be deleted for some reason.
   // Resolves files to use main script path as root if given relative path.
