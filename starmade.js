@@ -53,11 +53,11 @@ const path   = require('path'); // This is needed to build file and directory pa
 // ### Main Vars ### - Don't change these
 console.log("Setting main vars..");
 // var global={ }; // This will be used to pass variables to mods to be readily available
-var commands={ };
+// var commands={ }; // This is offloaded to the commands.js default mod now.
 var mainFolder      = path.dirname(require.main.filename); // This is where the starmade.js is.  I use this method instead of __filename because starmade.js might load itself or be started from another script
 var binFolder       = path.join(mainFolder,"bin");
 var modsFolder       = path.join(mainFolder,"mods");
-global["commands"]=commands;
+// global["commands"]=commands; // Offloading this to the default mod commands.js
 global["mainFolder"]=mainFolder;
 global["binFolder"]=binFolder;
 global["modsFolder"]=modsFolder;
@@ -127,8 +127,58 @@ global["exitHook"]=exitHook;
 
 // ### Set up submodules and aliases from requires.
 var eventEmitter      = new global["events"].EventEmitter(); // This is for custom events
-global["event"]=eventEmitter; // temp
-global["eventEmitter"]=eventEmitter;
+
+
+var eventListenersToRemoveOnReload=[];
+function addEventsToRemoveOnModReload(eventName,eventFunction){
+  var theObj={};
+  theObj[eventName]=eventFunction;
+  eventListenersToRemoveOnReload.push(theObj);
+}
+
+
+var event=objectHelper.copyObj(eventEmitter);
+event["on"]=eventOn;
+function eventOn(eventName,theFunction){
+  addEventsToRemoveOnModReload(eventName,theFunction);
+  eventEmitter.on(eventName,theFunction);
+}
+event["once"]=eventOnce;
+function eventOnce(eventName,theFunction){
+  addEventsToRemoveOnModReload(eventName,theFunction);
+  eventEmitter.once(eventName,theFunction);
+}
+// var event={ // This is to replace the regular eventEmmiter to capture listeners from mods to remove them when reloading the mods
+//   // Use this for on and emit functions for the eventEmitter
+//   "on":function (eventName,theFunction){
+//     addEventsToRemoveOnModReload(eventName,theFunction);
+//     eventEmitter.on(eventName,theFunction);
+//   }
+//   // },
+//   // "emit":function(){ // This is a passthrough
+//   //   var argsArray=[];
+//   //   for (let i=0;i<arguments.length;i++){
+//   //     argsArray.push(arguments[i]);
+//   //   }
+//   //   eventEmitter.emit(...argsArray);
+//   // }
+// }
+
+// // This is broken:
+// for(var key in eventEmitter) { // Rebuild the event to duplicate all the functionality of the regular event emitter
+//   if (key != "on"){ // Add everything but the 'on' event, which we replace above.
+//     if (eventEmitter.hasOwnProperty(key)){
+//       event[key]=eventEmitter[key];
+//     } else {
+//       event.prototype[key] = eventEmitter[key];
+//     }
+//   }
+// }
+
+// global["event"]=eventEmitter; // temp - Replace the global "event" with an event wrapper to capture the events listeners of mods to be able to unload and reload them later when reloading mods
+global["event"]=event; // Testing
+// global["eventEmitter"]=eventEmitter; // This should NOT be used by mods.  Removing this from the global, since we want to force mods to use the custom event handler
+
 var isPidAlive        = miscHelpers.isPidAlive;
 var {isDirectory,getDirectories,isFile,getFiles,log}=miscHelpers;  // Sets up file handling
 
@@ -491,25 +541,105 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
     // #### MODLOADER ####
     // ###################
     console.log("############## Loading Mods ###############");
-    var modFolders=getDirectories(modsFolder)
-    global["modFolders"]=modFolders;
-    // Testing for loading mods  TODO: Change the way it loads to use a map instead, with each directory name being paired with the require
-    // Require all scripts found in mod folders
-    var fileList=[];
-    var mods=[];
-    for (var i = 0;i < modFolders.length;i++) {
-      console.log("Mod Folder found: " + modFolders[i] + " Looking for scripts..");
-      fileList=getFiles(modFolders[i]);
-      // console.dir(fileList);
-      for (var e=0;e<fileList.length;e++){
-        if (fileList[e].match(/.\.js$/)) {
-          console.log("Loading JS file: " + fileList[e]);
-          mods.push(require(fileList[e])); // This will load and run the mod
+    loadMods();
+    function loadMods(){
+      var modFolders=getDirectories(modsFolder)
+      global["modFolders"]=modFolders;
+      // Testing for loading mods  TODO: Change the way it loads to use a map instead, with each directory name being paired with the require
+      // Require all scripts found in mod folders
+      var fileList=[];
+      var mods=[];
+      var modFiles=[];
+      for (var i = 0;i < modFolders.length;i++) {
+        console.log("Mod Folder found: " + modFolders[i] + " Looking for scripts..");
+        fileList=getFiles(modFolders[i]);
+        // console.dir(fileList);
+        for (var e=0;e<fileList.length;e++){
+          if (fileList[e].match(/.\.js$/)) {
+            console.log("Loading JS file: " + fileList[e]);
+            modFiles.push(fileList[e]);
+            mods.push(require(fileList[e])); // This will load and run the mod
+          }
         }
       }
+      console.dir(mods);
+      global["modFiles"]=modFiles;
+      global["mods"]=mods;
     }
-    console.dir(mods);
-    global["modFiles"]=mods;
+
+    function reloadMods(){ // This function is meant to reload ALL mods.  Specificity is not possible right now.
+      console.log("Removing any event listeners registered by mods..");
+      unloadModListeners(); // I do not think it is possible to specify only removing listeners for a specific mod..
+      console.log("Deleting the require cache's for mods..");
+      unloadMods();
+      console.log("Re-requiring the mods..");
+      loadMods(); // This will load new ones if they exist.
+      console.log("Done reloading mods!");
+    }
+
+    function unloadModListeners(inputPath){ // Presently there is no way to remove the listener of a specific mod.  I need to see if this is possible.
+      for (let i=0;i<eventListenersToRemoveOnReload.length;i++){
+        // eventListenersToRemoveOnReload[i] // This is an object with the event name and function
+        for(var key in eventListenersToRemoveOnReload[i]) { // This should only run once.
+          if (eventListenersToRemoveOnReload[i].hasOwnProperty(key)){ // Only run on non-prototype keys
+            console.log("Removing listener: " + key);
+            eventEmitter.removeListener(key,eventListenersToRemoveOnReload[i][key]);
+          }
+        }
+      }
+      eventListenersToRemoveOnReload=[]; // There should no longer be any events registered by mods.
+    }
+
+    function unloadMods(inputPath){  // This cycles through the list of modfiles and deletes their cache
+      // if 'inputPath' is specified, it will ONLY unload that specific path.
+      eventEmitter.emit("removeListeners");
+
+      let fileList=global["modFiles"];
+      var inputPathToUse;
+      if (inputPath){
+        inputPathToUse=path.resolve(inputPath);
+      }
+      for (var e=0;e<fileList.length;e++){
+        if (inputPathToUse){
+          if (inputPathToUse == fileList[e]){
+            console.log("Unloading JS file: " + fileList[e]);
+            global["modFiles"]=arrayMinus(global["modFiles"],fileList[e]); // This should work
+            global["mods"]=arrayMinus(global["mods"],require(fileList[e])); // I have no idea if this will actually work since it's an array of objects.  Can they be directly compared?
+            // The above might need: require.cache[require.resolve(fileList[e])]
+            Reflect.deleteProperty(require.cache,require.resolve(fileList[e])); // I have no idea what happens to any event listeners registered under the old mods.  I am guessing they need to be deregistered.. but let's try this first.
+          }
+        } else {
+          console.log("Unloading JS file: " + fileList[e]);
+          Reflect.deleteProperty(require.cache,require.resolve(fileList[e])); // I have no idea what happens to any event listeners registered under the old mods.  I am guessing they need to be deregistered.. but let's try this first.
+        }
+      }
+      if (!inputPathToUse){
+        global["modFiles"]=[]; // Only clear the mod file list if it is supposed to be empty.
+        global["mods"]=[];
+      }
+    }
+    // I don't know if I should actually add these to the global variable or not, since this is potentially dangerous
+    // global["loadMods"]=loadMods();
+    // global["unloadMods"]=unloadMods();
+    // global["reloadMods"]=reloadMods();
+
+    // To allow loading, unloading, and reloading of mods, a mod should probably emit an event to trigger the event here, rather than run it within it's own process.
+    eventEmitter.on("loadMods", function(){
+      loadMods();
+      eventEmitter.emit("init");
+    });
+    eventEmitter.on("unloadMods", function(){
+      unloadMods();
+    });
+    eventEmitter.on("reloadMods", function(){
+      reloadMods();
+      eventEmitter.emit("init");
+    });
+
+    
+
+    
+
     //  No more variables should be added to the globalObject after this, since all the mods will be initialized NOW.  ie. global["whatever"]=whatever;
 
 

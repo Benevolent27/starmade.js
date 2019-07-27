@@ -2,10 +2,16 @@
 // It also provides the !help command.
 
 const path=require('path');
+const fs=require('fs');
 // Pull the needed objects from the global variable.
-var {event,eventEmitter,commands,objectHelper,settings,objectCreator,miscHelpers}=global;
+
+if (typeof global.commands != "object"){ // Set up the global commands variable if it does not exist.
+    global.commands={ };
+}
+
+var {commands,event,objectHelper,settings,objectCreator,miscHelpers}=global;
 var {isInArray,testIfInput,getOption,isArray,toNumIfPossible}=objectHelper;
-var {isFile,isSeen}=miscHelpers;
+var {isFile,isSeen,log}=miscHelpers;
 
 var commandOperator=global.settings["commandOperator"];
 const settingsFile=path.join(__dirname,"commandSettings.json");
@@ -56,11 +62,28 @@ function verifySettings(){
     }
 }
 function reloadSettingsFile(){
-    delete require.cache[require.resolve(settingsFile)];
+    // delete require.cache[require.resolve(settingsFile)]; // taken from here: http://derpturkey.com/reload-module-with-node-js-require/
+    Reflect.deleteProperty(require.cache,require.resolve(settingsFile)); // This is to make ESLint happy.
+
     importSettingsFile();
     verifySettings();
     return true;
 }
+
+function writeSettings() {
+    var settingsFileName=path.basename(settingsFile);
+    try {
+      var settingsFileStream=fs.createWriteStream(settingsFile);
+      settingsFileStream.write(JSON.stringify(defaultSettings, null, 4));
+      settingsFileStream.end();
+      console.log("Updated '" + settingsFileName + "' file.");
+      log("Updated '" + settingsFileName + "' file.");
+    } catch (err) {
+      console.error("ERROR: Could not write to the '" + settingsFileName + "' file!");
+      log("ERROR: Could not write to the '" + settingsFileName + "' file!");
+      throw err;
+    }
+  }
 
 
 console.dir(defaultSettings);
@@ -71,7 +94,15 @@ global["regCommand"]=regCommand;
 global["commandSettings"]=defaultSettings;
 
 
-global.event.on("init", function(){
+event.on("reloadMods", removeCommands);
+function removeCommands(){
+    console.log("Removing any commands registered by mods..");
+    global["commands"]={ };
+};
+
+
+event.on("init", init);
+function init (){
     // These are admin-only commands to temporarily change the style of the help for testing purposes
     // name,category,adminOnly,displayInHelp,playersArray
     global.regCommand("changeHelpWidth","HiddenHelpers",true,false);
@@ -83,8 +114,10 @@ global.event.on("init", function(){
     global.regCommand("helpCategoryPrefix","HiddenHelpers",true,false);
     global.regCommand("helpCategorySuffix","HiddenHelpers",true,false);
     global.regCommand("reloadHelpSettings","HiddenHelpers",true,false);
-});
-event.on('command', function(player,command,args,messageObj) { // Normally we would not use the messageObj, but it's here if for some reason we want the command to operate differently depending on channel sent to
+    global.regCommand("saveHelpSettings","HiddenHelpers",true,false);
+};
+event.on('command', command);
+function command (player,command,args,messageObj) { // Normally we would not use the messageObj, but it's here if for some reason we want the command to operate differently depending on channel sent to
     if (command == "changehelpwidth"){
         var theNewNum=toNumIfPossible(args[0]);
         if (typeof theNewNum=="number"){
@@ -97,6 +130,15 @@ event.on('command', function(player,command,args,messageObj) { // Normally we wo
         } else {
             player.botMsg("This command is used to change the width of the help to a certain number of max characters.");
             player.botMsg("Example: " + commandOperator + "changehelpwidth 90");
+        }
+    }  else if (command == "savehelpsettings"){
+        player.botMsg("Saving the Help settings file..");
+        try {
+            writeSettings();
+            player.msg("Done!");
+        } catch (err){
+            console.error(err.toString());
+            player.botMsg("ERROR:  Unable to write to help file!  Try again!");
         }
     }  else if (command == "reloadhelpsettings"){
         player.botMsg("Reloading the Help settings file.");
@@ -164,11 +206,7 @@ event.on('command', function(player,command,args,messageObj) { // Normally we wo
             player.msg("Example: " + commandOperator + "togglehide SomeCommand");
         }
     }
-});
-
-
-
-
+};
 
 function CommandObj(name,category,adminOnly,displayInHelp,playersArray){ // Expects string values or an object as the first argument.
     // If given an object, it will add to it as necessary.
@@ -234,7 +272,10 @@ function regCommand(name,category,adminOnly,displayInHelp,playersArray){
     if (myCommandObj.hasOwnProperty("name")){
         if (testIfInput(myCommandObj.name)){
             var myCommandName=myCommandObj.name.toLowerCase();
-            commands[myCommandName]=myCommandObj;
+            if (typeof global.commands != "object"){
+                global.commands={ };
+            }
+            global.commands[myCommandName]=myCommandObj;
             console.log("Registered new command: " + myCommandName);
             console.dir(myCommandObj);
             failure=false;
@@ -245,7 +286,8 @@ function regCommand(name,category,adminOnly,displayInHelp,playersArray){
     }
 }
 
-event.on('message', function(messageObj) { // Handle messages sent from players
+event.on('message', message);
+function message (messageObj) { // Handle messages sent from players
     // Expects message to be a message type object
     console.log("Message (type: " + messageObj.type +") DETECTED from " + messageObj.sender.name + " to " + messageObj.receiver.name + ": " + messageObj.text);
     // Here we will need to see if the "commands" object has the command.
@@ -254,162 +296,162 @@ event.on('message', function(messageObj) { // Handle messages sent from players
         var textArray=messageObj.text.split(" ");
         var theCommand=textArray.shift().replace(settings["commandOperator"],""); // This only replaces the first instance
         if (objectHelper.testIfInput(theCommand)){ // This will exclude any empty values.  For example, typing ! by itself.
-        var lowerCaseCommand=theCommand.toLowerCase();
-        if (commands.hasOwnProperty(lowerCaseCommand)){ // If it is a valid command, it will have been registered.
-            // Note:  the default "help" command can be replaced by a mod if desired.
-            let playerAdminCheck=true;
-            if (commands[lowerCaseCommand].adminOnly){
-                playerAdminCheck=messageObj.sender.isAdmin({"fast":true}); // Fast makes it read from the file rather than perform a StarNet command.
-            }
-            if (playerAdminCheck){
-                eventEmitter.emit('command',messageObj.sender,lowerCaseCommand,textArray,messageObj);
-            } else {
-                messageObj.sender.botMsg("Sorry, but this is an admin only command, and you are not an admin!",{"fast":true});
-            }
-
-            console.log("'command' event emitted!"); // temp
-        } else if (lowerCaseCommand=="help"){ // This only fires if a mod hasn't replaced the default help.
-            // If an argument is given, run the command with help, which is the same as "!command help"
-            var showAll=false;
-            if (typeof textArray[0] == "string"){
-                if (textArray[0].toLowerCase() == "-showall"){
-                    console.log("Showing all help commands, even hidden ones, if the player is an admin.");
-                    showAll=true;
-                    textArray.shift();
+            var lowerCaseCommand=theCommand.toLowerCase();
+            if (commands.hasOwnProperty(lowerCaseCommand)){ // If it is a valid command, it will have been registered.
+                // Note:  the default "help" command can be replaced by a mod if desired.
+                let playerAdminCheck=true;
+                if (commands[lowerCaseCommand].adminOnly){
+                    playerAdminCheck=messageObj.sender.isAdmin({"fast":true}); // Fast makes it read from the file rather than perform a StarNet command.
                 }
-            }
-            if (objectHelper.testIfInput(textArray[0])){
-                var subCommand=textArray[0];
-                var lowerCaseSubCommand=textArray[0].replace(settings["commandOperator"],"").toLowerCase();
-                if (commands.hasOwnProperty(lowerCaseSubCommand)){
-                    textArray.unshift("help");
-
-                    let playerAdminCheck=true;
-                    if (commands[lowerCaseSubCommand].adminOnly){
-                        playerAdminCheck=messageObj.sender.isAdmin({"fast":true}); // Fast makes it read from the file rather than perform a StarNet command, which is much faster.
-                    }
-                    if (playerAdminCheck){
-                        eventEmitter.emit('command',messageObj.sender,lowerCaseSubCommand,textArray,messageObj); // The messageObj is unchanged, so a mod can detect if it was ran with the !help command or "!command help" if needed for some reason.
-                    } else {
-                        messageObj.sender.botMsg("Sorry, you cannot receive help on this command because it is admin-only, and you are not an admin!",{"fast":true});
-                    }
-
-                    // This expects the mod to handle any help request. If it doesn't process the help request, this is the mod creator's fault.  This cannot verify help exists for the command.
+                if (playerAdminCheck){
+                    event.emit('command',messageObj.sender,lowerCaseCommand,textArray,messageObj);
                 } else {
-                    messageObj.sender.botMsg("ERROR:  \"" + subCommand + "\" is not a valid command, so there is no help for it!");
-                    messageObj.sender.botMsg("To view a list of wrapper commands, type: !help");
+                    messageObj.sender.botMsg("Sorry, but this is an admin only command, and you are not an admin!",{"fast":true});
                 }
-            } else {
-                // If no arguments are given, then display all the commands in an orderly way
-                let playerAdminCheck=messageObj.sender.isAdmin({"fast":true});
 
-                // First we need to build the values needed to display
-                var commandCategories={};
-                var theCategory="";
-                var commandsAddedNum=0;
-                for (var property in commands) {
-                    if (commands.hasOwnProperty(property)) {
-                    // This enumerates through all commands to get a list of unique categories
+                console.log("'command' event emitted!"); // temp
+            } else if (lowerCaseCommand=="help"){ // This only fires if a mod hasn't replaced the default help.
+                // If an argument is given, run the command with help, which is the same as "!command help"
+                var showAll=false;
+                if (typeof textArray[0] == "string"){
+                    if (textArray[0].toLowerCase() == "-showall"){
+                        console.log("Showing all help commands, even hidden ones, if the player is an admin.");
+                        showAll=true;
+                        textArray.shift();
+                    }
+                }
+                if (objectHelper.testIfInput(textArray[0])){
+                    var subCommand=textArray[0];
+                    var lowerCaseSubCommand=textArray[0].replace(settings["commandOperator"],"").toLowerCase();
+                    if (commands.hasOwnProperty(lowerCaseSubCommand)){
+                        textArray.unshift("help");
 
-                    if (commands[property].hasOwnProperty("category")){
-                        if (objectHelper.testIfInput(commands[property].category)){
-                            if (typeof commands[property].category == "string"){
-                                theCategory=commands[property].category;
-                            }
+                        let playerAdminCheck=true;
+                        if (commands[lowerCaseSubCommand].adminOnly){
+                            playerAdminCheck=messageObj.sender.isAdmin({"fast":true}); // Fast makes it read from the file rather than perform a StarNet command, which is much faster.
                         }
-                    }
-                    if (!objectHelper.testIfInput(theCategory)){ // If no category listed, give it the default
-                        theCategory="General";
-                    }
-                    // isInArray, // Checks an array for a value.  Usage:  isInArray(inputArray,ValueToCompare)
-                    if (!commandCategories.hasOwnProperty(theCategory)){ // If the commandCategories doesn't have the array for the unique category yet, create it.
-                        commandCategories[theCategory]=[];
-                    }
-
-                    // Before adding the command name to the category, check to ensure the command is hidden or an admin only command.
-                    // console.log("Checking command, " + property + ", to see if should be added to help.  commands[property].displayInHelp: " + commands[property].displayInHelp);
-                    if ((!commands[property].adminOnly || playerAdminCheck) && (commands[property].displayInHelp || (playerAdminCheck && showAll))){ // If the command is NOT adminonly OR the player is an admin, let it show up.  If the command is not set to displayInHelp, then do not show it.
-                        commandCategories[theCategory].push(commands[property].name);
-                        commandsAddedNum++;
-                    }
-                    theCategory=""; // Reset the category
-                    }
-                }
-
-                // TODO:  Remove any empty categories. This can happen if a command is categorized but is hidden or unavailable to the player due to it being an admin only command.
-
-                // commandCategories should now be an object that contains all the unique categories with arrays for each command in that category
-                console.dir(commandCategories); // temp
-               
-                var commandSpacerNum=defaultSettings["commandSpacer"].length + defaultSettings["commandPrefix"].length + defaultSettings["commandSuffix"].length;
-                var theArrayToWorkOn=[];
-                var tempArrayOfStrings=[];
-                var tempArrayOfStringsCounter=0;
-                var theCommandTemp="";
-                for (var theCategoryFromArray in commandCategories) { // This cycles through all the unique command categories
-                    if (commandCategories.hasOwnProperty(theCategoryFromArray)) {
-                    // We need to rebuild the arrays to a max length
-                    theArrayToWorkOn=commandCategories[theCategoryFromArray];
-                    for (let i=0;i<theArrayToWorkOn.length;i++){ // Cycle through the array of commands for the category
-                        theCommandTemp=theArrayToWorkOn[i];
-                        if (tempArrayOfStrings[tempArrayOfStringsCounter]){ 
-                            // it has been created, so see if adding the command would put it over the top, and if so, add to the next array
-                            if (tempArrayOfStrings[tempArrayOfStringsCounter].length + commandSpacerNum + theArrayToWorkOn[i].length <= defaultSettings["defaultHelpWidth"]){
-                                tempArrayOfStrings[tempArrayOfStringsCounter]+=defaultSettings["commandSpacer"] + defaultSettings["commandPrefix"] + theArrayToWorkOn[i] + defaultSettings["commandSuffix"]; // This adds to the array entry string
-                            } else {
-                                tempArrayOfStringsCounter++
-                                tempArrayOfStrings.push(defaultSettings["commandPrefix"] + theCommandTemp + defaultSettings["commandSuffix"]); // This creates a new array entry
-                            }
+                        if (playerAdminCheck){
+                            event.emit('command',messageObj.sender,lowerCaseSubCommand,textArray,messageObj); // The messageObj is unchanged, so a mod can detect if it was ran with the !help command or "!command help" if needed for some reason.
                         } else {
-                            // The split array hasn't been created yet, so just add the command to it
-                            tempArrayOfStrings.push(defaultSettings["commandPrefix"] + theCommandTemp + defaultSettings["commandSuffix"]);
+                            messageObj.sender.botMsg("Sorry, you cannot receive help on this command because it is admin-only, and you are not an admin!",{"fast":true});
                         }
-                    }
-                    // We should now have a new array of strings chopped to the desired length
-                    commandCategories[theCategoryFromArray]=tempArrayOfStrings;
-                    tempArrayOfStrings=[];
-                    tempArrayOfStringsCounter=0;
-                    }
-                }
-                // The commandCategories object should now be rebuilt so each category has arrays of strings that can be provided to the player
-                console.dir(commandCategories); // temp
-                // Assuming there are categories, we need to cycle through the categories again, only displaying them once per player and adding filler to lines that do not contain the category
-                // If there are no categories, then the bot should just state there are no commands presently on the server.
 
-                // defaultSettings["categoryPrefix"]
-                // defaultSettings["categorySuffix"]
+                        // This expects the mod to handle any help request. If it doesn't process the help request, this is the mod creator's fault.  This cannot verify help exists for the command.
+                    } else {
+                        messageObj.sender.botMsg("ERROR:  \"" + subCommand + "\" is not a valid command, so there is no help for it!");
+                        messageObj.sender.botMsg("To view a list of wrapper commands, type: !help");
+                    }
+                } else {
+                    // If no arguments are given, then display all the commands in an orderly way
+                    let playerAdminCheck=messageObj.sender.isAdmin({"fast":true});
 
-                
-                if (commandsAddedNum>0){
-                    var theFinalArray=[];
-                    var categoriesListed=[];
-                    messageObj.sender.botMsg("I can perform the following commands:",{"fast":true});
-                    for (var finalCategory in commandCategories) {
-                        if (commandCategories.hasOwnProperty(finalCategory)) {
-                            theFinalArray=commandCategories[finalCategory];
-                            for (let i=0;i<theFinalArray.length;i++){
-                                if (!isInArray(categoriesListed,finalCategory)){
-                                messageObj.sender.msg(" ",{"fast":true});
-                                messageObj.sender.msg(defaultSettings["categoryPrefix"] + finalCategory + defaultSettings["categorySuffix"],{"fast":true});
-                                categoriesListed.push(finalCategory);
+                    // First we need to build the values needed to display
+                    var commandCategories={};
+                    var theCategory="";
+                    var commandsAddedNum=0;
+                    for (var property in commands) {
+                        if (commands.hasOwnProperty(property)) {
+                        // This enumerates through all commands to get a list of unique categories
+
+                        if (commands[property].hasOwnProperty("category")){
+                            if (objectHelper.testIfInput(commands[property].category)){
+                                if (typeof commands[property].category == "string"){
+                                    theCategory=commands[property].category;
                                 }
-                                messageObj.sender.msg("  " + theFinalArray[i],{"fast":true});
                             }
                         }
+                        if (!objectHelper.testIfInput(theCategory)){ // If no category listed, give it the default
+                            theCategory="General";
+                        }
+                        // isInArray, // Checks an array for a value.  Usage:  isInArray(inputArray,ValueToCompare)
+                        if (!commandCategories.hasOwnProperty(theCategory)){ // If the commandCategories doesn't have the array for the unique category yet, create it.
+                            commandCategories[theCategory]=[];
+                        }
+
+                        // Before adding the command name to the category, check to ensure the command is hidden or an admin only command.
+                        // console.log("Checking command, " + property + ", to see if should be added to help.  commands[property].displayInHelp: " + commands[property].displayInHelp);
+                        if ((!commands[property].adminOnly || playerAdminCheck) && (commands[property].displayInHelp || (playerAdminCheck && showAll))){ // If the command is NOT adminonly OR the player is an admin, let it show up.  If the command is not set to displayInHelp, then do not show it.
+                            commandCategories[theCategory].push(commands[property].name);
+                            commandsAddedNum++;
+                        }
+                        theCategory=""; // Reset the category
+                        }
                     }
-                    messageObj.sender.msg(" ",{"fast":true});
-                    messageObj.sender.msg("To use a command, type: \"" + settings["commandOperator"] + "[command]\" (without the brackets)",{"fast":true});
-                    messageObj.sender.msg("For help on a command, type !help [command]",{"fast":true});
-                } else {
-                    // No commands are set up or visible.
-                    messageObj.sender.botMsg("There do not appear to be any commands visible!",{"fast":true});
+
+                    // TODO:  Remove any empty categories. This can happen if a command is categorized but is hidden or unavailable to the player due to it being an admin only command.
+
+                    // commandCategories should now be an object that contains all the unique categories with arrays for each command in that category
+                    console.dir(commandCategories); // temp
+                
+                    var commandSpacerNum=defaultSettings["commandSpacer"].length + defaultSettings["commandPrefix"].length + defaultSettings["commandSuffix"].length;
+                    var theArrayToWorkOn=[];
+                    var tempArrayOfStrings=[];
+                    var tempArrayOfStringsCounter=0;
+                    var theCommandTemp="";
+                    for (var theCategoryFromArray in commandCategories) { // This cycles through all the unique command categories
+                        if (commandCategories.hasOwnProperty(theCategoryFromArray)) {
+                        // We need to rebuild the arrays to a max length
+                        theArrayToWorkOn=commandCategories[theCategoryFromArray];
+                        for (let i=0;i<theArrayToWorkOn.length;i++){ // Cycle through the array of commands for the category
+                            theCommandTemp=theArrayToWorkOn[i];
+                            if (tempArrayOfStrings[tempArrayOfStringsCounter]){ 
+                                // it has been created, so see if adding the command would put it over the top, and if so, add to the next array
+                                if (tempArrayOfStrings[tempArrayOfStringsCounter].length + commandSpacerNum + theArrayToWorkOn[i].length <= defaultSettings["defaultHelpWidth"]){
+                                    tempArrayOfStrings[tempArrayOfStringsCounter]+=defaultSettings["commandSpacer"] + defaultSettings["commandPrefix"] + theArrayToWorkOn[i] + defaultSettings["commandSuffix"]; // This adds to the array entry string
+                                } else {
+                                    tempArrayOfStringsCounter++
+                                    tempArrayOfStrings.push(defaultSettings["commandPrefix"] + theCommandTemp + defaultSettings["commandSuffix"]); // This creates a new array entry
+                                }
+                            } else {
+                                // The split array hasn't been created yet, so just add the command to it
+                                tempArrayOfStrings.push(defaultSettings["commandPrefix"] + theCommandTemp + defaultSettings["commandSuffix"]);
+                            }
+                        }
+                        // We should now have a new array of strings chopped to the desired length
+                        commandCategories[theCategoryFromArray]=tempArrayOfStrings;
+                        tempArrayOfStrings=[];
+                        tempArrayOfStringsCounter=0;
+                        }
+                    }
+                    // The commandCategories object should now be rebuilt so each category has arrays of strings that can be provided to the player
+                    console.dir(commandCategories); // temp
+                    // Assuming there are categories, we need to cycle through the categories again, only displaying them once per player and adding filler to lines that do not contain the category
+                    // If there are no categories, then the bot should just state there are no commands presently on the server.
+
+                    // defaultSettings["categoryPrefix"]
+                    // defaultSettings["categorySuffix"]
+
+                    
+                    if (commandsAddedNum>0){
+                        var theFinalArray=[];
+                        var categoriesListed=[];
+                        messageObj.sender.botMsg("I can perform the following commands:",{"fast":true});
+                        for (var finalCategory in commandCategories) {
+                            if (commandCategories.hasOwnProperty(finalCategory)) {
+                                theFinalArray=commandCategories[finalCategory];
+                                for (let i=0;i<theFinalArray.length;i++){
+                                    if (!isInArray(categoriesListed,finalCategory)){
+                                    messageObj.sender.msg(" ",{"fast":true});
+                                    messageObj.sender.msg(defaultSettings["categoryPrefix"] + finalCategory + defaultSettings["categorySuffix"],{"fast":true});
+                                    categoriesListed.push(finalCategory);
+                                    }
+                                    messageObj.sender.msg("  " + theFinalArray[i],{"fast":true});
+                                }
+                            }
+                        }
+                        messageObj.sender.msg(" ",{"fast":true});
+                        messageObj.sender.msg("To use a command, type: \"" + settings["commandOperator"] + "[command]\" (without the brackets)",{"fast":true});
+                        messageObj.sender.msg("For help on a command, type !help [command]",{"fast":true});
+                    } else {
+                        // No commands are set up or visible.
+                        messageObj.sender.botMsg("There do not appear to be any commands visible!",{"fast":true});
+                    }
                 }
+                console.log("Help command finished.");
+            } else {
+                messageObj.sender.msg("ERROR:  " + theCommand + " is not a valid command!",{"fast":true});
+                messageObj.sender.msg("To view a list of wrapper commands, type: !help",{"fast":true});
             }
-            console.log("Help command finished.");
-        } else {
-            messageObj.sender.msg("ERROR:  " + theCommand + " is not a valid command!",{"fast":true});
-            messageObj.sender.msg("To view a list of wrapper commands, type: !help",{"fast":true});
-        }
         }
     }
-    });
+};
