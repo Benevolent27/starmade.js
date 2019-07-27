@@ -392,12 +392,23 @@ function showResponseCallback(error,output){ // This is a helper function for te
 function ServerObj(spawn){ // This will be used to run server commands or gather specific information regarding the server.
 
   // TODO:  Need to test all the methods below.
+  // Tests done:
+  // search
+  // status
+  
   this.onlinePlayers=getPlayerList;
   this.spawn=spawn;
   this.getAdmins=function(options){ return getAdminsList(options) };
   this.getBannedAccounts=function(options){ return getBannedAccountsList(options) };
   this.getBannedIPs=function(options){ return getBannedIPList(options) };
   this.getBannedNames=function(options){ return getBannedNameList(options) };
+
+  // I did a literal copy and paste of the banned functions, replacing wording.  This really needs testing.
+  this.getWhitelistedAccounts=function(options){ return getWhitelistedAccountsList(options) };
+  this.getWhitelistedIPs=function(options){ return getWhitelistedIPList(options) };
+  this.getWhitelistedNames=function(options){ return getWhitelistedNameList(options) };
+
+
   this.msg=function (message,options){ // Sends a message to online players.
     // options can be {"type":plain/info/warning/error} <-- pick one.
     let msgType=getOption(options,"type","plain"); // Default is a plain message, which sends to main chat.
@@ -651,6 +662,193 @@ function ServerObj(spawn){ // This will be used to run server commands or gather
     return starNetVerified("/list_control_units",options);
   }
 
+  this.loadSectorRange=function(firstSector,SecondSector,options){ // Allows any input that can create a CoordsObj, including any other Sector or Coords obj
+    var sectorToUse1=new CoordsObj(firstSector); // This will error if invalid input is given.
+    var sectorToUse2=new CoordsObj(SecondSector);
+    return runSimpleCommand("/load_sector_range " + sectorToUse1.toString() + " " + sectorToUse2.toString(),options);
+  };
+
+  this.friendlyMissileFire=function(trueOrFalse,options){ //  activates or deactivates friendly fire for missiles.
+    let booleanToUse=trueOrFalse(trueOrFalse); // allows truthy values to convert to the words, "true" or "false"
+    // Does not have success or fail messages
+    if (isTrueOrFalse(booleanToUse)){
+      return runSimpleCommand("/missile_defense_friendly_fire " + booleanToUse,options);
+    } else {
+      throw new Error("Invalid input given to Server.friendlyMissileFire() for trueOrFalse!");
+    }
+  }
+  
+  this.npcLoadedFleetSpeed=function(floatTime,options){ // Expects a number between 0 and 1, ie. 0.5.  Changes how fast, in percentage, npc fleets travel.
+    let numberToUse=toNumIfPossible(floatTime);
+    if (typeof numberToUse == "number"){
+      if (numberToUse >= 0 && numberToUse <=1){
+        return runSimpleCommand("/npc_fleet_loaded_speed " + numberToUse,options);
+      }
+      throw new Error("Invalid input given to Server.npcLoadedFleetSpeed() for floatTime!  Expects a number between 0 and 1. ie. 0.5");
+    } else {
+      throw new Error("Invalid input given to Server.npcLoadedFleetSpeed() for floatTime!  Expects a number between 0 and 1. ie. 0.5");
+    }
+  }
+
+  this.npcTurn=function(options){ // "Turn for all NPC factions"
+    return runSimpleCommand("/npc_turn_all",options);
+  }
+  this.refreshServerMessage=function(options){ // Refreshes the server message that players see upon joining the server from the "server-message.txt" located in the StarMade folder.
+    return runSimpleCommand("/refresh_server_msg",options);
+  }
+  this.restructAABB=function(options){ // "Reconstructs the AABBs of all objects on the server"
+    return runSimpleCommand("/restruct_aabb",options);
+  }
+  
+  this.startCountdown=function(timeInSeconds,message,options){ // Expects a number between 0 and 1, ie. 0.5.  Changes how fast, in percentage, npc fleets travel.
+    let numberToUse=toNumIfPossible(timeInSeconds);
+    let messageToUse=toStringIfPossible(message);
+    if (typeof numberToUse == "number"){
+      if (numberToUse >= 1){
+        if (typeof messageToUse == "string"){
+          return runSimpleCommand("/start_countdown " + numberToUse,options);
+        }
+        throw new Error("Invalid input given to Server.startCountdown() for message!  Expects a string value!  ie. Explosions happening in..");
+      }
+      throw new Error("Invalid input given to Server.startCountdown() for timeInSeconds!  Expects a number LARGER than 0! ie. 10");
+    } else {
+      throw new Error("Invalid input given to Server.startCountdown() for timeInSeconds!  Expects a number larger than 0! ie. 10");
+    }
+  }
+
+  this.spawnNPCFaction=function(npcName,npcFactionName,npcDescription,initialGrowth,system,options){ // system is optional.  If none given, the npc will be spawned in a random system.
+    // DOES NOT GIVE AN ERROR IF THE NPC TYPE IS NOT CORRECT - NEED TO DO MY OWN CHECKING HERE TO SEE IF VALID.
+    if (!testIfInput(npcName)){
+      throw new Error("No NPC name given to server.spawnNPCFaction!"); // Input was either blank or a blank object or something.
+    }
+    var npcNameToUse=npcName.toString(); // If it's an object or something that can be converted to a string, we can use the string.  This will throw an error if it cannot be converted to a string.
+    if (typeof npcNameToUse != "string"){
+      throw new Error("Invalid NPC name given to server.spawnNPCFaction!");
+    }
+    if (!testIfInput(npcFactionName)){
+      throw new Error("No NPC faction name given to server.spawnNPCFaction!"); // Input was either blank or a blank object or something.
+    }
+    var npcFactionNameToUse=npcFactionName.toString();
+    if (typeof npcFactionNameToUse != "string"){
+      throw new Error("Invalid NPC faction name given to server.spawnNPCFaction!");
+    }
+
+    // Description and initial growth can be blank, but throw error if invalid input given
+    var npcDescriptionToUse="";
+    if (testIfInput(npcDescription)){
+      npcDescriptionToUse=npcDescription.toString();
+    }
+    var initialGrowthToUse=10;
+    if (isNum(initialGrowth)){
+      initialGrowthToUse=initialGrowth;
+    }
+    if (testIfInput(system)){ // Check to see if the system is valid
+      try {
+        var systemToUse=new SystemObj(system); // this will throw an error if invalid input given.
+      } catch (err) {
+        throw new Error("Invalid System given to server.spawnNPCFaction!");
+      }
+    }
+
+    // /npc_spawn_faction_pos_fixed
+    // DESCRIPTION: Spawns a faction on a fixed position
+    // PARAMETERS: name(String), description(String), preset (npc faction config folder name)(String), Initial Growth(Integer), System X(Integer), System Y(Integer), System Z(Integer)
+    // EXAMPLE: /npc_spawn_faction_pos_fixed "My NPC Faction" "My Faction's description" "Outcasts" 10 12 3 22
+    if (systemToUse){
+      // This is lazy and might return an error in the systemobj rather than pointing here: return systemToUse.spawnNPCFaction(npcName,npcFactionName,npcDescription,initialGrowth,options);
+      return runSimpleCommand("/npc_spawn_faction_pos_fixed \"" + npcNameToUse + "\" \"" + npcFactionNameToUse + "\" \"" + npcDescriptionToUse + "\" " + initialGrowthToUse + " " + systemToUse.toString(),options);
+    } else {
+      return runSimpleCommand("/npc_spawn_faction \"" + npcNameToUse + "\" \"" + npcFactionNameToUse + "\" \"" + npcDescriptionToUse + "\" " + initialGrowthToUse,options);
+    }
+  }
+
+  this.search=function(partOfEntityName,options){ // Searches for entities by part of their name.  Accepts inputs that can be converted to string
+    // Returns a compound array of EntityObj and SectorObj
+    // Example: [[ entityObj, sectorObj],[ entityObj, sectorObj ], [entityObj, sectorObj ]]
+    var partOfEntityNameToUse=toStringIfPossible(partOfEntityName);
+    if (typeof partOfEntityNameToUse == "string"){
+      var returnArray=[];
+      var results=starNetVerified("/search " + partOfEntityNameToUse,options);
+      let theReg=new RegExp("RETURN: \\[SERVER, FOUND: .*");
+      var resultsArray=starNetHelper.returnMatchingLinesAsArray(results,theReg);
+      var shipName;
+      var shipCoords;
+      var line;
+      var tempArray=[];
+      for (let i=0;i<resultsArray.length;i++){
+        line=resultsArray[i].replace(/^RETURN: \[SERVER, FOUND: /,"");
+        shipName=line.replace(/ ->.*$/,"");
+        shipCoords=line.replace(/^.* -> \(/,"").replace(/\), 0\]$/,"").split(", ");
+        tempArray.push(new EntityObj("",shipName));
+        tempArray.push(new SectorObj(shipCoords));
+        returnArray.push(tempArray);
+        tempArray=[];
+      }
+      // RETURN: [SERVER, FOUND: second_name -> (2, 2, 2), 0]
+      // RETURN: [SERVER, FOUND: And this is named -> (1000, 998, 1000), 0]
+      // RETURN: [SERVER, END; Admin command execution ended, 0]
+      return returnArray;
+    }
+    throw new Error("Invalid parameters given to Server.search!");
+  }
+  this.status=function(options){ // returns an object with the server's status, as reported by /server_status
+    let results=starNetVerified("/status",options);
+    // RETURN: [SERVER, PhysicsInMem: 0; Rep: 1, 0]
+    // RETURN: [SERVER, Total queued NT Packages: 0, 0]
+    // RETURN: [SERVER, Loaded !empty Segs / free: 189 / 184, 0]
+    // RETURN: [SERVER, Loaded Objects: 82, 0]
+    // RETURN: [SERVER, Players: 1 / 32, 0]
+    // RETURN: [SERVER, Mem (MB)[free, taken, total]: [214, 631, 845], 0]
+    var returnObj={ };
+    var searchReg=/^RETURN: \[SERVER, PhysicsInMem: .*/;
+    var remReg1=/^RETURN: \[SERVER, PhysicsInMem: /;
+    var remReg2=/, 0\]$/;
+    var physicsLine=returnLineMatch(results,searchReg,remReg1,remReg2);
+    var physicsArray=physicsLine.split("; Rep:");
+    returnObj["physics"]=toNumIfPossible(physicsArray[0]);
+    returnObj["physicsRep"]=toNumIfPossible(physicsArray[1]);
+
+    searchReg=/^RETURN: \[SERVER, Total queued NT Packages: .*/;
+    remReg1=/^RETURN: \[SERVER, Total queued NT Packages: /;
+    remReg2=/, 0\]$/;
+    returnObj["queuedNTPackages"]=toNumIfPossible(returnLineMatch(results,searchReg,remReg1,remReg2));
+
+    searchReg=/^RETURN: \[SERVER, Loaded !empty Segs \/ free:.*/;
+    remReg1=/^RETURN: \[SERVER, Loaded !empty Segs \/ free: /;
+    remReg2=/, 0\]$/;
+    var loadedSegsLine=returnLineMatch(results,searchReg,remReg1,remReg2);
+    var loadedSegsArray=loadedSegsLine.split(" / ");
+    returnObj["loadedEmptySegs"]=toNumIfPossible(loadedSegsArray[0]);
+    returnObj["loadedEmptySegsFree"]=toNumIfPossible(loadedSegsArray[1]);
+
+    searchReg=/^RETURN: \[SERVER, Loaded Objects: .*/;
+    remReg1=/^RETURN: \[SERVER, Loaded Objects: /;
+    remReg2=/, 0\]$/;
+    returnObj["loadedObjects"]=toNumIfPossible(returnLineMatch(results,searchReg,remReg1,remReg2));
+
+    searchReg=/^RETURN: \[SERVER, Players: .*/;
+    remReg1=/^RETURN: \[SERVER, Players: /;
+    remReg2=/, 0\]$/;
+    var playersLine=returnLineMatch(results,searchReg,remReg1,remReg2);
+    var playersArray=playersLine.split(" / ");
+    returnObj["players"]=toNumIfPossible(playersArray[0]);
+    returnObj["playersMax"]=toNumIfPossible(playersArray[1]);
+
+    searchReg=/^RETURN: \[SERVER, Mem \(MB\)\[free, taken, total\]: \[.*/;
+    remReg1=/^RETURN: \[SERVER, Mem \(MB\)\[free, taken, total\]: \[/;
+    remReg2=/\], 0\]$/;
+    var memLine=returnLineMatch(results,searchReg,remReg1,remReg2);
+    var memArray=memLine.split(", ");
+    returnObj["memFree"]=toNumIfPossible(memArray[0]);
+    returnObj["memTaken"]=toNumIfPossible(memArray[1]);
+    returnObj["memTotal"]=toNumIfPossible(memArray[2]);
+    return returnObj;
+  }
+
+  // /status
+  // DESCRIPTION: Displays server status
+  // PARAMETERS:
+  // EXAMPLE: /status
   
 
   // shutdown(seconds,"message") // message is optional.  If given, a countdown timer will be used and then a 1 second shutdown when it is set to expire.
@@ -2126,7 +2324,7 @@ function SystemObj(x,y,z){
     // DESCRIPTION: Spawns a faction on a fixed position
     // PARAMETERS: name(String), description(String), preset (npc faction config folder name)(String), Initial Growth(Integer), System X(Integer), System Y(Integer), System Z(Integer)
     // EXAMPLE: /npc_spawn_faction_pos_fixed "My NPC Faction" "My Faction's description" "Outcasts" 10 12 3 22
-    return runSimpleCommand("/npc_spawn_faction_pos_fixed \"" + npcNameToUse + "\" \"" + npcFactionNameToUse + "\" \"" + npcDescriptionToUse + "\"" + initialGrowthToUse + this.coords.toString(),options);
+    return runSimpleCommand("/npc_spawn_faction_pos_fixed \"" + npcNameToUse + "\" \"" + npcFactionNameToUse + "\" \"" + npcDescriptionToUse + "\" " + initialGrowthToUse + " " + this.coords.toString(),options);
   }
   this.territoryMakeUnclaimable=function(options){
     return runSimpleCommand("/territory_make_unclaimable " + this.coords.toString(),options);
@@ -3510,6 +3708,143 @@ function getPlayerList(){ // Returns an array of player objects for all online p
     return false;
   }
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// BIG TODO: I have no idea if the whitelist functions will work.  It seems to follow the same convention as the bans.. so I did some fancy word replacement.. This needs extensive testing.
+function isAccountWhitelisted(account){
+  let whitelistedArray=getWhitelistedAccountsList();
+  return isWhitelisted(whitelistedArray,account);
+}
+function isIPWhitelisted(ip){
+  let whitelistedArray=getWhitelistedIPList();
+  return isWhitelisted(whitelistedArray,ip);
+}
+function isNameWhitelisted(name){
+  var whitelistedArray=getWhitelistedNameList();
+  return isWhitelisted(whitelistedArray,name);
+}
+function isWhitelisted(inputArray,whatToLookFor){
+  // accepts input from getWhitelistedAccountsList, getWhitelistedIPList, or getWhitelistedNameList
+  var theCheck=whatToLookFor.toString().toLowerCase(); // Allows objects that can be turned into strings to be used as input
+  for (let i=0;i<inputArray.length;i++){
+    if (inputArray[i].toString() == theCheck){
+      return true;
+    }
+  }
+  return false;
+}
+function getWhitelistedAccountsList(options){ // Returns an array of SMNameObj
+  // /list_whitelist_accounts
+  // RETURN: [SERVER, Whitelisted: {three, two, one}, 0]
+  // .match(/{[^}]*}/);
+  try {
+    var result=starNetHelper.starNetVerified("/list_whitelist_accounts",options);
+    var theReg=new RegExp('^RETURN: \\[SERVER, Whitelisted: {.*');
+    var theLine=returnLineMatch(result,theReg,/^RETURN: \[SERVER, Whitelisted: {/,/}, 0\]$/);
+    var outputArray=[];
+    
+    if (theLine){ // this will be empty if there were no results
+      var tempArray=theLine.split(", "); // If only 1 result, it will still be in an array
+      for (let i=0;i<tempArray.length;i++){
+        outputArray.push(new SMNameObj(tempArray[i]));
+      }
+    }
+    return outputArray;
+  } catch (error){
+    var theError=new Error("StarNet command failed when attempting to getWhitelistedAccountsList()!");
+    throw theError;
+  }
+}
+function getWhitelistedIPList(options){
+  // /list_whitelist_ip
+  // RETURN: [SERVER, Whitelisted: {1.2.3.6, 1.2.3.5, 1.2.3.4}, 0]
+  try {
+    var result=starNetHelper.starNetVerified("/list_whitelist_ip",options);
+    var theReg=new RegExp('^RETURN: \\[SERVER, Whitelisted: {.*');
+    var theLine=returnLineMatch(result,theReg,/^RETURN: \[SERVER, Whitelisted: {/,/}, 0\]$/);
+    var outputArray=[];
+    
+    if (theLine){ // this will be empty if there were no results
+      var tempArray=theLine.split(", "); // If only 1 result, it will still be in an array
+      for (let i=0;i<tempArray.length;i++){
+        outputArray.push(new IPObj(tempArray[i]));
+      }
+    }
+    return outputArray;
+  } catch (error){
+    var theError=new Error("StarNet command failed when attempting to getWhitelistedIPList()!");
+    throw theError;
+  }
+}
+function getWhitelistedNameList(options){
+  // /list_whitelist_name
+  // RETURN: [SERVER, Whitelisted: {six, four, five}, 0]
+  try {
+    var result=starNetHelper.starNetVerified("/list_whitelist_name",options);
+    var theReg=new RegExp('^RETURN: \\[SERVER, Whitelisted: {.*');
+    var theLine=returnLineMatch(result,theReg,/^RETURN: \[SERVER, Whitelisted: {/,/}, 0\]$/);
+    var outputArray=[];
+    
+    if (theLine){ // this will be empty if there were no results
+      var tempArray=theLine.split(", "); // If only 1 result, it will still be in an array
+      for (let i=0;i<tempArray.length;i++){
+        outputArray.push(new PlayerObj(tempArray[i]));
+      }
+    }
+    return outputArray;
+  } catch (error){
+    var theError=new Error("StarNet command failed when attempting to getWhitelistedNameList()!");
+    throw theError;
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 function isAccountBanned(account){
