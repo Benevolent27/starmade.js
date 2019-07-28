@@ -13,7 +13,7 @@ function init(){
 event.on('command', command);
 function command (player,command,args,messageObj) { // Normally we would not use the messageObj, but it's here if for some reason we want the command to operate differently depending on channel sent to
     if (command == "reloadmods"){
-        player.botMsg("Initiating mod reload!");
+        player.botMsg("Reloading all mods!  This might take a few seconds.");
         event.emit("reloadMods");
     } else if (command == "listeners"){
         console.log("command:");

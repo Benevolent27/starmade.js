@@ -13,6 +13,8 @@ var {commands,event,objectHelper,settings,objectCreator,miscHelpers}=global;
 var {isInArray,testIfInput,getOption,isArray,toNumIfPossible}=objectHelper;
 var {isFile,isSeen,log}=miscHelpers;
 
+CommandObj.prototype.toString = function(){ return this.name };
+
 var commandOperator=global.settings["commandOperator"];
 const settingsFile=path.join(__dirname,"commandSettings.json");
 var defaultSettings={};

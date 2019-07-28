@@ -91,7 +91,6 @@ SMNameObj.prototype.toString = function(){ return this.name };
 // BluePrintObj.prototype.toString = function(){ return this.address };
 // BotObj.prototype.toString = function(){ return this.address };
 // ChannelObj.prototype.toString = function(){ return this.address };
-// CommandObj.prototype.toString = function(){ return this.address };
 // FactionObj.prototype.toString = function(){ return this.address };
 // LocationObj.prototype.toString = function(){ return this.address };
 // MessageObj.prototype.toString = function(){ return this.address };
@@ -3859,8 +3858,6 @@ function isNameBanned(name){
   var bannedArray=getBannedNameList();
   return isBanned(bannedArray,name);
 }
-
-
 function isBanned(inputArray,whatToLookFor){
   // accepts input from getBannedAccountsList, getBannedIPList, or getBannedNameList
   var theCheck=whatToLookFor.toString().toLowerCase(); // Allows objects that can be turned into strings to be used as input
@@ -3871,8 +3868,6 @@ function isBanned(inputArray,whatToLookFor){
   }
   return false;
 }
-
-
 function getBannedAccountsList(options){ // Returns an array of SMNameObj
   // /list_banned_accounts
   // RETURN: [SERVER, Banned: {three, two, one}, 0]
@@ -3940,8 +3935,6 @@ function getBannedNameList(options){
     throw theError;
   }
 }
-
-
 function getAdminsList(options){ // Returns an array of PlayerObj, will be an empty array if no admins returned
   // Note: ALWAYS RETURNS NAMES IN LOWERCASE
   // example:
