@@ -1,6 +1,11 @@
 // This script uses spawnSync, calling itself to wait for a desired duration.
 // It's pretty accurate for durations of 100ms or higher.
 // returns true if it thinks it was accurate, false if not, with about a 15ms variance.
+module.exports={
+  "sleep":mySleep,
+  "softSleep":softSleep,
+  "sleepPromise":sleep // Only works in async functions, but is non-blocking
+}
 
 var spawnSync=require('child_process').spawnSync;
 // var path=require('path');
@@ -78,7 +83,3 @@ function softSleep(ms){ // mySleep throws errors if an invalid number is given. 
 //   return true;
 // }
 
-module.exports={
-  "sleep":mySleep,
-  "softSleep":softSleep
-}
