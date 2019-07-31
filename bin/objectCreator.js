@@ -39,6 +39,7 @@ const sqlQuery             = requireBin("sqlQuery.js");
 // SqlQueryObj is not in the module.exports above because it cannot be defined till after sqlQuery.js is required.
 module.exports.SqlQueryObj = sqlQuery.SqlQueryObj; // Module injections should occur as quickly as possible to allow circular dependencies to function properly
 const starNet              = requireBin("starNet.js");
+const {starNetSync,starNetCb}=starNet;
 const starNetHelper        = requireBin("starNetHelper.js");
 const objectHelper         = requireBin("objectHelper.js");
 const regExpHelper         = requireBin("regExpHelper.js");
@@ -80,22 +81,43 @@ console.log("### OBJECT CREATOR - SET SERVER VARIABLE");
 
 // Set up prototypes for constructors, such as replacing .toString() functionality with a default value.  Prototypes will not appear as a regular key.
 SectorObj.prototype.toString = function(){ return this.coords.toString() };
+SectorObj.prototype.toArray=function(){ return this.coords.toArray() };
+
 CoordsObj.prototype.toString = function(){ return this.x.toString() + " " + this.y.toString() + " " + this.z.toString() };
+CoordsObj.prototype.toArray=function(){ return [this.x, this.y, this.z]; }
+
 EntityObj.prototype.toString = function(){ return this.fullUID.toString() };
 IPObj.prototype.toString = function(){ return this.address };
 IPObj.prototype.toArray = function(){ return this.address.split(".") };
 PlayerObj.prototype.toString = function(){ return this.name }; // This allows inputs for functions to use a playerObj or string easily.  Example:  playerObj.toString() works the same as playerString.toString(), resulting in a string of the player's name.
 SMNameObj.prototype.toString = function(){ return this.name };
-
-
-// BluePrintObj.prototype.toString = function(){ return this.address };
-// BotObj.prototype.toString = function(){ return this.address };
-// ChannelObj.prototype.toString = function(){ return this.address };
-// FactionObj.prototype.toString = function(){ return this.address };
-// LocationObj.prototype.toString = function(){ return this.address };
-// MessageObj.prototype.toString = function(){ return this.address };
-// ServerObj.prototype.toString = function(){ return this.address };
-// SystemObj.prototype.toString = function(){ return this.address };
+BluePrintObj.prototype.toString = function(){ return this.name };
+BotObj.prototype.toString = function(){ return this.name };
+ChannelObj.prototype.toString = function(){ return this.name };
+FactionObj.prototype.toString = function(){ return toStringIfPossible(this.number) };
+LocationObj.prototype.toString = function(options){ 
+    // default is to return the sector.toString(), spacial can be given instead by specifying options as {"type":"spacial"}
+  let valToReturnType=getOption(options,"type","sector").toLowerCase();
+  if (valToReturnType == "sector"){
+    return this.sector.toString();
+  } else if (valToReturnType=="spacial"){
+    return this.spacial.toString();
+  }
+  throw new Error("Invalid option given to LocationObj.toString()!");
+}; 
+LocationObj.prototype.toArray = function(options){ 
+  // default is to return an array of objects, but an array of strings is an option with {"type":"string"}
+  let valToReturnType=getOption(options,"type","objects").toLowerCase();
+  if (valToReturnType == "objects"){
+    return [this.sector , this.spacial];
+  } else if (valToReturnType=="string"){
+    return [this.sector.toString() , this.spacial.toString()]; 
+  }
+  throw new Error("Invalid option given to LocationObj.toArray()!");
+}; 
+MessageObj.prototype.toString = function(){ return this.text };
+ServerObj.prototype.toString = function(){ return this.filePath };
+SystemObj.prototype.toString = function(){ return this.coords.toString() };
 
 
 
@@ -184,62 +206,62 @@ function sectorTests(){
 
   chmodResults=theSector.setChmod("- peace");
   console.log("-Peace Result: " + chmodResults);
-  starNet("/force_save");
+  starNetSync("/force_save");
   console.log("Protection Num: " + theSector.getChmodNum() + " Protections: " + theSector.getChmodArray());
 
   chmodResults=theSector.setChmod("- protected");
   console.log("-Protected Result: " + chmodResults);
-  starNet("/force_save");
+  starNetSync("/force_save");
   console.log("Protection Num: " + theSector.getChmodNum() + " Protections: " + theSector.getChmodArray());
 
   chmodResults=theSector.setChmod("+ peace");
   console.log("Result: " + chmodResults);
-  starNet("/force_save");
+  starNetSync("/force_save");
   console.log("Protection Num: " + theSector.getChmodNum() + " Protections: " + theSector.getChmodArray());
 
   chmodResults=theSector.setChmod("+ protected");
   console.log("Result: " + chmodResults);
-  starNet("/force_save");
+  starNetSync("/force_save");
   console.log("Protection Num: " + theSector.getChmodNum() + " Protections: " + theSector.getChmodArray());
 
   chmodResults=theSector.setChmod("+ nofploss");
   console.log("+ nofploss Result: " + chmodResults);
-  starNet("/force_save");
+  starNetSync("/force_save");
   console.log("Protection Num: " + theSector.getChmodNum() + " Protections: " + theSector.getChmodArray());
 
   chmodResults=theSector.setChmod("+ noindications");
   console.log("+ noindications Result: " + chmodResults);
-  starNet("/force_save");
+  starNetSync("/force_save");
   console.log("Protection Num: " + theSector.getChmodNum() + " Protections: " + theSector.getChmodArray());
 
   chmodResults=theSector.setChmod("+ noexit");
   console.log("+ noexit Result: " + chmodResults);
-  starNet("/force_save");
+  starNetSync("/force_save");
   console.log("Protection Num: " + theSector.getChmodNum() + " Protections: " + theSector.getChmodArray());
 
   chmodResults=theSector.setChmod("+ noenter");
   console.log("+ noenter Result: " + chmodResults);
-  starNet("/force_save");
+  starNetSync("/force_save");
   console.log("Protection Num: " + theSector.getChmodNum() + " Protections: " + theSector.getChmodArray());
 
   chmodResults=theSector.setChmod("- noexit");
   console.log("- noexit Result: " + chmodResults);
-  starNet("/force_save");
+  starNetSync("/force_save");
   console.log("Protection Num: " + theSector.getChmodNum() + " Protections: " + theSector.getChmodArray());
 
   chmodResults=theSector.setChmod("- noindications");
   console.log("- noindications Result: " + chmodResults);
-  starNet("/force_save");
+  starNetSync("/force_save");
   console.log("Protection Num: " + theSector.getChmodNum() + " Protections: " + theSector.getChmodArray());
 
   chmodResults=theSector.setChmod("- noenter");
   console.log("- noenter Result: " + chmodResults);
-  starNet("/force_save");
+  starNetSync("/force_save");
   console.log("Protection Num: " + theSector.getChmodNum() + " Protections: " + theSector.getChmodArray());
 
   chmodResults=theSector.setChmod("- nofploss");
   console.log("- nofploss Result: " + chmodResults);
-  starNet("/force_save");
+  starNetSync("/force_save");
   console.log("Protection Num: " + theSector.getChmodNum() + " Protections: " + theSector.getChmodArray());
 
   chmodResults=theSector.setChmod("- frakkin");
@@ -275,7 +297,7 @@ function sectorTests3(){
   console.log("Test 1 time: " + test1time + " test 2 time: " + test2time);
 }
 function starNetHelperTests(){
-  starNet("/load_sector_range 2 2 2 2 2 2");
+  starNetSync("/load_sector_range 2 2 2 2 2 2");
   var testObj=new starNetHelper.ShipInfoUidObj("ENTITY_SHIP_Hello_There");
   console.log("\nDisplaying object (size: " + testObj.size + "):");
   console.dir(testObj);
@@ -316,7 +338,7 @@ function sectorTestHelper2(theSector,options){
 function sectorTestHelper(sectorObj,inputNum,options){
   // console.log("\nSetting sector, '" + sectorObj.toString() + "', to chmod number: " + inputNum + " Values need to be: " + decodeChmodNum(inputNum));
   sectorObj.setChmodNum(inputNum,options);
-  // starNet("/force_save");
+  // starNetSync("/force_save");
   // console.log("New Chmod Num: " + sectorObj.getChmodNum() + " Chmods: " + sectorObj.getChmodArray());
 }
 function ipObjTests(){
@@ -389,25 +411,30 @@ function showResponseCallback(error,output){ // This is a helper function for te
 // }
 
 function ServerObj(spawn){ // This will be used to run server commands or gather specific information regarding the server.
+  // TODO:  Make it so the server is actually spawned when this object is created.
+  // TODO: Add sections with information on the parameters used for the server, the path to the jar file ran, etc.
 
+  this.filePath="This is just a filler for now till I complete this.";
+  this.filePathWithArguments="more filler";
   // TODO:  Need to test all the methods below.
   // Tests done:
   // search
   // status
-  
-  this.onlinePlayers=getPlayerList;
+  // getAdmins
+  // getBannedIPs
+  // getBannedNames
+  // getWhitelistedAccounts
+  // getWhitelistedIPs
+  // getWhitelistedNames
   this.spawn=spawn;
+  this.onlinePlayers=getPlayerList;
   this.getAdmins=function(options){ return getAdminsList(options) };
   this.getBannedAccounts=function(options){ return getBannedAccountsList(options) };
   this.getBannedIPs=function(options){ return getBannedIPList(options) };
   this.getBannedNames=function(options){ return getBannedNameList(options) };
-
-  // I did a literal copy and paste of the banned functions, replacing wording.  This really needs testing.
   this.getWhitelistedAccounts=function(options){ return getWhitelistedAccountsList(options) };
   this.getWhitelistedIPs=function(options){ return getWhitelistedIPList(options) };
   this.getWhitelistedNames=function(options){ return getWhitelistedNameList(options) };
-
-
   this.msg=function (message,options){ // Sends a message to online players.
     // options can be {"type":plain/info/warning/error} <-- pick one.
     let msgType=getOption(options,"type","plain"); // Default is a plain message, which sends to main chat.
@@ -528,7 +555,6 @@ function ServerObj(spawn){ // This will be used to run server commands or gather
     }
     throw new Error("Invalid parameters given to Server.factionCreateAmount!");
   }
-
   this.factionPointTurn=function(options){ // Forces the next faction point calculation turn
     // Does not have success or fail messages
     return runSimpleCommand("/faction_point_turn",options);
@@ -607,7 +633,6 @@ function ServerObj(spawn){ // This will be used to run server commands or gather
     // Does not have success or fail messages
     return runSimpleCommand("/simulation_clear_all",options);
   }
-
   this.simulationSpawnDelay=function(timeInSeconds,options){ // Not sure what this does.  If I had to guess what this is for, it's the delay before pirates come attack when near a pirate station or in void space?  I think the help for this command is wrong which is:  sets the time of the day in hours
     let timeToUse=toNumIfPossible(timeInSeconds);
     if (typeof timeToUse == "number"){
@@ -616,7 +641,6 @@ function ServerObj(spawn){ // This will be used to run server commands or gather
       throw new Error("Invalid input given to Server.simulationSpawnDelay() for sizeInM!");
     }
   }
-
   this.simulationInfo=function(options){ // Prints info about macro AI Simulation
     // this returns a string for now.. I'm not interested in discovery and parsing of the data at this time.
     return starNetVerified("/simulation_info",options);
@@ -655,18 +679,15 @@ function ServerObj(spawn){ // This will be used to run server commands or gather
     }
     return returnArray; // Array is empty if no factions were found.
   }
-
   this.listControlUnits=function(options){ // Prints info about characters and entities
     // this returns a string for now.. I'm not interested in discovery and parsing of the data at this time, since other commands have better info than this.
     return starNetVerified("/list_control_units",options);
   }
-
   this.loadSectorRange=function(firstSector,SecondSector,options){ // Allows any input that can create a CoordsObj, including any other Sector or Coords obj
     var sectorToUse1=new CoordsObj(firstSector); // This will error if invalid input is given.
     var sectorToUse2=new CoordsObj(SecondSector);
     return runSimpleCommand("/load_sector_range " + sectorToUse1.toString() + " " + sectorToUse2.toString(),options);
-  };
-
+  }
   this.friendlyMissileFire=function(trueOrFalse,options){ //  activates or deactivates friendly fire for missiles.
     let booleanToUse=trueOrFalse(trueOrFalse); // allows truthy values to convert to the words, "true" or "false"
     // Does not have success or fail messages
@@ -676,7 +697,6 @@ function ServerObj(spawn){ // This will be used to run server commands or gather
       throw new Error("Invalid input given to Server.friendlyMissileFire() for trueOrFalse!");
     }
   }
-  
   this.npcLoadedFleetSpeed=function(floatTime,options){ // Expects a number between 0 and 1, ie. 0.5.  Changes how fast, in percentage, npc fleets travel.
     let numberToUse=toNumIfPossible(floatTime);
     if (typeof numberToUse == "number"){
@@ -688,7 +708,6 @@ function ServerObj(spawn){ // This will be used to run server commands or gather
       throw new Error("Invalid input given to Server.npcLoadedFleetSpeed() for floatTime!  Expects a number between 0 and 1. ie. 0.5");
     }
   }
-
   this.npcTurn=function(options){ // "Turn for all NPC factions"
     return runSimpleCommand("/npc_turn_all",options);
   }
@@ -698,7 +717,6 @@ function ServerObj(spawn){ // This will be used to run server commands or gather
   this.restructAABB=function(options){ // "Reconstructs the AABBs of all objects on the server"
     return runSimpleCommand("/restruct_aabb",options);
   }
-  
   this.startCountdown=function(timeInSeconds,message,options){ // Expects a number between 0 and 1, ie. 0.5.  Changes how fast, in percentage, npc fleets travel.
     let numberToUse=toNumIfPossible(timeInSeconds);
     let messageToUse=toStringIfPossible(message);
@@ -714,7 +732,6 @@ function ServerObj(spawn){ // This will be used to run server commands or gather
       throw new Error("Invalid input given to Server.startCountdown() for timeInSeconds!  Expects a number larger than 0! ie. 10");
     }
   }
-
   this.spawnNPCFaction=function(npcName,npcFactionName,npcDescription,initialGrowth,system,options){ // system is optional.  If none given, the npc will be spawned in a random system.
     // DOES NOT GIVE AN ERROR IF THE NPC TYPE IS NOT CORRECT - NEED TO DO MY OWN CHECKING HERE TO SEE IF VALID.
     if (!testIfInput(npcName)){
@@ -760,7 +777,6 @@ function ServerObj(spawn){ // This will be used to run server commands or gather
       return runSimpleCommand("/npc_spawn_faction \"" + npcNameToUse + "\" \"" + npcFactionNameToUse + "\" \"" + npcDescriptionToUse + "\" " + initialGrowthToUse,options);
     }
   }
-
   this.search=function(partOfEntityName,options){ // Searches for entities by part of their name.  Accepts inputs that can be converted to string
     // Returns a compound array of EntityObj and SectorObj
     // Example: [[ entityObj, sectorObj],[ entityObj, sectorObj ], [entityObj, sectorObj ]]
@@ -857,16 +873,22 @@ function ServerObj(spawn){ // This will be used to run server commands or gather
 
 };
 function BotObj(botName){
-  var theBotName=botName.toString(); // This is to allow other objects that can be converted to a string to be used, such as mimicking a player's name.
+  var theBotName=botName.toString(); // This is to allow other objects that can be converted to a string to be used, such as mimicking a player's name, but will return an error if it cannot be turned into a string.
   if (typeof theBotName == "string"){
     this.name=theBotName;
-    this.msg=function(player,msgString,options){ // This expects a player object OR a string with a player's name, then the message to send, either as a string or an object that can be converted to a string with .toString()
-      var theMessage=msgString.toString(); // This allows certain objects that can be converted to strings to be used, such as matches or other objects
+    this.msg=function(player,msgString,options,cb){ // This expects a player object OR a string with a player's name, then the message to send, either as a string or an object that can be converted to a string with .toString()
+      var theMessage=toStringIfPossible(msgString); // This allows certain objects that can be converted to strings to be used, such as matches or other objects
       if (typeof theMessage == "string"){
         var thePlayer=new PlayerObj(player); // This creates a new playerObj with the playername string or PlayerObj
-        thePlayer.msg("[" + this.name + "]: " + theMessage,options); // Any options PlayerObj.msg can take will be forwarded to it.
+        return thePlayer.msg("[" + this.name + "]: " + theMessage,options,cb); // Any options PlayerObj.msg can take will be forwarded to it.
       } else {
-        console.error("Invalid input given to message player with!")
+        var theError=new Error("Error with BotObj.msg command.  Invalid input given to message player with!")
+        if (typeof cb=="function"){
+          return cb(theError,false); // Could not send message, so both error and false.
+        } else {
+          throw theError; // Behavior of Sync is to throw an error.
+        }
+        
       }
     }
     this.serverMsg=function(msgString,options){ // This expects the message to send either as a string or an object that can be converted to a string
@@ -982,8 +1004,12 @@ function IPObj(ipAddressString,date,options){
   this.isBanned=function(){
     return isIPBanned(this.address);
   }
+  this.isWhitelisted=function(){
+    return isWhitelisted(this.address);
+  }
   // To test:
   // isBanned()
+  // isWhitelisted()
 
   // TODO: Add Info Methods:
   // date - This will only be set if the IP is attached to a date somehow, such as when listing all the IP's for a player
@@ -997,16 +1023,21 @@ function IPObj(ipAddressString,date,options){
 function SMNameObj(smName){
   this.name=smName;
   // TODO:
-  // isBanned()
 
   // TO TEST:
   // ban(time,options) // /ban_account Benevolent27
+  // isBanned()
+  // isWhitelisted()
 
   // DONE:
   // getNames - Returns an array of PlayerObj's for all the usernames associated with this registry account name
   this.isBanned=function (){ // Returns true or false depending on whether it is banned or not
     return isAccountBanned(this.name);
   }
+  this.isWhitelisted=function(){
+    return isAccountWhitelisted(this.name);
+  }
+
   this.ban=function (timeToBan,options){ // timeToBan is optional.  If no number given, it will be a perm ban.  Options can be {"fast":true}
     var theTimeToUse=toNumIfPossible(timeToBan);
     if (typeof theTimeToUse=="number"){ // temp ban
@@ -1030,30 +1061,32 @@ function SMNameObj(smName){
     return outputArray;
   }
 };
-function runSimpleCommand(theCommand,options){
+
+function runSimpleCommand(theCommand,options,cb){ // If no cb is given, it will run syncronously
   // This is used for PlayerObj methods that can be sent to either the console or using StarNet
   if (theCommand){
-    var fast=false;
-    if (options){
-      if (typeof options == "object"){
-        if (options.hasOwnProperty("fast")){
-          if (trueOrFalse(options.fast) == true){
-            fast=true;
-          } else {
-            console.error("Invalid input given to runSimpleCommand for options: " + options.toString());
+    var fast=getOption(options,"fast",false);
+    var msgTestFail=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] \\[ERROR\\]");
+    // RETURN: [SERVER, Admin command failed: Error packing parameters, 0]
+    // RETURN: [SERVER, Admin command failed: Error packing parameters, 0]
+    var msgTestFail2=new RegExp("^RETURN: \\[SERVER, Admin command failed: Error packing parameters, 0\\]")
+    if (fast==true){
+      return sendDirectToServer(theCommand,cb);
+    } else if (typeof cb == "function"){
+      starNetHelper.starNetVerified(theCommand,options,function(err,msgResult){
+        if (err){
+          return cb(err,msgResult);
+        } else {
+          console.log('blah');
+          if (starNetHelper.checkForLine(msgResult,msgTestFail) || starNetHelper.checkForLine(msgResult,msgTestFail2)){ // The player was offline, did not exist, or other parameters were incorrect.
+            return cb(err,false); // err will be null
+          } else { // The command appears to have not failed, so let's assume it succeeded.
+            return cb(err,true); // Err will be null
           }
         }
-      } else if (options) {
-        console.error("Invalid input given to runSimpleCommand for options: " + options.toString());
-      }
-    }
-    if (fast==true){
-      return sendDirectToServer(theCommand);
+      });
     } else {
       var msgResult=starNetHelper.starNetVerified(theCommand); // This will throw an error if the connection to the server fails.
-      var msgTestFail=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] \\[ERROR\\]");
-      // RETURN: [SERVER, Admin command failed: Error packing parameters, 0]
-      var msgTestFail2=new RegExp("^RETURN: \\[SERVER, Admin command failed: Error packing parameters, 0\\]")
       if (starNetHelper.checkForLine(msgResult,msgTestFail) || starNetHelper.checkForLine(msgResult,msgTestFail2)){ // The player was offline, did not exist, or other parameters were incorrect.
         return false;
       } else { // The command appears to have not failed, so let's assume it succeeded.
@@ -1068,27 +1101,29 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
     var playerName=player.toString().trim(); // This allows the player input to be another PlayerObj
     // var playerName=player.replace(/^ENTITY_PLAYERCHARACTER_/,"").replace(/^ENTITY_PLAYERSTATE_/,""); // strip the UID
     this.name=playerName.replace(/^ENTITY_PLAYERCHARACTER_/,"").replace(/^ENTITY_PLAYERSTATE_/,""); // strip the UID
-    this.msg=function (message,options){ // TODO: Change this so the msgType must be specified in the options
-      // Sends a message to the player.  Type is optional.  If not provided "plain" is used.
+    this.msg=function (message,options,cb){ // if no cb is given, this will run sync, returning true or false depending on success and throwing an error if failed connection.  Sends a message to the player.  Type is optional.  If not provided "plain" is used.
       var msgType=getOption(options,"type","plain").toLowerCase(); // This does not throw an error if invalid options are specified.
-      // console.log("#### MsgType set to: " + msgType);
-      return runSimpleCommand("/server_message_to " + msgType + " " + this.name + "'" + message.toString().trim() + "'",options);
-    }
-    this.botMsg=function (message,options){ // Sends a plain message to the player with the bot's name.
-      var messageToSend;
-      if (testIfInput(message)){
-          try {
-            messageToSend=message.toString();
-          } catch (err) {
-            console.error("Invalid input given to PlayerObj.botMsg!");
-            throw err;
-          }
+      var msgToUse=toStringIfPossible(message);
+      console.log("This is the string we are attempting to use: " + msgToUse);
+      console.log("And this is before any changes: " + message);
+      if (typeof msgToUse == "string"){
+        return runSimpleCommand("/server_message_to " + msgType + " " + this.name + "'" + message.toString().trim() + "'",options,cb);
       } else {
-        // no message given, so let's just be nice and assume they want a blank bot message
-        messageToSend=" ";
+        throw new Error("Invalid message given to PlayerObj.msg!");
       }
-      console.log("Sending bot message: " + messageToSend);
-      return global.bot.msg(this.name,messageToSend,options); // This should throw an error if there is a problem connecting to the server
+    }
+    this.botMsg=function (message,options,cb){ // cb is optional, runs as Sync if not given.  Sends a plain message to the player with the bot's name.
+      console.log("Working on messagae for PlayerObj.botMsg: " + message);
+      var messageToSend=toStringIfPossible(message);
+      if (!testIfInput(messageToSend) || messageToSend == "" || typeof messageToSend == "undefined"){
+        messageToSend=" ";  // If empty, let's assume they meant to send an empty line.
+      }
+      if (typeof messageToSend != "string"){ // Some kind of object that could not convert to a string was provided
+        var theError=new Error("Invalid input given to PlayerObj.botMsg!");
+        throw theError;
+      }
+      // console.log("Sending bot message: " + messageToSend);
+      return global.bot.msg(this.name,messageToSend,options,cb); // This should throw an error if there is a problem connecting to the server
     }
     this.creativeMode=function (input,options){ // expects true or false as either boolean or string
       if (isTrueOrFalse(input)){
@@ -1110,6 +1145,9 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
     }
     this.isBanned=function(){
       return isNameBanned(this.name);
+    }
+    this.isWhitelisted=function(){
+      return isNameWhitelisted(this.name);
     }
     this.factionPointProtect=function (input,options){ // expects true or false as either boolean or string
       if (isTrueOrFalse(input)){
@@ -2127,15 +2165,8 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       }
       return outputArray; // If inventory is empty, will return an empty array.
     }
-    this.blueprints = function (options){
-      var verbose=false;
-      if (typeof options == "object"){
-        if (options.hasOwnProperty("verbose")){
-          if (isTrue(options.current)){
-            verbose=true;
-          }
-        }
-      }
+    this.blueprints = function (options){ // Returns an array of blueprint objects.
+      var verbose=getOption(options,"verbose",false); // Not sure if I'll actually use this
       var result=starNetHelper.starNetVerified("/list_blueprints_by_owner " + this.name); // This will throw an error if there is a connection issue, false if the command fails, likely due to the player being offline.
       // RETURN: [SERVER, [CATALOG] START, 0]
       // RETURN: [SERVER, [CATALOG] INDEX 0: Another ship of mine with     spaces, 0]
@@ -2369,7 +2400,7 @@ function SpawnObj(playerName,date){ // date is optional.  Current time is used i
   // Right now there really are no console commands for spawn mechanics, but a separate object is used here in case there are in the future.
 };
 function BluePrintObj(bluePrintName){
-  this.name=bluePrintName;
+  this.name=bluePrintName.toString(); // This will throw an error if anything given cannot be turned into a string.
   // Info Methods to add:
   // folder - Gets the path to the folder the blueprint is in
 
@@ -2514,6 +2545,13 @@ function BluePrintObj(bluePrintName){
 };
 function FactionObj(factionNumber){
   this.number=factionNumber;
+
+
+  this.delete=function(options){ // deletes the faction
+    return runSimpleCommand("/faction_delete",options);
+  }
+
+
   // TODO: Add Info methods:
   // name - Get the name of the faction, returned as string
   // description - Get the faction description.  This is harder than it sounds since the description gets all fubared in the return value since it can be multiple lines and it also might contain text that is a normal part of a response like { and } characters..  This is tricky.
@@ -2732,12 +2770,10 @@ function SectorObj(xGiven,yGiven,zGiven){
 
 
     // Below needs to be brought up to the current standard of true=success,false=fail, throw error on connection problem.
-
-    this.toArray=function(){ return this.coords.toArray() };
     this.load=function(){
       // old method:
       // This returns "true" if the command ran, false for anything else, such as if the server was down.
-      // let theResponse=starNet("/load_sector_range " + this.coords.toString() + " " + this.coords.toString());
+      // let theResponse=starNetSync("/load_sector_range " + this.coords.toString() + " " + this.coords.toString());
       // return starNetHelper.detectRan(theResponse);
       return runSimpleCommand("/load_sector_range " + this.coords.toString() + " " + this.coords.toString());
     };
@@ -2956,7 +2992,7 @@ function CoordsObj(xInput,yInput,zInput){ // xInput can be a string or space or 
   this.y=yToUse;
   this.z=zToUse;
   this.coords=function(){ return new CoordsObj(this.x,this.y,this.z) }; // This is to allow a sectorObj to gracefully morph into a CoordsObj and for a CoordsObj to be duplicated and then possibly modified.
-  this.toArray=function(){ return [this.x, this.y, this.z]; }
+  
 
   // This can be expanded to allow storing information, such as a description, if more than values than expected are given to the constructor
   if (arguments.length > CoordsObj.length){ // the CoordsObj.length gets the number of expected input vars
@@ -2973,11 +3009,10 @@ function CreatureObj(fullUID){ // TODO: create creature object
   this["UID"]=stripFullUIDtoUID(fullUID);
   this["fullUID"]=fullUID;
 };
-function EntityObj(fullUID,shipName){
+function EntityObj(fullUID,shipName){ // takes EITHER the full UID or the ship name.  If a ship name is provided, it will look up the full UID via a StarNet.jar command.
   // This builds an entity object based on the full UID
-  // This can be used for ships and stations.  Please use PlanetObj for planets and AsteroidObj for asteroids.
+  // This can be used for ships and stations.  // TODO: There will be PlanetObj for planets and AsteroidObj for asteroids if there are differences in what can or cannot be done to them.
 
-  // the ship name can be used alternatively, but will require a lookup of the UID to then create the object
   let fullUIDToUse=fullUID;
   if (shipName){
     fullUIDToUse=starNetHelper.getUIDfromName(shipName);
@@ -2986,6 +3021,156 @@ function EntityObj(fullUID,shipName){
   if (fullUIDToUse){
     this["UID"]=stripFullUIDtoUID(fullUIDToUse); // Returns the UID as used with SQL queries, without the "ENTITY_SHIP_" whatever stuff.
     this["fullUID"]=fullUIDToUse;
+
+    // Needs testing below:
+    this.decay=function(options){ // decays the ship
+      return runSimpleCommand("/decay_uid " + this.fullUID,options);
+    }
+    this.setFaction=function(factionNumOrObj,options){ // Expects a faction number or FactionObj as input.
+      let factionNum=toNumIfPossible(toStringIfPossible(factionNumOrObj)); // This converts FactionObj to a string and then back to a number.
+      if (typeof factionNum == "number"){
+        return runSimpleCommand("/faction_set_entity_uid " + this.fullUID + " " + factionNum,options);
+      } else {
+        throw new Error("Invalid input given to EntityObj.setFaction() for factionNumOrObj!");
+      }
+    }
+    this.setFactionRank=function(rankNum,options){
+      let theRankNum=toNumIfPossible(rankNum);
+      if (typeof theRankNum == "number"){
+        return runSimpleCommand("/faction_set_entity_rank_uid " + this.fullUID + " " + theRankNum,options);
+      } else {
+        throw new Error("Invalid input given to EntityObj.setFactionRank() for rankNum!");
+      }
+    }
+    this.kickPlayersOut=function(options){ // decays the ship
+      return runSimpleCommand("/kick_players_out_of_entity_uid " + this.fullUID,options);
+    }
+    this.kickPlayersOutDock=function(options){ // decays the ship
+      return runSimpleCommand("/kick_players_out_of_entity_uid_dock \"" + this.fullUID + "\"",options);
+    }
+    this.putPlayerIntoThisEntity=function(thePlayer,options){ // player can be their name or a PlayerObj
+      let thePlayerName=toStringIfPossible(thePlayer); // This converts PlayerObj to the name of the player as a string
+      if (typeof thePlayerName == "string"){
+        return runSimpleCommand("/player_put_into_entity_uid " + thePlayerName + " \"" + this.fullUID + "\"",options);
+      } else {
+        throw new Error("Invalid input given to EntityObj.putPlayerIntoThisEntity() for thePlayer!");
+      }
+    }
+    this.saveAsBlueprint=function(blueprintName,options){ // Saves the ship as a blueprint with no owner.  Can accept a BlueprintObj as input
+      // Note:  Returns a BlueprintObj if successful instead of true
+      let theBlueprintName=toStringIfPossible(blueprintName); // This converts BlueprintObj a string
+      if (typeof theBlueprintName == "string"){
+        if(runSimpleCommand("/save_uid \"" + this.fullUID + "\" \"" + theBlueprintName + "\"",options)){
+          return new BluePrintObj(theBlueprintName);
+        } else {
+          return false;
+        }
+      } else {
+        throw new Error("Invalid input given to EntityObj.putPlayerIntoThisEntity() for thePlayer!");
+      }
+    }
+    this.shopRestockFull=function(options){ // restocks a shop to full
+      // WARNING: If a station has a shop on it, it will be restocked incorrectly to include even illegal items that should never be found in a shop, such as gold bars and green dirt.
+      return runSimpleCommand("/shop_restock_full_uid \"" + this.fullUID + "\"",options);
+    }
+    this.shopRestock=function(options){ // restocks a shop
+      // WARNING: If a station has a shop on it, it will be restocked incorrectly to include even illegal items that should never be found in a shop, such as gold bars and green dirt.
+      return runSimpleCommand("/shop_restock_uid \"" + this.fullUID + "\"",options);
+    }    
+    this.softDespawn=function(options){ // despawns an entity as though it were destroyed, till the sector is reloaded.
+      // WARNING: if an entity has docked entities on it and it is soft-despawns, I believe this causes them to undock.
+      return runSimpleCommand("/soft_despawn \"" + this.fullUID + "\"",options);
+    }    
+    this.softDespawnDock=function(options){ // despawns an entity (and all docked entities) as though it were destroyed, till the sector is reloaded.
+      return runSimpleCommand("/soft_despawn_dock \"" + this.fullUID + "\"",options);
+    }    
+    this.setMinable=function(trueOrFalse,options){ // Sets whether an entity should be minable by salvager beams
+      let booleanToUse=trueOrFalse(trueOrFalse); // allows truthy values to convert to the words, "true" or "false"
+      // Does not have success or fail messages
+      if (isTrueOrFalse(booleanToUse)){
+        return runSimpleCommand("/structure_set_minable_uid \"" + this.fullUID + "\" " + booleanToUse,options);
+      } else {
+        throw new Error("Invalid input given to EntityObj.setMinable() for trueOrFalse!");
+      }
+    }
+    this.setVulnerable=function(trueOrFalse,options){ // Sets whether an entity is invincible
+      let booleanToUse=trueOrFalse(trueOrFalse); // allows truthy values to convert to the words, "true" or "false"
+      // Does not have success or fail messages
+      if (isTrueOrFalse(booleanToUse)){
+        return runSimpleCommand("/structure_set_vulnerable_uid \"" + this.fullUID + "\" " + booleanToUse,options);
+      } else {
+        throw new Error("Invalid input given to EntityObj.setVulnerable() for trueOrFalse!");
+      }
+    }
+    this.changeSector=function(sector,options){ // sector can be a LocationObj, SectorObj, CoordsObj, or other input that can be translated to a CoordsObj.
+      // This should accept a location Obj, a pair of sectorObj and coordsObj, or any other pair of input that can translate to a CoordsObj
+      var sectorToUse;
+      if (testIfInput(sector)){ // Non-object input given
+        sectorToUse=toStringIfPossible(sector); // This converts any obj, including SectorObj, CoordsObj, and LocationObj to a string
+        try { // Let's see if coordinates can be made from the input.  A String (separated by , or spaces) or an Array can be given as input.
+          sectorToUse=new CoordsObj(sectorToUse).toString();
+        } catch (error){ // Invalid input given.
+          console.error("Invalid input given to EntityObj.changeSector as sector!");
+          throw error; 
+        }
+      } else { // Invalid amount of arguments given
+        throw new Error("No sector value given EntityObj.changeSector for sector!");
+      }
+      if (typeof sectorToUse=="string"){
+        // We should be all set to send the command now.
+        var fast=getOption(options,"fast",false);
+        var changeSectorCommand="/change_sector_for_uid \"" + this.fullUID + "\" " + sectorToUse;
+        if (fast){
+          return sendDirectToServer(changeSectorCommand);         
+        } else {
+          var result2=starNetHelper.starNetVerified(changeSectorCommand); // This will throw an error if the connection to the server fails.
+          // Success: RETURN: [SERVER, [ADMIN COMMAND] [SUCCESS] changed sector for Benevolent27 to (1000, 1000, 1000), 0]
+          // Fail: RETURN: [SERVER, [ADMIN COMMAND] [ERROR] player not found for your client Benevolent27, 0]
+          var theReg3=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] \\[SUCCESS\\]");
+          if (starNetHelper.checkForLine(result2,theReg3)){ // The command succeeded.
+            return true;
+          } else { // The command failed.  Player either offline or does not exist for some reason.
+            return false;
+          }
+        }
+      }
+      throw new Error("Invalid parameters given to EntityObj.changeSector!"); // This is redundant
+    }
+    // this.changeSectorCopy // There is no "/change_sector_for_uid_copy" command in-game right now.
+    this.teleportTo=function(coords,options){ // Accepts CoordsObj or LocationObj or any set of input that will translate to a CoordsObj
+      if (testIfInput(coords)){ // Input given
+        var spacialCoordsToUse=toStringIfPossible(coords,{"type":"spacial"}); // This option will allow a LocationObj to have it's spacial coords converted to as tring.  Any other object, such as a CoordsObj will ignore the option.
+        try { // Let's see if coordinates can be made from the input.  If a LocationObj was provided, the string returned will work.
+          spacialCoordsToUse=new CoordsObj(coords).toString();
+        } catch (error){ // Invalid input given.
+          console.error("Invalid input given to EntityObj.teleportTo for coords!");
+          throw error; 
+        }
+      }
+      var fast=getOption(options,"fast",false);
+      // I'm not using runSimpleCommand() since I know what the success message is for this, and this provides better accuracy on the success/fail result.
+      if (typeof spacialCoordsToUse=="string" && testIfInput(coords)){ // This is a redundant check.
+        var teleportToCommand="/teleport_uid_to \"" + this.fullUID + "\" " + spacialCoordsToUse;
+        if (fast){
+          return sendDirectToServer(teleportToCommand);         
+        } else {
+          var result2=starNetHelper.starNetVerified(teleportToCommand); // This will throw an error if the connection to the server fails.
+          // Success: RETURN: [SERVER, [ADMIN COMMAND] teleported Benevolent27 to , 0]
+          // Fail: RETURN: [SERVER, [ADMIN COMMAND] [ERROR] player not found for your client, 0]
+          var theReg3=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] teleported");
+          if (starNetHelper.checkForLine(result2,theReg3)){ // The command succeeded.
+            return true;
+          } else { // The command failed.  Player either offline or does not exist for some reason.
+            return false;
+          }
+        }
+      }
+      throw new Error("Invalid parameters given EntityObj.teleportTo for coords!"); // This is redundant and should never happen.
+    }
+
+
+
+
     this["loaded"]=function(){ return starNetHelper.getEntityValue(this.fullUID,"loaded") };
     // faction.number is WILDLY INACCURATE RIGHT NOW - WAITING ON FIX FROM SCHEMA - WILL NEED TO BE FIXED IN starNetHelper.js
     this["faction"]=function(){ return new FactionObj(starNetHelper.getEntityValue(this.fullUID,"faction")) };
@@ -3406,7 +3591,7 @@ function sectorSetChmod(coordsObj,stringOrArray,options){ // val can be a string
     let theValLower=stringOrArray.toLowerCase();
     let theCommand="/sector_chmod " + coordsObj.toString() + " " + theValLower;
     // This needs to be changed to throw an error if the connection fails.
-    // return starNetHelper.detectSuccess(starNet(theCommand));
+    // return starNetHelper.detectSuccess(starNetSync(theCommand));
     let theResult=starNetVerified(theCommand,options);
     return starNetHelper.detectSuccess(theResult);
   } else if (theType == "Array"){
@@ -3577,8 +3762,8 @@ function returnEntityUIDList(coordsString,beginFilter,options){
     // This will return an array of entities within the sector
     // Todo: Add an option to convert from full UID to hsql uid
     var shipListResults="";
-    if (starNetHelper.detectRan(starNet("/load_sector_range " + coordsString + " " + coordsString))){ // Load the sector first, otherwise some entities like creatures won't load
-      shipListResults=starNet("/sector_info " + coordsString);
+    if (starNetHelper.detectRan(starNetSync("/load_sector_range " + coordsString + " " + coordsString))){ // Load the sector first, otherwise some entities like creatures won't load
+      shipListResults=starNetSync("/sector_info " + coordsString);
       if (starNetHelper.detectRan(shipListResults)){
         var resultsArray=shipListResults.split("\n");
         resultsArray.pop(); // Remove "command execution ended" line
@@ -3707,27 +3892,6 @@ function getPlayerList(){ // Returns an array of player objects for all online p
     return false;
   }
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// BIG TODO: I have no idea if the whitelist functions will work.  It seems to follow the same convention as the bans.. so I did some fancy word replacement.. This needs extensive testing.
 function isAccountWhitelisted(account){
   let whitelistedArray=getWhitelistedAccountsList();
   return isWhitelisted(whitelistedArray,account);
@@ -3814,38 +3978,6 @@ function getWhitelistedNameList(options){
     throw theError;
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 function isAccountBanned(account){
   let bannedArray=getBannedAccountsList();
   return isBanned(bannedArray,account);
@@ -3990,12 +4122,28 @@ function getAdminsList(options){ // Returns an array of PlayerObj, will be an em
   // return false;
 };
 
-function sendDirectToServer(input){ // Expects a string input, returning "false" if the input wasn't valid.  This sends a command directly to the console with a return character.
+function sendDirectToServer(input,cb){ // if cb not given, functions as Sync. Expects a string input, returning "false" if the input wasn't valid.  This sends a command directly to the console with a return character.
+  var theResult;
+  var theErr=null;
   if (testIfInput(input)){
     // return global.serverSpawn.stdin.write(input + "\n");
-    return global.serverSpawn.stdin.write(input + "\n");
+    try {
+      theResult=global.serverSpawn.stdin.write(input + "\n");
+    } catch (err){
+      theErr=err;
+    }
+    if (typeof cb=="function"){
+      return cb(theErr,theResult);
+    } else {
+      return theResult;
+    }
   }
-  return false;
+  theErr=new Error("Invalid input given to sendDirectToServer function!");
+  if (typeof cb=="function"){
+    return cb(theErr,theResult);
+  } else {
+    return false;
+  }
 };
 // TODO: Create a function that gives a specific protection a value based on the sectorProtections array.
 // TODO: Create a function that converts an array of protection names to a total number

@@ -137,10 +137,10 @@ function toNumIfPossible(input){ // This also converts numbers from scientific n
   }
   return input;
 }
-function toStringIfPossible(input){ // This also converts numbers from scientific notation to floating point
+function toStringIfPossible(input,options){ // This also converts numbers from scientific notation to floating point
   if (typeof input != "undefined" && input != ""){ // This check is necessary since Number will create a 0 number using them
     try {
-      var output=input.toString();
+      var output=input.toString(options); // Sometimes the .toString() prototype will take options, such as for LocationObj
     } catch (err){
       return input;
     }

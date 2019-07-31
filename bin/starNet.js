@@ -1,7 +1,13 @@
 
 // This script can be run independently or as a require for another script.  It returns all results as STDOUT.
 
-module.exports=runStarNetReturn;  // Always put module.exports at the top so circular dependencies work correctly.
+// module.exports=starNetSync;  // Always put module.exports at the top so circular dependencies work correctly.
+
+// Adding starnet options, sync, cb, and later promises
+module.exports={ // Always put module.exports at the top so circular dependencies work correctly.
+  "starNetSync":starNetSync,
+  "starNetCb":starNet
+}; // TODO:  Create a promise version of starNet
 
 const path=require('path');
 const child=require('child_process');
@@ -12,6 +18,7 @@ var starNetJar=path.join(binFolder,"StarNet.jar");
 // var settings=require(path.resolve(__dirname,"../settings.json"));
 var ini=require(path.join(binFolder,"iniHelper.js"));
 var objHelper=require(path.join(binFolder,"objectHelper.js"));
+var {getOption,testIfInput}=objHelper;
 
 // For any variables that rely on a configuration file or settings file, we need to ensure they only try to pull the information AFTER the files actually exist, such as after the install routine has had a chance to work.
 var settings={}; // placeholder to be filled in with actual settings later
@@ -77,7 +84,7 @@ if (__filename == require.main.filename){ // Only run the arguments IF this scri
     for (let i=0;i<clArguments.length;i++){
       // console.log("Running on argument: " + clArguments[i]);
       // runStarNet(clArguments);
-      var tempResultsString=runStarNetReturn(clArguments);
+      var tempResultsString=starNetSync(clArguments);
       // console.log("Results String: " + tempResultsString);
       var tempResultsArray=tempResultsString.split("\n");
       for (let i=0;i<tempResultsArray.length;i++){
@@ -88,21 +95,89 @@ if (__filename == require.main.filename){ // Only run the arguments IF this scri
   }
 }
 
-// Obsoleting
-// function runStarNet(command){
-//   // This is an attempt at making an async type function.  You can't capture the output from it, it's just for display purposes only.
-//   // This sort of formula can be used though to write the data to a stream and process it that way as it comes in.  This is would be useful for SQL queries that can get rather large.
-//   if (command){
-//     var results=child.spawn("java",["-jar",starNetJar,"127.0.0.1:" + settings["port"],superAdminPassword,command],{"cwd":binFolder});
-//     results.stdout.on('data',function(data){
-//       process.stdout.write(data);
-//     });
-//     results.stderr.on('data',function(data){
-//       process.stdout.write(data);
-//     });
-//   }
-// }
-function runStarNetReturn(command,options){
+// TODO:  Create an async version
+function starNet(command,options,cb){ // There are no options yet.
+  // This is an attempt at making an async type function.  
+  // This sort of formula can be used though to write the data to a stream and process it that way as it comes in.  This is would be useful for SQL queries that can get rather large.
+  var returnArray=[];
+  if (testIfInput(command)){
+    var simulateProblem=getOption(options,"simulateProblem","none").toLowerCase(); // For testing purposes only to ascertain errors
+    var theStarNetSpawn;
+    if (getSuperAdminPassword()){
+      if (simulateProblem == "none"){
+        theStarNetSpawn=child.spawn("java",["-jar",starNetJar,"127.0.0.1:" + settings["port"],getSuperAdminPassword(),command],{"cwd":binFolder});
+
+      } else if (simulateProblem=="wrongip"){ // Destination unreachable
+        console.log("### Simulating wrong ip -- destination unreachable ###");
+        theStarNetSpawn=child.spawn("java",["-jar",starNetJar,"128.0.0.1:" + settings["port"],getSuperAdminPassword(),command],{"cwd":binFolder});
+      } else if (simulateProblem=="wrongport"){ // Refused connection
+        console.log("### Simulating wrong port -- refused connection ###");
+        theStarNetSpawn=child.spawn("java",["-jar",starNetJar,"127.0.0.1:" + 6767,getSuperAdminPassword(),command],{"cwd":binFolder});
+      } else if (simulateProblem=="wrongsuperadminpassword"){
+        console.log("### Simulating wrong super admin password ###");
+        theStarNetSpawn=child.spawn("java",["-jar",starNetJar,"127.0.0.1:" + settings["port"],"This is wrong",command],{"cwd":binFolder});
+      } else if (simulateProblem=="wrongparameters"){
+      // invalid parameters
+      console.log("### Simulating bad parameters ###");
+      theStarNetSpawn=child.spawn("java",["-jar",starNetJar,"This is wrong",command],{"cwd":binFolder});
+      } else {
+        console.error("Invalid problem to simulate, so doing nothing!");
+      }
+      var stdOutString;
+      var stdErrString;
+      var stdOutArray=[];
+      var stdErrArray=[];
+      theStarNetSpawn.stdout.on('data',function(data){
+        // process.stdout.write(data);
+        stdOutString=data.toString().trim().replace(/(\r)/g,"");
+        stdOutArray=stdOutString.split("\n"); // Sometimes more than 1 line is included in each output
+        for (let i=0;i<stdOutArray.length;i++){
+          if (stdOutArray[i] != "" && typeof stdOutArray[i] == "string"){
+            returnArray.push(stdOutArray[i]);
+          }
+        }
+      });
+      theStarNetSpawn.stderr.on('data',function(data){
+        // process.stdout.write(data);
+        stdErrString=data.toString().trim().replace(/(\r)/g,"");
+        stdErrArray=stdErrString.split("\n"); // Sometimes more than 1 line is included in each output
+        for (let i=0;i<stdErrArray.length;i++){
+          if (stdErrArray[i] != "" && typeof stdErrArray[i] == "string"){
+            returnArray.push(stdErrArray[i]);
+          }
+        }
+  
+      });
+      theStarNetSpawn.on('exit', function(){ processData(theStarNetSpawn,returnArray,cb) });
+      theStarNetSpawn.on('error', function(){ processData(theStarNetSpawn,returnArray,cb) });
+    } else {
+      console.error("No super admin password established yet!  Can't do anything!");
+    }
+  }
+}
+function processData(childProcess,dataArray,cb){
+  // console.log("Processing data:");
+  // console.dir(dataArray);
+  // console.log("Using function:");
+  // console.dir(cb);
+  var errObj=null;
+  var theErrorText;
+  if (childProcess.status){ // Any non-zero value will mean abnormal process termination.
+    theErrorText="StarNet exited with code: " + childProcess.status;
+  } else if (childProcess.signal){ // results.status will be null if the process was killed
+    theErrorText="StarNet was killed with signal: " + childProcess.signal;
+  }
+  if (theErrorText){
+    errObj=new Error(theErrorText);
+  }
+  // To be congruent with how starNetSync functions, let's put the array back to separation by \n
+  var returnString=dataArray.join("\n");
+  cb(errObj,returnString);
+}
+
+
+
+function starNetSync(command,options){
   // Options are passed as an array.  Eg. {debug:true}
   var debug=false;
   if (module.debug){
@@ -110,23 +185,26 @@ function runStarNetReturn(command,options){
   } else if (objHelper.isObjHasPropAndEquals(options,"debug",true)){ // checks if any value was passed as an object, if it has a property "debug", and if that property strictly equals true
     debug=true
   }
-  if (command){
+  console.log("starNetSync ran with options: " + options); // temp
+  var simulateProblem=getOption(options,"simulateProblem","none").toLowerCase(); // For testing purposes only to ascertain errors
+  console.log("simulateProblem: " + simulateProblem);
+  if (testIfInput(command)){
     if (getSuperAdminPassword()){
-      var results=child.spawnSync("java",["-jar",starNetJar,"127.0.0.1:" + settings["port"],getSuperAdminPassword(),command],{"cwd":binFolder});
-
-      // For testing purposes only to ascertain errors
-      // wrong ip - destination unreachable
-      // var results=child.spawnSync("java",["-jar",starNetJar,"128.0.0.1:" + settings["port"],getSuperAdminPassword(),command],{"cwd":binFolder});
-
-      // wrong port
-      // var results=child.spawnSync("java",["-jar",starNetJar,"127.0.0.1:" + 6767,getSuperAdminPassword(),command],{"cwd":binFolder});
-
-      // wrong superadmin password
-      // var results=child.spawnSync("java",["-jar",starNetJar,"127.0.0.1:" + settings["port"],"This is wrong",command],{"cwd":binFolder});
-
+      var results;
+      if (simulateProblem == "none"){
+        results=child.spawnSync("java",["-jar",starNetJar,"127.0.0.1:" + settings["port"],getSuperAdminPassword(),command],{"cwd":binFolder});
+      } else if (simulateProblem=="wrongip"){ // Destination unreachable
+        results=child.spawnSync("java",["-jar",starNetJar,"128.0.0.1:" + settings["port"],getSuperAdminPassword(),command],{"cwd":binFolder});
+      } else if (simulateProblem=="wrongport"){
+        results=child.spawnSync("java",["-jar",starNetJar,"127.0.0.1:" + 6767,getSuperAdminPassword(),command],{"cwd":binFolder});
+      } else if (simulateProblem=="wrongsuperAdminPassword"){
+        results=child.spawnSync("java",["-jar",starNetJar,"127.0.0.1:" + settings["port"],"This is wrong",command],{"cwd":binFolder});
+      } else if (simulateProblem=="wrongparameters"){
       // invalid parameters
-      // var results=child.spawnSync("java",["-jar",starNetJar,"This is wrong",command],{"cwd":binFolder});
-
+        results=child.spawnSync("java",["-jar",starNetJar,"This is wrong",command],{"cwd":binFolder});
+      } else {
+        console.error("Invalid problem to simulate, so doing nothing!");
+      }
       if (debug == true){ process.stdout.write(results.stderr.toString()); }
       // return results.stderr.toString().trim();
       return results.stderr.toString().trim().replace(/(\r)/g,""); // This is needed for windows
@@ -184,7 +262,7 @@ function runStarNetReturn(command,options){
 //         at java.net.Socket.<init>(Unknown Source)
 //         at util.StarMadeNetUtil.executeAdminCommand(StarMadeNetUtil.java:122)
 //         at gui.StarNet.main(StarNet.java:32)
-		
+
 
 // Wrong super admin password
 // RETURN: [SERVER, END; ERROR: wrong super password, 0]

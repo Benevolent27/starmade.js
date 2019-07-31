@@ -2,9 +2,12 @@ module.exports={ // top exporting to allow circular dependencies to work.
   SqlQueryObj, // DO NOT USE THE OBJECT DIRECTLY FROM THIS FILE, USE THE objectCreator.js script for that to avoid unsupported circular dependencies, since that script uses export injection to provide this object.
   mapifyColumnsAndAllData // This takes an array with columns, and another array with all the data, spitting out an array of maps
 };
+
+// TODO:  Add callback forms for all StarNet.jar queries
 const path=require('path');
 const binFolder=path.resolve(__dirname);
 const starNet=require(path.resolve(binFolder,"starNet.js"));
+const {starNetSync,starNetCb}=starNet;
 const objHelper=require(path.resolve(binFolder,"objectHelper.js"));
 const starNetHelper=require(path.resolve(binFolder,"starNetHelper.js"));
 
@@ -39,7 +42,7 @@ if (__filename == require.main.filename){ // Only run starnet with command line 
 }
 function getSQLquery(query){ // This will preprocess a query so that it should work with starNet.js to run correctly.
   // This should correct for improper quote types.
-  // For example if someone tries to use a " character instead of a ' character when performing "like" operators
+  // For example if someone tries to use a ' character instead of a " character when performing "like" operators
   // e.g. SELECT * FROM PUBLIC.SECTORS WHERE UID LIKE "myShip%"
   // This should convert to: SELECT * FROM PUBLIC.SECTORS WHERE UID LIKE 'myShip%'
   var queryToUse;
@@ -55,7 +58,7 @@ function SqlQueryObj(sqlQuery){
   this.time=Date.now();
   // console.log("Running sql query: " + sqlQuery);
   this.mapArray=[]; // This is modified later in the script, but declared here in case there is an error.
-  var resultsStr=starNet(getSQLquery(sqlQuery));
+  var resultsStr=starNetSync(getSQLquery(sqlQuery));
   if (verifyResponse(resultsStr) == false){
     // There was an error of some kind
     this.error=addNumToErrorObj(new Error("StarNet command failed!"),2);

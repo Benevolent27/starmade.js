@@ -4,6 +4,7 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   getEntityValue,
   ShipInfoUidObj,
   starNetVerified,
+  starNetVerifiedCB,
   verifyResponse,
   detectError,
   detectRan,
@@ -17,8 +18,12 @@ module.exports={ // Always put module.exports at the top so circular dependencie
 var path=require('path');
 var binFolder=path.resolve(__dirname,"../bin/");
 var starNet=require(path.join(binFolder,"starNet.js"));
+var {starNetSync,starNetCb}=starNet;
+
 var objHelper=require(path.join(binFolder,"objectHelper.js"));
-const sleep = require(path.join(binFolder,"mySleep.js")).softSleep; // Only accurate for 100ms or higher wait times.
+const mySleep=require(path.join(binFolder,"mySleep.js"));
+const sleep = mySleep.softSleep; // Only accurate for 100ms or higher wait times.
+const {sleepPromise}=mySleep; // Less accurate but non-blocking - can only be used in async functions!
 
 // Aliases
 var {getObjType,getOption}=objHelper;
@@ -72,9 +77,9 @@ if (require.main.filename == __filename){ // This is so it only runs based on ar
       console.log("Result: " + theResult);
     } else {
       if (theArguments[2]){
-        theResult=starNet("/ship_info_uid " + theArguments[0] + " " + new Error("Thanks")); // This is to create malformed requests for testing purposes.
+        theResult=starNetSync("/ship_info_uid " + theArguments[0] + " " + new Error("Thanks")); // This is to create malformed requests for testing purposes.
       } else {
-        theResult=starNet("/ship_info_uid " + theArguments[0]);
+        theResult=starNetSync("/ship_info_uid " + theArguments[0]);
       }
       // ENTITY_SHIP_Hello_There
       if (theResult){
@@ -315,7 +320,7 @@ function ShipInfoUidObj(uidOrShipObj,options){ // options are optional and are m
     uidToUse=uidOrShipObj;
   }
   if (uidToUse){
-    var starNetResult=starNet("/ship_info_uid " + uidToUse)
+    var starNetResult=starNetSync("/ship_info_uid " + uidToUse,options)
     return mapifyShipInfoUIDString(starNetResult,options);
   } else {
     throw new Error("ERROR: Invalid parameters given to 'ShipInfoUIDObj'!");
@@ -323,7 +328,7 @@ function ShipInfoUidObj(uidOrShipObj,options){ // options are optional and are m
 }
 
 
-function getUIDfromName (name){
+function getUIDfromName (name,options){
   // Returns:
   // If ship not found:  null
   // If an error is encountered running starnet:  undefined
@@ -332,7 +337,7 @@ function getUIDfromName (name){
   // console.log("Looking up name: " + name); // temp
   let returnResult;
   if (typeof name == "string"){
-    const results=starNet('/ship_info_name "' + name + '"');
+    const results=starNetSync('/ship_info_name "' + name + '"',options);
     // console.log("Results:"); //temp
     // console.dir(results); // temp
   
@@ -438,7 +443,7 @@ function getEntityValue(uidOrShipObj,valueString,options){ // Options are option
   }
 
   if (typeof uidToUse == "string" && typeof valueString == "string"){
-    const results=starNet("/ship_info_uid \"" + uidToUse + "\"");
+    const results=starNetSync("/ship_info_uid \"" + uidToUse + "\"",options);
     // console.log("Results found: " + results);
     var resultMap=mapifyShipInfoUIDString(results);
     // console.log("\nMapify result:");
@@ -491,7 +496,7 @@ function getEntityValue(uidOrShipObj,valueString,options){ // Options are option
         }
         if (tryAgain==true){
           // console.debug("Value only available when sector is loaded.  Loading sector, " + theSectorString + ", and trying again.." + new Date());
-          starNet("/load_sector_range " + theSectorString + " " + theSectorString);
+          starNetSync("/load_sector_range " + theSectorString + " " + theSectorString,options);
           returnVal=getEntityValue(uidToUse,valueString); // Try again till successful.  This will cause an infinite loop while the sector is unloaded, but will not run again if the command fails.
           // If the entity loads and no value is present, 'undefined' will be returned.  This is intended.
           // The reason we try loading the sector is for futureproofing.
@@ -556,7 +561,7 @@ function returnMatchingLinesAsArray(input,regExp){
 }
 
 function detectError(input){ // Input should be a string.
-  // This will scan through a starNet response for a 'java.net' line, which should only ever appear when there is an error, such as failure to connect to the server.
+  // This will scan through a starNet response for a 'java.net' or 'java.io' line, which should only ever appear when there is an error, such as failure to connect to the server.
   // This function is not intended to be ran on every starNet response.  It can be used to parse individual lines or the whole response.
   // Returns true if there was an error, otherwise false.
 
@@ -590,66 +595,126 @@ function verifyResponse(input){ // input should be a full starNet.js response st
   return false;
 }
 
-function starNetVerified(string,options){ // Takes a string command.  Options are optional
-  // Options right now include displaying the result on screen by giving "{debug:true}" as an option
-  // This should probably not be used on longer sort of responses because it has to parse through every line
 
-  // Be careful using this, since it will crash the scripting if the error isn't handled.
-  
-  // By default keep retrying till successful on a connection error.  This will still throw an error if a different kind of problem occurs, such as a buffer overflow (which is a response that is too long for StarNet.jar to handle)
-  var retryOnConnectionProblem=getOption(options,"retryOnConnectionProblem",true); 
-  var retryOnConnectionProblemMs=getOption(options,"retryOnConnectionProblemMs",1000);
-  var maxRetriesOnConnectionProblem=getOption(options,"maxRetriesOnConnectionProblem",60); // This is the maximum amount of retries
-  var maxTimeToRetry=getOption(options,"maxTimeToRetry",60000); // This is to keep trying for a certain number of MS.
+async function starNetVerifiedCB(string,options,cb){ // Takes a string command.  Options are optional
+  var optionsToUse={ };
+  if (typeof options == "object"){
+    optionsToUse=options;
+  }
+  optionsToUse.retryOnConnectionProblem=getOption(options,"retryOnConnectionProblem",true); 
+  optionsToUse.retryOnConnectionProblemMs=getOption(options,"retryOnConnectionProblemMs",1000);
+  optionsToUse.maxRetriesOnConnectionProblem=getOption(options,"maxRetriesOnConnectionProblem",60); // This is the maximum amount of retries
+  optionsToUse.maxTimeToRetry=getOption(options,"maxTimeToRetry",60000); // This is to keep trying for a certain number of MS.
+  optionsToUse.simulateProblem=getOption(options,"simulateProblem","none");
+  // If these options don't exist on the options, add them for the next try.
+  optionsToUse.starNetVerifiedCBTryCount=getOption(options,"starNetVerifiedCBTryCount",1);
+  optionsToUse.starNetVerifiedCBtimeToRetryTill=getOption(options,"starNetVerifiedCBtimeToRetryTill",new Date().getTime() + optionsToUse.maxTimeToRetry);
 
-
-  var retrySecondsLeft=0;
-  var keepGoing=true; // Don't change this.
-  var starNetResult;
   if (typeof string == "string"){
-    var retryCount=0;
-    var timeToRetryTill=new Date().getTime() + maxTimeToRetry; // The time right now in ms
-    var timeStamp;
-    while (keepGoing){ // Loop forever till a return value is given or error thrown.
-      starNetResult=starNet(string,options);
-      if (verifyResponse(starNetResult)){
-        keepGoing=false; // This is just to make ESLint happy.. returning a value would break the while loop..
-        return starNetResult;
-      } else {
-        var theCode=99; // This is an unknown error
-        var getCode=getStarNetErrorType(starNetResult,{"returnNum":true});
-        if (getCode){
-          theCode=getCode;
-        }
-
+    await starNetCb(string,optionsToUse,function (err,result){
+      if (err){
+        // There will not be an error returned unless StarNet.jar terminates abornally or could not be run.
+        // We are throwing an error because the wrapper cannot do anything without StarNet.jar operating correctly.
+        throw new Error("StarNet.jar either could not be run or terminated abnormally!  This should never happen!  You may need to redownload StarNet.jar or add permission to run it.");
+      } else if (verifyResponse(result)){ // Verify that no error happened.
+          return cb(err,result); // No connection errors happened.  "err" will be Null
+      } else { // Some error happened
+        var theErrorNum=99; // 99 error code is "unknown"
+        theErrorNum=getStarNetErrorType(result,{"returnNum":true});
         var connectionProblem=false;
-        if (theCode==1 || theCode==2){
+        if (theErrorNum==1 || theErrorNum==2){ // These two codes indicate either unreachable host or conenction refused.
           connectionProblem=true;
         }
-        timeStamp=new Date().getTime();
-        // This method of retrying might work ok, but it holds up the entire wrapper..  I might need to rethink the structure of the wrapper to use callbacks for everything.
-        if (retryOnConnectionProblem && connectionProblem && retryCount < maxRetriesOnConnectionProblem && timeToRetryTill > timeStamp){ // Only sleep and then continue to loop IF there was a connection problem.
-          // When a connection error happens,
-          retrySecondsLeft=Math.ceil((timeToRetryTill-timeStamp)/1000);
-          retryCount++;
-          console.error("ERROR:  Connection problem to server when attempting command: " + string);
-          console.error("Trying again in " + retryOnConnectionProblemMs + " seconds.  (Retry " + retryCount + "/" + maxRetriesOnConnectionProblem + ")  Giving up in " + retrySecondsLeft + " seconds.");
-          sleep(retryOnConnectionProblemMs);
-        } else {
-          // Only throw an error IF retryOnConnectionProblem was falsey.
-          var theError=new Error("Could not verify StarNet command ran successfully: " + string);
-          theError["code"]=theCode; // Some kind of connection or overflow error.  TODO:  Separate out errors, since a buffer overflow SHOULD NOT be treated the same as a connection problem.
-          throw theError;
+        var timeStamp=new Date().getTime();
+        var starNetVerifiedRetrySecondsLeft=Math.ceil((optionsToUse.starNetVerifiedCBtimeToRetryTill-timeStamp)/1000);
+        console.error("ERROR:  Connection problem to server when attempting command: " + string);
+
+        if (optionsToUse.retryOnConnectionProblem && connectionProblem && optionsToUse.starNetVerifiedCBTryCount < optionsToUse.maxRetriesOnConnectionProblem && optionsToUse.starNetVerifiedCBtimeToRetryTill > timeStamp){ // Only sleep and then continue to loop IF there was a connection problem.
+          // Neither the max time nor max count has been reached yet
+          console.error("Trying again in " + optionsToUse.retryOnConnectionProblemMs + " ms.  (Retry " + optionsToUse.starNetVerifiedCBTryCount + "/" + optionsToUse.maxRetriesOnConnectionProblem + ")  Giving up in " + starNetVerifiedRetrySecondsLeft + " seconds.");
+          sleepPromise(optionsToUse.retryOnConnectionProblemMs);
+          optionsToUse.starNetVerifiedCBTryCount++;
+
+          return starNetVerifiedCB(string,optionsToUse,cb);
+        } else { // function is either not set to retry, or it's used up all the time/retry counts.
+          var theErrorText="Error when sending starNet.jar command: " + string;
+          var theError=new Error(theErrorText);
+          theError.code=theErrorNum;
+          return cb(theError,result);
         }
       }
-    }
-    return false; // This will never happen.  This is just to make ESlint happy.
+    });
   } else {
     throw new Error("Invalid parameters given to starNetVerified function!");
     // no code given because this is not a connection problem.
   }
-  // Returns the result of the command if it verifies, meaning it ran AND there were no java errors.  
-  // This does not guarantee the command was successful, like when a person gives an invalid amount of parameters, so the output still needs to be further processed to determine success/fail/warning
+  // Returns the result of the command if it verifies, meaning it ran AND there were no java errors.  This does not guarantee the command was successful, like when a person gives an invalid amount of parameters.  The output still needs to be further processed to determine success/fail/warning
+};
+
+
+function starNetVerified(string,options,cb){ // Takes a string command.  Options are optional.  If no cb is given, will run as Sync.
+  // Options right now include displaying the result on screen by giving "{debug:true}" as an option
+  // This should probably not be used on longer sort of responses because it has to parse through every line
+
+  // Be careful using this, since it will crash the scripting if the error isn't handled.
+  if (typeof cb == "function"){
+    return starNetVerifiedCB(string,options,cb);
+  } else {
+    // By default keep retrying till successful on a connection error.  This will still throw an error if a different kind of problem occurs, such as a buffer overflow (which is a response that is too long for StarNet.jar to handle)
+    var retryOnConnectionProblem=getOption(options,"retryOnConnectionProblem",true); 
+    var retryOnConnectionProblemMs=getOption(options,"retryOnConnectionProblemMs",1000);
+    var maxRetriesOnConnectionProblem=getOption(options,"maxRetriesOnConnectionProblem",60); // This is the maximum amount of retries
+    var maxTimeToRetry=getOption(options,"maxTimeToRetry",60000); // This is to keep trying for a certain number of MS.
+
+
+    var retrySecondsLeft=0;
+    var keepGoing=true; // Don't change this.
+    var starNetResult;
+    if (typeof string == "string"){
+      var retryCount=0;
+      var timeToRetryTill=new Date().getTime() + maxTimeToRetry; // The time right now in ms
+      var timeStamp;
+      while (keepGoing){ // Loop forever till a return value is given or error thrown.
+        starNetResult=starNetSync(string,options);
+        if (verifyResponse(starNetResult)){
+          keepGoing=false; // This is just to make ESLint happy.. returning a value would break the while loop..
+          return starNetResult;
+        } else {
+          var theCode=99; // This is an unknown error
+          var getCode=getStarNetErrorType(starNetResult,{"returnNum":true});
+          if (getCode){
+            theCode=getCode;
+          }
+
+          var connectionProblem=false;
+          if (theCode==1 || theCode==2){
+            connectionProblem=true;
+          }
+          timeStamp=new Date().getTime();
+          // This method of retrying might work ok, but it holds up the entire wrapper..  I might need to rethink the structure of the wrapper to use callbacks for everything.
+          if (retryOnConnectionProblem && connectionProblem && retryCount < maxRetriesOnConnectionProblem && timeToRetryTill > timeStamp){ // Only sleep and then continue to loop IF there was a connection problem.
+            // When a connection error happens,
+            retrySecondsLeft=Math.ceil((timeToRetryTill-timeStamp)/1000);
+            retryCount++;
+            console.error("ERROR:  Connection problem to server when attempting command: " + string);
+            console.error("Trying again in " + retryOnConnectionProblemMs + " seconds.  (Retry " + retryCount + "/" + maxRetriesOnConnectionProblem + ")  Giving up in " + retrySecondsLeft + " seconds.");
+            sleep(retryOnConnectionProblemMs);
+          } else {
+            // Only throw an error IF retryOnConnectionProblem was falsey.
+            var theError=new Error("Could not verify StarNet command ran successfully: " + string);
+            theError["code"]=theCode; // Some kind of connection or overflow error.  TODO:  Separate out errors, since a buffer overflow SHOULD NOT be treated the same as a connection problem.
+            throw theError;
+          }
+        }
+      }
+      return false; // This will never happen.  This is just to make ESlint happy.
+    } else {
+      throw new Error("Invalid parameters given to starNetVerified function!");
+      // no code given because this is not a connection problem.
+    }
+    // Returns the result of the command if it verifies, meaning it ran AND there were no java errors.  
+    // This does not guarantee the command was successful, like when a person gives an invalid amount of parameters, so the output still needs to be further processed to determine success/fail/warning
+  }
 }
 
 function getStarNetErrorType(input,options){ // parses through a starNet.jar string return to detect StarNet.jar errors.

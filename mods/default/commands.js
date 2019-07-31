@@ -88,7 +88,7 @@ function writeSettings() {
   }
 
 
-console.dir(defaultSettings);
+// console.dir(defaultSettings);
 
 // Extenders - These will only be guaranteed available after the "init" event is triggered.
 objectCreator["CommandObj"]=CommandObj;
@@ -258,7 +258,6 @@ function regCommand(name,category,adminOnly,displayInHelp,playersArray){
     // This is used by mods to register a command object, which is later used by !help and to trigger command events.
     // This can accept an object as the first argument, 'name' with some of the values registered.  It will fill in the blanks with defaults as necessary.
     // Note:  This can be used to reregister a command, if the permissions might change later.
-    console.log("Registering a command..");
     // {
     //   "name":"home",
     //   "category":"General",
@@ -279,7 +278,7 @@ function regCommand(name,category,adminOnly,displayInHelp,playersArray){
             }
             global.commands[myCommandName]=myCommandObj;
             console.log("Registered new command: " + myCommandName);
-            console.dir(myCommandObj);
+            // console.dir(myCommandObj);
             failure=false;
         }
     }
@@ -291,7 +290,9 @@ function regCommand(name,category,adminOnly,displayInHelp,playersArray){
 event.on('message', message);
 function message (messageObj) { // Handle messages sent from players
     // Expects message to be a message type object
-    console.log("Message (type: " + messageObj.type +") DETECTED from " + messageObj.sender.name + " to " + messageObj.receiver.name + ": " + messageObj.text);
+    
+    // console.log("Message (type: " + messageObj.type +") DETECTED from " + messageObj.sender.name + " to " + messageObj.receiver.name + ": " + messageObj.text);
+
     // Here we will need to see if the "commands" object has the command.
     if (messageObj.text[0] == settings["commandOperator"]){ // Process any commands, whether valid or not.
         // TODO:  Add admin only commands and commands that will only be given to specific players.
@@ -383,7 +384,7 @@ function message (messageObj) { // Handle messages sent from players
                     // TODO:  Remove any empty categories. This can happen if a command is categorized but is hidden or unavailable to the player due to it being an admin only command.
 
                     // commandCategories should now be an object that contains all the unique categories with arrays for each command in that category
-                    console.dir(commandCategories); // temp
+                    // console.dir(commandCategories); // temp
                 
                     var commandSpacerNum=defaultSettings["commandSpacer"].length + defaultSettings["commandPrefix"].length + defaultSettings["commandSuffix"].length;
                     var theArrayToWorkOn=[];
@@ -416,7 +417,8 @@ function message (messageObj) { // Handle messages sent from players
                         }
                     }
                     // The commandCategories object should now be rebuilt so each category has arrays of strings that can be provided to the player
-                    console.dir(commandCategories); // temp
+                    // console.dir(commandCategories); // temp
+
                     // Assuming there are categories, we need to cycle through the categories again, only displaying them once per player and adding filler to lines that do not contain the category
                     // If there are no categories, then the bot should just state there are no commands presently on the server.
 
