@@ -553,7 +553,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
       var mods=[];
       var modFiles=[];
       for (var i = 0;i < modFolders.length;i++) {
-        console.log("Mod Folder found: " + modFolders[i] + " Looking for scripts..");
+        // console.log("Mod Folder found: " + modFolders[i] + " Looking for scripts..");
         fileList=getFiles(modFolders[i]);
         // console.dir(fileList);
         for (var e=0;e<fileList.length;e++){
@@ -564,7 +564,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           }
         }
       }
-      console.dir(mods);
+      // console.dir(mods);
       global["modFiles"]=modFiles;
       global["mods"]=mods;
     }
@@ -594,7 +594,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
 
     function unloadMods(inputPath){  // This cycles through the list of modfiles and deletes their cache
       // if 'inputPath' is specified, it will ONLY unload that specific path.
-      eventEmitter.emit("removeListeners");
+      eventEmitter.emit("removeListeners"); // This is for mods that want to use their own event handler for some reason.
 
       let fileList=global["modFiles"];
       var inputPathToUse;
@@ -608,11 +608,11 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
             global["modFiles"]=arrayMinus(global["modFiles"],fileList[e]); // This should work
             global["mods"]=arrayMinus(global["mods"],require(fileList[e])); // I have no idea if this will actually work since it's an array of objects.  Can they be directly compared?
             // The above might need: require.cache[require.resolve(fileList[e])]
-            Reflect.deleteProperty(require.cache,require.resolve(fileList[e])); // I have no idea what happens to any event listeners registered under the old mods.  I am guessing they need to be deregistered.. but let's try this first.
+            Reflect.deleteProperty(require.cache,require.resolve(fileList[e])); // Source: http://derpturkey.com/reload-module-with-node-js-require/ with some modification to use reflect.
           }
         } else {
           console.log("Unloading JS file: " + fileList[e]);
-          Reflect.deleteProperty(require.cache,require.resolve(fileList[e])); // I have no idea what happens to any event listeners registered under the old mods.  I am guessing they need to be deregistered.. but let's try this first.
+          Reflect.deleteProperty(require.cache,require.resolve(fileList[e])); // // Source: http://derpturkey.com/reload-module-with-node-js-require/ with some modification to use reflect.
         }
       }
       if (!inputPathToUse){
@@ -1133,10 +1133,13 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
         console.log(" !stderr [on/off]");
         console.log(" !serverlog [on/off]");
         console.log(" !enumerateevents [on/off]");
+        console.log(" !reloadMods");
         console.log(" !showallevents [on/off]");
         console.log(" !settings");
         console.log(" !changesetting [setting] [newvalue]");
-
+      } else if (theCommand == "reloadmods" ) {
+        console.log("Reloading mods..");
+        eventEmitter.emit("reloadMods");
       } else if (theCommand == "stdout" ) {
         if (theArguments[0] == "on"){
           console.log("Setting stdout to true!");
