@@ -99,6 +99,11 @@ if (__filename == require.main.filename){ // Only run the arguments IF this scri
 function starNet(command,options,cb){ // There are no options yet.
   // This is an attempt at making an async type function.  
   // This sort of formula can be used though to write the data to a stream and process it that way as it comes in.  This is would be useful for SQL queries that can get rather large.
+  // console.log("starNetAsync ran with options: "); // temp
+  // console.dir(options);
+  console.log("starNetAsync ran with command: "); // temp
+  console.dir(command);
+
   var returnArray=[];
   if (testIfInput(command)){
     var simulateProblem=getOption(options,"simulateProblem","none").toLowerCase(); // For testing purposes only to ascertain errors
@@ -185,7 +190,12 @@ function starNetSync(command,options){
   } else if (objHelper.isObjHasPropAndEquals(options,"debug",true)){ // checks if any value was passed as an object, if it has a property "debug", and if that property strictly equals true
     debug=true
   }
-  console.log("starNetSync ran with options: " + options); // temp
+  // console.log("starNetSync ran with options: "); // temp
+  // console.dir(options);
+  console.log("starNetSync ran with command: "); // temp
+  console.dir(command);
+
+
   var simulateProblem=getOption(options,"simulateProblem","none").toLowerCase(); // For testing purposes only to ascertain errors
   console.log("simulateProblem: " + simulateProblem);
   if (testIfInput(command)){
