@@ -660,8 +660,9 @@ function starNetVerified(string,options,cb){ // Takes a string command.  Options
   if (typeof cb == "function"){
     return starNetVerifiedCB(string,options,cb);
   } else {
-    // By default keep retrying till successful on a connection error.  This will still throw an error if a different kind of problem occurs, such as a buffer overflow (which is a response that is too long for StarNet.jar to handle)
-    var retryOnConnectionProblem=getOption(options,"retryOnConnectionProblem",true); 
+    // This runs syncronously
+    // If retry is enabled, this will still throw an error if a different kind of problem occurs, such as a buffer overflow (which is a response that is too long for StarNet.jar to handle)
+    var retryOnConnectionProblem=getOption(options,"retryOnConnectionProblem",false); // by default we do not want the sync version to retry, since this holds up the main thread while it is retrying.
     var retryOnConnectionProblemMs=getOption(options,"retryOnConnectionProblemMs",1000);
     var maxRetriesOnConnectionProblem=getOption(options,"maxRetriesOnConnectionProblem",60); // This is the maximum amount of retries
     var maxTimeToRetry=getOption(options,"maxTimeToRetry",60000); // This is to keep trying for a certain number of MS.
