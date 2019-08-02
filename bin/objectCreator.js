@@ -1333,271 +1333,231 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
     self.giveCreditsPromise=function (number,options){ // expects a number of credits to give.  If this value is negative, it will subtract credits.
       return simplePromisifyIt(self.giveCredits,options);
     }
-    self.giveGrapple=function (number,options){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
+    self.giveGrapple=function (options,cb){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
       // Unfortunately, with using callback functions, it's just not a good idea to allow more than 1 to be given.  Each command needs to have it's own error handling.
-      var theNum=toNumIfPossible(number);
-      var countTo=1; // The default times to run the command is 1
-      var result;
-      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
-        if (number>1){ countTo=theNum; }
-      }
-      for (var i=0;countTo>i;i++){
-        result=runSimpleCommand("/give_grapple_item " + self.name,options);
-      }
-      return result;
+      // var theNum=toNumIfPossible(number);
+      // var countTo=1; // The default times to run the command is 1
+      // var result;
+      // if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
+      //   if (number>1){ countTo=theNum; }
+      // }
+      // for (var i=0;countTo>i;i++){
+      //   result=runSimpleCommand("/give_grapple_item " + self.name,options);
+      // }
+      // return result;
+      return runSimpleCommand("/give_grapple_item " + self.name,options,cb);
     }
-    self.giveGrappleOP=function (number,options){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
-      var theNum=toNumIfPossible(number);
-      var countTo=1; // The default times to run the command is 1
-      var result;
-      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
-        if (theNum>1){ countTo=theNum; } 
-      }
-      for (var i=0;countTo>i;i++){
-        result=runSimpleCommand("/give_grapple_item_op " + self.name,options);
-      }
-      return result;
+    self.giveGrapplePromise=function (options){ // expects a number of credits to give.  If this value is negative, it will subtract credits.
+      return simplePromisifyIt(self.giveGrapple,options);
     }
-    self.giveHealWeapon=function (number,options){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
-      var theNum=toNumIfPossible(number);
-      var countTo=1; // The default times to run the command is 1
-      var result;
-      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
-        if (theNum>1){ countTo=theNum; } 
-      }
-      for (var i=0;countTo>i;i++){
-        result=runSimpleCommand("/give_heal_weapon " + self.name,options);
-      }
-      return result;
+    self.giveGrappleOP=function (options,cb){ 
+        return runSimpleCommand("/give_grapple_item_op " + self.name,options,cb);
     }
-    self.giveLaserWeapon=function (number,options){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
-      var theNum=toNumIfPossible(number);
-      var countTo=1; // The default times to run the command is 1
-      var result;
-      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
-        if (theNum>1){ countTo=theNum; } 
-      }
-      for (var i=0;countTo>i;i++){
-        result=runSimpleCommand("/give_laser_weapon " + self.name,options);
-      }
-      return result;
+    self.giveGrappleOPPromise=function (options){ 
+      return simplePromisifyIt(self.giveGrappleOP,options);
     }
-    self.giveLaserWeaponOP=function (number,options){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
-      var theNum=toNumIfPossible(number);
-      var countTo=1; // The default times to run the command is 1
-      var result;
-      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
-        if (theNum>1){ countTo=theNum; } 
-      }
-      for (var i=0;countTo>i;i++){
-        result=runSimpleCommand("/give_laser_weapon_op " + self.name,options);
-      }
-      return result;
+    self.giveHealWeapon=function (options,cb){
+      return runSimpleCommand("/give_heal_weapon " + self.name,options,cb);
     }
-    self.giveMarkerWeapon=function (number,options){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
-      var theNum=toNumIfPossible(number);
-      var countTo=1; // The default times to run the command is 1
-      var result;
-      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
-        if (theNum>1){ countTo=theNum; } 
-      }
-      for (var i=0;countTo>i;i++){
-        result=runSimpleCommand("/give_marker_weapon " + self.name,options);
-      }
-      return result;
+    self.giveHealWeaponPromise=function (options){
+      return simplePromisifyIt(self.giveHealWeapon,options);
     }
-    self.giveTransporterMarkerWeapon=function (number,options){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
-      var theNum=toNumIfPossible(number);
-      var countTo=1; // The default times to run the command is 1
-      var result;
-      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
-        if (theNum>1){ countTo=theNum; } 
-      }
-      for (var i=0;countTo>i;i++){
-        result=runSimpleCommand("/give_transporter_marker_weapon " + self.name,options);
-      }
-      return result;
+    self.giveLaserWeapon=function (options,cb){
+      return runSimpleCommand("/give_laser_weapon " + self.name,options,cb);
     }
-    self.givePowerSupplyWeapon=function (number,options){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
-      var theNum=toNumIfPossible(number);
-      var countTo=1; // The default times to run the command is 1
-      var result;
-      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
-        if (theNum>1){ countTo=theNum; } 
-      }
-      for (var i=0;countTo>i;i++){
-        result=runSimpleCommand("/give_power_supply_weapon " + self.name,options);
-      }
-      return result;
+    self.giveLaserWeaponPromise=function (options){
+      return simplePromisifyIt(self.giveLaserWeapon,options);
     }
-    self.giveRocketLauncher=function (number,options){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
-      var theNum=toNumIfPossible(number);
-      var countTo=1; // The default times to run the command is 1
-      var result;
-      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
-        if (theNum>1){ countTo=theNum; } 
-      }
-      for (var i=0;countTo>i;i++){
-        // result=sendDirectToServer("/give_rocket_launcher_weapon " + self.name); // the input should never fail, so this should normally always return true
-        result=runSimpleCommand("/give_rocket_launcher_weapon " + self.name,options);
-      }
-      return result;
+    self.giveLaserWeaponOP=function (options,cb){
+      return runSimpleCommand("/give_laser_weapon_op " + self.name,options,cb);
     }
-    self.giveRocketLauncherOP=function (number,options){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
-      var theNum=toNumIfPossible(number);
-      var countTo=1; // The default times to run the command is 1
-      var result;
-      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
-        if (theNum>1){ countTo=theNum; } 
-      }
-      for (var i=0;countTo>i;i++){
-        // result=sendDirectToServer("/give_rocket_launcher_op " + self.name); // the input should never fail, so this should normally always return true
-        result=runSimpleCommand("/give_rocket_launcher_op " + self.name,options);
-      }
-      return result;
+    self.giveLaserWeaponOPPromise=function (options){
+      return simplePromisifyIt(self.giveLaserWeaponOP,options);
     }
-    self.giveSniperWeapon=function (number,options){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
-      var theNum=toNumIfPossible(number);
-      var countTo=1; // The default times to run the command is 1
-      var result;
-      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
-        if (theNum>1){ countTo=theNum; } 
-      }
-      for (var i=0;countTo>i;i++){
-        // result=sendDirectToServer("/give_sniper_weapon " + self.name); // the input should never fail, so this should normally always return true
-        result=runSimpleCommand("/give_sniper_weapon " + self.name,options);
-      }
-      return result;
+    self.giveMarkerWeapon=function (options,cb){
+      return runSimpleCommand("/give_marker_weapon " + self.name,options,cb);
     }
-    self.giveSniperWeaponOP=function (number,options){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
-      var theNum=toNumIfPossible(number);
-      var countTo=1; // The default times to run the command is 1
-      var result;
-      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
-        if (theNum>1){ countTo=theNum; } 
-      }
-      for (var i=0;countTo>i;i++){
-        // result=sendDirectToServer("/give_sniper_weapon_op " + self.name); // the input should never fail, so this should normally always return true
-        result=runSimpleCommand("/give_sniper_weapon_op " + self.name,options);
-      }
-      return result;
+    self.giveMarkerWeaponPromise=function (options){
+      return simplePromisifyIt(self.giveMarkerWeapon,options);
     }
-    self.giveTorchWeapon=function (number,options){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
-      var theNum=toNumIfPossible(number);
-      var countTo=1; // The default times to run the command is 1
-      var result;
-      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
-        if (theNum>1){ countTo=theNum; } 
-      }
-      for (var i=0;countTo>i;i++){
-        // result=sendDirectToServer("/give_torch_weapon " + self.name); // the input should never fail, so this should normally always return true
-        result=runSimpleCommand("/give_torch_weapon " + self.name,options);
-      }
-      return result;
+
+    self.giveTransporterMarkerWeapon=function (options,cb){
+      return runSimpleCommand("/give_transporter_marker_weapon " + self.name,options,cb);
     }
-    self.giveTorchWeaponOP=function (number,options){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
-      var theNum=toNumIfPossible(number);
-      var countTo=1; // The default times to run the command is 1
-      var result;
-      if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
-        if (theNum>1){ countTo=theNum; } 
-      }
-      for (var i=0;countTo>i;i++){
-        // result=sendDirectToServer("/give_torch_weapon_op " + self.name); // the input should never fail, so this should normally always return true
-        result=runSimpleCommand("/give_torch_weapon_op " + self.name,options);
-      }
-      return result;
+    self.giveTransporterMarkerWeaponPromise=function (options){
+      return simplePromisifyIt(self.giveTransporterMarkerWeapon,options);
     }
-    self.kill=function (options){ // kills the player
-      // return sendDirectToServer("/kill_character " + self.name);
-      return runSimpleCommand("/kill_character " + self.name,options);
+
+    self.givePowerSupplyWeapon=function (options,cb){
+      return runSimpleCommand("/give_power_supply_weapon " + self.name,options,cb);
     }
-    self.kick=function (reason,options){ // Reason is optional.  Note that since reason is optional, this will always return true.
+    self.givePowerSupplyWeaponPromise=function (options){
+      return simplePromisifyIt(self.givePowerSupplyWeapon,options);
+    }
+
+    self.giveRocketLauncher=function (options,cb){
+      return runSimpleCommand("/give_rocket_launcher_weapon " + self.name,options,cb);
+    }
+    self.giveRocketLauncherPromise=function (options){
+      return simplePromisifyIt(self.giveRocketLauncher,options);
+    }
+
+    self.giveRocketLauncherOP=function (options,cb){
+      return runSimpleCommand("/give_rocket_launcher_op " + self.name,options,cb);
+    }
+    self.giveRocketLauncherOPPromise=function (options){
+      return simplePromisifyIt(self.giveRocketLauncherOP,options);
+    }
+
+    self.giveSniperWeapon=function (options,cb){
+      return runSimpleCommand("/give_sniper_weapon " + self.name,options,cb);
+    }
+    self.giveSniperWeaponPromise=function (options){
+      return simplePromisifyIt(self.giveSniperWeapon,options);
+    }
+
+    self.giveSniperWeaponOP=function (options,cb){
+      return runSimpleCommand("/give_sniper_weapon_op " + self.name,options,cb);
+    }
+    self.giveSniperWeaponOPPromise=function (options){
+      return simplePromisifyIt(self.giveSniperWeaponOP,options);
+    }
+  
+    self.giveTorchWeapon=function (options,cb){
+      return runSimpleCommand("/give_torch_weapon " + self.name,options,cb);
+    }
+    self.giveTorchWeaponPromise=function (options){
+      return simplePromisifyIt(self.giveTorchWeapon,options);
+    }
+
+    self.giveTorchWeaponOP=function (options,cb){
+      return runSimpleCommand("/give_torch_weapon_op " + self.name,options,cb);
+    }
+    self.giveTorchWeaponOPPromise=function (options){
+      return simplePromisifyIt(self.giveTorchWeaponOP,options);
+    }
+
+
+    self.kill=function (options,cb){ // kills the player
+      return runSimpleCommand("/kill_character " + self.name,options,cb);
+    }
+    self.killPromise=function (options){ // kills the player
+      return simplePromisifyIt(self.kill,options);
+    }
+    self.kick=function (reason,options,cb){ // Reason is optional.  Note that since reason is optional, this will always return true.
       if (testIfInput(reason)){
         // return sendDirectToServer("/kick_reason " + self.name + "'" + reason.toString().trim() + "'");
-        return runSimpleCommand("/kick_reason " + self.name + "'" + reason.toString().trim() + "'",options);
+        return runSimpleCommand("/kick_reason " + self.name + "'" + reason.toString().trim() + "'",options,cb);
       } else {
         // return sendDirectToServer("/kick " + self.name);
-        return runSimpleCommand("/kick " + self.name,options);
+        return runSimpleCommand("/kick " + self.name,options,cb);
       }
     }
-    self.setFactionRank=function (number,options){ // expects a number 1-5.  5 is founder, 1 is lowest rank.
-      if (isNum(number)){
-        if (number>=1 && number<=5){
-          // return sendDirectToServer("/faction_mod_member " + self.name + " " + number);
-          return runSimpleCommand("/faction_mod_member " + self.name + " " + number,options);
-        }
-        return false; // The number was invalid
-      }
-      return false; // the input was invalid
+    self.kickPromise=function (reason,options){  // Reason is optional.  Note that since reason is optional, this will always return true.
+      return simplePromisifyIt(self.kick,options,reason);
     }
-    self.addAdmin=function (options){ // Adds the player as an admin
+
+    self.setFactionRank=function (number,options,cb){ // expects a number 1-5.  5 is founder, 1 is lowest rank.
+      // I really shouldn't validate the input if using callbacks.  Instead I should interpret the response from the server.
+
+      // if (isNum(number)){
+      //   if (number>=1 && number<=5){
+          return runSimpleCommand("/faction_mod_member " + self.name + " " + number,options,cb);
+      //   }
+      //   return false; // The number was invalid
+      // }
+      // return false; // the input was invalid
+    }
+    self.setFactionRankPromise=function (number,options){ // expects a number 1-5.  5 is founder, 1 is lowest rank.
+      return simplePromisifyIt(self.setFactionRank,options,number);
+    }
+
+    self.addAdmin=function (options,cb){ // Adds the player as an admin
       // this gives a warning if player does not exist on the server, so runSimpleCommand will not work
       // TODO: I need separate text processing for this:
       // RETURN: [SERVER, [ADMIN COMMAND] [WARNING] 'sdflkjdsf' is NOT online. Please make sure you have the correct name. Name was still added to admin list, 0]
       // When successful, no specific message returned.
       // return sendDirectToServer("/add_admin " + self.name);
-      return runSimpleCommand("/add_admin " + self.name,options); 
+      return runSimpleCommand("/add_admin " + self.name,options,cb); 
       // Since this will add a player that is even offline, there is no check to ensure the name is a valid one and so this will not return false if the player is offline either.
     }
-    self.removeAdmin=function (options){ // Removes the player as an admin
+    self.addAdminPromise=function (options){ // Adds the player as an admin
+      return simplePromisifyIt(self.addAdmin,options);
+    }
+
+
+    self.removeAdmin=function (options,cb){ // Removes the player as an admin
       // return sendDirectToServer("/remove_admin " + self.name);
-      return runSimpleCommand("/remove_admin " + self.name,options);
+      return runSimpleCommand("/remove_admin " + self.name,options,cb);
     }
-    self.addAdminDeniedCommand=function (commandOrCommands,options){ // Adds denied commands for an admin, input can be an array of commands to deny.  It will cycle through them all.
+    self.removeAdminPromise=function (options){ // Removes the player as an admin
+      return simplePromisifyIt(self.removeAdmin,options);
+    }
+    self.addAdminDeniedCommand=function (command,options,cb){ // Adds denied commands for an admin, input can be an array of commands to deny.  It will cycle through them all.
+      // I need to disable the multi-functionality to separate out potential errors
+      
+      // // Note:  This does not check to ensure the command actually exists.
+      // var returnVal=true;
+      // var result;
+      // if (typeof commandOrCommands == "object"){ // An array is an object typeof
+      //   if (commandOrCommands instanceof Array){ // This is how you figure out it is an array.  We cannot do this directly, because if it is not an object, this will throw an error.
+      //     if (commandOrCommands.length){ // This is to make sure it isn't an empty array
+      //       for (var i=0;i<commandOrCommands.length;i++){
+      //         // result=sendDirectToServer("/add_admin_denied_comand " + self.name + " " + commandOrCommands[i]);
+      //         result=runSimpleCommand("/add_admin_denied_comand " + self.name + " " + commandOrCommands[i],options);
+      //         if (result===false){ returnVal=false; } // This works as a latch, so that if ANY of the commands fail, it returns false
+      //       }
+      //       return returnVal; // This will return false if ANY of the inputs failed.
+      //     } else {
+      //       return false;
+      //     }
+      //   }
+      //   return false; // This handles if an object of another type was given, which would be invalid.
+      // } else if (testIfInput(commandOrCommands)){ // This would trigger for strings or numbers.
+      //   // return sendDirectToServer("/add_admin_denied_comand " + self.name + " " + commandOrCommands);
+        return runSimpleCommand("/add_admin_denied_comand " + self.name + " " + command,options,cb);
+      // }
+      // return false; // This should never happen.
+    }
+    self.addAdminDeniedCommandPromise=function (command,options){ // Adds denied commands for an admin, input can be an array of commands to deny.  It will cycle through them all.
+      return simplePromisifyIt(self.addAdminDeniedCommand,options,command);
+    }
+    self.removeAdminDeniedCommand=function (command,options,cb){ // Adds denied commands for an admin, input can be an array of commands to deny.  It will cycle through them all.
       // Note:  This does not check to ensure the command actually exists.
-      var returnVal=true;
-      var result;
-      if (typeof commandOrCommands == "object"){ // An array is an object typeof
-        if (commandOrCommands instanceof Array){ // This is how you figure out it is an array.  We cannot do this directly, because if it is not an object, this will throw an error.
-          if (commandOrCommands.length){ // This is to make sure it isn't an empty array
-            for (var i=0;i<commandOrCommands.length;i++){
-              // result=sendDirectToServer("/add_admin_denied_comand " + self.name + " " + commandOrCommands[i]);
-              result=runSimpleCommand("/add_admin_denied_comand " + self.name + " " + commandOrCommands[i],options);
-              if (result===false){ returnVal=false; } // This works as a latch, so that if ANY of the commands fail, it returns false
-            }
-            return returnVal; // This will return false if ANY of the inputs failed.
-          } else {
-            return false;
-          }
-        }
-        return false; // This handles if an object of another type was given, which would be invalid.
-      } else if (testIfInput(commandOrCommands)){ // This would trigger for strings or numbers.
-        // return sendDirectToServer("/add_admin_denied_comand " + self.name + " " + commandOrCommands);
-        return runSimpleCommand("/add_admin_denied_comand " + self.name + " " + commandOrCommands,options);
-      }
-      return false; // This should never happen.
+      // var returnVal=true;
+      // var result;
+      // if (typeof commandOrCommands == "object"){ // An array is an object typeof
+      //   if (commandOrCommands instanceof Array){ // This is how you figure out it is an array.  We cannot do this directly, because if it is not an object, this will throw an error.
+      //     if (commandOrCommands.length){ // This is to make sure it isn't an empty array
+      //       for (var i=0;i<commandOrCommands.length;i++){
+      //         // result=sendDirectToServer("/remove_admin_denied_comand " + self.name + " " + commandOrCommands[i]);
+      //         result=runSimpleCommand("/remove_admin_denied_comand " + self.name + " " + commandOrCommands[i],options);
+      //         if (result===false){ returnVal=false; }
+      //       }
+      //       return returnVal; // This will return false if ANY of the inputs failed.
+      //     } else {
+      //       return false;
+      //     }
+      //   }
+      //   return false; // This handles if an object of another type was given, which would be invalid.
+      // }
+      // if (testIfInput(commandOrCommands)){ // This would trigger for strings or numbers.
+      //   // return sendDirectToServer("/remove_admin_denied_comand " + self.name + " " + commandOrCommands);
+        return runSimpleCommand("/remove_admin_denied_comand " + self.name + " " + command,options,cb);
+      // }
+      // return false; // This should never happen.
     }
-    self.removeAdminDeniedCommand=function (commandOrCommands,options){ // Adds denied commands for an admin, input can be an array of commands to deny.  It will cycle through them all.
-      // Note:  This does not check to ensure the command actually exists.
-      var returnVal=true;
-      var result;
-      if (typeof commandOrCommands == "object"){ // An array is an object typeof
-        if (commandOrCommands instanceof Array){ // This is how you figure out it is an array.  We cannot do this directly, because if it is not an object, this will throw an error.
-          if (commandOrCommands.length){ // This is to make sure it isn't an empty array
-            for (var i=0;i<commandOrCommands.length;i++){
-              // result=sendDirectToServer("/remove_admin_denied_comand " + self.name + " " + commandOrCommands[i]);
-              result=runSimpleCommand("/remove_admin_denied_comand " + self.name + " " + commandOrCommands[i],options);
-              if (result===false){ returnVal=false; }
-            }
-            return returnVal; // This will return false if ANY of the inputs failed.
-          } else {
-            return false;
-          }
-        }
-        return false; // This handles if an object of another type was given, which would be invalid.
-      }
-      if (testIfInput(commandOrCommands)){ // This would trigger for strings or numbers.
-        // return sendDirectToServer("/remove_admin_denied_comand " + self.name + " " + commandOrCommands);
-        return runSimpleCommand("/remove_admin_denied_comand " + self.name + " " + commandOrCommands,options);
-      }
-      return false; // This should never happen.
+    self.removeAdminDeniedCommandPromise=function (command,options){ // Adds denied commands for an admin, input can be an array of commands to deny.  It will cycle through them all.
+      return simplePromisifyIt(self.removeAdminDeniedCommand,options,command);
     }
-    self.unban=function (options){
-      return runSimpleCommand("/unban_name " + self.name,options);
+    self.unban=function (options,cb){
+      return runSimpleCommand("/unban_name " + self.name,options,cb);
       // Note that this does not unban their ip or smname
     }
-    self.ban=function (toKick,reason,time,options){ // No value is mandatory, but toKick will be true by default if not specified.  toKick should be true/false. Time is in minutes.
+    self.unbanPromise=function (options){
+      return simplePromisifyIt(self.unban,options);
+    }
+    self.ban=function (toKick,reason,time,options,cb){ // No value is mandatory, but toKick will be true by default if not specified.  toKick should be true/false. Time is in minutes.
       // Note that a player MUST BE ONLINE in order for the kick to work.
       // Note that no reason is given to the player if they are not kicked.
       // Also note that this ban does not apear to actually work.  It will kick the player, but then they can just rejoin.  An IP ban or ban via SMNameObj will actually be effective.
@@ -1622,31 +1582,48 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       }
       var banString=banArray.join(" ");
       console.log("Banning player with string: " + banString);
-      return runSimpleCommand(banString,options);
+      return runSimpleCommand(banString,options,cb);
     }
-    self.giveMetaItem=function (metaItem,number,options){ // number is optional, but if options are given, it should be "".  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
+    self.banPromise=function (toKick,reason,time,options){ // No value is mandatory, but toKick will be true by default if not specified.  toKick should be true/false. Time is in minutes.
+      return simplePromisifyIt(self.ban,options,toKick,reason,time);
+    }
+
+    // We should not cycle through commands with callbacks.
+    // self.giveMetaItem=function (metaItem,number,options){ // number is optional, but if options are given, it should be "".  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
+    //   // EXAMPLE: /give_metaitem schema blueprint, recipe, log_book, helmet, build_prohibiter, flash_light, virtual_blueprint, block_storage, laser, heal, power_supply, marker, rocket_launcher, sniper_rifle, grapple, torch, transporter_marker
+    //   // Note:  The primary usage for this is for log_book, helmet, and build_prohibiter
+    //   var theNum=toNumIfPossible(number);
+    //   var countTo=1; // The default times to run the command is 1
+    //   var result;
+    //   var resultToReturn=true;
+    //   if (testIfInput(metaItem)){
+    //     if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.  We don't use 'isNum()' since this would be duplicating efforts.
+    //       if (theNum>1){ countTo=theNum; } 
+    //     }
+    //     for (var i=0;countTo>i;i++){
+    //       // result=sendDirectToServer("/give_metaitem " + self.name + " " + metaItem.toString().trim()); // the input should never fail, so this should normally always return true
+    //       result=runSimpleCommand("/give_metaitem " + self.name + " " + metaItem.toString().trim(),options);
+    //       if (result===false){
+    //         resultToReturn=false;
+    //       }
+    //     }
+    //     return resultToReturn; // If any of the commands given to the server are invalid, then this will be false
+    //   }
+    //   return false; // The input was invalid, so return false.
+    // }
+    self.giveMetaItem=function (metaItem,options,cb){
       // EXAMPLE: /give_metaitem schema blueprint, recipe, log_book, helmet, build_prohibiter, flash_light, virtual_blueprint, block_storage, laser, heal, power_supply, marker, rocket_launcher, sniper_rifle, grapple, torch, transporter_marker
       // Note:  The primary usage for this is for log_book, helmet, and build_prohibiter
-      var theNum=toNumIfPossible(number);
-      var countTo=1; // The default times to run the command is 1
-      var result;
-      var resultToReturn=true;
-      if (testIfInput(metaItem)){
-        if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.  We don't use 'isNum()' since this would be duplicating efforts.
-          if (theNum>1){ countTo=theNum; } 
-        }
-        for (var i=0;countTo>i;i++){
-          // result=sendDirectToServer("/give_metaitem " + self.name + " " + metaItem.toString().trim()); // the input should never fail, so this should normally always return true
-          result=runSimpleCommand("/give_metaitem " + self.name + " " + metaItem.toString().trim(),options);
-          if (result===false){
-            resultToReturn=false;
-          }
-        }
-        return resultToReturn; // If any of the commands given to the server are invalid, then this will be false
-      }
-      return false; // The input was invalid, so return false.
+      return runSimpleCommand("/give_metaitem " + self.name + " " + metaItem.toString().trim(),options,cb);
     }
-    self.isOnline=function(){ return isPlayerOnline(self.name) }; // Conforms to the standard of throwing an error on connection error, but gives false if player is offline.  There is no error for a failure of command since this should never happen.
+    self.giveMetaItemPromise=function (metaItem,options){
+      return simplePromisifyIt(self.giveMetaItem,options,metaItem);
+    }
+
+
+    self.isOnline=function(){ 
+      return isPlayerOnline(self.name) 
+    }; // Conforms to the standard of throwing an error on connection error, but gives false if player is offline.  There is no error for a failure of command since this should never happen.
     self.isAdmin=function (options){
       return isPlayerAdmin(self.name,options);
       // let adminList=getAdminsList(options);
@@ -1657,6 +1634,9 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       // }
       // return false;
     }
+
+
+
     self.spawnLocation=function(){ // Returns a LocationObj of the player's spawn coordinates, but can only be successful if the player is online.  Will return false if offline.
       try {
         var result=starNetHelper.starNetVerified("/player_get_spawn " + self.name);
@@ -3996,57 +3976,7 @@ function returnEntityUIDList(coordsString,beginFilter,options){
   }
   return null;
 };
-function isPlayerAdmin(name,options){
-  let thisName=name.toString().toLowerCase();
-  let adminList=getAdminsList(options);
-  if (adminList){ // If the list was retrieved successfully and there were no admins, it will be an empty array, so this should still be truthy true
-    for (let i=0;i<adminList.length;i++){
-      if (thisName == adminList[i].toString()){
-        return true;
-      }
-    }
-    return false;
-  }
-  var theError=new Error("Connection failed when attempting to obtain admin list in isPlayerAdmin");
-  theError.code=1;
-  throw theError;
-}
 
-function isPlayerOnline(name,options){ // Expects a string or PlayerObj as input for name.  Returns true if the player is online, false if not.
-  var theName=name.toString().toLowerCase();
-  var results=getPlayerList(options); // This will be an array of player objects for all online players.  Will be empty if nobody online.
-  if (results){ // This should spark even if the player list is empty
-    for (var i=0;results.length>i;i++){
-      if (results[i].name == theName){
-        return true;
-      }
-    }
-    return false;
-  }
-  // This only happens if there is a connection error when attempting to get the player list.  This is to conform with the standard used elsewhere.
-  var theError=new Error("Connection failed when attempting to obtain player list in isPlayerOnline");
-  theError.code=1;
-  throw theError;
-};
-function getPlayerList(){ // Returns an array of player objects for all online players or false if the starNet command fails.
-  // returns an array of all online players.  The array will be empty if nobody is online.
-  try {
-    var result=starNetHelper.starNetVerified("/player_list");
-    var resultArray=result.trim().split("\n");
-    var outputArray=[];
-    // RETURN: [SERVER, [PL] Name: Benevolent27, 0]
-    var theReg=new RegExp("^RETURN: \\[SERVER, \\[PL\\] Name: ");
-    for (let i = 0;i < resultArray.length;i++) {
-      if (theReg.test(resultArray[i])){
-        outputArray.push(new PlayerObj(resultArray[i].replace(theReg,"").replace(/, 0]$/,"")));
-      }
-    }
-    return outputArray;
-  } catch (error){
-    console.error("StarNet command failed when attempting to getPlayerList()!");
-    return false;
-  }
-};
 
 
 
@@ -4095,9 +4025,87 @@ function compareToObjectArrayToString(inputArray,whatToLookFor,options){
 }
 
 
+
+
+// function isNameWhitelisted(name,options,cb){ // cb is optional
+//   if (typeof cb == "function"){ // Run in async mode
+//     return getWhitelistedNameList(options,function(err,resultArray){
+//       if (err){
+//         return cb(err,null);
+//       } else { 
+//         return cb(null,compareToObjectArrayToString(resultArray,name));
+//       }
+//     });
+//   } else { // run in Sync mode
+//     var theArray=getWhitelistedNameList(options);
+//     return compareToObjectArrayToString(theArray,name);
+//   }
+// }
+
+
+
+
+
+function splitHelper2(result,matchReg,regExpToRem,regExpToRem2,functionToRunOnEachValue){
+  // takes input from commands like /player_list where we want to isolate specific lines
+  // and then isolate a single word, producing an array, running a function on each one, such
+  // as turning each word into an object type.
+
+  // For example, if we run a /player_list command and feed the output here and the regex's
+  // needed to select the line, then remove the first part and the last part
+  // example:  splitHelper1(result,matchReg,regExpToRem,regExpToRem2,makePlayerObj){
+  var outputArray=[];
+  var functionToRun=functionToRunOnEachValue;
+  var resultsArray=returnMatchingLinesAsArray(result,matchReg);
+  var theLine;
+  for (let i=0;i<resultsArray.length;i++){
+    theLine=theLine.replace(regExpToRem,"").replace(regExpToRem2,"");
+    if (theLine){ 
+      outputArray.push(functionToRun(theLine));
+    }
+  }
+  return outputArray;
+}
+function splitHelper2CB(command,options,matchReg,regExpToRem,regExpToRem2,functionToRunOnEachValue,cb){
+  // takes input from /player_list, producing an array, running a function on each one.
+  return starNetVerifiedCB(command,options,function(err,result){
+    if (err){
+      return cb(err,null);
+    } else {
+      return cb(null,splitHelper2(result,matchReg,regExpToRem,regExpToRem2,functionToRunOnEachValue)); // Will be empty array if no results
+    }
+  });
+}
+
+
+
+ 
+
 function makePlayerObj(input){
   return new PlayerObj(input);
 }
+
+function getPlayerList(options,cb){ // Returns an array of player objects for all online players or false if the starNet command fails.
+  // returns an array of all online players.  The array will be empty if nobody is online.
+  var matchReg=/^RETURN: \[SERVER, \[PL\] Name: .*/;
+  var regExpToRem=/^RETURN: \[SERVER, \[PL\] Name: {/;
+  var regExpToRem2=/, 0]$/;
+  var theCommand="/player_list";
+  var theFunctionToRunOnEachResult=makePlayerObj;
+  var theErrorMsg="StarNet error running getPlayerList()!";
+  if (typeof cb=="function"){
+    return splitHelper2CB(theCommand,options,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult,cb);
+  } else {  
+    try {
+      var result=starNetHelper.starNetVerified(theCommand,options);
+      return splitHelper2(result,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult);
+    } catch (error){
+      console.error(theErrorMsg);
+      throw error;
+    }
+  }
+} 
+
 function getWhitelistedNameList(options,cb){
   // /list_whitelist_name
   // RETURN: [SERVER, Whitelisted: {six, four, five}, 0]
@@ -4141,6 +4149,145 @@ function getBannedNameList(options,cb){
     }
   }
 }
+
+function getAdminsList(options,cb){ // TODO:  Test this.. there are 4 ways of doing things.
+  // Returns an array of PlayerObj, will be an empty array if no admins returned
+  // Note: ALWAYS RETURNS NAMES IN LOWERCASE
+  // example:
+  // RETURN: [SERVER, Admins: {thrace_vega=>thrace_vega, andyp=>andyp, weedle=>weedle, modr4de=>modr4de, melvin=>melvin, build_lonebluewolf=>build_lonebluewolf, arkwulff=>arkwulff, dukeofrealms=>dukeofrealms, borednl=>borednl, mod_lonebluewolf=>mod_lonebluewolf, mod_caribe=>mod_caribe, benevolent27=>benevolent27, pezz=>pezz, lancake=>lancake, nikodaemos=>nikodaemos, char_aznable=>char_aznable, mod_flagitious=>mod_flagitious, arbiter=>arbiter, benevolent37=>benevolent37, nastral=>nastral, benevolent327=>benevolent327}, 0]
+  // options can be {"fast":true}, which will cause this scripting to read from the admins.txt file in the StarMade folder rather than run the command.
+  // another option can be {"unrestricted":true}, which will only return admins that have no restrictions - note that this forces reading from the admins.txt file.
+  let unrestricted=trueOrFalse(getOption(options,"unrestricted",false));
+  let fast=trueOrFalse(getOption(options,"fast",false));
+  if (unrestricted){
+    fast=true; // The fileread method MUST be used if showing only unrestricted admins
+  }
+  var theError="ERROR:  Connection failed when attempting to get list of admins!";
+  var theReadError="ERROR: Problem reading admins.txt file:"
+  var theReg=/^RETURN: \[SERVER, Admins: {.*/;
+  var remReg=/^RETURN: \[SERVER, Admins: {/;
+  var remReg2=/}, 0\]$/;
+  var processLine;
+  var processArray=[]; // Note:  I have no idea if this will work as a callback function converted to a promise with this sync in here.
+  var adminsTxtFile=path.join(global.starMadeInstallFolder,"admins.txt");
+  var adminFileContentsArray=[];
+  var outputArray=[];
+  if (typeof cb=="function") {
+    if (fast==true){ // Perform callback style file read
+      fs.readFile(adminsTxtFile,"UTF-8",function(err,data){ // node.js documentation has 'utf8' as it's example.. maybe we should use that?
+        if (err){
+          console.error(theReadError);
+          console.dir(err);
+          return cb(err,data);
+        } else {
+          var adminFileContents=data.replace(/\r/g,"");
+          if (adminFileContents){
+            adminFileContentsArray=adminFileContents.split("\n");
+            for (let i=0;i<adminFileContentsArray.length;i++){
+              if (adminFileContentsArray[i].trim()){ // Test to see if the line is blank or not.  Only process it if there is text.
+                if (unrestricted){ // Only add the playerObj if it is an unrestricted admin
+                  if (!(/#.*$/).test(adminFileContentsArray[i])){
+                    outputArray.push(new PlayerObj(adminFileContentsArray[i].replace(/#.*$/g,"").trim()));
+                  }
+                } else {
+                  outputArray.push(new PlayerObj(adminFileContentsArray[i].replace(/#.*$/g,"").trim()));
+                }
+              }
+            }
+          }
+          return cb(null,outputArray);
+        }
+      });
+    } else {
+      starNetVerified("/list_admins",function(err,result){
+        if (err){
+          console.error(theError);
+          return cb(err,result);
+        } else {
+          processLine=returnLineMatch(result,theReg,remReg,remReg2);
+          processArray=processLine.split(", ");
+          for (let i=0;i<processArray.length;i++){
+            outputArray.push(new PlayerObj(processArray[i].split("=>")[0]));
+          }
+          return cb(null,outputArray);
+        }
+      });
+    }
+  } else if (fast===true){ // Sync mode fast // TODO:  Test this  
+    try {
+      let adminFileContents=fs.readFileSync(adminsTxtFile,"UTF-8").replace(/\r/g,"");
+      if (adminFileContents){
+        adminFileContentsArray=adminFileContents.split("\n");
+        for (let i=0;i<adminFileContentsArray.length;i++){
+          if (adminFileContentsArray[i].trim()){ // Test to see if the line is blank or not.  Only process it if there is text.
+            if (unrestricted){ // Only add the playerObj if it is an unrestricted admin
+              if (!(/#.*$/).test(adminFileContentsArray[i])){
+                outputArray.push(new PlayerObj(adminFileContentsArray[i].replace(/#.*$/g,"").trim()));
+              }
+            } else {
+              outputArray.push(new PlayerObj(adminFileContentsArray[i].replace(/#.*$/g,"").trim()));
+            }
+          }
+        }
+      }
+    } catch (err){
+      console.error(theReadError);
+      console.dir(err);
+      throw err;
+    }
+  } else { // Sync mode slow
+    try {
+      let result=starNetHelper.starNetVerified("/list_admins");
+      processLine=returnLineMatch(result,theReg,remReg,remReg2);
+      processArray=processLine.split(", ");
+      for (let i=0;i<processArray.length;i++){
+        outputArray.push(new PlayerObj(processArray[i].split("=>")[0]));
+      }
+    } catch (error){
+      console.error(theError)
+      throw new Error(theError);
+    }
+    // console.log("### AFTER");
+    // console.dir(processArray);
+  }
+  if (typeof cb=="function"){ // Results were created via the SyncRead
+    return cb(null,outputArray);
+  } else {
+    return outputArray;
+  }
+};
+
+
+function isPlayerOnline(name,options,cb){ // Expects a string or PlayerObj as input for name.  Returns true if the player is online, false if not.
+  if (typeof cb == "function"){
+    return getPlayerList(options,function(err,resultArray){
+      if (err){
+        return cb(err,null);
+      } else { 
+        return cb(null,compareToObjectArrayToString(resultArray,name));
+      }
+    });
+  } else { // run in Sync mode
+    var theArray=getPlayerList(options);
+    return compareToObjectArrayToString(theArray,name);
+  }
+}
+
+function isPlayerAdmin(name,options,cb){
+  if (typeof cb == "function"){
+    return getAdminsList(options,function(err,result){
+      if (err){
+        return cb(err,result);
+      } else { 
+        return cb(null,compareToObjectArrayToString(result,name));
+      }
+    });
+  } else { // run in Sync mode
+    var theArray=getAdminsList(options);
+    return compareToObjectArrayToString(theArray,name);
+  }
+}
+
 function isNameWhitelisted(name,options,cb){ // cb is optional
   if (typeof cb == "function"){ // Run in async mode
     return getWhitelistedNameList(options,function(err,resultArray){
@@ -4154,7 +4301,6 @@ function isNameWhitelisted(name,options,cb){ // cb is optional
     var theArray=getWhitelistedNameList(options);
     return compareToObjectArrayToString(theArray,name);
   }
-
 }
 function isNameBanned(name,options,cb){ //cb is optional.  Runs Sync if not given.  Options will be added to allow a "fast" option, which will read from the blacklist.txt file.
   console.log("Running isNameBanned with: "); // temp
@@ -4327,60 +4473,7 @@ function isIPBanned(ip,options,cb){
 
 
 
-function getAdminsList(options){ // Returns an array of PlayerObj, will be an empty array if no admins returned
-  // Note: ALWAYS RETURNS NAMES IN LOWERCASE
-  // example:
-  // RETURN: [SERVER, Admins: {thrace_vega=>thrace_vega, andyp=>andyp, weedle=>weedle, modr4de=>modr4de, melvin=>melvin, build_lonebluewolf=>build_lonebluewolf, arkwulff=>arkwulff, dukeofrealms=>dukeofrealms, borednl=>borednl, mod_lonebluewolf=>mod_lonebluewolf, mod_caribe=>mod_caribe, benevolent27=>benevolent27, pezz=>pezz, lancake=>lancake, nikodaemos=>nikodaemos, char_aznable=>char_aznable, mod_flagitious=>mod_flagitious, arbiter=>arbiter, benevolent37=>benevolent37, nastral=>nastral, benevolent327=>benevolent327}, 0]
-  // returns an array of admins.  The array will be empty if there are no admins.
-  // options can be {"fast":true}, which will cause this scripting to read from the admins.txt file in the StarMade folder rather than run the command.
-  // another option can be {"unrestricted":true}, which will only return admins that have no restrictions - note that this forces reading from the admins.txt file.
-  let unrestricted=trueOrFalse(getOption(options,"unrestricted",false));
-  let fast=trueOrFalse(getOption(options,"fast",false));
-  if (unrestricted){
-    fast=true;
-  }
 
-  var processArray=[];
-  if (fast===true){ // TODO:  Test this
-    let adminsTxtFile=path.join(global.starMadeInstallFolder,"admins.txt");
-    let adminFileContents=fs.readFileSync(adminsTxtFile,"UTF-8").replace(/\r/g,"");
-    var adminFileContentsArray=[];
-    if (adminFileContents){
-      adminFileContentsArray=adminFileContents.split("\n");
-      for (let i=0;i<adminFileContentsArray.length;i++){
-        if (adminFileContentsArray[i].trim()){ // Test to see if the line is blank or not.  Only process it if there is text.
-          if (unrestricted){ // Only add the playerObj if it is an unrestricted admin
-            if (!(/#.*$/).test(adminFileContentsArray[i])){
-              processArray.push(new PlayerObj(adminFileContentsArray[i].replace(/#.*$/g,"").trim()));
-            }
-          } else {
-            processArray.push(new PlayerObj(adminFileContentsArray[i].replace(/#.*$/g,"").trim()));
-          }
-        }
-      }
-    }
-  } else {
-    try {
-      let result=starNetHelper.starNetVerified("/list_admins");
-      // console.log("Results:" + result);
-      let theReg=new RegExp("^RETURN: \\[SERVER, Admins: {.*");
-      let processLine=returnLineMatch(result,theReg,/^RETURN: \[SERVER, Admins: {/,/}, 0\]$/);
-      // console.log("processLine:" + processLine);
-      processArray=processLine.split(", ");
-      // console.log("### BEFORE");
-      // console.dir(processArray);
-      for (let i=0;i<processArray.length;i++){
-        processArray[i]=new PlayerObj(processArray[i].split("=>")[0]);
-      }
-    } catch (error){
-      throw new Error("StarNet command failed when attempting to getAdmins()!");
-    }
-    // console.log("### AFTER");
-    // console.dir(processArray);
-  }
-  return processArray;
-  // return false;
-};
 
 function sendDirectToServer(input,cb){ // if cb not given, functions as Sync. Expects a string input, returning "false" if the input wasn't valid.  This sends a command directly to the console with a return character.
   var theResult;
@@ -4407,3 +4500,4 @@ function sendDirectToServer(input,cb){ // if cb not given, functions as Sync. Ex
 };
 // TODO: Create a function that gives a specific protection a value based on the sectorProtections array.
 // TODO: Create a function that converts an array of protection names to a total number
+
