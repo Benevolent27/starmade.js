@@ -1,6 +1,9 @@
 
 // This script assists with creating all custom object types used by the wrapper.
 
+// Some reading:
+// Callback standard used:  http://fredkschott.com/post/2014/03/understanding-error-first-callbacks-in-node-js/
+
 module.exports={ // Always put module.exports at the top so circular dependencies work correctly.
   // init, // This is needed so objects can send text directly to the server
   BluePrintObj,
@@ -69,7 +72,7 @@ const {verifyStarNetResponse,starNetVerified,starNetVerifiedCB,returnMatchingLin
 const {copyArray,toNumIfPossible,toStringIfPossible,subArrayFromAnother,findSameFromTwoArrays,isInArray} = objectHelper;
 // const colorize              = objectHelper["colorize"];
 // const getObjType            = objectHelper.getObjType; // Gets the prototype name of an object, so instead of using "typeof", which returns "object" for things like arrays and SectorObj's, etc, this will return their object name instead.
-const {testIfInput,trueOrFalse,isTrueOrFalse,isNum,colorize,getObjType,returnLineMatch} = objectHelper;
+const {testIfInput,trueOrFalse,isTrueOrFalse,isNum,colorize,getObjType,returnLineMatch,applyFunctionToArray} = objectHelper;
 const {isTrue,isFalse,getOption}=objectHelper;
 const toNum                 = objectHelper.toNumIfPossible;
 
@@ -1129,7 +1132,27 @@ function simplePromisifyIt2(functionToCall,options,firstParameter){ // If there 
   throw new Error("Invalid input given to simplePromisifyIt as functionToCall!");
 }
 
-function simplePromisifyIt(cbFunctionToCall,options){ // This is used to turn callback functions that follow the convention used by objectCreator.js into promises
+function simplePromisifyIt(cbFunctionToCall,options){ 
+  // This is used to turn callback functions into promises, provided that they follow the convention used by objectCreator.js
+  // That convention is functionName(arguments1,arguments2,arguments3,options,cb);
+  // The cb function does not need to require any arguments:  functionName(options,cb); is fine.
+  // The function should ALWAYS have an 'options' and a 'cb' parameter required.
+  // Example of usage: simplePromisifyIt(myCBFunction,options,firstArgument,secondArgument,thirdArgument)
+  
+  // The function given should run the CB function in node.js style:  cb(err,result);
+  // err should be null or an error object, the result can be anything.
+  // Example:
+  // function myCB(myInput,options,cb){
+  //   if (myInput==1){
+  //     return cb(null,"The input was 1! Yay!");
+  //   } else {
+  //     var myError=new Error("The input was not 1!  D:");
+  //     return cb(myError,null);
+  //   }
+  // }
+  //  This is the standard for callbacks I adhere to:  http://fredkschott.com/post/2014/03/understanding-error-first-callbacks-in-node-js/
+
+
   // Takes a callback function with options and arguments specified.
   // Can take additional parameters as extra arguments after the "options" argument.  Example: simplePromisifyIt(self.whatever,options,someVal,anotherVal,AnotherVal)
   
@@ -1152,7 +1175,7 @@ function simplePromisifyIt(cbFunctionToCall,options){ // This is used to turn ca
     // console.dir(args);
     if (args.length<0){ // arguments were used
       return new Promise(function(resolve,reject){
-        console.log("promise created WITHOUT parameter");
+        // console.log("promise created WITHOUT parameter");
         theFunctionToCall(options,function(err,result){
           if (err){
             reject(err);
@@ -4018,10 +4041,6 @@ function isIPWhitelisted(ip){
   let whitelistedArray=getWhitelistedIPList();
   return isWhitelisted(whitelistedArray,ip);
 }
-function isNameWhitelisted(name){
-  var whitelistedArray=getWhitelistedNameList();
-  return isWhitelisted(whitelistedArray,name);
-}
 function isWhitelisted(inputArray,whatToLookFor){
   // accepts input from getWhitelistedAccountsList, getWhitelistedIPList, or getWhitelistedNameList
   var theCheck=whatToLookFor.toString().toLowerCase(); // Allows objects that can be turned into strings to be used as input
@@ -4075,27 +4094,6 @@ function getWhitelistedIPList(options){
     throw theError;
   }
 }
-function getWhitelistedNameList(options){
-  // /list_whitelist_name
-  // RETURN: [SERVER, Whitelisted: {six, four, five}, 0]
-  try {
-    var result=starNetHelper.starNetVerified("/list_whitelist_name",options);
-    var theReg=new RegExp('^RETURN: \\[SERVER, Whitelisted: {.*');
-    var theLine=returnLineMatch(result,theReg,/^RETURN: \[SERVER, Whitelisted: {/,/}, 0\]$/);
-    var outputArray=[];
-    
-    if (theLine){ // this will be empty if there were no results
-      var tempArray=theLine.split(", "); // If only 1 result, it will still be in an array
-      for (let i=0;i<tempArray.length;i++){
-        outputArray.push(new PlayerObj(tempArray[i]));
-      }
-    }
-    return outputArray;
-  } catch (error){
-    var theError=new Error("StarNet command failed when attempting to getWhitelistedNameList()!");
-    throw theError;
-  }
-}
 function isAccountBanned(account){
   let bannedArray=getBannedAccountsList();
   return isBanned(bannedArray,account);
@@ -4104,6 +4102,22 @@ function isIPBanned(ip){
   let bannedArray=getBannedIPList();
   return isBanned(bannedArray,ip);
 }
+function isNameWhitelisted(name,options,cb){ // cb is optional
+  if (typeof cb == "function"){ // Run in async mode
+    return getWhitelistedNameList(options,function(err,resultArray){
+      if (err){
+        return cb(err,null);
+      } else { 
+        return cb(null,isWhitelisted(resultArray,name));
+      }
+    });
+  } else { // run in Sync mode
+    var theArray=getWhitelistedNameList(options);
+    return isWhitelisted(theArray,name);
+  }
+
+}
+
 function isNameBanned(name,options,cb){ //cb is optional.  Runs Sync if not given.  Options will be added to allow a "fast" option, which will read from the blacklist.txt file.
   console.log("Running isNameBanned with: "); // temp
   console.log("name: " + name);
@@ -4123,7 +4137,82 @@ function isNameBanned(name,options,cb){ //cb is optional.  Runs Sync if not give
     return isBanned(bannedArray,name);
   }
 }
+
+// applyFunctionToArray(theArray,function(input){ return new PlayerObj(input) })
+
+function splitHelper1(result,matchReg,regExpToRem,regExpToRem2,functionToRunOnEachValue){
+  // takes input from banlist or whitelist, producing an array, running a function on each one.
+  // example:  splitHelper1(result,matchReg,regExpToRem,regExpToRem2,makePlayerObj){
+  var outputArray=[];
+  var functionToRun=functionToRunOnEachValue;
+  var theLine=returnLineMatch(result,matchReg,regExpToRem,regExpToRem2);
+  if (theLine){ // this will be empty if there were no results
+    var tempArray=theLine.split(", "); // If only 1 result, it will still be in an array
+    for (let i=0;i<tempArray.length;i++){
+      outputArray.push(functionToRun(tempArray[i]));
+    }
+  }
+  return outputArray;
+}
+function splitHelper1CB(command,options,matchReg,regExpToRem,regExpToRem2,functionToRunOnEachValue,cb){
+  // takes input from banlist or whitelist, producing an array, running a function on each one.
+  return starNetVerifiedCB(command,options,function(err,result){
+    if (err){
+      return cb(err,null);
+    } else {
+      return cb(null,splitHelper1(result,matchReg,regExpToRem,regExpToRem2,functionToRunOnEachValue)); // Will be empty array if no results
+    }
+  });
+}
+function makePlayerObj(input){
+  return new PlayerObj(input);
+}
+function getWhitelistedNameList(options,cb){
+  // /list_whitelist_name
+  // RETURN: [SERVER, Whitelisted: {six, four, five}, 0]
+  var matchReg=/^RETURN: \[SERVER, Whitelisted: {.*/;
+  var regExpToRem=/^RETURN: \[SERVER, Whitelisted: {/;
+  var regExpToRem2=/}, 0\]$/;
+  var theCommand="/list_whitelist_name";
+  var theFunctionToRunOnEachResult=makePlayerObj;
+  var theErrorMsg="StarNet error running getWhitelistedNameList()!";
+  if (typeof cb=="function"){
+    return splitHelper1CB(theCommand,options,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult,cb);
+  } else {  
+    try {
+      var result=starNetHelper.starNetVerified(theCommand,options);
+      return splitHelper1(result,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult);
+    } catch (error){
+      console.error(theErrorMsg);
+      throw error;
+    }
+  }
+}
+
 function getBannedNameList(options,cb){
+  // TODO:  Add {"fast":true} option to read directly from the blacklist.txt file.
+  // /list_banned_name
+  // RETURN: [SERVER, Banned: {six, four, five}, 0]
+  var matchReg=/^RETURN: \[SERVER, Banned: {.*/;
+    var regExpToRem=/^RETURN: \[SERVER, Banned: {/;
+    var regExpToRem2=/}, 0\]$/;
+    var theCommand="/list_banned_name";
+    var theFunctionToRunOnEachResult=makePlayerObj;
+    var theErrorMsg="StarNet error running getBannedNameList()!";
+    if (typeof cb=="function"){
+      return splitHelper1CB(theCommand,options,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult,cb);
+    } else {  
+      try {
+        var result=starNetHelper.starNetVerified(theCommand,options);
+        return splitHelper1(result,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult);
+      } catch (error){
+        console.error(theErrorMsg);
+        throw error;
+      }
+    }
+}
+
+function getBannedNameListOld(options,cb){ // TODO:  Remove this function once the replacement has been tested to work
   // TODO:  Add {"fast":true} option to read directly from the blacklist.txt file.
   // /list_banned_name
   // RETURN: [SERVER, Banned: {six, four, five}, 0]
@@ -4132,7 +4221,7 @@ function getBannedNameList(options,cb){
   var outputArray=[];
   var tempArray=[];
   if (typeof cb=="function"){
-    return starNetVerifiedCB("/list_banned_name","",function(err,result){
+    return starNetVerifiedCB("/list_banned_name",options,function(err,result){
       if (err){
         return cb(err,null);
       } else {
@@ -4148,7 +4237,7 @@ function getBannedNameList(options,cb){
     });
   } else {
     try {
-      var result=starNetVerified("/list_banned_name");
+      var result=starNetVerified("/list_banned_name",options);
       theLine=returnLineMatch(result,theReg,/^RETURN: \[SERVER, Banned: {/,/}, 0\]$/);
       if (theLine){ // this will be empty if there were no results
         tempArray=theLine.split(", "); // If only 1 result, it will still be in an array
@@ -4165,6 +4254,7 @@ function getBannedNameList(options,cb){
     }
   }
 }
+
 
 function getBannedAccountsList(options){ // Returns an array of SMNameObj
   // /list_banned_accounts
