@@ -1621,54 +1621,27 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
     }
 
 
-    self.isOnline=function(){ 
-      return isPlayerOnline(self.name) 
+    self.isOnline=function(options,cb){ 
+      return isPlayerOnline(self.name,options,cb);
     }; // Conforms to the standard of throwing an error on connection error, but gives false if player is offline.  There is no error for a failure of command since this should never happen.
-    self.isAdmin=function (options){
-      return isPlayerAdmin(self.name,options);
-      // let adminList=getAdminsList(options);
-      // for (let i=0;i<adminList.length;i++){
-      //   if (self.name.toLowerCase() == adminList[i].toString()){
-      //     return true;
-      //   }
-      // }
-      // return false;
+    self.isOnlinePromise=function(options){ 
+      return simplePromisifyIt(self.isOnline,options);
+    }
+    self.isAdmin=function (options,cb){
+      return isPlayerAdmin(self.name,options,cb);
+    }
+    self.isAdminPromise=function (options){
+      return simplePromisifyIt(self.isAdmin,options);
+    }
+
+    self.spawnLocation=function(options,cb){ // Returns a LocationObj of the player's spawn coordinates, but can only be successful if the player is online.  Will return false if offline.
+      return getPlayerSpawnLocation(self.name,options,cb);
+    }
+    self.spawnLocationPromise=function(options){ // Returns a LocationObj of the player's spawn coordinates, but can only be successful if the player is online.  Will return false if offline.
+      return simplePromisifyIt(self.spawnLocation,options,self.name);
     }
 
 
-
-    self.spawnLocation=function(){ // Returns a LocationObj of the player's spawn coordinates, but can only be successful if the player is online.  Will return false if offline.
-      try {
-        var result=starNetHelper.starNetVerified("/player_get_spawn " + self.name);
-        // RETURN: [SERVER, [ADMINCOMMAND][SPAWN][SUCCESS] PlS[Benevolent27 ; id(2)(1)f(10002)] spawn currently absolute; sector: (2, 2, 2); local position: (8.0, -6.5, 0.0), 0]
-        // RETURN: [SERVER, END; Admin command execution ended, 0]
-
-        var resultArray=result.trim().split("\n");
-        // RETURN: [SERVER, [PL] Name: Benevolent27, 0]
-        var theReg=new RegExp("^RETURN: \\[SERVER, \\[ADMINCOMMAND\\]\\[SPAWN\\]\\[SUCCESS\\]");
-        for (let i = 0;i < resultArray.length;i++) {
-          if (theReg.test(resultArray[i])){
-            // This will only trigger if there is a success
-            // RETURN: [SERVER, [ADMINCOMMAND][SPAWN][SUCCESS] PlS[Benevolent27 ; id(2)(1)f(10002)] spawn currently absolute; sector: (2, 2, 2); local position: (8.0, -6.5, 0.0), 0]
-            // Scientific E notation: RETURN: [SERVER, [ADMINCOMMAND][SPAWN][SUCCESS] PlS[Benevolent27 ; id(2)(1)f(10002)] spawn currently absolute; sector: (2, 2, 2); local position: (0.01E5, -6.5, 0.0), 0]
-            var sectorCoords=resultArray[i].match(/sector: \([-]{0,1}[0-9]+, [-]{0,1}[0-9]+, [-]{0,1}[0-9]+/).toString().replace(/sector: \(/,"").split(", ");
-            var sectorCoordsObj=new CoordsObj(sectorCoords);
-            var sectorObj=new SectorObj(sectorCoordsObj.x,sectorCoordsObj.y,sectorCoordsObj.z);
-            var spacialCoords=resultArray[i].match(/position: \([-]{0,1}[0-9]+[.]{0,1}[0-9]*[eE]{0,1}[0-9]*, [-]{0,1}[0-9]+[.]{0,1}[0-9]*[eE]{0,1}[0-9]*, [-]{0,1}[0-9]+[.]{0,1}[0-9]*[eE]{0,1}[0-9]*/).toString().replace(/position: \(/,"").split(", "); // Supports scientific e notation, which is used sometimes for spacial coordinates.
-            var coordsObj=new CoordsObj(spacialCoords);
-            // Returns a LocationObj, which has the sector and spacial coordinates in it.
-            return new LocationObj(sectorObj,coordsObj);
-          }
-        }
-        // If failed, the player is offline:
-        // RETURN: [SERVER, [ADMINCOMMAND][SPAWN] Player not found, 0]
-        return false; // The player must have been offline.
-
-      } catch (error){
-        var spawnLocationError="StarNet command failed when attempting to get the spawn sector for player: " + self.name;
-        throw new Error(spawnLocationError);
-      }
-    }
     self.setSpawnLocation=function(location,coordsObj,options){ // Needs sector and spacial coords.  coordsObj is needed if a SectorObj is given as first parameter.
       // This should accept a location Obj, a pair of sectorObj and coordsObj, or any other pair of input that can translate to a CoordsObj
       var sectorToUse=location;
@@ -4469,12 +4442,6 @@ function isIPBanned(ip,options,cb){
   }
 }
 
-
-
-
-
-
-
 function sendDirectToServer(input,cb){ // if cb not given, functions as Sync. Expects a string input, returning "false" if the input wasn't valid.  This sends a command directly to the console with a return character.
   var theResult;
   var theErr=null;
@@ -4500,4 +4467,49 @@ function sendDirectToServer(input,cb){ // if cb not given, functions as Sync. Ex
 };
 // TODO: Create a function that gives a specific protection a value based on the sectorProtections array.
 // TODO: Create a function that converts an array of protection names to a total number
+
+function getPlayerSpawnLocationFromResults(result){ // sync function
+  // RETURN: [SERVER, [ADMINCOMMAND][SPAWN][SUCCESS] PlS[Benevolent27 ; id(2)(1)f(10002)] spawn currently absolute; sector: (2, 2, 2); local position: (8.0, -6.5, 0.0), 0]
+  // RETURN: [SERVER, END; Admin command execution ended, 0]
+
+  var resultArray=result.trim().split("\n");
+  // RETURN: [SERVER, [PL] Name: Benevolent27, 0]
+  var theReg=/^RETURN: \[SERVER, \[ADMINCOMMAND\]\[SPAWN\]\[SUCCESS\]/;
+  for (let i = 0;i < resultArray.length;i++) {
+    if (theReg.test(resultArray[i])){
+      // This will only trigger if there is a success.  All the data is on one line.
+      // RETURN: [SERVER, [ADMINCOMMAND][SPAWN][SUCCESS] PlS[Benevolent27 ; id(2)(1)f(10002)] spawn currently absolute; sector: (2, 2, 2); local position: (8.0, -6.5, 0.0), 0]
+      // Scientific E notation: RETURN: [SERVER, [ADMINCOMMAND][SPAWN][SUCCESS] PlS[Benevolent27 ; id(2)(1)f(10002)] spawn currently absolute; sector: (2, 2, 2); local position: (0.01E5, -6.5, 0.0), 0]
+      var sectorCoords=resultArray[i].match(/sector: \([-]{0,1}[0-9]+, [-]{0,1}[0-9]+, [-]{0,1}[0-9]+/).toString().replace(/sector: \(/,"").split(", ");
+      var sectorObj=new SectorObj(sectorCoords);
+      var spacialCoords=resultArray[i].match(/position: \([-]{0,1}[0-9]+[.]{0,1}[0-9]*[eE]{0,1}[0-9]*, [-]{0,1}[0-9]+[.]{0,1}[0-9]*[eE]{0,1}[0-9]*, [-]{0,1}[0-9]+[.]{0,1}[0-9]*[eE]{0,1}[0-9]*/).toString().replace(/position: \(/,"").split(", "); // Supports scientific e notation, which is used sometimes for spacial coordinates.
+      var coordsObj=new CoordsObj(spacialCoords);
+      // Returns a LocationObj, which has the sector and spacial coordinates in it.
+      return new LocationObj(sectorObj,coordsObj);
+    }
+  }
+  // If failed, the player is offline:
+  // RETURN: [SERVER, [ADMINCOMMAND][SPAWN] Player not found, 0]
+  return false; // The player must have been offline.
+}
+
+function getPlayerSpawnLocation(player,options,cb){
+  if (typeof cb == "function"){
+    return starNetVerified("/player_get_spawn " + player,options,function(err,result){
+      if (err){
+        return cb(err,result);
+      } else {
+        return cb(null,getPlayerSpawnLocationFromResults(result));
+      }
+    });
+  } else { // Sync mode
+    try {
+      var result=starNetVerified("/player_get_spawn " + player,options);
+      return getPlayerSpawnLocationFromResults(result);
+    } catch (error){
+      console.error("StarNet command failed when attempting to get the spawn sector for player: " + player);
+      throw new Error(error);
+    }
+  }
+}
 
