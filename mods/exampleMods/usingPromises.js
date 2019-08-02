@@ -1,4 +1,7 @@
+// In addition to this tutorial, I highly recommend reading this article to 
+// understand how to do error handling with promises:  https://javascript.info/promise-error-handling
 
+// If interested in logging your errors, check this out:  https://rangle.io/blog/errors-in-promises/
 
 // The purpose of this tutorial is to:
 // 1. demonstrate different ways of performing actions, either sequentially (in order) or 
