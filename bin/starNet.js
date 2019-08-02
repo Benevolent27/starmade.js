@@ -101,8 +101,8 @@ function starNet(command,options,cb){ // There are no options yet.
   // This sort of formula can be used though to write the data to a stream and process it that way as it comes in.  This is would be useful for SQL queries that can get rather large.
   // console.log("starNetAsync ran with options: "); // temp
   // console.dir(options);
-  console.log("starNetAsync ran with command: "); // temp
-  console.dir(command);
+  // console.log("starNetAsync ran with command: "); // temp
+  // console.dir(command);
 
   var returnArray=[];
   if (testIfInput(command)){
@@ -167,7 +167,7 @@ function processData(childProcess,dataArray,cb){
   // console.dir(cb);
   var errObj=null;
   var theErrorText;
-  if (childProcess.status){ // Any non-zero value will mean abnormal process termination.
+  if (childProcess.status){ // Any non-zero value will mean abnormal process termination.  This should pretty much never happen.
     theErrorText="StarNet exited with code: " + childProcess.status;
   } else if (childProcess.signal){ // results.status will be null if the process was killed
     theErrorText="StarNet was killed with signal: " + childProcess.signal;
@@ -192,8 +192,8 @@ function starNetSync(command,options){
   }
   // console.log("starNetSync ran with options: "); // temp
   // console.dir(options);
-  console.log("starNetSync ran with command: "); // temp
-  console.dir(command);
+  // console.log("starNetSync ran with the command: "); // temp
+  // console.dir(command);
 
 
   var simulateProblem=getOption(options,"simulateProblem","none").toLowerCase(); // For testing purposes only to ascertain errors
