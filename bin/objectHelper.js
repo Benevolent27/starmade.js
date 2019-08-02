@@ -33,13 +33,23 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   returnLineMatch,
   repeatString,
   getRandomAlphaNumericString,
-  arrayMinus
+  arrayMinus,
+  applyFunctionToArray
 };
 
 const util=require('util');
 const path=require('path');
 const binFolder=path.resolve(__dirname,"../bin/");
 
+function applyFunctionToArray(arrayInput,functionToRun){
+  // cycles through an array, running a function on each value, replacing the original value.
+  var theFunction=functionToRun;
+  var outputArray=[];
+  for (let i=0;i<arrayInput.length;i++){
+    outputArray.push(theFunction(arrayInput[i]));
+  }
+  return outputArray;
+}
 
 function arrayMinus(theArray,val){ // Returns an array MINUS any values that match val
   if (val && theArray){
