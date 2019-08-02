@@ -1008,7 +1008,7 @@ function IPObj(ipAddressString,date,options){
     return isIPBanned(this.address);
   }
   this.isWhitelisted=function(){
-    return isWhitelisted(this.address);
+    return isIPWhitelisted(this.address);
   }
   // To test:
   // isBanned()
@@ -1266,61 +1266,75 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
     self.invisibilityModePromise=function(input,options){
       return simplePromisifyIt(self.invisibilityMode,options,input);
     }
-    
     this.isBanned=function(options,cb){
       return isNameBanned(self.name,options,cb);
     }
     this.isBannedPromise=function(options){ // testing
-      return new Promise(function(resolve,reject){
-        self.isBanned(options,function(err,result){
-          if (err){
-            reject(err);
-          } else {
-            resolve(result);
-          }
-        });
-      })
+      return simplePromisifyIt(self.isBanned,options);
     }
-    self.isWhitelisted=function(){
-      return isNameWhitelisted(self.name);
+    self.isWhitelisted=function(options){
+      return isNameWhitelisted(self.name,options);
     }
-    self.factionPointProtect=function (input,options){ // expects true or false as either boolean or string
+    self.isWhitelistedPromise=function(options){
+      return simplePromisifyIt(self.isWhitelisted,options);
+    }
+    self.factionPointProtect=function (input,options,cb){ // expects true or false as either boolean or string
       if (isTrueOrFalse(input)){
-        return runSimpleCommand("/faction_point_protect_player " + self.name + " " + input,options);
+        return runSimpleCommand("/faction_point_protect_player " + self.name + " " + input,options,cb);
       }
       return false;
     }
-    self.give=function (input,number,options){ // expects an element name and number of items to give
+    self.factionPointProtectPromise=function (input,options){ // expects true or false as either boolean or string
+      return simplePromisifyIt(self.factionPointProtect,options);
+    }
+
+    self.give=function (input,number,options,cb){ // expects an element name and number of items to give
       if (testIfInput(input) && isNum(number)){
-        return runSimpleCommand("/give " + self.name + " " + input + " " + number,options);
+        return runSimpleCommand("/give " + self.name + " " + input + " " + number,options,cb);
       }
       return false;
     }
-    self.giveId=function (inputNumber,number,options){ // expects an element id and number of items to give
+    self.givePromise=function (input,number,options){ // expects an element name and number of items to give
+      return simplePromisifyIt(self.give,options);
+    }
+    self.giveId=function (inputNumber,number,options,cb){ // expects an element id and number of items to give
       if (isNum(inputNumber) && isNum(number)){
-        return runSimpleCommand("/giveid " + self.name + " " + inputNumber + " " + number,options);
+        return runSimpleCommand("/giveid " + self.name + " " + inputNumber + " " + number,options,cb);
       }
       return false;
     }
-    self.giveAllItems=function (number,options){ // expects an element name and number of items to give
+    self.giveIdPromise=function (inputNumber,number,options){ // expects an element id and number of items to give
+      return simplePromisifyIt(self.give,options);
+    }
+    self.giveAllItems=function (number,options,cb){ // expects an element name and number of items to give
       if (isNum(number)){
-        return runSimpleCommand("/give_all_items " + self.name + " " + number,options);
+        return runSimpleCommand("/give_all_items " + self.name + " " + number,options,cb);
       }
       return false;
     }
-    self.giveCategoryItems=function (category,number,options){ // expects a category such as terrain/ship/station and number of items to give
+    self.giveAllItemsPromise=function (number,options){ // expects an element name and number of items to give
+      return simplePromisifyIt(self.giveAllItems,options);
+    }
+    self.giveCategoryItems=function (category,number,options,cb){ // expects a category such as terrain/ship/station and number of items to give
       if (testIfInput(category) && isNum(number)){
-        return runSimpleCommand("/give_category_items " + self.name + " " + number + " " + category,options);
+        return runSimpleCommand("/give_category_items " + self.name + " " + number + " " + category,options,cb);
       }
       return false;
     }
-    self.giveCredits=function (number,options){ // expects a number of credits to give.  If this value is negative, it will subtract credits.
+    self.giveCategoryItemsPromise=function (category,number,options){ // expects a category such as terrain/ship/station and number of items to give
+      return simplePromisifyIt(self.giveCategoryItems,options);
+    }
+    self.giveCredits=function (number,options,cb){ // expects a number of credits to give.  If this value is negative, it will subtract credits.
       if (isNum(number)){
-        return runSimpleCommand("/give_credits " + self.name + " " + number,options);
+        return runSimpleCommand("/give_credits " + self.name + " " + number,options,cb);
       }
       return false;
+    }
+    self.giveCreditsPromise=function (number,options){ // expects a number of credits to give.  If this value is negative, it will subtract credits.
+      return simplePromisifyIt(self.giveCredits,options);
     }
     self.giveGrapple=function (number,options){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
+      // Unfortunately, with using callback functions, it's just not a good idea to allow more than 1 to be given.  Each command needs to have it's own error handling.
       var theNum=toNumIfPossible(number);
       var countTo=1; // The default times to run the command is 1
       var result;
@@ -4033,110 +4047,11 @@ function getPlayerList(){ // Returns an array of player objects for all online p
     return false;
   }
 };
-function isAccountWhitelisted(account){
-  let whitelistedArray=getWhitelistedAccountsList();
-  return isWhitelisted(whitelistedArray,account);
-}
-function isIPWhitelisted(ip){
-  let whitelistedArray=getWhitelistedIPList();
-  return isWhitelisted(whitelistedArray,ip);
-}
-function isWhitelisted(inputArray,whatToLookFor){
-  // accepts input from getWhitelistedAccountsList, getWhitelistedIPList, or getWhitelistedNameList
-  var theCheck=whatToLookFor.toString().toLowerCase(); // Allows objects that can be turned into strings to be used as input
-  for (let i=0;i<inputArray.length;i++){
-    if (inputArray[i].toString() == theCheck){
-      return true;
-    }
-  }
-  return false;
-}
-function getWhitelistedAccountsList(options){ // Returns an array of SMNameObj
-  // /list_whitelist_accounts
-  // RETURN: [SERVER, Whitelisted: {three, two, one}, 0]
-  // .match(/{[^}]*}/);
-  try {
-    var result=starNetHelper.starNetVerified("/list_whitelist_accounts",options);
-    var theReg=new RegExp('^RETURN: \\[SERVER, Whitelisted: {.*');
-    var theLine=returnLineMatch(result,theReg,/^RETURN: \[SERVER, Whitelisted: {/,/}, 0\]$/);
-    var outputArray=[];
-    
-    if (theLine){ // this will be empty if there were no results
-      var tempArray=theLine.split(", "); // If only 1 result, it will still be in an array
-      for (let i=0;i<tempArray.length;i++){
-        outputArray.push(new SMNameObj(tempArray[i]));
-      }
-    }
-    return outputArray;
-  } catch (error){
-    var theError=new Error("StarNet command failed when attempting to getWhitelistedAccountsList()!");
-    throw theError;
-  }
-}
-function getWhitelistedIPList(options){
-  // /list_whitelist_ip
-  // RETURN: [SERVER, Whitelisted: {1.2.3.6, 1.2.3.5, 1.2.3.4}, 0]
-  try {
-    var result=starNetHelper.starNetVerified("/list_whitelist_ip",options);
-    var theReg=new RegExp('^RETURN: \\[SERVER, Whitelisted: {.*');
-    var theLine=returnLineMatch(result,theReg,/^RETURN: \[SERVER, Whitelisted: {/,/}, 0\]$/);
-    var outputArray=[];
-    
-    if (theLine){ // this will be empty if there were no results
-      var tempArray=theLine.split(", "); // If only 1 result, it will still be in an array
-      for (let i=0;i<tempArray.length;i++){
-        outputArray.push(new IPObj(tempArray[i]));
-      }
-    }
-    return outputArray;
-  } catch (error){
-    var theError=new Error("StarNet command failed when attempting to getWhitelistedIPList()!");
-    throw theError;
-  }
-}
-function isAccountBanned(account){
-  let bannedArray=getBannedAccountsList();
-  return isBanned(bannedArray,account);
-}
-function isIPBanned(ip){
-  let bannedArray=getBannedIPList();
-  return isBanned(bannedArray,ip);
-}
-function isNameWhitelisted(name,options,cb){ // cb is optional
-  if (typeof cb == "function"){ // Run in async mode
-    return getWhitelistedNameList(options,function(err,resultArray){
-      if (err){
-        return cb(err,null);
-      } else { 
-        return cb(null,isWhitelisted(resultArray,name));
-      }
-    });
-  } else { // run in Sync mode
-    var theArray=getWhitelistedNameList(options);
-    return isWhitelisted(theArray,name);
-  }
 
-}
 
-function isNameBanned(name,options,cb){ //cb is optional.  Runs Sync if not given.  Options will be added to allow a "fast" option, which will read from the blacklist.txt file.
-  console.log("Running isNameBanned with: "); // temp
-  console.log("name: " + name);
-  console.log("options: " + options);
-  console.log("cb: " + cb);
 
-  if (typeof cb == "function"){ // Run in async mode
-    return getBannedNameList(options,function(err,resultArray){
-      if (err){
-        return cb(err,null); // Could not get Banned name list, so pass on the error
-      } else { 
-        return cb(null,isBanned(resultArray,name)); // isBanned is a Sync function.
-      }
-    });
-  } else { // run in Sync mode
-    var bannedArray=getBannedNameList(options);
-    return isBanned(bannedArray,name);
-  }
-}
+
+
 
 // applyFunctionToArray(theArray,function(input){ return new PlayerObj(input) })
 
@@ -4164,6 +4079,22 @@ function splitHelper1CB(command,options,matchReg,regExpToRem,regExpToRem2,functi
     }
   });
 }
+function compareToObjectArrayToString(inputArray,whatToLookFor,options){
+  // Used when checking if a player or entity is in a list, such as for bans/whitelists.  Can be used to check an array of entities returned from a sector to see if a certain entity is there.
+  // Accepts input of an array, running .toString() on each result. // Sets both sides to lowercase, unless option is set to false
+  var doLowerCase=getOption(options,"toLowerCase",true);
+  var theCheck;
+  if (doLowerCase){
+    theCheck=whatToLookFor.toString().toLowerCase(); // Allows objects that can be turned into strings to be used as input
+    for (let i=0;i<inputArray.length;i++){ if (inputArray[i].toString().toLowerCase() == theCheck){ return true } };
+  } else {
+    theCheck=whatToLookFor.toString(); // Allows objects that can be turned into strings to be used as input
+    for (let i=0;i<inputArray.length;i++){ if (inputArray[i].toString() == theCheck){ return true } };
+  }
+  return false;
+}
+
+
 function makePlayerObj(input){
   return new PlayerObj(input);
 }
@@ -4188,133 +4119,213 @@ function getWhitelistedNameList(options,cb){
     }
   }
 }
-
 function getBannedNameList(options,cb){
   // TODO:  Add {"fast":true} option to read directly from the blacklist.txt file.
   // /list_banned_name
   // RETURN: [SERVER, Banned: {six, four, five}, 0]
   var matchReg=/^RETURN: \[SERVER, Banned: {.*/;
-    var regExpToRem=/^RETURN: \[SERVER, Banned: {/;
-    var regExpToRem2=/}, 0\]$/;
-    var theCommand="/list_banned_name";
-    var theFunctionToRunOnEachResult=makePlayerObj;
-    var theErrorMsg="StarNet error running getBannedNameList()!";
-    if (typeof cb=="function"){
-      return splitHelper1CB(theCommand,options,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult,cb);
-    } else {  
-      try {
-        var result=starNetHelper.starNetVerified(theCommand,options);
-        return splitHelper1(result,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult);
-      } catch (error){
-        console.error(theErrorMsg);
-        throw error;
-      }
-    }
-}
-
-function getBannedNameListOld(options,cb){ // TODO:  Remove this function once the replacement has been tested to work
-  // TODO:  Add {"fast":true} option to read directly from the blacklist.txt file.
-  // /list_banned_name
-  // RETURN: [SERVER, Banned: {six, four, five}, 0]
-  var theReg=new RegExp('^RETURN: \\[SERVER, Banned: {.*');
-  var theLine;
-  var outputArray=[];
-  var tempArray=[];
+  var regExpToRem=/^RETURN: \[SERVER, Banned: {/;
+  var regExpToRem2=/}, 0\]$/;
+  var theCommand="/list_banned_name";
+  var theFunctionToRunOnEachResult=makePlayerObj;
+  var theErrorMsg="StarNet error running getBannedNameList()!";
   if (typeof cb=="function"){
-    return starNetVerifiedCB("/list_banned_name",options,function(err,result){
-      if (err){
-        return cb(err,null);
-      } else {
-        theLine=returnLineMatch(result,theReg,/^RETURN: \[SERVER, Banned: {/,/}, 0\]$/);
-        if (theLine){ // this will be empty if there were no results
-          tempArray=theLine.split(", "); // If only 1 result, it will still be in an array
-          for (let i=0;i<tempArray.length;i++){
-            outputArray.push(new PlayerObj(tempArray[i]));
-          }
-        }
-        return cb(null,outputArray); // Will be empty array if no results
-      }
-    });
-  } else {
+    return splitHelper1CB(theCommand,options,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult,cb);
+  } else {  
     try {
-      var result=starNetVerified("/list_banned_name",options);
-      theLine=returnLineMatch(result,theReg,/^RETURN: \[SERVER, Banned: {/,/}, 0\]$/);
-      if (theLine){ // this will be empty if there were no results
-        tempArray=theLine.split(", "); // If only 1 result, it will still be in an array
-        for (let i=0;i<tempArray.length;i++){
-          outputArray.push(new PlayerObj(tempArray[i]));
-        }
-      }
-      return outputArray;
+      var result=starNetHelper.starNetVerified(theCommand,options);
+      return splitHelper1(result,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult);
     } catch (error){
-      // var theError=new Error("StarNet command failed when attempting to getBannedNameList()!");
-      // theError.code=1;
-      // throw theError;
+      console.error(theErrorMsg);
       throw error;
     }
   }
 }
+function isNameWhitelisted(name,options,cb){ // cb is optional
+  if (typeof cb == "function"){ // Run in async mode
+    return getWhitelistedNameList(options,function(err,resultArray){
+      if (err){
+        return cb(err,null);
+      } else { 
+        return cb(null,compareToObjectArrayToString(resultArray,name));
+      }
+    });
+  } else { // run in Sync mode
+    var theArray=getWhitelistedNameList(options);
+    return compareToObjectArrayToString(theArray,name);
+  }
+
+}
+function isNameBanned(name,options,cb){ //cb is optional.  Runs Sync if not given.  Options will be added to allow a "fast" option, which will read from the blacklist.txt file.
+  console.log("Running isNameBanned with: "); // temp
+  console.log("name: " + name);
+  console.log("options: " + options);
+  console.log("cb: " + cb);
+
+  if (typeof cb == "function"){ // Run in async mode
+    return getBannedNameList(options,function(err,resultArray){
+      if (err){
+        return cb(err,null); // Could not get Banned name list, so pass on the error
+      } else { 
+        return cb(null,compareToObjectArrayToString(resultArray,name)); // isBanned is a Sync function.
+      }
+    });
+  } else { // run in Sync mode
+    var bannedArray=getBannedNameList(options);
+    return compareToObjectArrayToString(bannedArray,name);
+  }
+}
 
 
-function getBannedAccountsList(options){ // Returns an array of SMNameObj
-  // /list_banned_accounts
+function makeSMNameObj(input){
+  return new SMNameObj(input);
+}
+function getBannedAccountsList(options,cb){ // Returns an array of SMNameObj
   // RETURN: [SERVER, Banned: {three, two, one}, 0]
-  // .match(/{[^}]*}/);
-  try {
-    var result=starNetHelper.starNetVerified("/list_banned_accounts");
-    var theReg=new RegExp('^RETURN: \\[SERVER, Banned: {.*');
-    var theLine=returnLineMatch(result,theReg,/^RETURN: \[SERVER, Banned: {/,/}, 0\]$/);
-    var outputArray=[];
-    
-    if (theLine){ // this will be empty if there were no results
-      var tempArray=theLine.split(", "); // If only 1 result, it will still be in an array
-      for (let i=0;i<tempArray.length;i++){
-        outputArray.push(new SMNameObj(tempArray[i]));
-      }
+  var matchReg=/^RETURN: \[SERVER, Banned: {.*/;
+  var regExpToRem=/^RETURN: \[SERVER, Banned: {/;
+  var regExpToRem2=/}, 0\]$/;
+  var theCommand="/list_banned_accounts";
+  var theFunctionToRunOnEachResult=makeSMNameObj;
+  var theErrorMsg="StarNet error running getBannedAccountsList()!";
+  if (typeof cb=="function"){
+    return splitHelper1CB(theCommand,options,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult,cb);
+  } else {  
+    try {
+      var result=starNetHelper.starNetVerified(theCommand,options);
+      return splitHelper1(result,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult);
+    } catch (error){
+      console.error(theErrorMsg);
+      throw error;
     }
-    return outputArray;
-  } catch (error){
-    var theError=new Error("StarNet command failed when attempting to getBannedAccountsList()!");
-    theError.code=1;
-    throw theError;
   }
 }
-function getBannedIPList(options){
-  // /list_banned_ip
+function getWhitelistedAccountsList(options,cb){ // Returns an array of SMNameObj
+  // RETURN: [SERVER, Whitelisted: {three, two, one}, 0]
+
+  var matchReg=/^RETURN: \[SERVER, Whitelisted: {.*/;
+  var regExpToRem=/^RETURN: \[SERVER, Whitelisted: {/;
+  var regExpToRem2=/}, 0\]$/;
+  var theCommand="/list_whitelist_accounts";
+  var theFunctionToRunOnEachResult=makeSMNameObj;
+  var theErrorMsg="StarNet error running getWhitelistedAccountsList()!";
+  if (typeof cb=="function"){
+    return splitHelper1CB(theCommand,options,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult,cb);
+  } else {  
+    try {
+      var result=starNetHelper.starNetVerified(theCommand,options);
+      return splitHelper1(result,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult);
+    } catch (error){
+      console.error(theErrorMsg);
+      throw error;
+    }
+  }
+}
+function isAccountWhitelisted(account,options,cb){
+  if (typeof cb == "function"){ // Run in async mode
+    return getWhitelistedAccountsList(options,function(err,resultArray){
+      if (err){
+        return cb(err,null);
+      } else { 
+        return cb(null,compareToObjectArrayToString(resultArray,account));
+      }
+    });
+  } else { // run in Sync mode
+    let theArray=getWhitelistedAccountsList(options);
+    return compareToObjectArrayToString(theArray,account);
+  }
+}
+function isAccountBanned(account,options,cb){
+  if (typeof cb == "function"){ // Run in async mode
+    return getBannedAccountsList(options,function(err,resultArray){
+      if (err){
+        return cb(err,null);
+      } else { 
+        return cb(null,compareToObjectArrayToString(resultArray,account));
+      }
+    });
+  } else { // run in Sync mode
+    let theArray=getBannedAccountsList(options);
+    return compareToObjectArrayToString(theArray,account);
+  }
+}
+
+
+function makeIPObj(input){
+  return new IPObj(input);
+}
+function getWhitelistedIPList(options,cb){
+  // RETURN: [SERVER, Whitelisted: {1.2.3.6, 1.2.3.5, 1.2.3.4}, 0]
+  var matchReg=/^RETURN: \[SERVER, Whitelisted: {.*/;
+  var regExpToRem=/^RETURN: \[SERVER, Whitelisted: {/;
+  var regExpToRem2=/}, 0\]$/;
+  var theCommand="/list_whitelist_ip";
+  var theFunctionToRunOnEachResult=makeIPObj;
+  var theErrorMsg="StarNet error running getWhitelistedIPList()!";
+  if (typeof cb=="function"){
+    return splitHelper1CB(theCommand,options,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult,cb);
+  } else {  
+    try {
+      var result=starNetHelper.starNetVerified(theCommand,options);
+      return splitHelper1(result,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult);
+    } catch (error){
+      console.error(theErrorMsg);
+      throw error;
+    }
+  }
+}
+function getBannedIPList(options,cb){
   // RETURN: [SERVER, Banned: {1.2.3.6, 1.2.3.5, 1.2.3.4}, 0]
-  try {
-    var result=starNetHelper.starNetVerified("/list_banned_ip");
-    var theReg=new RegExp('^RETURN: \\[SERVER, Banned: {.*');
-    var theLine=returnLineMatch(result,theReg,/^RETURN: \[SERVER, Banned: {/,/}, 0\]$/);
-    var outputArray=[];
-    
-    if (theLine){ // this will be empty if there were no results
-      var tempArray=theLine.split(", "); // If only 1 result, it will still be in an array
-      for (let i=0;i<tempArray.length;i++){
-        outputArray.push(new IPObj(tempArray[i]));
+  var matchReg=/^RETURN: \[SERVER, Banned: {.*/;
+  var regExpToRem=/^RETURN: \[SERVER, Banned: {/;
+  var regExpToRem2=/}, 0\]$/;
+  var theCommand="/list_banned_ip";
+  var theFunctionToRunOnEachResult=makeIPObj;
+  var theErrorMsg="StarNet error running getBannedIPList()!";
+  if (typeof cb=="function"){
+    return splitHelper1CB(theCommand,options,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult,cb);
+  } else {  
+    try {
+      var result=starNetHelper.starNetVerified(theCommand,options);
+      return splitHelper1(result,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult);
+    } catch (error){
+      console.error(theErrorMsg);
+      throw error;
+    }
+  }
+}
+function isIPWhitelisted(ip,options,cb){
+  if (typeof cb == "function"){ // Run in async mode
+    return getWhitelistedIPList(options,function(err,resultArray){
+      if (err){
+        return cb(err,null);
+      } else { 
+        return cb(null,compareToObjectArrayToString(resultArray,ip));
       }
-    }
-    return outputArray;
-  } catch (error){
-    var theError=new Error("StarNet command failed when attempting to getBannedIPList()!");
-    theError.code=1;
-    throw theError;
+    });
+  } else { // run in Sync mode
+    let theArray=getWhitelistedIPList(options);
+    return compareToObjectArrayToString(theArray,ip);
+  }
+}
+function isIPBanned(ip,options,cb){
+  if (typeof cb == "function"){ // Run in async mode
+    return getBannedIPList(options,function(err,resultArray){
+      if (err){
+        return cb(err,null);
+      } else { 
+        return cb(null,compareToObjectArrayToString(resultArray,ip));
+      }
+    });
+  } else { // run in Sync mode
+    let theArray=getBannedIPList(options);
+    return compareToObjectArrayToString(theArray,ip);
   }
 }
 
 
-function isBanned(inputArray,whatToLookFor){ // Sync function -- Processes input from getBannedAccountsList, getBannedIPList, or getBannedNameList
-  console.log("inputArray: " + inputArray); // temp
-  console.log("whatToLookFor:" + whatToLookFor); // temp
-  var theCheck=whatToLookFor.toString().toLowerCase(); // Allows objects that can be turned into strings to be used as input
-  for (let i=0;i<inputArray.length;i++){
-    console.log("Testing to see if '" + whatToLookFor + "' is equal to the banned name, '" + inputArray[i] +"'.");
-    if (inputArray[i].toString() == theCheck){
-      return true;
-    }
-  }
-  return false;
-}
+
+
 
 function getAdminsList(options){ // Returns an array of PlayerObj, will be an empty array if no admins returned
   // Note: ALWAYS RETURNS NAMES IN LOWERCASE
