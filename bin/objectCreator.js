@@ -1141,7 +1141,7 @@ function simplePromisifyIt(cbFunctionToCall,options){ // This is used to turn ca
 
   // Any additional parameters given are added to the BEGINNING of the this.whatever method, since the callback should always be at the end, and options should always be second from last.
 
-  if (typeof functionToCall == "function"){
+  if (typeof cbFunctionToCall == "function"){
     // console.log("Running with arguments: ");
     // console.dir(arguments);
     var args=Array.from(arguments);
@@ -1184,8 +1184,8 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
     var self = this; // this is needed to reference the "this" of functions in other contexts, particularly for creating promises via the outside function.  If "this" is used, the promisify function will not work correctly.
     var playerName=player.toString().trim(); // This allows the player input to be another PlayerObj
     // var playerName=player.replace(/^ENTITY_PLAYERCHARACTER_/,"").replace(/^ENTITY_PLAYERSTATE_/,""); // strip the UID
-    self.name=playerName.replace(/^ENTITY_PLAYERCHARACTER_/,"").replace(/^ENTITY_PLAYERSTATE_/,""); // strip the UID
-    self.msg=function (message,options,cb){ // if no cb is given, this will run sync, returning true or false depending on success and throwing an error if failed connection.  Sends a message to the player.  Type is optional.  If not provided "plain" is used.
+    this.name=playerName.replace(/^ENTITY_PLAYERCHARACTER_/,"").replace(/^ENTITY_PLAYERSTATE_/,""); // strip the UID
+    this.msg=function (message,options,cb){ // if no cb is given, this will run sync, returning true or false depending on success and throwing an error if failed connection.  Sends a message to the player.  Type is optional.  If not provided "plain" is used.
       var msgType=getOption(options,"type","plain").toLowerCase(); // This does not throw an error if invalid options are specified.
       var msgToUse=toStringIfPossible(message);
       console.log("This is the string we are attempting to use: " + msgToUse);
@@ -1196,11 +1196,11 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
         throw new Error("Invalid message given to PlayerObj.msg!");
       }
     }
-    self.msgPromise=function(message,options){
+    this.msgPromise=function(message,options){
       return simplePromisifyIt(self.msg,options,message);
     }
 
-    self.botMsg=function (message,options,cb){ // cb is optional, runs as Sync if not given.  Sends a plain message to the player with the bot's name.
+    this.botMsg=function (message,options,cb){ // cb is optional, runs as Sync if not given.  Sends a plain message to the player with the bot's name.
       console.log("Working on messagae for PlayerObj.botMsg: " + message);
       var messageToSend=toStringIfPossible(message);
       if (!testIfInput(messageToSend) || messageToSend == "" || typeof messageToSend == "undefined"){
@@ -1216,13 +1216,14 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
     self.botMsgPromise=function(message,options){
       return simplePromisifyIt(self.botMsg,options,message);
     }
-
-
     self.creativeMode=function (input,options,cb){ // expects true or false as either boolean or string
       if (isTrueOrFalse(input)){
         return runSimpleCommand("/creative_mode " + self.name + " " + input,options,cb);
       }
       return false;
+    }
+    self.creativeModePromise=function(input,options){
+      return simplePromisifyIt(self.creativeMode,options,input);
     }
     self.godMode=function (input,options,cb){ // expects true or false as either boolean or string
       if (isTrueOrFalse(input)){
@@ -1230,17 +1231,23 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       }
       return false;
     }
+    self.godModePromise=function(input,options){
+      return simplePromisifyIt(self.godMode,options,input);
+    }
     self.invisibilityMode=function (input,options,cb){ // expects true or false as either boolean or string
       if (isTrueOrFalse(input)){
         return runSimpleCommand("/invisibility_mode " + self.name + " " + input,options,cb);
       }
       return false;
     }
+    self.invisibilityModePromise=function(input,options){
+      return simplePromisifyIt(self.invisibilityMode,options,input);
+    }
     
-    self.isBanned=function(options,cb){
+    this.isBanned=function(options,cb){
       return isNameBanned(self.name,options,cb);
     }
-    self.isBannedPromise=function(options){ // testing
+    this.isBannedPromise=function(options){ // testing
       return new Promise(function(resolve,reject){
         self.isBanned(options,function(err,result){
           if (err){
@@ -2685,23 +2692,25 @@ function FactionObj(factionNumber){
   // serverMessage(MessageString,info/warning/error) - Sends a message to all online players of this faction.  If no method is specified "plain" is used, which shows up on the player's main chat.
 };
 function LocationObj(sectorObj,coordsObj){ // This is to store an exact location, including system, sector, and spacial coordinates.
-  // this.system=sectorObj.getSystem();
+  // self.system=sectorObj.getSystem();
+  var self = this; // this is needed to reference the "this" of functions in other contexts, particularly for creating promises via the outside function.  If "this" is used, the promisify function will not work correctly.
   if (sectorObj instanceof SectorObj){
-    this.sector=sectorObj;
+    self.sector=sectorObj;
   } else if (sectorObj instanceof CoordsObj){
-    this.sector=new SectorObj(sectorObj.x,sectorObj.y,sectorObj.z);
+    self.sector=new SectorObj(sectorObj.x,sectorObj.y,sectorObj.z);
   } else {
     // Let's try to make it into a coords obj and convert to sectorobj
     var tryCoords=new CoordsObj(sectorObj); // This will throw an error if invalid input
-    this.sector=new SectorObj(tryCoords.x,tryCoords.y,tryCoords.z);
+    self.sector=new SectorObj(tryCoords.x,tryCoords.y,tryCoords.z);
   }
   if (coordsObj instanceof CoordsObj){
-    this.spacial=coordsObj;
+    self.spacial=coordsObj;
   } else {
-    this.spacial=new CoordsObj(coordsObj); // This will throw an error if invalid input
+    self.spacial=new CoordsObj(coordsObj); // This will throw an error if invalid input
   }
 };
 function SectorObj(xGiven,yGiven,zGiven){
+  var self = this; // this is needed to reference the "this" of functions in other contexts, particularly for creating promises via the outside function.  If "this" is used, the promisify function will not work correctly.
   // TODO: Add Info methods:
   // getSystem - Returns a SystemObj
 
@@ -2742,16 +2751,16 @@ function SectorObj(xGiven,yGiven,zGiven){
   var z=theCoordsObj.z;
   // Only if this is valid should we proceed.
   if (typeof x == "number" && typeof y == "number" && typeof z == "number"){
-    this.coords=theCoordsObj;
-    this.clearMines=function(options){
+    self.coords=theCoordsObj;
+    self.clearMines=function(options){
       // RETURN: [SERVER, Mines cleared in 2, 2, 2!, 0]
-      return runSimpleCommand("/clear_mines_sector " + this.coords.toString(),options);
+      return runSimpleCommand("/clear_mines_sector " + self.coords.toString(),options);
     }
-    this.clearOverheating=function(options){
+    self.clearOverheating=function(options){
       // Will error and return false if the sector is unloaded.
-      return runSimpleCommand("/clear_overheating_sector " + this.coords.toString(),options);
+      return runSimpleCommand("/clear_overheating_sector " + self.coords.toString(),options);
     }
-    this.despawn=function(partOfShipName,used,shipOnly,options){
+    self.despawn=function(partOfShipName,used,shipOnly,options){
       // /despawn_sector
       // EXAMPLE: /despawn_sector MOB_ unused true 2 2 2
       // Will error and return false if the sector is unloaded.
@@ -2771,16 +2780,16 @@ function SectorObj(xGiven,yGiven,zGiven){
       if (isTrueOrFalse(shipOnly)){
         shipOnlyToUse=shipOnly;
       }
-      return runSimpleCommand("/despawn_sector \"" + partOfShipNameToUse + "\" " + usedToUse + " " + shipOnlyToUse + " " + this.coords.toString(),options);
+      return runSimpleCommand("/despawn_sector \"" + partOfShipNameToUse + "\" " + usedToUse + " " + shipOnlyToUse + " " + self.coords.toString(),options);
     }
-    this.isLoaded=function(){
+    self.isLoaded=function(){
       // ^RETURN\: \[SERVER, LOADED SECTOR INFO\:
       // RETURN: [SERVER, LOADED SECTOR INFO: Sector[132](2, 2, 2); Permission[Peace,Protected,NoEnter,NoExit,NoIndication,NoFpLoss]: 000000; Seed: -4197430019395025102; Type: VOID;, 0]
-      let result=starNetVerified("/sector_info " + this.coords.toString());
+      let result=starNetVerified("/sector_info " + self.coords.toString());
       let theReg=new RegExp("^RETURN: \\[SERVER, LOADED SECTOR INFO:.*");
       return starNetHelper.checkForLine(result,theReg);
     }
-    this.importSector=function(sectorExport,options){
+    self.importSector=function(sectorExport,options){
       // /import_sector
       // DESCRIPTION: make sure that the target sector is unloaded
       // PARAMETERS: toX(Integer), toY(Integer), toZ(Integer), name(String)
@@ -2808,35 +2817,35 @@ function SectorObj(xGiven,yGiven,zGiven){
         }
         if (theTest){ // Does a lowercase test of the filename because I believe StarMade does not care.  This needs to be tested on linux.
           // File exists
-          if (this.isLoaded()){
+          if (self.isLoaded()){
             return false;
           }
           // This will not return any errors unless the parameters are incorrect.
-          return runSimpleCommand("/import_sector " + this.coords.toString() + " " + sectorExport,options);
+          return runSimpleCommand("/import_sector " + self.coords.toString() + " " + sectorExport,options);
         }
       }
       return false;
     }
-    this.exportSector=function(sectorExport,options){
+    self.exportSector=function(sectorExport,options){
       // Will not give any error whether it did anything or not, unless parameters are incorrect
       var sectorExportToUse=toStringIfPossible(sectorExport);
       if (typeof sectorExportToUse == "string"){
-        return runSimpleCommand("/export_sector " + this.coords.toString() + " " + sectorExport,options);
+        return runSimpleCommand("/export_sector " + self.coords.toString() + " " + sectorExport,options);
       }
       throw new Error("Invalid input given to SectorObj.exportSector as sectorExport!");
     }
-    this.populate=function(options){
+    self.populate=function(options){
       // Will not give any error whether it did anything or not, unless parameters are incorrect
       // DESCRIPTION: WARNING: this will populate the sector. Use this as a reset after using /despawn_sector!
-      return runSimpleCommand("/populate_sector " + this.coords.toString(),options);
+      return runSimpleCommand("/populate_sector " + self.coords.toString(),options);
     }
-    this.repair=function(options){
+    self.repair=function(options){
       // WARNING - I think this is broken via StarNet.jar or through the console.  It ALWAYS gives the following error:
       // RETURN: [SERVER, [ADMIN COMMAND] [ERROR] player not found for your client, 0]
       // DESCRIPTION: attempts to correct the regitry of the sector
-      return runSimpleCommand("/repair_sector " + this.coords.toString(),options);
+      return runSimpleCommand("/repair_sector " + self.coords.toString(),options);
     }
-    this.spawnEntity=function(blueprintObj,shipName,factionNum,aiActiveBoolean,options){
+    self.spawnEntity=function(blueprintObj,shipName,factionNum,aiActiveBoolean,options){
       // factionNum and aiActive are optional
       // factionNum can be a faction object.
 
@@ -2866,7 +2875,7 @@ function SectorObj(xGiven,yGiven,zGiven){
           throw new Error("Invalid input given to SectorObj.spawnEntity as aiActiveBoolean!");
         }
       }
-      return runSimpleCommand("/spawn_entity \"" + blueprintName + "\" \"" + shipNameToUse + "\" " + this.coords.toString() + " " + factionNumToUse + " " + aiActiveBooleanToUse,options);
+      return runSimpleCommand("/spawn_entity \"" + blueprintName + "\" \"" + shipNameToUse + "\" " + self.coords.toString() + " " + factionNumToUse + " " + aiActiveBooleanToUse,options);
       // /spawn_entity // Also in the BluePrintObj
       // DESCRIPTION: Spawns a ship in any sector with a faction tag and AI tag.
       // PARAMETERS: BlueprintName(String), ShipName(String), X(Integer), Y(Integer), Z(Integer), factionID(Integer), ActiveAI(True/False)
@@ -2875,62 +2884,62 @@ function SectorObj(xGiven,yGiven,zGiven){
 
 
     // Below needs to be brought up to the current standard of true=success,false=fail, throw error on connection problem.
-    this.load=function(){
+    self.load=function(){
       // old method:
       // This returns "true" if the command ran, false for anything else, such as if the server was down.
-      // let theResponse=starNetSync("/load_sector_range " + this.coords.toString() + " " + this.coords.toString());
+      // let theResponse=starNetSync("/load_sector_range " + self.coords.toString() + " " + self.coords.toString());
       // return starNetHelper.detectRan(theResponse);
-      return runSimpleCommand("/load_sector_range " + this.coords.toString() + " " + this.coords.toString());
+      return runSimpleCommand("/load_sector_range " + self.coords.toString() + " " + self.coords.toString());
     };
-    this.setChmod=function(val,options){ // val should be a string
+    self.setChmod=function(val,options){ // val should be a string
       // This will return true if it was a success, false otherwise.
       // Example vals:  "+ peace" or "- protected"
-      return sectorSetChmod(this.coords,val,options);
+      return sectorSetChmod(self.coords,val,options);
     };
-    this.getChmodArray=function(options){
+    self.getChmodArray=function(options){
       // This really should do a force save before pulling the values.. wish there was a way to do it silently..
-      return decodeChmodNum(getChmodNum(this.coords,options));
+      return decodeChmodNum(getChmodNum(self.coords,options));
     };
-    this.getChmodNum=function(){
+    self.getChmodNum=function(){
       // This really should do a force save before pulling the values.. wish there was a way to do it silently..
-      return getChmodNum(this.coords);
+      return getChmodNum(self.coords);
     };
-    this.setChmodNum=function(newNum,options){ // Only has 1 option, which is to do a forcesave and then intelligently add/remove chmod values rather than the default of bruteforcing adding all needed and removing all unneeded.
-      var chmodResults=sectorSetChmodNum(this.coords,newNum,options);
+    self.setChmodNum=function(newNum,options){ // Only has 1 option, which is to do a forcesave and then intelligently add/remove chmod values rather than the default of bruteforcing adding all needed and removing all unneeded.
+      var chmodResults=sectorSetChmodNum(self.coords,newNum,options);
       if (!objectHelper.isArrayAllEqualTo(chmodResults,true)){ // The return value should be an array of true/false values.  If any of them were not true (false), it means something failed.
-        console.error("Error setting one of the chmod values for " + this.coords + " with values for chmod number, " + newNum + "!");
+        console.error("Error setting one of the chmod values for " + self.coords + " with values for chmod number, " + newNum + "!");
       }
       return chmodResults;
     };
-    this.listEntityUIDs=function(filter,options){
-      return returnEntityUIDList(this.coords.toString(),filter,options);
+    self.listEntityUIDs=function(filter,options){
+      return returnEntityUIDList(self.coords.toString(),filter,options);
     };
-    this.listShipUIDs=function(){
-      return returnEntityUIDList(this.coords.toString(),"ENTITY_SHIP_");
+    self.listShipUIDs=function(){
+      return returnEntityUIDList(self.coords.toString(),"ENTITY_SHIP_");
     };
-    this.listStationUIDs=function(){
-      return returnEntityUIDList(this.coords.toString(),"ENTITY_SPACESTATION_");
+    self.listStationUIDs=function(){
+      return returnEntityUIDList(self.coords.toString(),"ENTITY_SPACESTATION_");
     };
-    this.listShopUIDs=function(){
-      return returnEntityUIDList(this.coords.toString(),"ENTITY_SHOP_");
+    self.listShopUIDs=function(){
+      return returnEntityUIDList(self.coords.toString(),"ENTITY_SHOP_");
     };
-    this.listCreatureUIDs=function(){
-      return returnEntityUIDList(this.coords.toString(),"ENTITY_CREATURE_");
+    self.listCreatureUIDs=function(){
+      return returnEntityUIDList(self.coords.toString(),"ENTITY_CREATURE_");
     };
-    this.listAsteroidUIDs=function(){
-      return returnEntityUIDList(this.coords.toString(),"(ENTITY_FLOATINGROCK_|ENTITY_FLOATINGROCKMANAGED_)");
+    self.listAsteroidUIDs=function(){
+      return returnEntityUIDList(self.coords.toString(),"(ENTITY_FLOATINGROCK_|ENTITY_FLOATINGROCKMANAGED_)");
     };
-    this.listPlanetUIDs=function(){
-      return returnEntityUIDList(this.coords.toString(),"(ENTITY_PLANET_|ENTITY_PLANETCORE_)");
+    self.listPlanetUIDs=function(){
+      return returnEntityUIDList(self.coords.toString(),"(ENTITY_PLANET_|ENTITY_PLANETCORE_)");
     };
-    this.listPlayerUIDs=function(){
-      return returnEntityUIDList(this.coords.toString(),"(ENTITY_PLAYERCHARACTER_|ENTITY_PLAYERSTATE_)");
+    self.listPlayerUIDs=function(){
+      return returnEntityUIDList(self.coords.toString(),"(ENTITY_PLAYERCHARACTER_|ENTITY_PLAYERSTATE_)");
     };
-    this.entities=function(filter,options){
+    self.entities=function(filter,options){
       // "filter" is optional, it should look something like this "(ENTITY_SHIP_|ENTITY_CREATURE_)".  This will return all ships and creatures.
       // "options" are simply forwarded to the listEntityUIDs method and are also optional
       var returnArray=[];
-      var uidArray=this.listEntityUIDs(filter,options);
+      var uidArray=self.listEntityUIDs(filter,options);
       if (uidArray){ // Will be Null if the StarNet command fails for some reason
         for (let i=0;i<uidArray.length;i++){
           // Set the correct type of object for each entity in the sector.  If new commands come out for planets or asteroids, we should prefer those types.
@@ -2945,9 +2954,9 @@ function SectorObj(xGiven,yGiven,zGiven){
       }
       return returnArray;
     };
-    this.ships=function(){
+    self.ships=function(){
       var returnArray=[];
-      var uidArray=this.listShipUIDs();
+      var uidArray=self.listShipUIDs();
       if (uidArray){ // Will be Null if the StarNet command fails for some reason
         for (let i=0;i<uidArray.length;i++){
           returnArray.push(new EntityObj(uidArray[i]));
@@ -2955,9 +2964,9 @@ function SectorObj(xGiven,yGiven,zGiven){
       }
       return returnArray;
     };
-    this.stations=function(){
+    self.stations=function(){
       var returnArray=[];
-      var uidArray=this.listStationUIDs();
+      var uidArray=self.listStationUIDs();
       if (uidArray){ // Will be Null if the StarNet command fails for some reason
         for (let i=0;i<uidArray.length;i++){
           returnArray.push(new EntityObj(uidArray[i]));
@@ -2965,9 +2974,9 @@ function SectorObj(xGiven,yGiven,zGiven){
       }
       return returnArray;
     };
-    this.shops=function(){
+    self.shops=function(){
       var returnArray=[];
-      var uidArray=this.listShopUIDs();
+      var uidArray=self.listShopUIDs();
       if (uidArray){ // Will be Null if the StarNet command fails for some reason
         for (let i=0;i<uidArray.length;i++){
           returnArray.push(new EntityObj(uidArray[i]));
@@ -2975,9 +2984,9 @@ function SectorObj(xGiven,yGiven,zGiven){
       }
       return returnArray;
     };
-    this.creatures=function(){ // This includes NPC's, spiders, hoppies, or custom creations
+    self.creatures=function(){ // This includes NPC's, spiders, hoppies, or custom creations
       var returnArray=[];
-      var uidArray=this.listCreatureUIDs();
+      var uidArray=self.listCreatureUIDs();
       if (uidArray){ // Will be Null if the StarNet command fails for some reason
         for (let i=0;i<uidArray.length;i++){
           returnArray.push(new CreatureObj(uidArray[i]));
@@ -2985,9 +2994,9 @@ function SectorObj(xGiven,yGiven,zGiven){
       }
       return returnArray;
     };
-    this.asteroids=function(){ // TODO: Consider creating an AsteroidObj as opposed to entity if there are commands that won't work correctly with them
+    self.asteroids=function(){ // TODO: Consider creating an AsteroidObj as opposed to entity if there are commands that won't work correctly with them
       var returnArray=[];
-      var uidArray=this.listAsteroidUIDs();
+      var uidArray=self.listAsteroidUIDs();
       if (uidArray){ // Will be Null if the StarNet command fails for some reason
         for (let i=0;i<uidArray.length;i++){
           returnArray.push(new EntityObj(uidArray[i]));
@@ -2995,9 +3004,9 @@ function SectorObj(xGiven,yGiven,zGiven){
       }
       return returnArray;
     };
-    this.planets=function(){ // TODO: Consider creating an PlanetObj as opposed to entity if there are commands that won't work correctly with them
+    self.planets=function(){ // TODO: Consider creating an PlanetObj as opposed to entity if there are commands that won't work correctly with them
       var returnArray=[];
-      var uidArray=this.listPlanetUIDs();
+      var uidArray=self.listPlanetUIDs();
       if (uidArray){ // Will be Null if the StarNet command fails for some reason
         for (let i=0;i<uidArray.length;i++){
           returnArray.push(new EntityObj(uidArray[i]));
@@ -3005,9 +3014,9 @@ function SectorObj(xGiven,yGiven,zGiven){
       }
       return returnArray;
     };
-    this.players=function(){ // I do not think this will actually work.
+    self.players=function(){ // I do not think this will actually work.
       var returnArray=[];
-      var uidArray=this.listPlayerUIDs();
+      var uidArray=self.listPlayerUIDs();
       if (uidArray){ // Will be Null if the StarNet command fails for some reason
         for (let i=0;i<uidArray.length;i++){
           returnArray.push(new PlayerObj(uidArray[i]));
@@ -3021,9 +3030,9 @@ function SectorObj(xGiven,yGiven,zGiven){
       for (let i=SectorObj.length-1;i<arguments.length;i++){
         extraInfoArray.push(arguments[i]);
       }
-      this.extraInfo=extraInfoArray;
+      self.extraInfo=extraInfoArray;
     }
-    // this.toString=function(){ return this.coords.toString() }; // We don't want to set this here because then it shows up as a key.  Instead we set up the prototype at the top of the script.
+    // self.toString=function(){ return self.coords.toString() }; // We don't want to set this here because then it shows up as a key.  Instead we set up the prototype at the top of the script.
   } else {
     throw new Error("ERROR: Invalid values given to SectorObj constructor!");
   }
@@ -3031,6 +3040,7 @@ function SectorObj(xGiven,yGiven,zGiven){
 
 function CoordsObj(xInput,yInput,zInput){ // xInput can be a string or space or comma separated numbers, coordsObj, or a sectorObj
   // test to ensure string, array, CoordsObj, SectorObj, and regular numbers/strings(which are numbers) works.
+  var self = this; // this is needed to reference the "this" of functions in other contexts, particularly for creating promises via the outside function.  If "this" is used, the promisify function will not work correctly.
   var x=objectHelper.toNumIfPossible(xInput);
   var y=objectHelper.toNumIfPossible(yInput);
   var z=objectHelper.toNumIfPossible(zInput);
@@ -3093,10 +3103,10 @@ function CoordsObj(xInput,yInput,zInput){ // xInput can be a string or space or 
     console.error("Invalid coords input given to new CoordsObj: " + xToUse + " " + yToUse + " " + zToUse);
     throw new Error("Invalid coords input given to new CoordsObj: " + xToUse + " " + yToUse + " " + zToUse);
   }
-  this.x=xToUse;
-  this.y=yToUse;
-  this.z=zToUse;
-  this.coords=function(){ return new CoordsObj(this.x,this.y,this.z) }; // This is to allow a sectorObj to gracefully morph into a CoordsObj and for a CoordsObj to be duplicated and then possibly modified.
+  self.x=xToUse;
+  self.y=yToUse;
+  self.z=zToUse;
+  self.coords=function(){ return new CoordsObj(self.x,self.y,self.z) }; // This is to allow a sectorObj to gracefully morph into a CoordsObj and for a CoordsObj to be duplicated and then possibly modified.
   
 
   // This can be expanded to allow storing information, such as a description, if more than values than expected are given to the constructor
@@ -3105,16 +3115,19 @@ function CoordsObj(xInput,yInput,zInput){ // xInput can be a string or space or 
     for (let i=CoordsObj.length-1;i<arguments.length;i++){
       extraInfoArray.push(arguments[i]);
     }
-    this.extraInfo=extraInfoArray;
+    self.extraInfo=extraInfoArray;
   }
-  // this.toString=function(){ return this.string };
+  // self.toString=function(){ return self.string };
 };
 function CreatureObj(fullUID){ // TODO: create creature object
   console.log("Complete me plz.");
-  this["UID"]=stripFullUIDtoUID(fullUID);
-  this["fullUID"]=fullUID;
+  var self = this; // this is needed to reference the "this" of functions in other contexts, particularly for creating promises via the outside function.  If "this" is used, the promisify function will not work correctly.
+  self.UID=stripFullUIDtoUID(fullUID);
+  self.fullUID=fullUID;
 };
 function EntityObj(fullUID,shipName){ // takes EITHER the full UID or the ship name.  If a ship name is provided, it will look up the full UID via a StarNet.jar command.
+  var self = this; // this is needed to reference the "this" of functions in other contexts, particularly for creating promises via the outside function.  If "this" is used, the promisify function will not work correctly.
+
   // This builds an entity object based on the full UID
   // This can be used for ships and stations.  // TODO: There will be PlanetObj for planets and AsteroidObj for asteroids if there are differences in what can or cannot be done to them.
 
@@ -3124,48 +3137,48 @@ function EntityObj(fullUID,shipName){ // takes EITHER the full UID or the ship n
   }
 
   if (fullUIDToUse){
-    this["UID"]=stripFullUIDtoUID(fullUIDToUse); // Returns the UID as used with SQL queries, without the "ENTITY_SHIP_" whatever stuff.
+    self.UID=stripFullUIDtoUID(fullUIDToUse); // Returns the UID as used with SQL queries, without the "ENTITY_SHIP_" whatever stuff.
     this["fullUID"]=fullUIDToUse;
 
     // Needs testing below:
-    this.decay=function(options){ // decays the ship
-      return runSimpleCommand("/decay_uid " + this.fullUID,options);
+    self.decay=function(options){ // decays the ship
+      return runSimpleCommand("/decay_uid " + self.fullUID,options);
     }
-    this.setFaction=function(factionNumOrObj,options){ // Expects a faction number or FactionObj as input.
+    self.setFaction=function(factionNumOrObj,options){ // Expects a faction number or FactionObj as input.
       let factionNum=toNumIfPossible(toStringIfPossible(factionNumOrObj)); // This converts FactionObj to a string and then back to a number.
       if (typeof factionNum == "number"){
-        return runSimpleCommand("/faction_set_entity_uid " + this.fullUID + " " + factionNum,options);
+        return runSimpleCommand("/faction_set_entity_uid " + self.fullUID + " " + factionNum,options);
       } else {
         throw new Error("Invalid input given to EntityObj.setFaction() for factionNumOrObj!");
       }
     }
-    this.setFactionRank=function(rankNum,options){
+    self.setFactionRank=function(rankNum,options){
       let theRankNum=toNumIfPossible(rankNum);
       if (typeof theRankNum == "number"){
-        return runSimpleCommand("/faction_set_entity_rank_uid " + this.fullUID + " " + theRankNum,options);
+        return runSimpleCommand("/faction_set_entity_rank_uid " + self.fullUID + " " + theRankNum,options);
       } else {
         throw new Error("Invalid input given to EntityObj.setFactionRank() for rankNum!");
       }
     }
-    this.kickPlayersOut=function(options){ // decays the ship
-      return runSimpleCommand("/kick_players_out_of_entity_uid " + this.fullUID,options);
+    self.kickPlayersOut=function(options){ // decays the ship
+      return runSimpleCommand("/kick_players_out_of_entity_uid " + self.fullUID,options);
     }
-    this.kickPlayersOutDock=function(options){ // decays the ship
-      return runSimpleCommand("/kick_players_out_of_entity_uid_dock \"" + this.fullUID + "\"",options);
+    self.kickPlayersOutDock=function(options){ // decays the ship
+      return runSimpleCommand("/kick_players_out_of_entity_uid_dock \"" + self.fullUID + "\"",options);
     }
-    this.putPlayerIntoThisEntity=function(thePlayer,options){ // player can be their name or a PlayerObj
+    self.putPlayerIntoThisEntity=function(thePlayer,options){ // player can be their name or a PlayerObj
       let thePlayerName=toStringIfPossible(thePlayer); // This converts PlayerObj to the name of the player as a string
       if (typeof thePlayerName == "string"){
-        return runSimpleCommand("/player_put_into_entity_uid " + thePlayerName + " \"" + this.fullUID + "\"",options);
+        return runSimpleCommand("/player_put_into_entity_uid " + thePlayerName + " \"" + self.fullUID + "\"",options);
       } else {
         throw new Error("Invalid input given to EntityObj.putPlayerIntoThisEntity() for thePlayer!");
       }
     }
-    this.saveAsBlueprint=function(blueprintName,options){ // Saves the ship as a blueprint with no owner.  Can accept a BlueprintObj as input
+    self.saveAsBlueprint=function(blueprintName,options){ // Saves the ship as a blueprint with no owner.  Can accept a BlueprintObj as input
       // Note:  Returns a BlueprintObj if successful instead of true
       let theBlueprintName=toStringIfPossible(blueprintName); // This converts BlueprintObj a string
       if (typeof theBlueprintName == "string"){
-        if(runSimpleCommand("/save_uid \"" + this.fullUID + "\" \"" + theBlueprintName + "\"",options)){
+        if(runSimpleCommand("/save_uid \"" + self.fullUID + "\" \"" + theBlueprintName + "\"",options)){
           return new BluePrintObj(theBlueprintName);
         } else {
           return false;
@@ -3174,40 +3187,40 @@ function EntityObj(fullUID,shipName){ // takes EITHER the full UID or the ship n
         throw new Error("Invalid input given to EntityObj.putPlayerIntoThisEntity() for thePlayer!");
       }
     }
-    this.shopRestockFull=function(options){ // restocks a shop to full
+    self.shopRestockFull=function(options){ // restocks a shop to full
       // WARNING: If a station has a shop on it, it will be restocked incorrectly to include even illegal items that should never be found in a shop, such as gold bars and green dirt.
-      return runSimpleCommand("/shop_restock_full_uid \"" + this.fullUID + "\"",options);
+      return runSimpleCommand("/shop_restock_full_uid \"" + self.fullUID + "\"",options);
     }
-    this.shopRestock=function(options){ // restocks a shop
+    self.shopRestock=function(options){ // restocks a shop
       // WARNING: If a station has a shop on it, it will be restocked incorrectly to include even illegal items that should never be found in a shop, such as gold bars and green dirt.
-      return runSimpleCommand("/shop_restock_uid \"" + this.fullUID + "\"",options);
+      return runSimpleCommand("/shop_restock_uid \"" + self.fullUID + "\"",options);
     }    
-    this.softDespawn=function(options){ // despawns an entity as though it were destroyed, till the sector is reloaded.
+    self.softDespawn=function(options){ // despawns an entity as though it were destroyed, till the sector is reloaded.
       // WARNING: if an entity has docked entities on it and it is soft-despawns, I believe this causes them to undock.
-      return runSimpleCommand("/soft_despawn \"" + this.fullUID + "\"",options);
+      return runSimpleCommand("/soft_despawn \"" + self.fullUID + "\"",options);
     }    
-    this.softDespawnDock=function(options){ // despawns an entity (and all docked entities) as though it were destroyed, till the sector is reloaded.
-      return runSimpleCommand("/soft_despawn_dock \"" + this.fullUID + "\"",options);
+    self.softDespawnDock=function(options){ // despawns an entity (and all docked entities) as though it were destroyed, till the sector is reloaded.
+      return runSimpleCommand("/soft_despawn_dock \"" + self.fullUID + "\"",options);
     }    
-    this.setMinable=function(trueOrFalse,options){ // Sets whether an entity should be minable by salvager beams
+    self.setMinable=function(trueOrFalse,options){ // Sets whether an entity should be minable by salvager beams
       let booleanToUse=trueOrFalse(trueOrFalse); // allows truthy values to convert to the words, "true" or "false"
       // Does not have success or fail messages
       if (isTrueOrFalse(booleanToUse)){
-        return runSimpleCommand("/structure_set_minable_uid \"" + this.fullUID + "\" " + booleanToUse,options);
+        return runSimpleCommand("/structure_set_minable_uid \"" + self.fullUID + "\" " + booleanToUse,options);
       } else {
         throw new Error("Invalid input given to EntityObj.setMinable() for trueOrFalse!");
       }
     }
-    this.setVulnerable=function(trueOrFalse,options){ // Sets whether an entity is invincible
+    self.setVulnerable=function(trueOrFalse,options){ // Sets whether an entity is invincible
       let booleanToUse=trueOrFalse(trueOrFalse); // allows truthy values to convert to the words, "true" or "false"
       // Does not have success or fail messages
       if (isTrueOrFalse(booleanToUse)){
-        return runSimpleCommand("/structure_set_vulnerable_uid \"" + this.fullUID + "\" " + booleanToUse,options);
+        return runSimpleCommand("/structure_set_vulnerable_uid \"" + self.fullUID + "\" " + booleanToUse,options);
       } else {
         throw new Error("Invalid input given to EntityObj.setVulnerable() for trueOrFalse!");
       }
     }
-    this.changeSector=function(sector,options){ // sector can be a LocationObj, SectorObj, CoordsObj, or other input that can be translated to a CoordsObj.
+    self.changeSector=function(sector,options){ // sector can be a LocationObj, SectorObj, CoordsObj, or other input that can be translated to a CoordsObj.
       // This should accept a location Obj, a pair of sectorObj and coordsObj, or any other pair of input that can translate to a CoordsObj
       var sectorToUse;
       if (testIfInput(sector)){ // Non-object input given
@@ -3224,7 +3237,7 @@ function EntityObj(fullUID,shipName){ // takes EITHER the full UID or the ship n
       if (typeof sectorToUse=="string"){
         // We should be all set to send the command now.
         var fast=getOption(options,"fast",false);
-        var changeSectorCommand="/change_sector_for_uid \"" + this.fullUID + "\" " + sectorToUse;
+        var changeSectorCommand="/change_sector_for_uid \"" + self.fullUID + "\" " + sectorToUse;
         if (fast){
           return sendDirectToServer(changeSectorCommand);         
         } else {
@@ -3241,8 +3254,8 @@ function EntityObj(fullUID,shipName){ // takes EITHER the full UID or the ship n
       }
       throw new Error("Invalid parameters given to EntityObj.changeSector!"); // This is redundant
     }
-    // this.changeSectorCopy // There is no "/change_sector_for_uid_copy" command in-game right now.
-    this.teleportTo=function(coords,options){ // Accepts CoordsObj or LocationObj or any set of input that will translate to a CoordsObj
+    // self.changeSectorCopy // There is no "/change_sector_for_uid_copy" command in-game right now.
+    self.teleportTo=function(coords,options){ // Accepts CoordsObj or LocationObj or any set of input that will translate to a CoordsObj
       if (testIfInput(coords)){ // Input given
         var spacialCoordsToUse=toStringIfPossible(coords,{"type":"spacial"}); // This option will allow a LocationObj to have it's spacial coords converted to as tring.  Any other object, such as a CoordsObj will ignore the option.
         try { // Let's see if coordinates can be made from the input.  If a LocationObj was provided, the string returned will work.
@@ -3255,7 +3268,7 @@ function EntityObj(fullUID,shipName){ // takes EITHER the full UID or the ship n
       var fast=getOption(options,"fast",false);
       // I'm not using runSimpleCommand() since I know what the success message is for this, and this provides better accuracy on the success/fail result.
       if (typeof spacialCoordsToUse=="string" && testIfInput(coords)){ // This is a redundant check.
-        var teleportToCommand="/teleport_uid_to \"" + this.fullUID + "\" " + spacialCoordsToUse;
+        var teleportToCommand="/teleport_uid_to \"" + self.fullUID + "\" " + spacialCoordsToUse;
         if (fast){
           return sendDirectToServer(teleportToCommand);         
         } else {
@@ -3276,38 +3289,38 @@ function EntityObj(fullUID,shipName){ // takes EITHER the full UID or the ship n
 
 
 
-    this["loaded"]=function(){ return starNetHelper.getEntityValue(this.fullUID,"loaded") };
+    this["loaded"]=function(){ return starNetHelper.getEntityValue(self.fullUID,"loaded") };
     // faction.number is WILDLY INACCURATE RIGHT NOW - WAITING ON FIX FROM SCHEMA - WILL NEED TO BE FIXED IN starNetHelper.js
-    this["faction"]=function(){ return new FactionObj(starNetHelper.getEntityValue(this.fullUID,"faction")) };
-    this["mass"]=function(){ return starNetHelper.getEntityValue(this.fullUID,"Mass") };
+    this["faction"]=function(){ return new FactionObj(starNetHelper.getEntityValue(self.fullUID,"faction")) };
+    this["mass"]=function(){ return starNetHelper.getEntityValue(self.fullUID,"Mass") };
     // TODO: Change this to return an array of objects that are attached.  Players I think normally?  Are NPC's also possible though?
-    this["attached"]=function(){ return starNetHelper.getEntityValue(this.fullUID,"Attached") };
+    this["attached"]=function(){ return starNetHelper.getEntityValue(self.fullUID,"Attached") };
     // TODO: Change this to "docked", which will return an array of EntityObjs
-    this["dockedUIDs"]=function(){ return starNetHelper.getEntityValue(this.fullUID,"DockedUIDs") };
-    this["blocks"]=function(){ return starNetHelper.getEntityValue(this.fullUID,"Blocks") };
+    this["dockedUIDs"]=function(){ return starNetHelper.getEntityValue(self.fullUID,"DockedUIDs") };
+    this["blocks"]=function(){ return starNetHelper.getEntityValue(self.fullUID,"Blocks") };
     // TODO: See what sorts of values might appear for lastModified and have it return the correct types of objects rather than a string value
-    this["lastModified"]=function(){ return starNetHelper.getEntityValue(this.fullUID,"LastModified") };
+    this["lastModified"]=function(){ return starNetHelper.getEntityValue(self.fullUID,"LastModified") };
     // TODO: See what sorts of values might appear for creator and have it return the correct types of objects rather than a string value
-    this["creator"]=function(){ return starNetHelper.getEntityValue(this.fullUID,"Creator") };
-    this["sector"]=function(){ return new SectorObj(...starNetHelper.getEntityValue(this.fullUID,"Sector")) };
-    this["name"]=function(){ return starNetHelper.getEntityValue(this.fullUID,"Name") };
-    this["minBB"]=function(){ return new CoordsObj(...starNetHelper.getEntityValue(this.fullUID,"MinBB(chunks)")) };
-    this["maxBB"]=function(){ return new CoordsObj(...starNetHelper.getEntityValue(this.fullUID,"MaxBB(chunks)")) };
-    this["spacialCoords"]=function(){ return new CoordsObj(...starNetHelper.getEntityValue(this.fullUID,"Local-Pos")) };
+    this["creator"]=function(){ return starNetHelper.getEntityValue(self.fullUID,"Creator") };
+    this["sector"]=function(){ return new SectorObj(...starNetHelper.getEntityValue(self.fullUID,"Sector")) };
+    this["name"]=function(){ return starNetHelper.getEntityValue(self.fullUID,"Name") };
+    this["minBB"]=function(){ return new CoordsObj(...starNetHelper.getEntityValue(self.fullUID,"MinBB(chunks)")) };
+    this["maxBB"]=function(){ return new CoordsObj(...starNetHelper.getEntityValue(self.fullUID,"MaxBB(chunks)")) };
+    this["spacialCoords"]=function(){ return new CoordsObj(...starNetHelper.getEntityValue(self.fullUID,"Local-Pos")) };
     // TODO: Create an OrientationObj. Till then though, just return an array of values.
-    this["orientation"]=function(){ return starNetHelper.getEntityValue(this.fullUID,"Orientation") };
-    this["type"]=function(){ return starNetHelper.getEntityValue(this.fullUID,"type") };
+    this["orientation"]=function(){ return starNetHelper.getEntityValue(self.fullUID,"Orientation") };
+    this["type"]=function(){ return starNetHelper.getEntityValue(self.fullUID,"type") };
     // this["objType"]="EntityObj"; // Totally not necessary since we have objHelper.getObjType()
 
-    this["dataMap"]=function(){ return new starNetHelper.ShipInfoUidObj(this.fullUID) }; // TODO:  This seems broken
-    this["dataObj"]=function(){ return new starNetHelper.ShipInfoUidObj(this.fullUID,{"objType":"object"}) }; // TODO:  This seems broken
+    this["dataMap"]=function(){ return new starNetHelper.ShipInfoUidObj(self.fullUID) }; // TODO:  This seems broken
+    this["dataObj"]=function(){ return new starNetHelper.ShipInfoUidObj(self.fullUID,{"objType":"object"}) }; // TODO:  This seems broken
 
 
-    this.load=function(){
+    self.load=function(){
       // This returns "true" if the command ran, false for anything else, such as if the server was down.
-      return this.sector().load();
+      return self.sector().load();
     };
-    // this.toString=function(){ return this.fullUID.toString() }; // This is visible as an element, so really we should set the prototype outside of the constructor.
+    // self.toString=function(){ return self.fullUID.toString() }; // This is visible as an element, so really we should set the prototype outside of the constructor.
 
     // TODO: Add Info methods:
     // system - returns a SystemObj of the current system the entity is within
@@ -3338,7 +3351,7 @@ function EntityObj(fullUID,shipName){ // takes EITHER the full UID or the ship n
     throw new Error("ERROR: No UID provided to EntityObj constructor!");
   }
 };
-function RemoteServerObj(ip,domain,port){
+function RemoteServerObj(ip,domain,port){ // TODO:  Is this really needed?
   this.ip=new IPObj(ip);
   this.domain=domain;
   this.port=port;
@@ -4106,23 +4119,53 @@ function isNameBanned(name,options,cb){ //cb is optional.  Runs Sync if not give
       }
     });
   } else { // run in Sync mode
-    var bannedArray=getBannedNameList();
+    var bannedArray=getBannedNameList(options);
     return isBanned(bannedArray,name);
   }
 }
-function isBanned(inputArray,whatToLookFor){
-  // accepts input from getBannedAccountsList, getBannedIPList, or getBannedNameList
-  console.log("inputArray: " + inputArray); // temp
-  console.log("whatToLookFor:" + whatToLookFor); // temp
-  var theCheck=whatToLookFor.toString().toLowerCase(); // Allows objects that can be turned into strings to be used as input
-  for (let i=0;i<inputArray.length;i++){
-    console.log("Testing to see if '" + whatToLookFor + "' is equal to the banned name, '" + inputArray[i] +"'.");
-    if (inputArray[i].toString() == theCheck){
-      return true;
+function getBannedNameList(options,cb){
+  // TODO:  Add {"fast":true} option to read directly from the blacklist.txt file.
+  // /list_banned_name
+  // RETURN: [SERVER, Banned: {six, four, five}, 0]
+  var theReg=new RegExp('^RETURN: \\[SERVER, Banned: {.*');
+  var theLine;
+  var outputArray=[];
+  var tempArray=[];
+  if (typeof cb=="function"){
+    return starNetVerifiedCB("/list_banned_name","",function(err,result){
+      if (err){
+        return cb(err,null);
+      } else {
+        theLine=returnLineMatch(result,theReg,/^RETURN: \[SERVER, Banned: {/,/}, 0\]$/);
+        if (theLine){ // this will be empty if there were no results
+          tempArray=theLine.split(", "); // If only 1 result, it will still be in an array
+          for (let i=0;i<tempArray.length;i++){
+            outputArray.push(new PlayerObj(tempArray[i]));
+          }
+        }
+        return cb(null,outputArray); // Will be empty array if no results
+      }
+    });
+  } else {
+    try {
+      var result=starNetVerified("/list_banned_name");
+      theLine=returnLineMatch(result,theReg,/^RETURN: \[SERVER, Banned: {/,/}, 0\]$/);
+      if (theLine){ // this will be empty if there were no results
+        tempArray=theLine.split(", "); // If only 1 result, it will still be in an array
+        for (let i=0;i<tempArray.length;i++){
+          outputArray.push(new PlayerObj(tempArray[i]));
+        }
+      }
+      return outputArray;
+    } catch (error){
+      // var theError=new Error("StarNet command failed when attempting to getBannedNameList()!");
+      // theError.code=1;
+      // throw theError;
+      throw error;
     }
   }
-  return false;
 }
+
 function getBannedAccountsList(options){ // Returns an array of SMNameObj
   // /list_banned_accounts
   // RETURN: [SERVER, Banned: {three, two, one}, 0]
@@ -4168,48 +4211,21 @@ function getBannedIPList(options){
     throw theError;
   }
 }
-function getBannedNameList(options,cb){
-  // TODO:  Add {"fast":true} option to read directly from the blacklist.txt file.
-  // /list_banned_name
-  // RETURN: [SERVER, Banned: {six, four, five}, 0]
-  var theReg=new RegExp('^RETURN: \\[SERVER, Banned: {.*');
-  var theLine;
-  var outputArray=[];
-  var tempArray=[];
-  if (typeof cb=="function"){
-    return starNetVerifiedCB("/list_banned_name","",function(err,result){
-      if (err){
-        return cb(err,null);
-      } else {
-        theLine=returnLineMatch(result,theReg,/^RETURN: \[SERVER, Banned: {/,/}, 0\]$/);
-        if (theLine){ // this will be empty if there were no results
-          tempArray=theLine.split(", "); // If only 1 result, it will still be in an array
-          for (let i=0;i<tempArray.length;i++){
-            outputArray.push(new PlayerObj(tempArray[i]));
-          }
-        }
-        return cb(null,outputArray); // Will be empty array if no results
-      }
-    });
-  } else {
-    try {
-      var result=starNetVerified("/list_banned_name");
-      theLine=returnLineMatch(result,theReg,/^RETURN: \[SERVER, Banned: {/,/}, 0\]$/);
-      if (theLine){ // this will be empty if there were no results
-        tempArray=theLine.split(", "); // If only 1 result, it will still be in an array
-        for (let i=0;i<tempArray.length;i++){
-          outputArray.push(new PlayerObj(tempArray[i]));
-        }
-      }
-      return outputArray;
-    } catch (error){
-      // var theError=new Error("StarNet command failed when attempting to getBannedNameList()!");
-      // theError.code=1;
-      // throw theError;
-      throw error;
+
+
+function isBanned(inputArray,whatToLookFor){ // Sync function -- Processes input from getBannedAccountsList, getBannedIPList, or getBannedNameList
+  console.log("inputArray: " + inputArray); // temp
+  console.log("whatToLookFor:" + whatToLookFor); // temp
+  var theCheck=whatToLookFor.toString().toLowerCase(); // Allows objects that can be turned into strings to be used as input
+  for (let i=0;i<inputArray.length;i++){
+    console.log("Testing to see if '" + whatToLookFor + "' is equal to the banned name, '" + inputArray[i] +"'.");
+    if (inputArray[i].toString() == theCheck){
+      return true;
     }
   }
+  return false;
 }
+
 function getAdminsList(options){ // Returns an array of PlayerObj, will be an empty array if no admins returned
   // Note: ALWAYS RETURNS NAMES IN LOWERCASE
   // example:
