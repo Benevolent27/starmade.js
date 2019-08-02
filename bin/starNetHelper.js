@@ -597,7 +597,7 @@ function verifyResponse(input){ // input should be a full starNet.js response st
 
 
 async function starNetVerifiedCB(string,options,cb){ // Takes a string command.  Options are optional
-  var optionsToUse={ };
+  var optionsToUse={ }; // I'm creating the options object here, because it's changed and reused for retries
   if (typeof options == "object"){
     optionsToUse=options;
   }
@@ -606,10 +606,11 @@ async function starNetVerifiedCB(string,options,cb){ // Takes a string command. 
   optionsToUse.maxRetriesOnConnectionProblem=getOption(options,"maxRetriesOnConnectionProblem",60); // This is the maximum amount of retries
   optionsToUse.maxTimeToRetry=getOption(options,"maxTimeToRetry",60000); // This is to keep trying for a certain number of MS.
   optionsToUse.simulateProblem=getOption(options,"simulateProblem","none");
-  // If these options don't exist on the options, add them for the next try.
+  // If these options don't exist on the options, add them for the next try (if needed).
   optionsToUse.starNetVerifiedCBTryCount=getOption(options,"starNetVerifiedCBTryCount",1);
   optionsToUse.starNetVerifiedCBtimeToRetryTill=getOption(options,"starNetVerifiedCBtimeToRetryTill",new Date().getTime() + optionsToUse.maxTimeToRetry);
-
+  console.log("Using options:"); // temp
+  console.dir(optionsToUse);
   if (typeof string == "string"){
     await starNetCb(string,optionsToUse,function (err,result){
       if (err){
@@ -617,7 +618,7 @@ async function starNetVerifiedCB(string,options,cb){ // Takes a string command. 
         // We are throwing an error because the wrapper cannot do anything without StarNet.jar operating correctly.
         throw new Error("StarNet.jar either could not be run or terminated abnormally!  This should never happen!  You may need to redownload StarNet.jar or add permission to run it.");
       } else if (verifyResponse(result)){ // Verify that no error happened.
-          return cb(err,result); // No connection errors happened.  "err" will be Null
+          return cb(err,result); // No connection failure happened!  "err" will be Null.  This does NOT mean the command succeeded.  The result still needs to be processed, success/fail messages vary widely across commands.
       } else { // Some error happened
         var theErrorNum=99; // 99 error code is "unknown"
         theErrorNum=getStarNetErrorType(result,{"returnNum":true});
@@ -635,7 +636,7 @@ async function starNetVerifiedCB(string,options,cb){ // Takes a string command. 
           sleepPromise(optionsToUse.retryOnConnectionProblemMs);
           optionsToUse.starNetVerifiedCBTryCount++;
 
-          return starNetVerifiedCB(string,optionsToUse,cb);
+          return starNetVerifiedCB(string,optionsToUse,cb); // Try again
         } else { // function is either not set to retry, or it's used up all the time/retry counts.
           var theErrorText="Error when sending starNet.jar command: " + string;
           var theError=new Error(theErrorText);
