@@ -63,7 +63,7 @@ const stripFullUIDtoUID     = regExpHelper["stripFullUIDtoUID"]; // Function tha
 const SqlQueryObj           = sqlQuery.SqlQueryObj;
 var sectorProtectionsArray  = regExpHelper.sectorProtections; // This should include all the possible protections a sector can have.
 // const verifyStarNetResponse = starNetHelper.verifyResponse; // This can be used to perform a verification on a StarNet response without consuming the response
-// const starNetVerified       = starNetHelper.starNetVerified; // If the response does not verify, this consumes the response and throws an error instead
+// const starNetVerified       = starNetVerified; // If the response does not verify, this consumes the response and throws an error instead
 const {verifyStarNetResponse,starNetVerified,starNetVerifiedCB,returnMatchingLinesAsArray,checkForLine} = starNetHelper;
 // const copyArray             = objectHelper.copyArray;
 // const toNumIfPossible       = objectHelper.toNumIfPossible;
@@ -416,7 +416,7 @@ function showResponseCallback(error,output){ // This is a helper function for te
 function ServerObj(spawn){ // This will be used to run server commands or gather specific information regarding the server.
   // TODO:  Make it so the server is actually spawned when this object is created.
   // TODO: Add sections with information on the parameters used for the server, the path to the jar file ran, etc.
-
+  var self=this; // This is needed to keep this context within subfunctions
   this.filePath="This is just a filler for now till I complete this.";
   this.filePathWithArguments="more filler";
   // TODO:  Need to test all the methods below.
@@ -430,39 +430,102 @@ function ServerObj(spawn){ // This will be used to run server commands or gather
   // getWhitelistedIPs
   // getWhitelistedNames
   this.spawn=spawn;
-  this.onlinePlayers=getPlayerList;
-  this.getAdmins=function(options){ return getAdminsList(options) };
-  this.getBannedAccounts=function(options){ return getBannedAccountsList(options) };
-  this.getBannedIPs=function(options){ return getBannedIPList(options) };
-  this.getBannedNames=function(options){ return getBannedNameList(options) };
-  this.getWhitelistedAccounts=function(options){ return getWhitelistedAccountsList(options) };
-  this.getWhitelistedIPs=function(options){ return getWhitelistedIPList(options) };
-  this.getWhitelistedNames=function(options){ return getWhitelistedNameList(options) };
-  this.msg=function (message,options){ // Sends a message to online players.
-    // options can be {"type":plain/info/warning/error} <-- pick one.
-    let msgType=getOption(options,"type","plain"); // Default is a plain message, which sends to main chat.
-    let messageToSend=toStringIfPossible(message);
-    if (testIfInput(messageToSend)){
-      if (typeof messageToSend != "string"){
-        throw new Error("Invalid input given to ServerObj.msg!");
-      }
+  this.onlinePlayers=function(options,cb){
+    if (typeof cb == "function"){
+      return getPlayerList(options,cb);
     } else {
-      messageToSend=" "; // no message given, so let's just be nice and assume they want a blank message
-    }    
-    // I don't think there is any difference between using "plain" with this command and the /chat command.
-    return runSimpleCommand("/server_message_broadcast " + msgType + " '" + messageToSend.toString().trim() + "'",options);
-  }
-  this.botMsg=function (message,options){ // Sends a plain message to the player with the bot's name.
-    let messageToSend=toStringIfPossible(message);
-    if (testIfInput(message)){
-        if (typeof messageToSend != "string"){
-          console.error("Invalid input given to ServerObj.botMsg!");
-        }
-    } else {
-      messageToSend=" "; // no message given, so let's just be nice and assume they want a blank bot message
+      return simplePromisifyIt(self.onlinePlayers,options);
     }
-    return global.bot.serverMsg(messageToSend,options); // This should throw an error if there is a problem connecting to the server
   }
+  this.getAdmins=function(options,cb){ 
+    if (typeof cb == "function"){
+      return getAdminsList(options,cb);
+    } else {
+      return simplePromisifyIt(self.getAdmins,options);
+    }
+  };
+
+  this.getBannedAccounts=function(options,cb){ 
+    if (typeof cb == "function"){
+      return getBannedAccountsList(options,cb) 
+    } else {
+      return simplePromisifyIt(self.getBannedAccounts,options);
+    }
+  };
+  this.getBannedIPs=function(options,cb){ 
+    if (typeof cb == "function"){
+      return getBannedIPList(options,cb);
+    } else {
+      return simplePromisifyIt(self.getBannedIPs,options);
+    }
+  };
+  this.getBannedNames=function(options,cb){ 
+    if (typeof cb == "function"){
+      return getBannedNameList(options,cb); 
+    } else {
+      return simplePromisifyIt(self.getBannedNames,options);
+    }
+  };
+
+  this.getWhitelistedAccounts=function(options,cb){ 
+    if (typeof cb == "function"){
+      return getWhitelistedAccountsList(options,cb); 
+    } else {
+      return simplePromisifyIt(self.getWhitelistedAccounts,options);
+    }
+  };
+  this.getWhitelistedIPs=function(options,cb){ 
+    if (typeof cb == "function"){
+      return getWhitelistedIPList(options,cb); 
+    } else {
+      return simplePromisifyIt(self.getWhitelistedIPs,options);
+    }
+  };
+  this.getWhitelistedNames=function(options,cb){ 
+    if (typeof cb == "function"){
+      return getWhitelistedNameList(options,cb); 
+    } else {
+      return simplePromisifyIt(self.getWhitelistedNames,options);
+    }
+  };
+
+
+  this.msg=function (message,options,cb){ // Sends a message to online players.
+    // options can be {"type":plain/info/warning/error} <-- pick one.
+    if (typeof cb == "function"){
+      let msgType=getOption(options,"type","plain"); // Default is a plain message, which sends to main chat.
+      let messageToSend=toStringIfPossible(message);
+      if (testIfInput(messageToSend)){
+        if (typeof messageToSend != "string"){ // non blank, non stringable? What is it?!
+          return cb(new Error("Invalid input given to ServerObj.msg!"),null);
+        }
+      } else {
+        messageToSend=" "; // no message given, so let's just be nice and assume they want a blank message
+      }    
+      // I don't think there is any difference between using "plain" with this command and the /chat command.
+      return runSimpleCommand("/server_message_broadcast " + msgType + " '" + messageToSend.toString().trim() + "'",options,cb);
+    } else {
+      return simplePromisifyIt(self.msg,options);
+    }
+  }
+  this.botMsg=function (message,options,cb){ // Sends a plain message to the player with the bot's name.
+    if (typeof cb == "function"){
+      let messageToSend=toStringIfPossible(message);
+      if (testIfInput(message)){
+          if (typeof messageToSend != "string"){ // non blank, non stringable? What is it?!
+            return cb(new Error("Invalid input given to ServerObj.botMsg!"),null);
+          }
+      } else { // no message given, so let's just be nice and assume they want a blank bot message
+        messageToSend=" "; 
+      }
+      return global.bot.serverMsg(messageToSend,options,cb); // This should throw an error if there is a problem connecting to the server
+    } else {
+      return simplePromisifyIt(self.msg,options);
+    }
+  }
+
+
+  
   this.clearShipSpawns=function(options){ // clears all ship entities not spawned by a player ie. admin spawned or mobs
     // Note: Be careful with this!  This applies to the entire universe!
     // Does not have success or fail messages
@@ -1076,7 +1139,7 @@ function runSimpleCommand(theCommand,options,cb){ // If no cb is given, it will 
     if (fast==true){
       return sendDirectToServer(theCommand,cb);
     } else if (typeof cb == "function"){
-      starNetHelper.starNetVerified(theCommand,options,function(err,msgResult){
+      starNetVerified(theCommand,options,function(err,msgResult){
         if (err){
           return cb(err,msgResult);
         } else if (starNetHelper.checkForLine(msgResult,msgTestFail) || starNetHelper.checkForLine(msgResult,msgTestFail2)){ // The player was offline, did not exist, or other parameters were incorrect.
@@ -1086,7 +1149,7 @@ function runSimpleCommand(theCommand,options,cb){ // If no cb is given, it will 
         }
       });
     } else { // Run in Sync Mode -- this should not happen any longer.
-      var msgResult=starNetHelper.starNetVerified(theCommand); // This will throw an error if the connection to the server fails.
+      var msgResult=starNetVerified(theCommand); // This will throw an error if the connection to the server fails.
       if (starNetHelper.checkForLine(msgResult,msgTestFail) || starNetHelper.checkForLine(msgResult,msgTestFail2)){ // The player was offline, did not exist, or other parameters were incorrect.
         return false;
       } else { // The command appears to have not failed, so let's assume it succeeded.
@@ -1656,7 +1719,8 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
           if (fast){
             return sendDirectToServer(setSpawnLocationCommand,cb);
           } else {
-            return starNetVerified(setSpawnLocationCommand,function(err,result){ // TODO: Check if I should be returning starNetVerified or not.
+            return starNetVerified(setSpawnLocationCommand,options,function(err,result){ // TODO: Check if I should be returning starNetVerified or not.
+              console.log("using starnet verified to set the spawn location.  In objectCreator.js");
               if (err){
                 return cb(err,result);
               } else {
@@ -1688,7 +1752,7 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
           if (fast){
             return sendDirectToServer(changeSectorCommand,cb);         
           } else {
-            return starNetVerified(changeSectorCommand,function(err,result){ // TODO: Test this.  I don't know if I should be returning this or just running it?
+            return starNetVerified(changeSectorCommand,options,function(err,result){ // TODO: Test this.  I don't know if I should be returning this or just running it?
               if (err){
                 return cb(err,result);
               } else {
@@ -1721,7 +1785,7 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
           if (fast){
             return sendDirectToServer(changeSectorCommand,cb);         
           } else {
-            return starNetVerified(changeSectorCommand,function(err,result){ // TODO: Test this.  I don't know if I should be returning this or just running it?
+            return starNetVerified(changeSectorCommand,options,function(err,result){ // TODO: Test this.  I don't know if I should be returning this or just running it?
               if (err){
                 return cb(err,result);
               } else {
@@ -1772,7 +1836,7 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
           if (fast){
             return sendDirectToServer(teleportToCommand,cb);         
           } else {
-            return starNetVerified(teleportToCommand,function(err,result){
+            return starNetVerified(teleportToCommand,options,function(err,result){
               if (err){
                 return cb(err,result);
               } else {
@@ -2016,7 +2080,7 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
         if (current){
           commandToUse="/player_get_current_inventory "; // This command does not exist yet, so don't use this till it is.
         }
-        return starNetHelper.starNetVerified(commandToUse + self.name,options,function(err,result){
+        return starNetVerified(commandToUse + self.name,options,function(err,result){
           if (err){
             console.error("PlayerObj.inventory StarNet command failed for player: " + self.name);
             return cb(err,result);
@@ -2381,7 +2445,7 @@ function BluePrintObj(bluePrintName){
       // RETURN: [SERVER, END; Admin command execution ended, 0]
   this.info = function(options){
     var output={};
-    var result=starNetHelper.starNetVerified("/blueprint_info '" + this.name + "'"); // Throws an error if connection problem to the server
+    var result=starNetVerified("/blueprint_info '" + this.name + "'",options); // Throws an error if connection problem to the server
     if (result){
       output["UID"]=returnLineMatch(result,/^UID: .*/,/^UID: /);
       var theTest=returnLineMatch(result,/^Owner: .*/,/^Owner: /);
@@ -2585,10 +2649,10 @@ function SectorObj(xGiven,yGiven,zGiven){
       }
       return runSimpleCommand("/despawn_sector \"" + partOfShipNameToUse + "\" " + usedToUse + " " + shipOnlyToUse + " " + self.coords.toString(),options);
     }
-    self.isLoaded=function(){
+    self.isLoaded=function(options){
       // ^RETURN\: \[SERVER, LOADED SECTOR INFO\:
       // RETURN: [SERVER, LOADED SECTOR INFO: Sector[132](2, 2, 2); Permission[Peace,Protected,NoEnter,NoExit,NoIndication,NoFpLoss]: 000000; Seed: -4197430019395025102; Type: VOID;, 0]
-      let result=starNetVerified("/sector_info " + self.coords.toString());
+      let result=starNetVerified("/sector_info " + self.coords.toString(),options);
       let theReg=new RegExp("^RETURN: \\[SERVER, LOADED SECTOR INFO:.*");
       return starNetHelper.checkForLine(result,theReg);
     }
@@ -3044,7 +3108,7 @@ function EntityObj(fullUID,shipName){ // takes EITHER the full UID or the ship n
         if (fast){
           return sendDirectToServer(changeSectorCommand);         
         } else {
-          var result2=starNetHelper.starNetVerified(changeSectorCommand); // This will throw an error if the connection to the server fails.
+          var result2=starNetVerified(changeSectorCommand,options); // This will throw an error if the connection to the server fails.
           // Success: RETURN: [SERVER, [ADMIN COMMAND] [SUCCESS] changed sector for Benevolent27 to (1000, 1000, 1000), 0]
           // Fail: RETURN: [SERVER, [ADMIN COMMAND] [ERROR] player not found for your client Benevolent27, 0]
           var theReg3=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] \\[SUCCESS\\]");
@@ -3075,7 +3139,7 @@ function EntityObj(fullUID,shipName){ // takes EITHER the full UID or the ship n
         if (fast){
           return sendDirectToServer(teleportToCommand);         
         } else {
-          var result2=starNetHelper.starNetVerified(teleportToCommand); // This will throw an error if the connection to the server fails.
+          var result2=starNetVerified(teleportToCommand); // This will throw an error if the connection to the server fails.
           // Success: RETURN: [SERVER, [ADMIN COMMAND] teleported Benevolent27 to , 0]
           // Fail: RETURN: [SERVER, [ADMIN COMMAND] [ERROR] player not found for your client, 0]
           var theReg3=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] teleported");
@@ -3883,7 +3947,7 @@ function getPlayerList(options,cb){ // Returns an array of player objects for al
     return splitHelper2CB(theCommand,options,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult,cb);
   } else {  
     try {
-      var result=starNetHelper.starNetVerified(theCommand,options);
+      var result=starNetVerified(theCommand,options);
       return splitHelper2(result,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult);
     } catch (error){
       console.error(theErrorMsg);
@@ -3905,7 +3969,7 @@ function getWhitelistedNameList(options,cb){
     return splitHelper1CB(theCommand,options,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult,cb);
   } else {  
     try {
-      var result=starNetHelper.starNetVerified(theCommand,options);
+      var result=starNetVerified(theCommand,options);
       return splitHelper1(result,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult);
     } catch (error){
       console.error(theErrorMsg);
@@ -3927,7 +3991,7 @@ function getBannedNameList(options,cb){
     return splitHelper1CB(theCommand,options,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult,cb);
   } else {  
     try {
-      var result=starNetHelper.starNetVerified(theCommand,options);
+      var result=starNetVerified(theCommand,options);
       return splitHelper1(result,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult);
     } catch (error){
       console.error(theErrorMsg);
@@ -3985,7 +4049,7 @@ function getAdminsList(options,cb){ // TODO:  Test this.. there are 4 ways of do
         }
       });
     } else {
-      starNetVerified("/list_admins",function(err,result){
+      starNetVerified("/list_admins",options,function(err,result){
         if (err){
           console.error(theError);
           return cb(err,result);
@@ -4023,7 +4087,7 @@ function getAdminsList(options,cb){ // TODO:  Test this.. there are 4 ways of do
     }
   } else { // Sync mode slow
     try {
-      let result=starNetHelper.starNetVerified("/list_admins");
+      let result=starNetVerified("/list_admins");
       processLine=returnLineMatch(result,theReg,remReg,remReg2);
       processArray=processLine.split(", ");
       for (let i=0;i<processArray.length;i++){
@@ -4124,7 +4188,7 @@ function getBannedAccountsList(options,cb){ // Returns an array of SMNameObj
     return splitHelper1CB(theCommand,options,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult,cb);
   } else {  
     try {
-      var result=starNetHelper.starNetVerified(theCommand,options);
+      var result=starNetVerified(theCommand,options);
       return splitHelper1(result,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult);
     } catch (error){
       console.error(theErrorMsg);
@@ -4145,7 +4209,7 @@ function getWhitelistedAccountsList(options,cb){ // Returns an array of SMNameOb
     return splitHelper1CB(theCommand,options,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult,cb);
   } else {  
     try {
-      var result=starNetHelper.starNetVerified(theCommand,options);
+      var result=starNetVerified(theCommand,options);
       return splitHelper1(result,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult);
     } catch (error){
       console.error(theErrorMsg);
@@ -4198,7 +4262,7 @@ function getWhitelistedIPList(options,cb){
     return splitHelper1CB(theCommand,options,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult,cb);
   } else {  
     try {
-      var result=starNetHelper.starNetVerified(theCommand,options);
+      var result=starNetVerified(theCommand,options);
       return splitHelper1(result,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult);
     } catch (error){
       console.error(theErrorMsg);
@@ -4218,7 +4282,7 @@ function getBannedIPList(options,cb){
     return splitHelper1CB(theCommand,options,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult,cb);
   } else {  
     try {
-      var result=starNetHelper.starNetVerified(theCommand,options);
+      var result=starNetVerified(theCommand,options);
       return splitHelper1(result,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult);
     } catch (error){
       console.error(theErrorMsg);
