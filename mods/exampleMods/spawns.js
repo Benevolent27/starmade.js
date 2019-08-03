@@ -6,6 +6,6 @@
 global.event.on("playerSpawn", playerSpawn);
 function playerSpawn (player) {
     // These will complete as quickly as possible.
-    player.botMsgPromise("Welcome to the server you bodacious turtle!").catch((err) => console.error(err));
-    player.botMsgPromise("Welcome welcome!",{"type":"info"}).catch((err) => console.error(err));
+    player.botMsg("Welcome to the server you bodacious turtle!").catch((err) => console.error(err));
+    player.botMsg("Welcome welcome!",{"type":"info"}).catch((err) => console.error(err));
 };

@@ -56,7 +56,7 @@ global.event.on("command",command); // Only registered commands will trigger a "
 function command (player,command,args,messageObj) { // command events are given a PlayerObj, the command in lowercase (as a string), any words after the command as an array, and the original MessageObj if we need to look at it (such as to see what kind of channel the command was said in)
     // As we go through each command, I'd recommend you type them in-game to see what happens.
     
-    // Ok, so for this tutorial, I'll use the "PlayerObj.botMsgPromise" function to illustrate 
+    // Ok, so for this tutorial, I'll use the "PlayerObj.botMsg" function to illustrate 
     // the various ways of running the command and handling any errors.
     if (command == "reg1"){
         // This first example will always run as quickly as possible, and will PROBABLY 
@@ -64,12 +64,12 @@ function command (player,command,args,messageObj) { // command events are given 
         // if we are doing a lot of things at once and don't mind the order they happen in.
 
         // Try running this a few times in-game and you'll probably see what I mean.
-        player.botMsgPromise("Welcome to the server you bodacious turtle!").catch(function (err) { console.error(err) });
-        player.botMsgPromise("Welcome to the server you bodacious turtle2!").catch((err) => console.error(err)); // This is a shorter function declaration.  It's the same as above.
-        player.botMsgPromise("Welcome to the server you bodacious turtle3!").catch((err) => console.error(err));
-        player.botMsgPromise("Welcome to the server you bodacious turtle4!").catch((err) => console.error(err));
-        player.botMsgPromise("Welcome to the server you bodacious turtle5!").catch((err) => console.error(err));
-        player.botMsgPromise("Welcome to the server you bodacious turtle6!").catch((err) => console.error(err));
+        player.botMsg("Welcome to the server you bodacious turtle!").catch(function (err) { console.error(err) });
+        player.botMsg("Welcome to the server you bodacious turtle2!").catch((err) => console.error(err)); // This is a shorter function declaration.  It's the same as above.
+        player.botMsg("Welcome to the server you bodacious turtle3!").catch((err) => console.error(err));
+        player.botMsg("Welcome to the server you bodacious turtle4!").catch((err) => console.error(err));
+        player.botMsg("Welcome to the server you bodacious turtle5!").catch((err) => console.error(err));
+        player.botMsg("Welcome to the server you bodacious turtle6!").catch((err) => console.error(err));
 
         // For each one of the above commands, we handle any error.  This opens 6 connections to the
         // server very rapidly.  Each one might complete at different times, so we can't control
@@ -77,7 +77,7 @@ function command (player,command,args,messageObj) { // command events are given 
 
         // Note that for now, we are only handling connection errors, We are NOT checking the result
         // of each command to see whether the command succeeded or not.  
-        // For example, if a player goes offline, the botMsgPromise will not throw an error, since
+        // For example, if a player goes offline, the botMsg will not throw an error, since
         // the connection to the server succeeded, but the result it provides will be 'false',
         // to indicate that it did not succeed in messaging the player.
 
@@ -85,12 +85,12 @@ function command (player,command,args,messageObj) { // command events are given 
         // We can string Promise commands together using ".then".
         // This causes each command to run sequentially.  We can then attach 1 catch to the end
         // of the sequence to handle errors for any of the messages.
-        player.botMsgPromise("Welcome to the server you languishing lizard!").then(() =>
-        player.botMsgPromise("Welcome to the server you languishing lizard2!").then(() => // This line does not happen till the first line completes
-        player.botMsgPromise("Welcome to the server you languishing lizard3!").then(() => // Same for this line
-        player.botMsgPromise("Welcome to the server you languishing lizard4!").then(() =>  // etc.
-        player.botMsgPromise("Welcome to the server you languishing lizard5!").then(() =>
-        player.botMsgPromise("Welcome to the server you languishing lizard6!")
+        player.botMsg("Welcome to the server you languishing lizard!").then(() =>
+        player.botMsg("Welcome to the server you languishing lizard2!").then(() => // This line does not happen till the first line completes
+        player.botMsg("Welcome to the server you languishing lizard3!").then(() => // Same for this line
+        player.botMsg("Welcome to the server you languishing lizard4!").then(() =>  // etc.
+        player.botMsg("Welcome to the server you languishing lizard5!").then(() =>
+        player.botMsg("Welcome to the server you languishing lizard6!")
         ))))).catch( function (err) { // This handles errors for any of the above messages
              console.error(err)
             }); 
@@ -104,22 +104,22 @@ function command (player,command,args,messageObj) { // command events are given 
         
         // As above, this will run sequentially, stopping where the connection problem occurs.  
         // It will then skips to the closest ".catch", which is at the end.
-        player.botMsgPromise("Welcome to the server you salacious salamander!").then(() =>
-        player.botMsgPromise("Welcome to the server you salacious salamander2!").then(() =>
-        player.botMsgPromise("Welcome to the server you salacious salamander3!",{"simulateProblem":"wrongport","maxTimeToRetry":5000}).then(() =>
-        player.botMsgPromise("Welcome to the server you salacious salamander4!").then(() => // This never happens.
-        player.botMsgPromise("Welcome to the server you salacious salamander5!").then(() => // This never happens.
-        player.botMsgPromise("Welcome to the server you salacious salamander6!") // This never happens.
+        player.botMsg("Welcome to the server you salacious salamander!").then(() =>
+        player.botMsg("Welcome to the server you salacious salamander2!").then(() =>
+        player.botMsg("Welcome to the server you salacious salamander3!",{"simulateProblem":"wrongport","maxTimeToRetry":5000}).then(() =>
+        player.botMsg("Welcome to the server you salacious salamander4!").then(() => // This never happens.
+        player.botMsg("Welcome to the server you salacious salamander5!").then(() => // This never happens.
+        player.botMsg("Welcome to the server you salacious salamander6!") // This never happens.
         ))))).catch((err) => console.error(err)); // This handles the error and just prints it to the console.  I'm using javascript shorthand to declare the function to make it more compact.
     } else if (command == "reg4"){
         // These will run sequentially, but we handle errors for each individual message.
         // This allows the sequence to continue on past the error, since each error is resolved as it happens.
-        player.botMsgPromise("Welcome to the server you busy bee!").catch((err) => console.error(err)).then(() =>
-        player.botMsgPromise("Welcome to the server you busy bee2!").catch((err) => console.error(err)).then(() =>
-        player.botMsgPromise("Welcome to the server you busy bee3!",{"simulateProblem":"wrongport","maxTimeToRetry":5000}).catch((err) => console.error(err)).then(() =>
-        player.botMsgPromise("Welcome to the server you busy bee4!").catch((err) => console.error(err)).then(() => // Since the above error is resolved, this does happen.
-        player.botMsgPromise("Welcome to the server you busy bee5!").catch((err) => console.error(err)).then(() => // This also happens.
-        player.botMsgPromise("Welcome to the server you busy bee6!").catch((err) => console.error(err)) // And this happens too!
+        player.botMsg("Welcome to the server you busy bee!").catch((err) => console.error(err)).then(() =>
+        player.botMsg("Welcome to the server you busy bee2!").catch((err) => console.error(err)).then(() =>
+        player.botMsg("Welcome to the server you busy bee3!",{"simulateProblem":"wrongport","maxTimeToRetry":5000}).catch((err) => console.error(err)).then(() =>
+        player.botMsg("Welcome to the server you busy bee4!").catch((err) => console.error(err)).then(() => // Since the above error is resolved, this does happen.
+        player.botMsg("Welcome to the server you busy bee5!").catch((err) => console.error(err)).then(() => // This also happens.
+        player.botMsg("Welcome to the server you busy bee6!").catch((err) => console.error(err)) // And this happens too!
         )))));
     }
 };
@@ -136,24 +136,24 @@ async function asyncCommand (player,command,args,messageObj) {
         // This will always run in order continuing from one to the next.
         // Since we are handling errors for each command, when the StarNet.jar error
         // happens, things continue on.
-        await player.botMsgPromise("Welcome to the server you gnarly toad!").catch((err) => console.error(err));
-        await player.botMsgPromise("Welcome to the server you gnarly toad2!").catch((err) => console.error(err));
-        await player.botMsgPromise("Welcome to the server you gnarly toad3!",{"simulateProblem":"wrongport","maxTimeToRetry":5000}).catch((err) => console.error(err));
-        await player.botMsgPromise("Welcome to the server you gnarly toad4!").catch((err) => console.error(err));
-        await player.botMsgPromise("Welcome to the server you gnarly toad5!").catch((err) => console.error(err));
-        await player.botMsgPromise("Welcome to the server you gnarly toad6!").catch((err) => console.error(err));
+        await player.botMsg("Welcome to the server you gnarly toad!").catch((err) => console.error(err));
+        await player.botMsg("Welcome to the server you gnarly toad2!").catch((err) => console.error(err));
+        await player.botMsg("Welcome to the server you gnarly toad3!",{"simulateProblem":"wrongport","maxTimeToRetry":5000}).catch((err) => console.error(err));
+        await player.botMsg("Welcome to the server you gnarly toad4!").catch((err) => console.error(err));
+        await player.botMsg("Welcome to the server you gnarly toad5!").catch((err) => console.error(err));
+        await player.botMsg("Welcome to the server you gnarly toad6!").catch((err) => console.error(err));
     } else if (command == "async2"){
         // We cannot string these together with a .catch to the end of the sequence, because when
         // await resolves the command, a promise is not returned.  Just the result is.
         // However we can wrap them all in a try/catch, provided we use await on each one.
         try {
-            await player.botMsgPromise("Welcome to the server you cuddly koala!");
-            await player.botMsgPromise("Welcome to the server you cuddly koala2!");
-            await player.botMsgPromise("Welcome to the server you cuddly koala3!",{"simulateProblem":"wrongport","maxTimeToRetry":5000});
+            await player.botMsg("Welcome to the server you cuddly koala!");
+            await player.botMsg("Welcome to the server you cuddly koala2!");
+            await player.botMsg("Welcome to the server you cuddly koala3!",{"simulateProblem":"wrongport","maxTimeToRetry":5000});
             // Promise error thrown above
-            await player.botMsgPromise("Welcome to the server you cuddly koala4!"); // This does not happen.
-            await player.botMsgPromise("Welcome to the server you cuddly koala5!"); // This does not happen.
-            await player.botMsgPromise("Welcome to the server you cuddly koala6!"); // This does not happen.
+            await player.botMsg("Welcome to the server you cuddly koala4!"); // This does not happen.
+            await player.botMsg("Welcome to the server you cuddly koala5!"); // This does not happen.
+            await player.botMsg("Welcome to the server you cuddly koala6!"); // This does not happen.
         } catch (err){  // This catches any errors thrown -- including coding errors!  Be careful with this.
             console.error(err) 
         }; 
@@ -166,12 +166,12 @@ async function asyncCommand (player,command,args,messageObj) {
         // Then Later on when the promise finishes, the promise error is thrown outside of 
         // the try/catch and is unresolved.
         try {
-            player.botMsgPromise("Welcome to the server you spontaneous sponge!");
-            player.botMsgPromise("Welcome to the server you spontaneous sponge2!");
-            player.botMsgPromise("Welcome to the server you spontaneous sponge3!",{"simulateProblem":"wrongport","maxTimeToRetry":10000}); // The StarNet.jar promise error will not be resolved.
-            player.botMsgPromise("Welcome to the server you spontaneous sponge4!"); // This and below still happens.
-            player.botMsgPromise("Welcome to the server you spontaneous sponge5!");
-            player.botMsgPromise("Welcome to the server you spontaneous sponge6!");
+            player.botMsg("Welcome to the server you spontaneous sponge!");
+            player.botMsg("Welcome to the server you spontaneous sponge2!");
+            player.botMsg("Welcome to the server you spontaneous sponge3!",{"simulateProblem":"wrongport","maxTimeToRetry":10000}); // The StarNet.jar promise error will not be resolved.
+            player.botMsg("Welcome to the server you spontaneous sponge4!"); // This and below still happens.
+            player.botMsg("Welcome to the server you spontaneous sponge5!");
+            player.botMsg("Welcome to the server you spontaneous sponge6!");
         } catch (err){  // This will NOT handle errors thrown by any of the messages.
             console.error(err) 
         }; 
@@ -193,17 +193,17 @@ async function asyncCommand (player,command,args,messageObj) {
     } else if (command == "async4"){
         // If we want these to run out of order, we can simply handle the errors for each 
         // individual command, like we did in the 'async1' example.
-        player.botMsgPromise("Welcome to the server you gnarly toad!").catch((err) => console.error(err));
-        player.botMsgPromise("Welcome to the server you gnarly toad2!").catch((err) => console.error(err));
-        player.botMsgPromise("Welcome to the server you gnarly toad3!",{"simulateProblem":"wrongport","maxTimeToRetry":5000}).catch((err) => console.error(err));
-        player.botMsgPromise("Welcome to the server you gnarly toad4!").catch((err) => console.error(err));
-        player.botMsgPromise("Welcome to the server you gnarly toad5!").catch((err) => console.error(err));
-        player.botMsgPromise("Welcome to the server you gnarly toad6!").catch((err) => console.error(err));
+        player.botMsg("Welcome to the server you gnarly toad!").catch((err) => console.error(err));
+        player.botMsg("Welcome to the server you gnarly toad2!").catch((err) => console.error(err));
+        player.botMsg("Welcome to the server you gnarly toad3!",{"simulateProblem":"wrongport","maxTimeToRetry":5000}).catch((err) => console.error(err));
+        player.botMsg("Welcome to the server you gnarly toad4!").catch((err) => console.error(err));
+        player.botMsg("Welcome to the server you gnarly toad5!").catch((err) => console.error(err));
+        player.botMsg("Welcome to the server you gnarly toad6!").catch((err) => console.error(err));
     
     } else if (command == "async5"){
         // We can handle each result, one by one.  
         // This is messy and probably unnecessary for messages.  Blech!
-        player.botMsgPromise("Welcome to the server you spontaneous sponge!").then( function (result) {
+        player.botMsg("Welcome to the server you spontaneous sponge!").then( function (result) {
            if (result){
                console.log("Message succeeded!");
            } else {
@@ -212,7 +212,7 @@ async function asyncCommand (player,command,args,messageObj) {
         }, function (err) {
                console.error("Error sending message: " + err);
         });
-        player.botMsgPromise("Welcome to the server you spontaneous sponge2!").then( function (result) {
+        player.botMsg("Welcome to the server you spontaneous sponge2!").then( function (result) {
             if (result){
                 console.log("Message succeeded!");
             } else {
@@ -221,7 +221,7 @@ async function asyncCommand (player,command,args,messageObj) {
          }, function (err) {
                 console.error("Error sending message: " + err);
          });
-         player.botMsgPromise("Welcome to the server you spontaneous sponge3!").then( function (result) {
+         player.botMsg("Welcome to the server you spontaneous sponge3!").then( function (result) {
             if (result){
                 console.log("Message succeeded!");
             } else {
@@ -230,7 +230,7 @@ async function asyncCommand (player,command,args,messageObj) {
          }, function (err) {
                 console.error("Error sending message: " + err);
          });
-         player.botMsgPromise("Welcome to the server you spontaneous sponge4!").then( function (result) {
+         player.botMsg("Welcome to the server you spontaneous sponge4!").then( function (result) {
             if (result){
                 console.log("Message succeeded!");
             } else {
@@ -241,23 +241,23 @@ async function asyncCommand (player,command,args,messageObj) {
          });
     } else if (command == "async6"){
         // We can use a function to handle the errors in a standardized way.  This keeps things nice and simple.
-        handleMsgPromise(player.botMsgPromise("Welcome to the server you spontaneous sponge!"));
-        handleMsgPromise(player.botMsgPromise("Welcome to the server you spontaneous sponge2!"));
-        handleMsgPromise(player.botMsgPromise("Welcome to the server you spontaneous sponge3!",{"simulateProblem":"wrongport","maxTimeToRetry":10000}));
-        handleMsgPromise(player.botMsgPromise("Welcome to the server you spontaneous sponge4!"));
-        handleMsgPromise(player.botMsgPromise("Welcome to the server you spontaneous sponge5!"));
-        handleMsgPromise(player.botMsgPromise("Welcome to the server you spontaneous sponge6!"));
+        handleMsgPromise(player.botMsg("Welcome to the server you spontaneous sponge!"));
+        handleMsgPromise(player.botMsg("Welcome to the server you spontaneous sponge2!"));
+        handleMsgPromise(player.botMsg("Welcome to the server you spontaneous sponge3!",{"simulateProblem":"wrongport","maxTimeToRetry":10000}));
+        handleMsgPromise(player.botMsg("Welcome to the server you spontaneous sponge4!"));
+        handleMsgPromise(player.botMsg("Welcome to the server you spontaneous sponge5!"));
+        handleMsgPromise(player.botMsg("Welcome to the server you spontaneous sponge6!"));
     } else if (command == "async7"){
         // Usually a LOT of messages are sent to players, so we probably don't want to clog up our console
         // with a ton of success/fail messages.  Also, unless it's a connection error, normally a message 
         // command only fails if the player goes offline.  In my experience, it's ok to just ignore the 
         // failures of the command.  So I'd recommend just processing the errors.
-        handleOnlyErrors(player.botMsgPromise("Welcome to the server you spontaneous sponge!"));
-        handleOnlyErrors(player.botMsgPromise("Welcome to the server you spontaneous sponge2!"));
-        handleOnlyErrors(player.botMsgPromise("Welcome to the server you spontaneous sponge3!",{"simulateProblem":"wrongport","maxTimeToRetry":10000}));
-        handleOnlyErrors(player.botMsgPromise("Welcome to the server you spontaneous sponge4!"));
-        handleOnlyErrors(player.botMsgPromise("Welcome to the server you spontaneous sponge5!"));
-        handleOnlyErrors(player.botMsgPromise("Welcome to the server you spontaneous sponge6!"));
+        handleOnlyErrors(player.botMsg("Welcome to the server you spontaneous sponge!"));
+        handleOnlyErrors(player.botMsg("Welcome to the server you spontaneous sponge2!"));
+        handleOnlyErrors(player.botMsg("Welcome to the server you spontaneous sponge3!",{"simulateProblem":"wrongport","maxTimeToRetry":10000}));
+        handleOnlyErrors(player.botMsg("Welcome to the server you spontaneous sponge4!"));
+        handleOnlyErrors(player.botMsg("Welcome to the server you spontaneous sponge5!"));
+        handleOnlyErrors(player.botMsg("Welcome to the server you spontaneous sponge6!"));
     }
 }
 
