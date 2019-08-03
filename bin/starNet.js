@@ -197,7 +197,7 @@ function starNetSync(command,options){
 
 
   var simulateProblem=getOption(options,"simulateProblem","none").toLowerCase(); // For testing purposes only to ascertain errors
-  console.log("simulateProblem: " + simulateProblem);
+  // console.log("simulateProblem: " + simulateProblem);
   if (testIfInput(command)){
     if (getSuperAdminPassword()){
       var results;
