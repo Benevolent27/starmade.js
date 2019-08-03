@@ -1,6 +1,8 @@
 // The purpose of this default mod is to process commands and fire off the command event.
 // It also provides the !help command.
 
+// TODO:  Once promise methods are all done, switch this over to using them.
+
 const path=require('path');
 const fs=require('fs');
 // Pull the needed objects from the global variable.
@@ -119,71 +121,71 @@ function init (){
     global.regCommand("saveHelpSettings","HiddenHelpers",true,false);
 };
 event.on('command', command);
-function command (player,command,args,messageObj) { // Normally we would not use the messageObj, but it's here if for some reason we want the command to operate differently depending on channel sent to
+async function command (player,command,args,messageObj) { // Normally we would not use the messageObj, but it's here if for some reason we want the command to operate differently depending on channel sent to
     if (command == "changehelpwidth"){
         var theNewNum=toNumIfPossible(args[0]);
         if (typeof theNewNum=="number"){
             if (theNewNum>10){
                 global["commandSettings"]["defaultHelpWidth"]=theNewNum;
-                player.botMsg("Changed help width to: " + theNewNum);
+                player.botMsg("Changed help width to: " + theNewNum).catch((err) => console.error(err));
             } else {
-                player.botMsg("ERROR:  Please specify a positive number that is larger than 10!");
+                player.botMsg("ERROR:  Please specify a positive number that is larger than 10!").catch((err) => console.error(err));
             }
         } else {
-            player.botMsg("This command is used to change the width of the help to a certain number of max characters.");
-            player.botMsg("Example: " + commandOperator + "changehelpwidth 90");
+            player.botMsg("This command is used to change the width of the help to a certain number of max characters.").catch((err) => console.error(err));
+            player.botMsg("Example: " + commandOperator + "changehelpwidth 90").catch((err) => console.error(err));
         }
     }  else if (command == "savehelpsettings"){
-        player.botMsg("Saving the Help settings file..");
+        player.botMsg("Saving the Help settings file..").catch((err) => console.error(err));
         try {
             writeSettings();
-            player.msg("Done!");
+            player.msg("Done!").catch((err) => console.error(err));
         } catch (err){
             console.error(err.toString());
-            player.botMsg("ERROR:  Unable to write to help file!  Try again!");
+            player.botMsg("ERROR:  Unable to write to help file!  Try again!").catch((err) => console.error(err));
         }
     }  else if (command == "reloadhelpsettings"){
-        player.botMsg("Reloading the Help settings file.");
+        player.botMsg("Reloading the Help settings file.").catch((err) => console.error(err));
         reloadSettingsFile();
     }  else if (command == "helpcategorysuffix"){
         if (args[0]){
             let valToUse=args[0].replace('"',"").replace("'","");
-            player.botMsg("Set the Help Category Suffix to: " + valToUse);
+            player.botMsg("Set the Help Category Suffix to: " + valToUse).catch((err) => console.error(err));
             defaultSettings["categorySuffix"]=valToUse;
         } else {
-           player.botMsg("Usage: " + commandOperator + "helpCategorySuffix aStringValue");
+           player.botMsg("Usage: " + commandOperator + "helpCategorySuffix aStringValue").catch((err) => console.error(err));
         }
     }  else if (command == "helpcategoryprefix"){
         if (args[0]){
             let valToUse=args[0].replace('"',"").replace("'","");
-            player.botMsg("Set the Help Category Prefix to: " + valToUse);
+            player.botMsg("Set the Help Category Prefix to: " + valToUse).catch((err) => console.error(err)).catch((err) => console.error(err));
             defaultSettings["categoryPrefix"]=valToUse;
         } else {
-           player.botMsg("Usage: " + commandOperator + "helpCategoryPrefix aStringValue");
+           player.botMsg("Usage: " + commandOperator + "helpCategoryPrefix aStringValue").catch((err) => console.error(err));
         }
     }  else if (command == "helpcommandsuffix"){
         if (args[0]){
             let valToUse=args[0].replace('"',"").replace("'","");
-            player.botMsg("Set the Help Command Suffix to: " + valToUse);
+            player.botMsg("Set the Help Command Suffix to: " + valToUse).catch((err) => console.error(err));
             defaultSettings["commandSuffix"]=valToUse;
         } else {
-           player.botMsg("Usage: " + commandOperator + "helpCommandSpacer aStringValue");
+           player.botMsg("Usage: " + commandOperator + "helpCommandSpacer aStringValue").catch((err) => console.error(err));
         }
     }  else if (command == "helpcommandspacer"){
         if (args[0]){
             let valToUse=args[0].replace('"',"").replace("'","");
-            player.botMsg("Set the Help Command Spacer to: " + valToUse);
+            player.botMsg("Set the Help Command Spacer to: " + valToUse).catch((err) => console.error(err));
             defaultSettings["commandSpacer"]=valToUse;
         } else {
-           player.botMsg("Usage: " + commandOperator + "helpCommandSpacer aStringValue");
+           player.botMsg("Usage: " + commandOperator + "helpCommandSpacer aStringValue").catch((err) => console.error(err));
         }
     }  else if (command == "helpcommandprefix"){
         if (args[0]){
             let valToUse=args[0].replace('"',"").replace("'","");
-            player.botMsg("Set the Help Command Prefix to: " + valToUse);
+            player.botMsg("Set the Help Command Prefix to: " + valToUse).catch((err) => console.error(err));
             defaultSettings["commandPrefix"]=valToUse;
         } else {
-           player.botMsg("Usage: " + commandOperator + "helpCommandPrefix aStringValue");
+           player.botMsg("Usage: " + commandOperator + "helpCommandPrefix aStringValue").catch((err) => console.error(err));
         }
 
 
@@ -193,18 +195,18 @@ function command (player,command,args,messageObj) { // Normally we would not use
             if (commands.hasOwnProperty(lowerCaseArg)){
                 var tempObj=commands[lowerCaseArg];
                 if (tempObj.displayInHelp){
-                    player.botMsg("Hiding the \"" + args[0] + "\" command!");
+                    player.botMsg("Hiding the \"" + args[0] + "\" command!").catch((err) => console.error(err));
                     tempObj["displayInHelp"]=false;
                 } else {
-                    player.botMsg("Unhiding the \"" + args[0] + "\" command!");
+                    player.botMsg("Unhiding the \"" + args[0] + "\" command!").catch((err) => console.error(err));
                     tempObj["displayInHelp"]=true;
                 }
                 global.regCommand(tempObj); // the regCommand function can accept an object input.
             } else {
-                player.botMsg("ERROR:  Could not hide the \"" + args[0] + "\" command!  It does not exist!");
+                player.botMsg("ERROR:  Could not hide the \"" + args[0] + "\" command!  It does not exist!").catch((err) => console.error(err));
             }
         } else {
-            player.botMsg("ERROR:  Please give a valid command to toggle hide for.");
+            player.botMsg("ERROR:  Please give a valid command to toggle hide for.").catch((err) => console.error(err));
             player.msg("Example: " + commandOperator + "togglehide SomeCommand");
         }
     }
@@ -309,7 +311,7 @@ function message (messageObj) { // Handle messages sent from players
                 if (playerAdminCheck){
                     event.emit('command',messageObj.sender,lowerCaseCommand,textArray,messageObj);
                 } else {
-                    messageObj.sender.botMsg("Sorry, but this is an admin only command, and you are not an admin!",{"fast":true});
+                    messageObj.sender.botMsg("Sorry, but this is an admin only command, and you are not an admin!",{"fast":true}).catch((err) => console.error(err));
                 }
 
                 console.log("'command' event emitted!"); // temp
@@ -336,13 +338,13 @@ function message (messageObj) { // Handle messages sent from players
                         if (playerAdminCheck){
                             event.emit('command',messageObj.sender,lowerCaseSubCommand,textArray,messageObj); // The messageObj is unchanged, so a mod can detect if it was ran with the !help command or "!command help" if needed for some reason.
                         } else {
-                            messageObj.sender.botMsg("Sorry, you cannot receive help on this command because it is admin-only, and you are not an admin!",{"fast":true});
+                            messageObj.sender.botMsg("Sorry, you cannot receive help on this command because it is admin-only, and you are not an admin!",{"fast":true}).catch((err) => console.error(err));
                         }
 
                         // This expects the mod to handle any help request. If it doesn't process the help request, this is the mod creator's fault.  This cannot verify help exists for the command.
                     } else {
-                        messageObj.sender.botMsg("ERROR:  \"" + subCommand + "\" is not a valid command, so there is no help for it!");
-                        messageObj.sender.botMsg("To view a list of wrapper commands, type: !help");
+                        messageObj.sender.botMsg("ERROR:  \"" + subCommand + "\" is not a valid command, so there is no help for it!").catch((err) => console.error(err));
+                        messageObj.sender.botMsg("To view a list of wrapper commands, type: !help").catch((err) => console.error(err));
                     }
                 } else {
                     // If no arguments are given, then display all the commands in an orderly way
@@ -429,7 +431,7 @@ function message (messageObj) { // Handle messages sent from players
                     if (commandsAddedNum>0){
                         var theFinalArray=[];
                         var categoriesListed=[];
-                        messageObj.sender.botMsg("I can perform the following commands:",{"fast":true});
+                        messageObj.sender.botMsg("I can perform the following commands:",{"fast":true}).catch((err) => console.error(err));
                         for (var finalCategory in commandCategories) {
                             if (commandCategories.hasOwnProperty(finalCategory)) {
                                 theFinalArray=commandCategories[finalCategory];
@@ -448,7 +450,7 @@ function message (messageObj) { // Handle messages sent from players
                         messageObj.sender.msg("For help on a command, type !help [command]",{"fast":true});
                     } else {
                         // No commands are set up or visible.
-                        messageObj.sender.botMsg("There do not appear to be any commands visible!",{"fast":true});
+                        messageObj.sender.botMsg("There do not appear to be any commands visible!",{"fast":true}).catch((err) => console.error(err));
                     }
                 }
                 console.log("Help command finished.");
