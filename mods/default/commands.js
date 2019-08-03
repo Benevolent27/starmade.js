@@ -132,14 +132,14 @@ async function command (player,command,args,messageObj) { // Normally we would n
                 player.botMsg("ERROR:  Please specify a positive number that is larger than 10!").catch((err) => console.error(err));
             }
         } else {
-            player.botMsg("This command is used to change the width of the help to a certain number of max characters.").catch((err) => console.error(err));
-            player.botMsg("Example: " + commandOperator + "changehelpwidth 90").catch((err) => console.error(err));
+            await player.botMsg("This command is used to change the width of the help to a certain number of max characters.").catch((err) => console.error(err));
+            await player.botMsg("Example: " + commandOperator + "changehelpwidth 90").catch((err) => console.error(err));
         }
     }  else if (command == "savehelpsettings"){
         player.botMsg("Saving the Help settings file..").catch((err) => console.error(err));
         try {
             writeSettings();
-            player.msg("Done!").catch((err) => console.error(err));
+            await player.msg("Done!").catch((err) => console.error(err));
         } catch (err){
             console.error(err.toString());
             player.botMsg("ERROR:  Unable to write to help file!  Try again!").catch((err) => console.error(err));
