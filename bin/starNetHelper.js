@@ -533,11 +533,11 @@ function checkForLine(input,regExp){
   // This is designed to look through starNet responses for a specific regExp on every line and return true if at least one instance of the pattern is found
   // This should be used mostly for verifying if there were errors or successes
   if (typeof input == "string" && getObjType(regExp) == "RegExp"){
-    var returnVal=false;
+    var returnVal=Boolean(false);
     var theArray=input.trim().split("\n");
     for (let i = 0;i < theArray.length;i++) {
       if (regExp.test(theArray[i])){
-        returnVal=true;
+        returnVal=Boolean(true);
         break;
       }
     }
