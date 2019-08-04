@@ -92,18 +92,18 @@ function sqlQuery(sqlQuery,cb){ // Needs testing // Also the code here can be cl
             returnObj["mapArray"]=mapifyColumnsAndAllData(theResults["columns"],theResults["data"]);
             returnObj["objArray2"]=function(){
               var returnArray=[];
-              for (let i=0;i<this.mapArray.length;i++){
-                returnArray.push(objHelper.strMapToObj(this.mapArray[i]));
+              for (let i=0;i<returnObj.mapArray.length;i++){
+                returnArray.push(objHelper.strMapToObj(returnObj.mapArray[i]));
               }
               return returnArray;
             };
             returnObj["objArray"]=convertMapArrayToObjectArray(returnObj.mapArray);
             returnObj["columns"]=theResults["columns"];
             // I'm changing this to be a value rather than function, because it occured to me that if there are 0 results, the map should be empty
-            // this.columns=function(){
+            // returnObj.columns=function(){
             //   var returnArray=[];
-            //   if (this.mapArray.length > 0){
-            //     returnArray=[...this.mapArray[0].keys()];
+            //   if (returnObj.mapArray.length > 0){
+            //     returnArray=[...returnObj.mapArray[0].keys()];
             //   }
             //   return returnArray;
             // }
