@@ -1,6 +1,7 @@
 module.exports={ // top exporting to allow circular dependencies to work.
   SqlQueryObj, // DO NOT USE THE OBJECT DIRECTLY FROM THIS FILE, USE THE objectCreator.js script for that to avoid unsupported circular dependencies, since that script uses export injection to provide this object.
-  mapifyColumnsAndAllData // This takes an array with columns, and another array with all the data, spitting out an array of maps
+  mapifyColumnsAndAllData, // This takes an array with columns, and another array with all the data, spitting out an array of maps
+  sqlQuery
 };
 
 // TODO:  Add callback forms for all StarNet.jar queries
@@ -53,7 +54,74 @@ function getSQLquery(query){ // This will preprocess a query so that it should w
     throw new Error("Invalid parameter given as query to getSQLquery function!");
   }
 }
-function SqlQueryObj(sqlQuery){
+
+function sqlQuery(sqlQuery,cb){ // Needs testing // Also the code here can be cleaned up since it's a bit wonky
+  if (typeof sqlQuery == "string" && sqlQuery != ""){
+    var queryToUse=getSQLquery(sqlQuery);
+    return starNet(queryToUse,function(err,resultsStr){
+      var returnObj={};
+      if (err){
+        console.error("ERROR when performing sqlQuery on query: " + queryToUse);
+        return cb(err,resultsStr);
+      }
+      if (!verifyResponse(resultsStr)){
+        var theError="StarNet failed when performing sqlQuery, '" + sqlQuery + "'!";
+        console.error(theError);
+        return cb(new Error(theError),resultsStr);
+      }
+      var tempArray=[]; // Let's clean up the results so it only contains the relevant SQL lines
+      tempArray=resultsStr.split("\n");
+      while (tempArray.length > 0 && !(/^RETURN: \[SERVER, SQL#/).test(tempArray[0])){
+        tempArray.shift();
+      }
+      // Trim the bottom
+      while (tempArray.length > 0 && !(/^RETURN: \[SERVER, SQL#/).test(tempArray[tempArray.length-1])){
+        tempArray.pop();
+      }
+      for (let i=0;i<tempArray.length;i++){
+        tempArray[i]=tempArray[i].replace(/(^RETURN: \[SERVER, SQL#[0-9]+: ")|(", 0\]$)/g,"").split('";"');
+      }
+      var theResults=new ReturnObj(tempArray); // Splits the 2 part array into an object
+      if (theResults){ // There should always be a result array, unless some unspeakably horribly thing happens
+        if (theResults["columns"]){ // columns should ALWAYS return, even as an empty array, unless some unspeakably horrible thing happens
+          if (theResults["columns"].length > 0){
+            // Even if there are no results found, a valid SQL query ALWAYS returns the columns
+            returnObj["error"]=false;
+            returnObj["mapArray"]=mapifyColumnsAndAllData(theResults["columns"],theResults["data"]);
+            returnObj["objArray2"]=function(){
+              var returnArray=[];
+              for (let i=0;i<this.mapArray.length;i++){
+                returnArray.push(objHelper.strMapToObj(this.mapArray[i]));
+              }
+              return returnArray;
+            };
+            returnObj["objArray"]=convertMapArrayToObjectArray(this.mapArray);
+            returnObj["columns"]=theResults["columns"];
+            // I'm changing this to be a value rather than function, because it occured to me that if there are 0 results, the map should be empty
+            // this.columns=function(){
+            //   var returnArray=[];
+            //   if (this.mapArray.length > 0){
+            //     returnArray=[...this.mapArray[0].keys()];
+            //   }
+            //   return returnArray;
+            // }
+          } else {
+            // If there were 0 columns, then it means the sql query was invalid.
+            returnObj["error"]=addNumToErrorObj(new Error("Invalid SQL query!"),1);
+          }
+        } else {
+          // If the columns field is undefined then, then it means the sql query was invalid.
+          returnObj["error"]=addNumToErrorObj(new Error("Invalid SQL query!"),1);
+        }
+      }
+      return cb(null,returnObj); // Should never be empty.  It should at least list the columns.
+    });
+  } else {
+    return cb(new Error("Invalid input given to sqlQuery as 'sqlQuery'!"),null);
+  }
+}
+
+function SqlQueryObj(sqlQuery){ // TODO:  Discontinue this object since it relies on Sync methods in preference to the sqlQuery function.
   this.query=sqlQuery;
   this.time=Date.now();
   // console.log("Running sql query: " + sqlQuery);
