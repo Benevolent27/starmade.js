@@ -97,7 +97,7 @@ function sqlQuery(sqlQuery,cb){ // Needs testing // Also the code here can be cl
               }
               return returnArray;
             };
-            returnObj["objArray"]=convertMapArrayToObjectArray(this.mapArray);
+            returnObj["objArray"]=convertMapArrayToObjectArray(returnObj.mapArray);
             returnObj["columns"]=theResults["columns"];
             // I'm changing this to be a value rather than function, because it occured to me that if there are 0 results, the map should be empty
             // this.columns=function(){
