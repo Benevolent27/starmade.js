@@ -4,6 +4,8 @@ module.exports={ // top exporting to allow circular dependencies to work.
   sqlQuery
 };
 
+// TODO: Discontinue the SqlQuery object in favor of the sqlQuery function and merge this into the StarNetHelper.js file.
+
 // TODO:  Add callback forms for all StarNet.jar queries
 const path=require('path');
 const binFolder=path.resolve(__dirname);
