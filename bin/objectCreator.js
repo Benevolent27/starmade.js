@@ -38,9 +38,9 @@ const spawn                = require('child_process').spawn;
 const http                 = require('http');
 const miscHelpers          = require(path.join(binFolder,"miscHelpers.js"));
 const requireBin           = miscHelpers["requireBin"];
-const sqlQuery             = requireBin("sqlQuery.js");
+const sqlQueryJs             = requireBin("sqlQuery.js");
 // SqlQueryObj is not in the module.exports above because it cannot be defined till after sqlQuery.js is required.
-module.exports.SqlQueryObj = sqlQuery.SqlQueryObj; // Module injections should occur as quickly as possible to allow circular dependencies to function properly
+module.exports.SqlQueryObj = sqlQueryJs.SqlQueryObj; // Module injections should occur as quickly as possible to allow circular dependencies to function properly
 const starNet              = requireBin("starNet.js");
 const {starNetSync,starNetCb}=starNet;
 const starNetHelper        = requireBin("starNetHelper.js");
@@ -60,10 +60,10 @@ var lockFile   = path.join(mainFolder,"server.lck");
 
 // Aliases for requires - These are set up for readability
 const stripFullUIDtoUID     = regExpHelper["stripFullUIDtoUID"]; // Function that removes text like ENTITY_SHIP_ and ENTITY_PLANET_ from the beginning of a full UID so it can be used to perform SQL queries on UID
-const SqlQueryObj           = sqlQuery.SqlQueryObj;
 var sectorProtectionsArray  = regExpHelper.sectorProtections; // This should include all the possible protections a sector can have.
 // const verifyStarNetResponse = starNetHelper.verifyResponse; // This can be used to perform a verification on a StarNet response without consuming the response
 // const starNetVerified       = starNetVerified; // If the response does not verify, this consumes the response and throws an error instead
+const {sqlQuery,SqlQueryObj}=sqlQueryJs;
 const {verifyStarNetResponse,starNetVerified,starNetVerifiedCB,returnMatchingLinesAsArray,checkForLine} = starNetHelper;
 // const copyArray             = objectHelper.copyArray;
 // const toNumIfPossible       = objectHelper.toNumIfPossible;
@@ -164,13 +164,12 @@ function showResponseCallback(error,output){ // This is a helper function for te
 // var server;  // This is needed so objects can send text to the server directly.  I may add the global object to this as well.
 // var global;
 
-function ServerObj(spawn){ // This will be used to run server commands or gather specific information regarding the server.
+function ServerObj(spawn){ // Updated for cb/promises // This will be used to run server commands or gather specific information regarding the server.
   // TODO:  Make it so the server is actually spawned when this object is created.
   // TODO: Add sections with information on the parameters used for the server, the path to the jar file ran, etc.
   var self=this; // This is needed to keep this context within subfunctions
   this.filePath="This is just a filler for now till I complete this.";
   this.filePathWithArguments="more filler";
-
 
   this.starMadeJar=path.join(this.settings["starMadeInstallFolder"],"StarMade.jar");
   var baseJavaArgs=["-Xms" + this.settings["javaMin"], "-Xmx" + this.settings["javaMax"],"-jar"]; // These run on any OS.  TODO: Add support for JVM arguments
@@ -184,11 +183,13 @@ function ServerObj(spawn){ // This will be used to run server commands or gather
   // starMadeJar + javaArgs = what is needed to run a spawn instance. TODO:  Check to ensure the above is correct.
 
   // Todo:  add start(), stop(), kill(), forceKill(), isResponsive(), etc.
+  // This might be useful for spawning:  this.spawn=spawn("java",this.javaArgs,{"cwd": this.settings["starMadeInstallFolder"]});
 
   this.cfgFile=path.join(this.settings["starMadeInstallFolder"],"server.cfg");
   this.cfg=function(){ return ini.getFileAsObj(this.cfgFile) }; // This generates a new ini file object each time it's ran
 
-
+  // TODO:
+  // add isInServerList()  using: getServerListArray()
 
   // TODO:  Need to test all the methods below.
   // Tests done:
@@ -200,6 +201,8 @@ function ServerObj(spawn){ // This will be used to run server commands or gather
   // getWhitelistedAccounts
   // getWhitelistedIPs
   // getWhitelistedNames
+
+
   this.spawn=spawn;
   this.onlinePlayers=function(options,cb){
     if (typeof cb == "function"){
@@ -872,20 +875,13 @@ function ServerObj(spawn){ // This will be used to run server commands or gather
       return simplePromisifyIt(self.status,options);
     }
   }
-
-    // /status
-    // DESCRIPTION: Displays server status
-    // PARAMETERS:
-    // EXAMPLE: /status
-    
-
     // shutdown(seconds,"message") // message is optional.  If given, a countdown timer will be used and then a 1 second shutdown when it is set to expire.
     // ip
     // 
 
 
 };
-function BotObj(botName){
+function BotObj(botName){ // Updated for cb/promises 
   var self=this;
   this.name=toStringIfPossible(botName); // This is to allow other objects that can be converted to a string to be used, such as mimicking a player's name, but will return an error if it cannot be turned into a string.
   if (typeof self.name != "string"){
@@ -922,40 +918,7 @@ function BotObj(botName){
     }
   }
 };
-function ServerSpawnObj(configurationName,lockFileObj){ // I am discontinuing this idea and focusing on making starmade.js a single-server wrapper to start with. // TODO: Remove this object
-  // configurationName is the name of the server from the settings.json file under the section "servers".
-  // All configuration values specific to that name will be created if they don't exist alrady.
-  // The goal here is to have this object be the root of running server based commands, such as force_save, shutdown, etc.
 
-  // TODO:  This should do all the installation, verification, spawning, etc, necessary to get this spawn up and running and then add it's PID to the lock file.
-
-  // Should this create a new server entry in the master settings file if configurationName is blank?  Or should it use default settings?  Hmm..
-
-  // Load the settings.json file from the main dir.
-  this.settings=setSettings(configurationName); // This will return the settings, setting them if needed by asking questions.
-  // Build the java arguments, separating by java arguments and arguments passed to StarMade.jar
-
-  this.event=new new events.EventEmitter(); // This is for custom events
-  if (getObjType(lockFileObj) == "LockFileObj"){ // Only set the lock file if it's provided.
-    this.lockFile=lockFileObj;
-  }
-  // Perform any install needed
-
-
-  // Verify any install
-
-
-  this.getServerList=function(cb){
-    if (getObjType(cb) == "Function"){
-      return getServerListArray(cb); // This does NOT return the server list.  It returns a  <http.ClientRequest> object (https://nodejs.org/api/http.html#http_class_http_clientrequest).  The callback function must handle the actual server list.  Example: cb(err,serverListString)
-    }
-    throw new Error("ERROR: No callback function provided to getServerList method on ServerObj!  Example: myServerObj.getServerList(myFunction)");
-  }
-
-  // The last thing we do is spawn the StarMade instance
-  this.spawn=spawn("java",this.javaArgs,{"cwd": this.settings["starMadeInstallFolder"]});
-  // Register the spawn with the lock file and set up exit events.
-};
 function MessageObj(sender,receiver,receiverType,message){
   // Takes string values and converts to strings or objects of the correct types
   this.sender=new PlayerObj(sender); // This should ALWAYS be a player sending a message
@@ -991,12 +954,12 @@ function ChannelObj(channelName){
   }
   this.name=channelName;
 };
-function IPObj(ipAddressString,date,options){
+function IPObj(ipAddressString,date){
   // Example:  var myIPObj = new IpObj("192.0.0.100",Date.now());
   // ipAddressString should look something like "7.7.7.7"
   // date can be a string that "new Date()" can turn into an object or can be a Date object.  It's easier to debug if you create the date object yourself and then pass it here, so if there are any issues, the stack trace will point to the place where the bad string is attempted to be converted to a Date object.
   // Options is optional and should be an object, which is passed to subcommands.  Right now only {debug:true} is supported.
-
+  var self=this;
   this.address=ipAddressString;
   if (typeof date != "undefined"){ // We're using typeof because we don't want to do a truthy assessment
     var possibleDate=createDateObjIfPossible(date);  // Returns false if no information given or invalid information.  Returns a date object if given a date object.
@@ -1006,14 +969,41 @@ function IPObj(ipAddressString,date,options){
   }
   if (possibleDate){ this.date = possibleDate } // If date information is given, but it is invalid, it will NOT be included in this object.
   // TODO:  Redo this section to standardize with the same options given as the PlayerObj
-  this.ban=function(minutes){ return ipBan(this.address,minutes,options) };
-  this.unban=function(){ return ipUnBan(this.address,options) };
+  this.ban=function(minutes,options,cb){ 
+    if (typeof cb == "function"){
+      return ipBan(this.address,minutes,options,cb);
+    } else {
+      return simplePromisifyIt(self.ban,options,minutes);
+    }
+  };
+  this.unban=function(options,cb){ 
+    if (typeof cb == "function"){
+      return ipUnBan(self.address,options,cb) 
+    } else {
+      return simplePromisifyIt(self.unban,options);
+    }
+  };
 
-  this.isBanned=function(){
-    return isIPBanned(this.address);
+  this.isBanned=function(options,cb){
+    if (typeof cb == "function"){
+      return isIPBanned(self.address,options,cb);
+    } else {
+      return simplePromisifyIt(self.isBanned,options);
+    }
   }
-  this.isWhitelisted=function(){
-    return isIPWhitelisted(this.address);
+  this.ipWhitelist=function(minutes,options,cb){ // minutes is optional.  Permanent whitelist if not specified.
+    if (typeof cb == "function"){
+      return ipWhitelist(this.address,minutes,options,cb);
+    } else {
+      return simplePromisifyIt(self.ipWhitelist,options,minutes);
+    }
+  };
+  this.isWhitelisted=function(options,cb){
+    if (typeof cb == "function"){
+      return isIPWhitelisted(self.address,options,cb);
+    } else {
+      return simplePromisifyIt(self.isWhitelisted,options);
+    }
   }
   // To test:
   // isBanned()
@@ -1029,6 +1019,7 @@ function IPObj(ipAddressString,date,options){
   // crawl(Num) - reveals all players who share the same IP.  If a Num is provided, then will crawl that level deep, gathering more IP's and ipcrawling those.
 };
 function SMNameObj(smName){
+  var self=this;
   this.name=smName;
   // TODO:
 
@@ -1039,38 +1030,77 @@ function SMNameObj(smName){
 
   // DONE:
   // getNames - Returns an array of PlayerObj's for all the usernames associated with this registry account name
-  this.isBanned=function (){ // Returns true or false depending on whether it is banned or not
-    return isAccountBanned(this.name);
+  this.isBanned=function (options,cb){ // Returns true or false depending on whether it is banned or not
+    if (typeof cb == "function"){
+      return isAccountBanned(this.name,options,cb);
+    } else {
+      return simplePromisifyIt(self.isBanned,options);
+    }
   }
-  this.isWhitelisted=function(){
-    return isAccountWhitelisted(this.name);
+  this.isWhitelisted=function(options,cb){
+    if (typeof cb == "function"){
+      return isAccountWhitelisted(this.name,options,cb);
+    } else {
+      return simplePromisifyIt(self.isWhitelisted,options);
+    }
   }
 
-  this.ban=function (timeToBan,options){ // timeToBan is optional.  If no number given, it will be a perm ban.  Options can be {"fast":true}
-    var theTimeToUse=toNumIfPossible(timeToBan);
-    if (typeof theTimeToUse=="number"){ // temp ban
-      console.log("Banning player account: " + this.name);
-      return runSimpleCommand("/ban_account_temp " + this.name,options + " " + theTimeToUse);
-    } else { // permban
-      console.log("Banning player account: " + this.name);
-      return runSimpleCommand("/ban_account " + this.name,options);    
+  this.ban=function (timeToBan,options,cb){ // timeToBan is optional.  If no number given, it will be a perm ban.  Options can be {"fast":true}
+    if (typeof cb == "function"){
+      var theTimeToUse=toNumIfPossible(timeToBan);
+      if (typeof theTimeToUse=="number"){ // temp ban
+        console.log("Banning player account, '" + this.name + "', for " + theTimeToUse + " minutes.");
+        return runSimpleCommand("/ban_account_temp " + this.name,options + " " + theTimeToUse,cb);
+      } else if (testIfInput(timeToBan)){
+        return cb(new Error("Invalid input given to SMNameObj.ban as 'timeToBan'!"),null);
+      } else { // permban
+        console.log("Banning player account: " + this.name);
+        return runSimpleCommand("/ban_account " + this.name,options,cb);    
+      }
+    } else {
+      return simplePromisifyIt(self.ban,options,timeToBan);
     }
   }
-  this.getNames=function(){ // Returns an array of PlayerObj's for all the usernames associated with this registry account name
-    var theSmNameToUse=this.name.toLowerCase(); // This is in case the smname returned has uppercase letters.  The sql db will ALWAYS have it in lowercase.
-    var sqlQuery=new SqlQueryObj("SELECT NAME FROM PUBLIC.PLAYERS WHERE STARMADE_NAME='" + theSmNameToUse + "'");
-    console.dir(sqlQuery);
-    var outputArray=[];
-    if (!sqlQuery.error){ // This will be false if there was no error
-      for (let i=0;i<sqlQuery.objArray.length;i++){
-        outputArray.push(new PlayerObj(sqlQuery.objArray[i].NAME));
+  this.whitelist=function (timeToWhitelist,options,cb){ // timeToWhitelist is optional.  If no number given, it will be a perm whitelist.  Options can be {"fast":true}
+    if (typeof cb == "function"){
+      var theTimeToUse=toNumIfPossible(timeToWhitelist);
+      if (typeof theTimeToUse=="number"){ // temp whitelist
+        console.log("Whitelisting player account, '" + this.name + "', for " + theTimeToUse + " minutes.");
+        return runSimpleCommand("/whitelist_account_temp " + this.name,options + " " + theTimeToUse,cb);
+      } else if (testIfInput(timeToWhitelist)){
+        return cb(new Error("Invalid input given to SMNameObj.whitelist as 'timeToWhitelist'!"),null);
+      } else { // permban
+        console.log("Whitelisting player account: " + this.name);
+        return runSimpleCommand("/whitelist_account " + this.name,options,cb);    
       }
+    } else {
+      return simplePromisifyIt(self.whitelist,options,timeToWhitelist);
     }
-    return outputArray;
+  }
+
+  this.getNames=function(options,cb){ // Returns an array of PlayerObj's for all the usernames associated with this registry account name
+    if (typeof cb == "function"){
+      var theSmNameToUse=this.name.toLowerCase(); // This is in case the smname returned has uppercase letters.  The sql db will ALWAYS have it in lowercase.
+      return sqlQuery("SELECT NAME FROM PUBLIC.PLAYERS WHERE STARMADE_NAME='" + theSmNameToUse + "'",function(err,result){
+        if (err){
+          return cb(err,result);
+        }
+        console.dir(result); // Temp
+        var outputArray=[];
+        if (!result.error){ // This will be false if there was no error
+          for (let i=0;i<result.objArray.length;i++){
+            outputArray.push(new PlayerObj(result.objArray[i].NAME));
+          }
+        }
+        return cb(null,outputArray);
+      });
+    } else {
+      return simplePromisifyIt(self.getNames,options,timeToWhitelist);
+    }
   }
 };
 
-function runSimpleCommand(theCommand,options,cb){ // If no cb is given, it will run syncronously
+function runSimpleCommand(theCommand,options,cb){ // If no cb is given, it will run syncronously, but this should NEVER be used if possible
   // This is used for PlayerObj methods that can be sent to either the console or using StarNet
   if (theCommand){
     var fast=getOption(options,"fast",false);
@@ -3342,7 +3372,8 @@ function LockFileObj(pathToLockFile){
 
 
 // Array generators
-function getServerListArray(cb){ // This must be provided with a callback function that has standard error first handling.  Example:  cb(err,response)
+function getServerListArray(options,cb){ // This must be provided with a callback function that has standard error first handling.  Example:  cb(err,response)
+  // Does not have any options currently, but is here for consistency
   var fileURL="http://files-origin.star-made.org/serverlist"  // This is where the server list is currently.
   var rawData="";
   try {
@@ -3376,34 +3407,85 @@ function getServerListArray(cb){ // This must be provided with a callback functi
 
 // Support Functions
 
-function ipBan(ipAddress,minutes,options){ // minutes are optional.  A perm ban is applied if none provided. options are optional
+function ipWhitelist(ipAddress,minutes,options,cb){ // minutes are optional.  A perm ban is applied if none provided. options are optional
+  if (ipAddress){
+    var ipToUse=ipAddress.toString(); // This allows ipObj's to be fed in, and this should translate to an ip string.
+    if (minutes){
+      var minutesNum=toNumIfPossible(minutes);
+      if (typeof minutesNum == "number"){
+        console.log("Whitelisting IP, '" + ipAddress + "' for " + minutesNum + " minutes.");
+        return starNetVerified("/whitelist_ip_temp " + ipToUse + " " + minutesNum,options,function(err,result){
+          if (err){
+            console.error("ERROR when attempting to whitelist IP, '" + ipToUse + "'!  Could not send command via StarNet.jar!");
+            return cb(err,result);
+          }
+          return cb(null,starNetHelper.detectSuccess2(result));
+        });
+      } else { // invalid minutes given
+        return cb(new Error("Invalid minutes specified for ipWhitelist!"),null);
+      }
+    } else {
+      // no minutes provided, so perform a perm ban
+      console.log("Whitelisting IP, '" + ipAddress + "'!");
+      return starNetVerified("/whitelist_ip " + ipToUse,options,function(err,result){
+        if (err){
+          console.error("ERROR whitelisting ip: " + ipAddress);
+          return cb(err,result);
+        }
+        return cb(null,starNetHelper.detectSuccess2(result));
+      });
+    }
+  } else {
+    return cb(new Error("No ipAddress given to function, 'ipWhitelist'!"),null);
+  }
+};
+
+
+function ipBan(ipAddress,minutes,options,cb){ // minutes are optional.  A perm ban is applied if none provided. options are optional
   if (ipAddress){
     var ipToUse=ipAddress.toString(); // This allows ipObj's to be fed in, and this should translate to an ip string.
     if (minutes){
       var minutesNum=toNumIfPossible(minutes);
       if (typeof minutesNum == "number"){
         console.log("Banning IP, '" + ipAddress + "' for " + minutesNum + " minutes.");
-        return starNetHelper.detectSuccess2(starNetVerified("/ban_ip_temp " + ipToUse + " " + minutesNum));
-      } else {
-        // invalid minutes given
-        throw new Error("Invalid minutes specified!");
+        return starNetVerified("/ban_ip_temp " + ipToUse + " " + minutesNum,options,function(err,result){
+          if (err){
+            console.error("ERROR when attempting to ban IP, '" + ipToUse + "'!  Could not send command via StarNet.jar!");
+            return cb(err,result);
+          }
+          return cb(null,starNetHelper.detectSuccess2(result));
+        });
+      } else { // invalid minutes given
+        return cb(new Error("Invalid minutes specified for ipBan!"),null);
       }
     } else {
       // no minutes provided, so perform a perm ban
       console.log("PERMANENT banning IP, '" + ipAddress + "'!");
-      return starNetHelper.detectSuccess2(starNetVerified("/ban_ip " + ipToUse));
+      return starNetVerified("/ban_ip " + ipToUse,options,function(err,result){
+        if (err){
+          console.error("ERROR banning ip: " + ipAddress);
+          return cb(err,result);
+        }
+        return cb(null,starNetHelper.detectSuccess2(result));
+      });
     }
   } else {
-    throw new Error("No ipAddress given to function, 'ipBan'!");
+    return cb(new Error("No ipAddress given to function, 'ipBan'!"),null);
   }
 };
-function ipUnBan(ipAddress,options){ // options are optional and should be an object.
+function ipUnBan(ipAddress,options,cb){ // options are optional and should be an object.
   if (ipAddress){
     var ipToUse=ipAddress.toString(); // This allows ipObj's to be fed in, and this should translate to an ip string.
     console.log("Unbanning IP: " + ipAddress);
-    return starNetHelper.detectSuccess2(starNetVerified("/unban_ip " + ipToUse,options)); // This will return false if the ip is not found in the blacklist
+    return starNetVerified("/unban_ip " + ipToUse,options,function(err,result){
+      if (err){
+        console.error();
+        return cb(err,result);
+      }
+      return cb(null,starNetHelper.detectSuccess2(result));
+    }); // This will return false if the ip is not found in the blacklist
   } else {
-    throw new Error("No ipAddress given to function, 'ipUnBan'!");
+    return cb(new Error("No ipAddress given to function, 'ipUnBan'!"),null);
   }
 };
 function createDateObjIfPossible(input){ // Takes either a date string that "new Date" can turn into an object, passes along a Date object fed to it, or returns false if no new Date could be created.
@@ -4233,32 +4315,22 @@ function getBannedIPList(options,cb){
   }
 }
 function isIPWhitelisted(ip,options,cb){
-  if (typeof cb == "function"){ // Run in async mode
-    return getWhitelistedIPList(options,function(err,resultArray){
-      if (err){
-        return cb(err,null);
-      } else { 
-        return cb(null,compareToObjectArrayToString(resultArray,ip));
-      }
-    });
-  } else { // run in Sync mode
-    let theArray=getWhitelistedIPList(options);
-    return compareToObjectArrayToString(theArray,ip);
-  }
+  return getWhitelistedIPList(options,function(err,resultArray){
+    if (err){
+      return cb(err,null);
+    } else { 
+      return cb(null,compareToObjectArrayToString(resultArray,ip));
+    }
+  });
 }
 function isIPBanned(ip,options,cb){
-  if (typeof cb == "function"){ // Run in async mode
-    return getBannedIPList(options,function(err,resultArray){
-      if (err){
-        return cb(err,null);
-      } else { 
-        return cb(null,compareToObjectArrayToString(resultArray,ip));
-      }
-    });
-  } else { // run in Sync mode
-    let theArray=getBannedIPList(options);
-    return compareToObjectArrayToString(theArray,ip);
-  }
+  return getBannedIPList(options,function(err,resultArray){
+    if (err){
+      return cb(err,null);
+    } else { 
+      return cb(null,compareToObjectArrayToString(resultArray,ip));
+    }
+  });
 }
 
 function sendDirectToServer(input,cb){ // if cb not given, functions as Sync. Expects a string input, returning "false" if the input wasn't valid.  This sends a command directly to the console with a return character.
