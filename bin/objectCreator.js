@@ -130,16 +130,8 @@ SystemObj.prototype.toString = function(){ return this.coords.toString() };
 
 
 if (__filename == require.main.filename){ // Only run the arguments IF this script is being run by itself and NOT as a require.
-  var testSuit={ // This is used to match a command line argument to an element to then run a specific test function
-    sectorTests1:sectorTests,
-    sectorTests2:sectorTests2,
-    sectorTests3:sectorTests3,
-    entityObjTests:entityObjTests,
-    starNetHelperTests:starNetHelperTests,
-    ipObjTests:ipObjTests,
-    getServerListTest: getServerListTest,
-    lockFileTest
-  }
+  // I'm phasing out the test suits since mods are a thing now.
+  var testSuit={ }// This is used to match a command line argument to an element to then run a specific test function
   var clArgs=process.argv.slice(2);
 
   if (testSuit.hasOwnProperty(clArgs[0])){
@@ -157,240 +149,6 @@ if (__filename == require.main.filename){ // Only run the arguments IF this scri
     console.log("Example:  node objectCreator.js sectorTests1");
   }
 }
-function entityObjTests(){
-  var theShip=new EntityObj("ENTITY_SHIP_Hello_There");
-  console.log("My ship is named: " + colorize(theShip.name()));
-  console.log("Is my ship loaded?: " + colorize(theShip.loaded()));
-  console.log("It has a default value of: " + colorize(theShip.toString()));
-  console.log("It has a total block count of: " + colorize(theShip.blocks()));
-  console.log("It is currently in sector: " + colorize(theShip.sector().toString()));
-  console.log("And its very strange orientation coords are: " + colorize(theShip.orientation()));
-  console.log("And here's all the data, mapified:");
-  console.dir(theShip.dataMap());
-  console.log("And here's all the data as an object:");
-  console.log(colorize(theShip.dataObj()));
-
-
-  console.log("New entityObj: ");
-  console.dir(theShip);
-  console.log("\n");
-  console.log("Ship faction number: " + theShip.faction().number);
-
-  Object.keys(theShip).forEach(function(key){
-    if (theShip.hasOwnProperty(key)){ // This is to filter out prototype values
-      if (typeof theShip[key] == "object"){
-        process.stdout.write(key + ": (type: " + getObjType(theShip[key]) + ") ");
-        console.log(theShip[key]);
-      } else if (typeof theShip[key] == "function"){
-        let tempVal=theShip[key]();
-        if (typeof tempVal == "object"){
-          process.stdout.write(key + ": (type: " + getObjType(tempVal) + ") ");
-          console.log(tempVal);
-        } else if (typeof tempVal == "string"){
-          console.log(key + ": " + tempVal);
-        } else {
-          console.dir(tempVal);
-        }
-        // console.log(key + ": " + theShip[key]());
-      } else if (typeof theShip[key] == "string"){
-        console.log(key + ": " + theShip[key]);
-      }
-    }
-  });
-
-  console.log("UID: " + theShip.UID);
-  console.log("fullUID: " + theShip.fullUID);
-}
-function sectorTests(){
-  var theSector=new SectorObj(2,2,2);
-  var chmodResults;
-  console.log("Start:");
-  console.log("Protection Num: " + theSector.getChmodNum() + " Protections: " + theSector.getChmodArray());
-
-  chmodResults=theSector.setChmod("- peace");
-  console.log("-Peace Result: " + chmodResults);
-  starNetSync("/force_save");
-  console.log("Protection Num: " + theSector.getChmodNum() + " Protections: " + theSector.getChmodArray());
-
-  chmodResults=theSector.setChmod("- protected");
-  console.log("-Protected Result: " + chmodResults);
-  starNetSync("/force_save");
-  console.log("Protection Num: " + theSector.getChmodNum() + " Protections: " + theSector.getChmodArray());
-
-  chmodResults=theSector.setChmod("+ peace");
-  console.log("Result: " + chmodResults);
-  starNetSync("/force_save");
-  console.log("Protection Num: " + theSector.getChmodNum() + " Protections: " + theSector.getChmodArray());
-
-  chmodResults=theSector.setChmod("+ protected");
-  console.log("Result: " + chmodResults);
-  starNetSync("/force_save");
-  console.log("Protection Num: " + theSector.getChmodNum() + " Protections: " + theSector.getChmodArray());
-
-  chmodResults=theSector.setChmod("+ nofploss");
-  console.log("+ nofploss Result: " + chmodResults);
-  starNetSync("/force_save");
-  console.log("Protection Num: " + theSector.getChmodNum() + " Protections: " + theSector.getChmodArray());
-
-  chmodResults=theSector.setChmod("+ noindications");
-  console.log("+ noindications Result: " + chmodResults);
-  starNetSync("/force_save");
-  console.log("Protection Num: " + theSector.getChmodNum() + " Protections: " + theSector.getChmodArray());
-
-  chmodResults=theSector.setChmod("+ noexit");
-  console.log("+ noexit Result: " + chmodResults);
-  starNetSync("/force_save");
-  console.log("Protection Num: " + theSector.getChmodNum() + " Protections: " + theSector.getChmodArray());
-
-  chmodResults=theSector.setChmod("+ noenter");
-  console.log("+ noenter Result: " + chmodResults);
-  starNetSync("/force_save");
-  console.log("Protection Num: " + theSector.getChmodNum() + " Protections: " + theSector.getChmodArray());
-
-  chmodResults=theSector.setChmod("- noexit");
-  console.log("- noexit Result: " + chmodResults);
-  starNetSync("/force_save");
-  console.log("Protection Num: " + theSector.getChmodNum() + " Protections: " + theSector.getChmodArray());
-
-  chmodResults=theSector.setChmod("- noindications");
-  console.log("- noindications Result: " + chmodResults);
-  starNetSync("/force_save");
-  console.log("Protection Num: " + theSector.getChmodNum() + " Protections: " + theSector.getChmodArray());
-
-  chmodResults=theSector.setChmod("- noenter");
-  console.log("- noenter Result: " + chmodResults);
-  starNetSync("/force_save");
-  console.log("Protection Num: " + theSector.getChmodNum() + " Protections: " + theSector.getChmodArray());
-
-  chmodResults=theSector.setChmod("- nofploss");
-  console.log("- nofploss Result: " + chmodResults);
-  starNetSync("/force_save");
-  console.log("Protection Num: " + theSector.getChmodNum() + " Protections: " + theSector.getChmodArray());
-
-  chmodResults=theSector.setChmod("- frakkin");
-  console.log("Attempt at a bullshit change: " + chmodResults);
-  // chmodResults=theSector.setChmod("+ noindications");
-  // console.log("Attempt at + noindications: " + chmodResults);
-  // chmodResults=theSector.setChmod("- noindications");
-  // console.log("Attempt at - noindications: " + chmodResults);
-  return true;
-}
-function sectorTests2(){
-  var theSector=new SectorObj(2,2,2);
-  console.log("Resetting for start:");
-  theSector.setChmodNum(0);
-  console.log("Performing test 1");
-  var test1time=sectorTestHelper2(theSector);
-  console.log("Resetting..");
-  theSector.setChmodNum(0);
-  console.log("Performing test 2");
-  var test2time=sectorTestHelper2(theSector,{forcesave:true});
-  console.log("Test 1 time: " + test1time + " test 2 time: " + test2time);
-}
-function sectorTests3(){
-  var theSector=new SectorObj(2,2,2);
-  console.log("Resetting for start:");
-  theSector.setChmodNum(0);
-  console.log("Performing test 1");
-  var test1time=sectorTestHelper3(theSector);
-  console.log("Resetting..");
-  theSector.setChmodNum(0);
-  console.log("Performing test 2");
-  var test2time=sectorTestHelper3(theSector,{forcesave:true});
-  console.log("Test 1 time: " + test1time + " test 2 time: " + test2time);
-}
-function starNetHelperTests(){
-  starNetSync("/load_sector_range 2 2 2 2 2 2");
-  var testObj=new starNetHelper.ShipInfoUidObj("ENTITY_SHIP_Hello_There");
-  console.log("\nDisplaying object (size: " + testObj.size + "):");
-  console.dir(testObj);
-  console.log("\nWhat is SqlQuery?");
-  console.dir(sqlQuery);
-
-  var sqlQueryObj=new sqlQuery.SqlQueryObj("SELECT * FROM PUBLIC.SECTORS WHERE X=2 AND Y=2 AND Z=2;");
-  console.log("\nSql query: ");
-  console.dir(sqlQueryObj);
-
-  var shipBlocks=starNetHelper.getEntityValue("ENTITY_SHIP_Hello_There","Blocks");
-  console.log("\nBlocks: " + shipBlocks);
-}
-function sectorTestHelper3(theSector,options){
-    var startTime=Date.now();
-    var randomNum=0;
-    for (let i=1;i<=50;i++){
-      randomNum=Math.floor(Math.random()*64);
-      sectorTestHelper(theSector,randomNum,options);
-    }
-    sectorTestHelper(theSector,50,options); // These should be super fast since no changes are needed.
-    sectorTestHelper(theSector,50,options);
-    var timeDifference=colorize(Math.round((Date.now() - startTime) / 1000));
-    console.log("Total time: " + timeDifference + " seconds.");
-    return timeDifference;
-}
-function sectorTestHelper2(theSector,options){
-    var startTime=Date.now();
-    for (let i=1;i<=50;i++){
-      sectorTestHelper(theSector,i,options);
-    }
-    sectorTestHelper(theSector,50,options); // These should be super fast since no changes are needed.
-    sectorTestHelper(theSector,50,options);
-    var timeDifference=colorize(Math.round((Date.now() - startTime) / 1000));
-    console.log("Total time: " + timeDifference + " seconds.");
-    return timeDifference;
-}
-function sectorTestHelper(sectorObj,inputNum,options){
-  // console.log("\nSetting sector, '" + sectorObj.toString() + "', to chmod number: " + inputNum + " Values need to be: " + decodeChmodNum(inputNum));
-  sectorObj.setChmodNum(inputNum,options);
-  // starNetSync("/force_save");
-  // console.log("New Chmod Num: " + sectorObj.getChmodNum() + " Chmods: " + sectorObj.getChmodArray());
-}
-function ipObjTests(){
-  var myIPObj=new IPObj("7.7.7.7",Date.now(),{debug:true});
-  console.log("Created IPObj");
-  console.log("myIPObj.address: " + myIPObj.address);
-  console.log("myIPObj.time: " + myIPObj.time);
-  console.log("myIPObj.toString(): " + myIPObj.toString());
-  console.log("myIPObj.toArray(): " + myIPObj.toArray());
-  console.log("myIPObj.ban(60) result: " + myIPObj.ban(60));
-  console.log("myIPObj.unban() result: " + myIPObj.unban());
-  console.log("myIPObj.ban() result: " + myIPObj.ban());
-  console.log("myIPObj.unban() result: " + myIPObj.unban());
-  console.log("Attempting to unban the IP again, which should fail:");
-  console.log("myIPObj.unban() result: " + myIPObj.unban());
-}
-function getServerListTest(){
-  console.log("Test result: ");
-  getServerListArray(showResponseCallback);
-}
-function lockFileTest(){
-  console.log("Creating new lock file..");
-  var lockFileObj=new LockFileObj("justTesting.lck");
-  console.log("Created new lock file object:");
-  console.dir(lockFileObj);
-  sleep(4000);
-  console.log("\nAdding a few nonsense pids..");
-  console.log("Result: " + lockFileObj.addSubProcessPid(12345));
-  console.log("Result: " + lockFileObj.addSubProcessPid(32345));
-  sleep(2000);
-  console.log("\nTrying one of the same nonsense pids again..");
-  console.log("Result: " + lockFileObj.addSubProcessPid(12345));
-  sleep(2000);
-  console.log("\nDeleting serverPid 12345..");
-  console.log("Result: " + lockFileObj.delSubProcessPid(12345));
-  sleep(2000);
-  console.log("\nGrabbed data from file: ");
-  console.dir(lockFileObj.getData());
-  console.log("Alive Pids Count: " + lockFileObj.countAlivePids());
-  console.log("Alive Pids: " + lockFileObj.getAlivePids() + " This script pid: " + process.pid);
-
-  // TODO:  Spawn a process that does not exit and add the PID to the lock file.  See if it kills it successfully.
-
-  // process.on('exit',function(){
-  //   console.log("Killing any alive pids, except the main script..");
-  //   lockFileObj.killAlivePidsExceptThisProcess();
-  //   lockFileObj.deleteFile();
-  // });
-}
 
 function showResponseCallback(error,output){ // This is a helper function for testing purposes.  It shows any error or output when it's used as a callback function.
   if (error){
@@ -402,16 +160,9 @@ function showResponseCallback(error,output){ // This is a helper function for te
   }
 }
 
-// TESTING END
-
 // The following is outdated since I'm using the global object for javascript instead of passing along the info.
 // var server;  // This is needed so objects can send text to the server directly.  I may add the global object to this as well.
 // var global;
-
-// function init(theServer,theGlobal) {
-//   server=theServer; // This is the spawn childprocess.
-//   global=theGlobal;
-// }
 
 function ServerObj(spawn){ // This will be used to run server commands or gather specific information regarding the server.
   // TODO:  Make it so the server is actually spawned when this object is created.
@@ -419,6 +170,26 @@ function ServerObj(spawn){ // This will be used to run server commands or gather
   var self=this; // This is needed to keep this context within subfunctions
   this.filePath="This is just a filler for now till I complete this.";
   this.filePathWithArguments="more filler";
+
+
+  this.starMadeJar=path.join(this.settings["starMadeInstallFolder"],"StarMade.jar");
+  var baseJavaArgs=["-Xms" + this.settings["javaMin"], "-Xmx" + this.settings["javaMax"],"-jar"]; // These run on any OS.  TODO: Add support for JVM arguments
+  var baseJavaArgsWindows=["-Xincgc","-Xshare:off"]; // These will run on windows only
+  var baseSMJarArgs=[this.starMadeJar,"-server", "-port:" + this.settings["port"]];
+  if (process.platform == "win32"){
+    this.javaArgs=baseJavaArgs.concat(baseJavaArgsWindows).concat(baseSMJarArgs);
+  } else {
+    this.javaArgs=baseJavaArgs.concat(baseSMJarArgs);
+  }
+  // starMadeJar + javaArgs = what is needed to run a spawn instance. TODO:  Check to ensure the above is correct.
+
+  // Todo:  add start(), stop(), kill(), forceKill(), isResponsive(), etc.
+
+  this.cfgFile=path.join(this.settings["starMadeInstallFolder"],"server.cfg");
+  this.cfg=function(){ return ini.getFileAsObj(this.cfgFile) }; // This generates a new ini file object each time it's ran
+
+
+
   // TODO:  Need to test all the methods below.
   // Tests done:
   // search
@@ -505,7 +276,7 @@ function ServerObj(spawn){ // This will be used to run server commands or gather
       // I don't think there is any difference between using "plain" with this command and the /chat command.
       return runSimpleCommand("/server_message_broadcast " + msgType + " '" + messageToSend.toString().trim() + "'",options,cb);
     } else {
-      return simplePromisifyIt(self.msg,options);
+      return simplePromisifyIt(self.msg,options,message);
     }
   }
   this.botMsg=function (message,options,cb){ // Sends a plain message to the player with the bot's name.
@@ -520,453 +291,635 @@ function ServerObj(spawn){ // This will be used to run server commands or gather
       }
       return global.bot.serverMsg(messageToSend,options,cb); // This should throw an error if there is a problem connecting to the server
     } else {
-      return simplePromisifyIt(self.msg,options);
+      return simplePromisifyIt(self.botMsg,options,message);
     }
   }
-
-
-  
-  this.clearShipSpawns=function(options){ // clears all ship entities not spawned by a player ie. admin spawned or mobs
+  this.clearShipSpawns=function(options,cb){ // clears all ship entities not spawned by a player ie. admin spawned or mobs
     // Note: Be careful with this!  This applies to the entire universe!
     // Does not have success or fail messages
-    return runSimpleCommand("/clear_system_ship_spawns_all",options);
-  }
-  this.daytime=function(timeInHours,options){
-    let timeToUse=toNumIfPossible(timeInHours);
-    // Does not have success or fail messages
-    if (typeof timeToUse == "number"){
-      return runSimpleCommand("/daytime " + timeToUse,options);
+    if (typeof cb == "function"){
+      return runSimpleCommand("/clear_system_ship_spawns_all",options,cb);
     } else {
-      throw new Error("Invalid input given to Server.daytime() for timeInHours!");
+      return simplePromisifyIt(self.clearShipSpawns,options);
     }
   }
-  this.delaySave=function(timeInSeconds,options){
-    let timeToUse=toNumIfPossible(timeInSeconds);
-    // Does not have success or fail messages
-    if (typeof timeToUse == "number"){
-      return runSimpleCommand("/delay_save " + timeToUse,options);
+  this.daytime=function(timeInHours,options,cb){
+    if (typeof cb == "function"){
+      let timeToUse=toNumIfPossible(timeInHours);
+      // Does not have success or fail messages
+      if (typeof timeToUse == "number"){
+        return runSimpleCommand("/daytime " + timeToUse,options,cb);
+      } else {
+        return cb(new Error("Invalid input given to Server.daytime() for timeInHours!"),null);
+      }
     } else {
-      throw new Error("Invalid input given to Server.delaySave() for timeInSeconds!");
+      return simplePromisifyIt(self.daytime,options,timeInHours);
     }
   }
-  this.despawn=function(partOfShipName,used,shipOnly,options){ // Only partOfShipName input is mandatory.
-    // Note: Becareful with this because this will despawn ALL ships in the entire universe that match!
-    // EXAMPLE: /despawn_all MOB_ unused true
-    var partOfShipNameToUse=toStringIfPossible(partOfShipName);
-    if (typeof partOfShipNameToUse != "string"){
-      throw new Error("Invalid input given to Server.despawn as partOfShipNameToUse!");
+  this.delaySave=function(timeInSeconds,options,cb){
+    if (typeof cb == "function"){
+      let timeToUse=toNumIfPossible(timeInSeconds);
+      // Does not have success or fail messages
+      if (typeof timeToUse == "number"){
+        return runSimpleCommand("/delay_save " + timeToUse,options,cb);
+      } else {
+        return cb(new Error("Invalid input given to Server.delaySave() for timeInSeconds!"),null);
+      }
+    } else {
+      return simplePromisifyIt(self.delaySave,options,timeInSeconds);
     }
-    var usedToUse="all";
-    var usedTest=toStringIfPossible(used);
-    if (typeof usedTest == "string"){
-      usedTest=usedTest.toLowerCase();
-    }
-    if (usedTest == "all" || usedTest == "used" || usedTest == "unused"){
-      usedToUse=usedTest;
-    }
-    var shipOnlyToUse="false";
-    if (isTrueOrFalse(shipOnly)){
-      shipOnlyToUse=shipOnly;
-    }
-    return runSimpleCommand("/despawn_all \"" + partOfShipNameToUse + "\" " + usedToUse + " " + shipOnlyToUse,options);
   }
-  this.exportSector=function(sector,nameToUse,options){
-    var sectorToUse=new SectorObj(sector); // Throws an error if input is bad.
-    return sectorToUse.exportSector(nameToUse,options);
-  }
-  this.importSector=function(sector,nameToUse,options){
-    var sectorToUse=new SectorObj(sector); // Throws an error if input is bad.
-    return sectorToUse.importSector(nameToUse,options);
-  }
-  this.exportSectorBulk=function(textFileToUse,options){
-    let textFileToUseToUse=toStringIfPossible(textFileToUse);
-    if (typeof textFileToUseToUse == "string"){
-      return runSimpleCommand("/export_sector_bulk " + textFileToUse,options);
+  this.despawn=function(partOfShipName,used,shipOnly,options,cb){ // Only partOfShipName input is mandatory.
+    if (typeof cb == "function"){
+      // Note: Becareful with this because this will despawn ALL ships in the entire universe that match!
+      // EXAMPLE: /despawn_all MOB_ unused true
+      var partOfShipNameToUse=toStringIfPossible(partOfShipName);
+      if (typeof partOfShipNameToUse != "string"){
+        return cb(new Error("Invalid input given to Server.despawn as partOfShipNameToUse!"),null);
+      }
+      var usedToUse="all";
+      var usedTest=toStringIfPossible(used);
+      if (typeof usedTest == "string"){
+        usedTest=usedTest.toLowerCase();
+      }
+      if (usedTest == "all" || usedTest == "used" || usedTest == "unused"){
+        usedToUse=usedTest;
+      }
+      var shipOnlyToUse="false";
+      if (isTrueOrFalse(shipOnly)){
+        shipOnlyToUse=shipOnly;
+      }
+      return runSimpleCommand("/despawn_all \"" + partOfShipNameToUse + "\" " + usedToUse + " " + shipOnlyToUse,options,cb);
+    } else {
+      return simplePromisifyIt(self.despawn,options,partOfShipName,used,shipOnly);
     }
-    throw new Error("Invalid textFileToUse specified for Server.exportSectorBulk");
   }
-  this.importSectorBulk=function(textFileToUse,options){
+  this.exportSector=function(sector,nameToUse,options,cb){
+    if (typeof cb == "function"){
+      var sectorToUse=new SectorObj(sector); // Throws an error if input is bad.
+      return sectorToUse.exportSector(nameToUse,options,cb);
+    } else {
+      return simplePromisifyIt(self.exportSector,options,sector,nameToUse);
+    }
+  }
+  this.importSector=function(sector,nameToUse,options,cb){
+    if (typeof cb == "function"){
+      var sectorToUse=new SectorObj(sector); // Throws an error if input is bad.
+      return sectorToUse.importSector(nameToUse,options);
+    } else {
+      return simplePromisifyIt(self.importSector,options,sector,nameToUse);
+    }
+  }
+  this.exportSectorBulk=function(textFileToUse,options,cb){
+    if (typeof cb == "function"){
+      let textFileToUseToUse=toStringIfPossible(textFileToUse);
+      if (typeof textFileToUseToUse == "string"){
+        return runSimpleCommand("/export_sector_bulk " + textFileToUse,options);
+      }
+      return cb(new Error("Invalid textFileToUse specified for Server.exportSectorBulk"),null);
+    } else {
+      return simplePromisifyIt(self.exportSectorBulk,options,textFileToUse);
+    }
+  }
+  this.importSectorBulk=function(textFileToUse,options,cb){
     // I should actually check to see if the file specified exists, because I'm guessing no error is returned if the file does not exist, but meh I'll be lazy on this for now.
-    let textFileToUseToUse=toStringIfPossible(textFileToUse);
-    if (typeof textFileToUseToUse == "string"){
-      return runSimpleCommand("/import_sector_bulk " + textFileToUse,options);
+    if (typeof cb == "function"){
+      let textFileToUseToUse=toStringIfPossible(textFileToUse);
+      if (typeof textFileToUseToUse == "string"){
+        return runSimpleCommand("/import_sector_bulk " + textFileToUse,options,cb);
+      }
+      return cb(new Error("Invalid textFileToUse specified for Server.importSectorBulk"),null);
+    } else {
+      return simplePromisifyIt(self.importSectorBulk,options,textFileToUse);
     }
-    throw new Error("Invalid textFileToUse specified for Server.importSectorBulk");
   }
-  this.factionSanityCheck=function(options){ // checks sanity of factions (removes leftover/invalid factions)
+  this.factionSanityCheck=function(options,cb){ // checks sanity of factions (removes leftover/invalid factions)
     // Does not have success or fail messages
-    return runSimpleCommand("/faction_check",options);
+    if (typeof cb == "function"){
+      return runSimpleCommand("/faction_check",options,cb);
+    } else {
+      return simplePromisifyIt(self.factionSanityCheck,options);
+    }
   }
-  this.factionCreate=function(factionName,playerName,factionNumber,options){ // factionNumber is optional. Can take strings or objects as input
+  this.factionCreate=function(factionName,playerName,factionNumber,options,cb){ // factionNumber is optional. Can take strings or objects as input
     // Creates a new faction, assigning a player to it.  The faction description will be blank!
-    var factionNameToUse=toStringIfPossible(factionName);
-    var playerNameToUse=toStringIfPossible(playerName);
-    var factionNumberToUse=toNumIfPossible(factionNumber);
+    if (typeof cb == "function"){
+      var factionNameToUse=toStringIfPossible(factionName);
+      var playerNameToUse=toStringIfPossible(playerName);
+      var factionNumberToUse=toNumIfPossible(factionNumber);
 
-    if (typeof factionNameToUse == "string" && typeof playerNameToUse == "string"){
-      if (typeof factionNumberToUse == "number"){ // If a faction number is provided
-        // Warning:  I do not know what happens if a faction number is given for one that already exists!
-        return runSimpleCommand("/faction_create_as " + factionNumberToUse + " " + factionNameToUse + " " + playerNameToUse,options);
-      }
-      return runSimpleCommand("/faction_create " + factionNameToUse + " " + playerNameToUse,options);
-    }
-    throw new Error("Invalid parameters given to Server.factionCreate!");
-  }
-  this.factionCreateAmount=function(factionName,numberOfFactions,options){ // accepts inputs that can be converted to string or number
-    // Creates empty, open factions with the same name -- I'm not sure what the purpose of this is exactly.
-    var factionNameToUse=toStringIfPossible(factionName);
-    var numberOfFactionsToUse=toNumIfPossible(numberOfFactions);
-    if (typeof factionNameToUse == "string" && typeof numberOfFactionsToUse == "number"){
-      return runSimpleCommand("/faction_create_amount " + factionNameToUse + " " + numberOfFactionsToUse,options);
-    }
-    throw new Error("Invalid parameters given to Server.factionCreateAmount!");
-  }
-  this.factionPointTurn=function(options){ // Forces the next faction point calculation turn
-    // Does not have success or fail messages
-    return runSimpleCommand("/faction_point_turn",options);
-  }
-  this.fleetSpeed=function(timeInMs,options){
-    let numberToUse=toNumIfPossible(timeInMs);
-    // Does not have success or fail messages
-    if (typeof numberToUse == "number"){
-      return runSimpleCommand("/fleet_speed " + numberToUse,options);
-    } else {
-      throw new Error("Invalid input given to Server.fleetSpeed() for timeInMs!");
-    }
-  }
-  this.fogOfWar=function(trueOrFalse,options){ // Turns fog of war on or off
-    let booleanToUse=trueOrFalse(trueOrFalse); // allows truthy values to convert to the words, "true" or "false"
-    // Does not have success or fail messages
-    if (isTrueOrFalse(booleanToUse)){
-      return runSimpleCommand("/fog_of_war " + booleanToUse,options);
-    } else {
-      throw new Error("Invalid input given to Server.fogOfWar() for trueOrFalse!");
-    }
-  }
-  this.ignoreDockingArea=function(trueOrFalse,options){ //  enables/disables docking area validation (default off)
-    let booleanToUse=trueOrFalse(trueOrFalse); // allows truthy values to convert to the words, "true" or "false"
-    // Does not have success or fail messages
-    if (isTrueOrFalse(booleanToUse)){
-      return runSimpleCommand("/ignore_docking_area " + booleanToUse,options);
-    } else {
-      throw new Error("Invalid input given to Server.ignoreDockingArea() for trueOrFalse!");
-    }
-  }
-  this.forceSave=function(options){ // Performs a force save
-    // Does not have success or fail messages
-    return runSimpleCommand("/force_save",options);
-  }
-  this.activateWhitelist=function(trueOrFalse,options){ //  activates the whitelist, so only players listed in the whitelist.txt file can join the server.
-    let booleanToUse=trueOrFalse(trueOrFalse); // allows truthy values to convert to the words, "true" or "false"
-    // Does not have success or fail messages
-    if (isTrueOrFalse(booleanToUse)){
-      return runSimpleCommand("/whitelist_activate " + booleanToUse,options);
-    } else {
-      throw new Error("Invalid input given to Server.activateWhitelist() for trueOrFalse!");
-    }
-  }
-  this.updateShopPrices=function(options){ // Updates shop prices.
-    // Does not have success or fail messages
-    return runSimpleCommand("/update_shop_prices",options);
-  }
-  this.sectorSize=function(sizeInM,options){ // Resizes the sector for the server - writes to the server.cfg file
-    // WARNING: Setting sector sizes to be smaller can cause some really bizarre issues if entities are now outside of the sector but still inside it!
-    let numberToUse=toNumIfPossible(sizeInM);
-    if (typeof numberToUse == "number"){
-      return runSimpleCommand("/sector_size " + numberToUse,options);
-    } else {
-      throw new Error("Invalid input given to Server.sectorSize() for sizeInM!");
-    }
-  }
-  this.setWeaponRangeReference=function(sizeInM,options){ // Sets the weapon reference range distance in meters, which config values are multiplied with (default is sector distance)
-    let numberToUse=toNumIfPossible(sizeInM);
-    if (typeof numberToUse == "number"){
-      return runSimpleCommand("/set_weapon_range_reference " + numberToUse,options);
-    } else {
-      throw new Error("Invalid input given to Server.setWeaponRangeReference() for sizeInM!");
-    }
-  }
-  this.aiSimulation=function(trueOrFalse,options){ //  activates or deactivates AI simulation
-    let booleanToUse=trueOrFalse(trueOrFalse); // allows truthy values to convert to the words, "true" or "false"
-    // Does not have success or fail messages
-    if (isTrueOrFalse(booleanToUse)){
-      return runSimpleCommand("/simulation_ai_enable " + booleanToUse,options);
-    } else {
-      throw new Error("Invalid input given to Server.aiSimulation() for trueOrFalse!");
-    }
-  }
-  this.simulationClear=function(options){ // Clears all AI from simulation
-    // Does not have success or fail messages
-    return runSimpleCommand("/simulation_clear_all",options);
-  }
-  this.simulationSpawnDelay=function(timeInSeconds,options){ // Not sure what this does.  If I had to guess what this is for, it's the delay before pirates come attack when near a pirate station or in void space?  I think the help for this command is wrong which is:  sets the time of the day in hours
-    let timeToUse=toNumIfPossible(timeInSeconds);
-    if (typeof timeToUse == "number"){
-      return runSimpleCommand("/set_weapon_range_reference " + timeToUse,options);
-    } else {
-      throw new Error("Invalid input given to Server.simulationSpawnDelay() for sizeInM!");
-    }
-  }
-  this.simulationInfo=function(options){ // Prints info about macro AI Simulation
-    // this returns a string for now.. I'm not interested in discovery and parsing of the data at this time.
-    return starNetVerified("/simulation_info",options);
-  }
-  this.factionList=function(options){ // Returns an array of FactionObj for all factions on the server.
-    var returnArray=[];
-    var results=starNetVerified("/faction_list",options);
-    // RETURN: [SERVER, FACTION: Faction [id=-9999992
-    let theReg=new RegExp("^RETURN: \\[SERVER, FACTION: Faction \\[id=[-]{0,1}[0-9]+.*");
-    var theArray=results.trim().split("\n");
-    var theLine;
-    for (let i = 0;i < theArray.length;i++) {
-      if (theReg.test(theArray[i])){
-        theLine=theArray[i].match(/^RETURN: \[SERVER, FACTION: Faction \[id=[-]{0,1}[0-9]+/).toString();
-        theLine=theLine.match(/[-]{0,1}[0-9]+$/).toString();
-        returnArray.push(new FactionObj(theLine));
-        theLine="";
-      }
-    }
-    return returnArray; // Array is empty if no factions were found.
-  }
-  this.blueprintList=function(options){ // Returns an array of FactionObj for all factions on the server.
-    var returnArray=[];
-    var results=starNetVerified("/list_blueprints",options);
-    // RETURN: [SERVER, [CATALOG] INDEX 0: This is another test, 0]
-    let theReg=new RegExp("^RETURN: \\[SERVER, \\[CATALOG\\] INDEX.*");
-    var theArray=results.trim().split("\n");
-    var theLine;
-    for (let i = 0;i < theArray.length;i++) {
-      if (theReg.test(theArray[i])){
-        theLine=theArray[i].replace(/^RETURN: \[SERVER, \[CATALOG\] INDEX [0-9]+: /,"");
-        theLine=theLine.replace(/, 0\]$/,"");
-        returnArray.push(new BluePrintObj(theLine));
-        theLine="";
-      }
-    }
-    return returnArray; // Array is empty if no factions were found.
-  }
-  this.listControlUnits=function(options){ // Prints info about characters and entities
-    // this returns a string for now.. I'm not interested in discovery and parsing of the data at this time, since other commands have better info than this.
-    return starNetVerified("/list_control_units",options);
-  }
-  this.loadSectorRange=function(firstSector,SecondSector,options){ // Allows any input that can create a CoordsObj, including any other Sector or Coords obj
-    var sectorToUse1=new CoordsObj(firstSector); // This will error if invalid input is given.
-    var sectorToUse2=new CoordsObj(SecondSector);
-    return runSimpleCommand("/load_sector_range " + sectorToUse1.toString() + " " + sectorToUse2.toString(),options);
-  }
-  this.friendlyMissileFire=function(trueOrFalse,options){ //  activates or deactivates friendly fire for missiles.
-    let booleanToUse=trueOrFalse(trueOrFalse); // allows truthy values to convert to the words, "true" or "false"
-    // Does not have success or fail messages
-    if (isTrueOrFalse(booleanToUse)){
-      return runSimpleCommand("/missile_defense_friendly_fire " + booleanToUse,options);
-    } else {
-      throw new Error("Invalid input given to Server.friendlyMissileFire() for trueOrFalse!");
-    }
-  }
-  this.npcLoadedFleetSpeed=function(floatTime,options){ // Expects a number between 0 and 1, ie. 0.5.  Changes how fast, in percentage, npc fleets travel.
-    let numberToUse=toNumIfPossible(floatTime);
-    if (typeof numberToUse == "number"){
-      if (numberToUse >= 0 && numberToUse <=1){
-        return runSimpleCommand("/npc_fleet_loaded_speed " + numberToUse,options);
-      }
-      throw new Error("Invalid input given to Server.npcLoadedFleetSpeed() for floatTime!  Expects a number between 0 and 1. ie. 0.5");
-    } else {
-      throw new Error("Invalid input given to Server.npcLoadedFleetSpeed() for floatTime!  Expects a number between 0 and 1. ie. 0.5");
-    }
-  }
-  this.npcTurn=function(options){ // "Turn for all NPC factions"
-    return runSimpleCommand("/npc_turn_all",options);
-  }
-  this.refreshServerMessage=function(options){ // Refreshes the server message that players see upon joining the server from the "server-message.txt" located in the StarMade folder.
-    return runSimpleCommand("/refresh_server_msg",options);
-  }
-  this.restructAABB=function(options){ // "Reconstructs the AABBs of all objects on the server"
-    return runSimpleCommand("/restruct_aabb",options);
-  }
-  this.startCountdown=function(timeInSeconds,message,options){ // Expects a number between 0 and 1, ie. 0.5.  Changes how fast, in percentage, npc fleets travel.
-    let numberToUse=toNumIfPossible(timeInSeconds);
-    let messageToUse=toStringIfPossible(message);
-    if (typeof numberToUse == "number"){
-      if (numberToUse >= 1){
-        if (typeof messageToUse == "string"){
-          return runSimpleCommand("/start_countdown " + numberToUse,options);
+      if (typeof factionNameToUse == "string" && typeof playerNameToUse == "string"){
+        if (typeof factionNumberToUse == "number"){ // If a faction number is provided
+          // Warning:  I do not know what happens if a faction number is given for one that already exists!
+          return runSimpleCommand("/faction_create_as " + factionNumberToUse + " " + factionNameToUse + " " + playerNameToUse,options,cb);
         }
-        throw new Error("Invalid input given to Server.startCountdown() for message!  Expects a string value!  ie. Explosions happening in..");
+        return runSimpleCommand("/faction_create " + factionNameToUse + " " + playerNameToUse,options,cb);
       }
-      throw new Error("Invalid input given to Server.startCountdown() for timeInSeconds!  Expects a number LARGER than 0! ie. 10");
+      return cb(new Error("Invalid parameters given to Server.factionCreate!"),null);
     } else {
-      throw new Error("Invalid input given to Server.startCountdown() for timeInSeconds!  Expects a number larger than 0! ie. 10");
+      return simplePromisifyIt(self.factionCreate,options,factionName,playerName,factionNumber);
     }
   }
-  this.spawnNPCFaction=function(npcName,npcFactionName,npcDescription,initialGrowth,system,options){ // system is optional.  If none given, the npc will be spawned in a random system.
-    // DOES NOT GIVE AN ERROR IF THE NPC TYPE IS NOT CORRECT - NEED TO DO MY OWN CHECKING HERE TO SEE IF VALID.
-    if (!testIfInput(npcName)){
-      throw new Error("No NPC name given to server.spawnNPCFaction!"); // Input was either blank or a blank object or something.
+  this.factionCreateAmount=function(factionName,numberOfFactions,options,cb){ // accepts inputs that can be converted to string or number
+    // Creates empty, open factions with the same name -- I'm not sure what the purpose of this is exactly.
+    if (typeof cb == "function"){
+      var factionNameToUse=toStringIfPossible(factionName);
+      var numberOfFactionsToUse=toNumIfPossible(numberOfFactions);
+      if (typeof factionNameToUse == "string" && typeof numberOfFactionsToUse == "number"){
+        return runSimpleCommand("/faction_create_amount " + factionNameToUse + " " + numberOfFactionsToUse,options,cb);
+      }
+      throw new Error("Invalid parameters given to Server.factionCreateAmount!");
+    } else {
+      return simplePromisifyIt(self.factionCreateAmount,options,factionName,factionName,numberOfFactions);
     }
-    var npcNameToUse=npcName.toString(); // If it's an object or something that can be converted to a string, we can use the string.  This will throw an error if it cannot be converted to a string.
-    if (typeof npcNameToUse != "string"){
-      throw new Error("Invalid NPC name given to server.spawnNPCFaction!");
+  }
+  this.factionPointTurn=function(options,cb){ // Forces the next faction point calculation turn
+    // Does not have success or fail messages
+    if (typeof cb == "function"){
+      return runSimpleCommand("/faction_point_turn",options,cb);
+    } else {
+      return simplePromisifyIt(self.factionPointTurn,options);
     }
-    if (!testIfInput(npcFactionName)){
-      throw new Error("No NPC faction name given to server.spawnNPCFaction!"); // Input was either blank or a blank object or something.
+  }
+  this.fleetSpeed=function(timeInMs,options,cb){
+    // Does not have success or fail messages
+    if (typeof cb == "function"){
+      let numberToUse=toNumIfPossible(timeInMs);
+      if (typeof numberToUse == "number"){
+        return runSimpleCommand("/fleet_speed " + numberToUse,options,cb);
+      } else {
+        return cb(new Error("Invalid input given to Server.fleetSpeed() for timeInMs!"),null);
+      }
+    } else {
+      return simplePromisifyIt(self.fleetSpeed,options,timeInMs);
     }
-    var npcFactionNameToUse=npcFactionName.toString();
-    if (typeof npcFactionNameToUse != "string"){
-      throw new Error("Invalid NPC faction name given to server.spawnNPCFaction!");
+  }
+  this.fogOfWar=function(trueOrFalse,options,cb){ // Turns fog of war on or off
+    if (typeof cb == "function"){
+      let booleanToUse=trueOrFalse(trueOrFalse); // allows truthy values to convert to the words, "true" or "false"
+      // Does not have success or fail messages
+      if (isTrueOrFalse(booleanToUse)){
+        return runSimpleCommand("/fog_of_war " + booleanToUse,options,cb);
+      } else {
+        return cb(new Error("Invalid input given to Server.fogOfWar() for trueOrFalse!"),null);
+      }
+    } else {
+      return simplePromisifyIt(self.fogOfWar,options,trueOrFalse);
     }
-
-    // Description and initial growth can be blank, but throw error if invalid input given
-    var npcDescriptionToUse="";
-    if (testIfInput(npcDescription)){
-      npcDescriptionToUse=npcDescription.toString();
+  }
+  this.ignoreDockingArea=function(trueOrFalse,options,cb){ //  enables/disables docking area validation (default off)
+    if (typeof cb == "function"){
+      let booleanToUse=trueOrFalse(trueOrFalse); // allows truthy values to convert to the words, "true" or "false"
+      // Does not have success or fail messages
+      if (isTrueOrFalse(booleanToUse)){
+        return runSimpleCommand("/ignore_docking_area " + booleanToUse,options,cb);
+      } else {
+        return cb(new Error("Invalid input given to Server.ignoreDockingArea() for trueOrFalse!"),null);
+      }
+    } else {
+      return simplePromisifyIt(self.ignoreDockingArea,options,trueOrFalse);
     }
-    var initialGrowthToUse=10;
-    if (isNum(initialGrowth)){
-      initialGrowthToUse=initialGrowth;
+  }
+  this.forceSave=function(options,cb){ // Performs a force save
+    // Does not have success or fail messages
+    if (typeof cb == "function"){
+      return runSimpleCommand("/force_save",options,cb);
+    } else {
+      return simplePromisifyIt(self.forceSave,options,trueOrFalse);
     }
-    if (testIfInput(system)){ // Check to see if the system is valid
+  }
+  this.activateWhitelist=function(trueOrFalse,options,cb){ //  activates the whitelist, so only players listed in the whitelist.txt file can join the server.
+    // Does not have success or fail messages
+    if (typeof cb == "function"){
+      let booleanToUse=trueOrFalse(trueOrFalse); // allows truthy values to convert to the words, "true" or "false"
+      if (isTrueOrFalse(booleanToUse)){
+        return runSimpleCommand("/whitelist_activate " + booleanToUse,options,cb);
+      } else {
+        return cb(new Error("Invalid input given to Server.activateWhitelist() for trueOrFalse!"),null);
+      }
+    } else {
+      return simplePromisifyIt(self.activateWhitelist,options,trueOrFalse);
+    }
+  }
+  this.updateShopPrices=function(options,cb){ // Updates shop prices.
+    // Does not have success or fail messages
+    if (typeof cb == "function"){
+      return runSimpleCommand("/update_shop_prices",options,cb);
+    } else {
+      return simplePromisifyIt(self.updateShopPrices,options);
+    }
+  }
+  this.sectorSize=function(sizeInM,options,cb){ // Resizes the sector for the server - writes to the server.cfg file
+    // WARNING: Setting sector sizes to be smaller can cause some really bizarre issues if entities are now outside of the sector but still inside it!
+    if (typeof cb == "function"){
+      let numberToUse=toNumIfPossible(sizeInM);
+      if (typeof numberToUse == "number"){
+        return runSimpleCommand("/sector_size " + numberToUse,options,cb);
+      } else {
+        return cb(new Error("Invalid input given to Server.sectorSize() for sizeInM!"),null);
+      }
+    } else {
+      return simplePromisifyIt(self.sectorSize,options,sizeInM);
+    }
+  }
+  this.setWeaponRangeReference=function(sizeInM,options,cb){ // Sets the weapon reference range distance in meters, which config values are multiplied with (default is sector distance)
+    if (typeof cb == "function"){
+      let numberToUse=toNumIfPossible(sizeInM);
+      if (typeof numberToUse == "number"){
+        return runSimpleCommand("/set_weapon_range_reference " + numberToUse,options,cb);
+      } else {
+        return cb(new Error("Invalid input given to Server.setWeaponRangeReference() for sizeInM!"),null);
+      }
+    } else {
+      return simplePromisifyIt(self.setWeaponRangeReference,options,sizeInM);
+    }
+  }
+  this.aiSimulation=function(trueOrFalse,options,cb){ //  activates or deactivates AI simulation
+    if (typeof cb == "function"){
+      let booleanToUse=trueOrFalse(trueOrFalse); // allows truthy values to convert to the words, "true" or "false"
+      // Does not have success or fail messages
+      if (isTrueOrFalse(booleanToUse)){
+        return runSimpleCommand("/simulation_ai_enable " + booleanToUse,options,cb);
+      } else {
+        return cb(new Error("Invalid input given to Server.aiSimulation() for trueOrFalse!"),null);
+      }
+    } else {
+      return simplePromisifyIt(self.aiSimulation,options,trueOrFalse);
+    }
+  }
+  this.simulationClear=function(options,cb){ // Clears all AI from simulation
+    // Does not have success or fail messages
+    if (typeof cb == "function"){
+      return runSimpleCommand("/simulation_clear_all",options,cb);
+    } else {
+      return simplePromisifyIt(self.simulationClear,options);
+    }
+  }
+  this.simulationSpawnDelay=function(timeInSeconds,options,cb){ // Not sure what this does.  If I had to guess what this is for, it's the delay before pirates come attack when near a pirate station or in void space?  I think the help for this command is wrong which is:  sets the time of the day in hours
+  if (typeof cb == "function"){
+    let timeToUse=toNumIfPossible(timeInSeconds);
+      if (typeof timeToUse == "number"){
+        return runSimpleCommand("/set_weapon_range_reference " + timeToUse,options,cb);
+      } else {
+        return cb(new Error("Invalid input given to Server.simulationSpawnDelay() for sizeInM!"),null);
+      }
+    } else {
+      return simplePromisifyIt(self.simulationSpawnDelay,options,timeInSeconds);
+    }
+  }
+  this.simulationInfo=function(options,cb){ // Prints info about macro AI Simulation
+    // this returns a string for now.. I'm not interested in discovery and parsing of the data at this time.
+    if (typeof cb == "function"){
+      return starNetVerified("/simulation_info",options,cb);
+    } else {
+      return simplePromisifyIt(self.simulationInfo,options);
+    }
+  }
+  this.factionList=function(options,cb){ // Returns an array of FactionObj for all factions on the server.
+    if (typeof cb == "function"){
+      return starNetVerified("/faction_list",options, function(err,results){
+        if (err){
+          console.error("ERROR:  Could not obtain faction list for ServerObj.factionList!");
+          return cb(err,results);
+        }
+        // RETURN: [SERVER, FACTION: Faction [id=-9999992
+        var returnArray=[];
+        let theReg=new RegExp("^RETURN: \\[SERVER, FACTION: Faction \\[id=[-]{0,1}[0-9]+.*");
+        var theArray=results.trim().split("\n");
+        var theLine;
+        for (let i = 0;i < theArray.length;i++) {
+          if (theReg.test(theArray[i])){
+            theLine=theArray[i].match(/^RETURN: \[SERVER, FACTION: Faction \[id=[-]{0,1}[0-9]+/);
+            if (theLine){
+              theLine=theLine.toString().match(/[-]{0,1}[0-9]+$/).toString();
+              returnArray.push(new FactionObj(theLine));
+              theLine="";
+            }
+          }
+        }
+        return cb(null,returnArray); // Array is empty if no factions were found.
+      });
+    } else {
+      return simplePromisifyIt(self.factionList,options);
+    }
+  }
+  this.blueprintList=function(options,cb){ // Returns an array of FactionObj for all factions on the server.
+    if (typeof cb == "function"){
+      return starNetVerified("/list_blueprints",options,function(err,results){
+        if (err){
+          console.error("ERROR: Could not obtain blueprint list for ServerObj.blueprintList!");
+          return cb(err,results);
+        }
+        var returnArray=[];
+        // RETURN: [SERVER, [CATALOG] INDEX 0: This is another test, 0]
+        let theReg=new RegExp("^RETURN: \\[SERVER, \\[CATALOG\\] INDEX.*");
+        var theArray=results.trim().split("\n");
+        var theLine;
+        for (let i = 0;i < theArray.length;i++) {
+          if (theReg.test(theArray[i])){
+            theLine=theArray[i].replace(/^RETURN: \[SERVER, \[CATALOG\] INDEX [0-9]+: /,"");
+            theLine=theLine.replace(/, 0\]$/,"");
+            returnArray.push(new BluePrintObj(theLine));
+            theLine="";
+          }
+        }
+        return cb(null,returnArray); // Array is empty if no factions were found.
+      });
+    } else {
+      return simplePromisifyIt(self.blueprintList,options);
+    }
+  }
+  this.listControlUnits=function(options,cb){ // Prints info about characters and entities
+    // this returns a string for now.. I'm not interested in discovery and parsing of the data at this time, since other commands have better info than this.
+    if (typeof cb == "function"){
+      return starNetVerified("/list_control_units",options,cb);
+    } else {
+      return simplePromisifyIt(self.listControlUnits,options);
+    }
+  }
+  this.loadSectorRange=function(firstSector,SecondSector,options,cb){ // Allows any input that can create a CoordsObj, including any other Sector or Coords obj
+    if (typeof cb == "function"){
+      try{
+        var sectorToUse1=new CoordsObj(firstSector); // This will error if invalid input is given.
+      } catch (err){
+        console.error("Invalid input given as 'firstSector' to ServerObj.loadSectorRange!");
+        return cb(err,null);
+      }
       try {
-        var systemToUse=new SystemObj(system); // this will throw an error if invalid input given.
-      } catch (err) {
-        throw new Error("Invalid System given to server.spawnNPCFaction!");
+        var sectorToUse2=new CoordsObj(SecondSector);
+      } catch (err){
+        console.error("Invalid input given as 'SecondSector' to ServerObj.loadSectorRange!");
+        return cb(err,null);
       }
-    }
-
-    // /npc_spawn_faction_pos_fixed
-    // DESCRIPTION: Spawns a faction on a fixed position
-    // PARAMETERS: name(String), description(String), preset (npc faction config folder name)(String), Initial Growth(Integer), System X(Integer), System Y(Integer), System Z(Integer)
-    // EXAMPLE: /npc_spawn_faction_pos_fixed "My NPC Faction" "My Faction's description" "Outcasts" 10 12 3 22
-    if (systemToUse){
-      // This is lazy and might return an error in the systemobj rather than pointing here: return systemToUse.spawnNPCFaction(npcName,npcFactionName,npcDescription,initialGrowth,options);
-      return runSimpleCommand("/npc_spawn_faction_pos_fixed \"" + npcNameToUse + "\" \"" + npcFactionNameToUse + "\" \"" + npcDescriptionToUse + "\" " + initialGrowthToUse + " " + systemToUse.toString(),options);
+      return runSimpleCommand("/load_sector_range " + sectorToUse1.toString() + " " + sectorToUse2.toString(),options,cb);
     } else {
-      return runSimpleCommand("/npc_spawn_faction \"" + npcNameToUse + "\" \"" + npcFactionNameToUse + "\" \"" + npcDescriptionToUse + "\" " + initialGrowthToUse,options);
+      return simplePromisifyIt(self.loadSectorRange,options,firstSector,SecondSector);
     }
   }
-  this.search=function(partOfEntityName,options){ // Searches for entities by part of their name.  Accepts inputs that can be converted to string
+  this.friendlyMissileFire=function(trueOrFalse,options,cb){ //  activates or deactivates friendly fire for missiles.
+    if (typeof cb == "function"){
+      let booleanToUse=trueOrFalse(trueOrFalse); // allows truthy values to convert to the words, "true" or "false"
+      // Does not have success or fail messages
+      if (isTrueOrFalse(booleanToUse)){
+        return runSimpleCommand("/missile_defense_friendly_fire " + booleanToUse,options,cb);
+      } else {
+        return cb(new Error("Invalid input given to Server.friendlyMissileFire() for trueOrFalse!"),null);
+      }
+    } else {
+      return simplePromisifyIt(self.friendlyMissileFire,options,trueOrFalse);
+    }
+  }
+  this.npcLoadedFleetSpeed=function(floatTime,options,cb){ // Expects a number between 0 and 1, ie. 0.5.  Changes how fast, in percentage, npc fleets travel.
+    if (typeof cb == "function"){
+      let numberToUse=toNumIfPossible(floatTime);
+      if (typeof numberToUse == "number"){
+        if (numberToUse >= 0 && numberToUse <=1){
+          return runSimpleCommand("/npc_fleet_loaded_speed " + numberToUse,options,cb);
+        }
+        return cb(new Error("Invalid input given to Server.npcLoadedFleetSpeed() for floatTime!  Expects a number between 0 and 1. ie. 0.5"),null);
+      } else {
+        return cb(new Error("Invalid input given to Server.npcLoadedFleetSpeed() for floatTime!  Expects a number between 0 and 1. ie. 0.5"),null);
+      }
+    } else {
+      return simplePromisifyIt(self.npcLoadedFleetSpeed,options,floatTime);
+    }
+  }
+  this.npcTurn=function(options,cb){ // "Turn for all NPC factions"
+  if (typeof cb == "function"){
+    return runSimpleCommand("/npc_turn_all",options,cb);
+  } else {
+    return simplePromisifyIt(self.npcTurn,options);
+  }
+}
+  this.refreshServerMessage=function(options,cb){ // Refreshes the server message that players see upon joining the server from the "server-message.txt" located in the StarMade folder.
+    if (typeof cb == "function"){
+      return runSimpleCommand("/refresh_server_msg",options,cb);
+    } else {
+      return simplePromisifyIt(self.refreshServerMessage,options);
+    }
+  }
+  this.restructAABB=function(options,cb){ // "Reconstructs the AABBs of all objects on the server"
+    if (typeof cb == "function"){
+      return runSimpleCommand("/restruct_aabb",options,cb);
+    } else {
+      return simplePromisifyIt(self.restructAABB,options);
+    }
+  }
+  this.startCountdown=function(timeInSeconds,message,options,cb){ // Expects a number between 0 and 1, ie. 0.5.  Changes how fast, in percentage, npc fleets travel.
+    if (typeof cb == "function"){
+      let numberToUse=toNumIfPossible(timeInSeconds);
+      let messageToUse=toStringIfPossible(message);
+      if (typeof numberToUse == "number"){
+        if (numberToUse > 0){
+          numberToUse=Math.ceil(numberToUse); // Make sure we are using a whole number that is at least 1
+          if (typeof messageToUse == "string"){
+            return runSimpleCommand("/start_countdown " + numberToUse,options,cb);
+          }
+          return cb(new Error("Invalid input given to Server.startCountdown() for message!  Expects a string value!  ie. Explosions happening in.."),null);
+        }
+        return cb(new Error("Invalid input given to Server.startCountdown() for timeInSeconds!  Expects a number LARGER than 0! ie. 10"),null);
+      } else {
+        return cb(new Error("Invalid input given to Server.startCountdown() for timeInSeconds!  Expects a number larger than 0! ie. 10"),null);
+      }
+    } else {
+      return simplePromisifyIt(self.startCountdown,options,timeInSeconds,message);
+    }
+  }
+  this.spawnNPCFaction=function(npcName,npcFactionName,npcDescription,initialGrowth,system,options,cb){ // system is optional.  If none given, the npc will be spawned in a random system.
+    // DOES NOT GIVE AN ERROR IF THE NPC TYPE IS NOT CORRECT - NEED TO DO MY OWN CHECKING HERE TO SEE IF VALID.
+    if (typeof cb == "function"){
+      if (!testIfInput(npcName)){
+        return cb(new Error("No NPC name given to server.spawnNPCFaction!"),null); // Input was either blank or a blank object or something.
+      }
+      var npcNameToUse=npcName.toString(); // If it's an object or something that can be converted to a string, we can use the string.  This will throw an error if it cannot be converted to a string.
+      if (typeof npcNameToUse != "string"){
+        return cb(new Error("Invalid NPC name given to server.spawnNPCFaction!"),null);
+      }
+      if (!testIfInput(npcFactionName)){
+        return cb(new Error("No NPC faction name given to server.spawnNPCFaction!"),null); // Input was either blank or a blank object or something.
+      }
+      var npcFactionNameToUse=npcFactionName.toString();
+      if (typeof npcFactionNameToUse != "string"){
+        return cb(new Error("Invalid NPC faction name given to server.spawnNPCFaction!"),null);
+      }
+
+      // Description and initial growth can be blank, but throw error if invalid input given
+      var npcDescriptionToUse="";
+      if (testIfInput(npcDescription)){
+        npcDescriptionToUse=npcDescription.toString();
+      }
+      var initialGrowthToUse=10;
+      if (isNum(initialGrowth)){
+        initialGrowthToUse=initialGrowth;
+      }
+      if (testIfInput(system)){ // Check to see if the system is valid
+        try {
+          var systemToUse=new SystemObj(system); // this will throw an error if invalid input given.
+        } catch (err) {
+          return cb(new Error("Invalid System given to server.spawnNPCFaction!"),null);
+        }
+      }
+
+      // /npc_spawn_faction_pos_fixed
+      // DESCRIPTION: Spawns a faction on a fixed position
+      // PARAMETERS: name(String), description(String), preset (npc faction config folder name)(String), Initial Growth(Integer), System X(Integer), System Y(Integer), System Z(Integer)
+      // EXAMPLE: /npc_spawn_faction_pos_fixed "My NPC Faction" "My Faction's description" "Outcasts" 10 12 3 22
+      if (systemToUse){
+        // This is lazy and might return an error in the systemobj rather than pointing here: return systemToUse.spawnNPCFaction(npcName,npcFactionName,npcDescription,initialGrowth,options);
+        return runSimpleCommand("/npc_spawn_faction_pos_fixed \"" + npcNameToUse + "\" \"" + npcFactionNameToUse + "\" \"" + npcDescriptionToUse + "\" " + initialGrowthToUse + " " + systemToUse.toString(),options,cb);
+      } else {
+        return runSimpleCommand("/npc_spawn_faction \"" + npcNameToUse + "\" \"" + npcFactionNameToUse + "\" \"" + npcDescriptionToUse + "\" " + initialGrowthToUse,options,cb);
+      }
+    } else {
+      return simplePromisifyIt(self.spawnNPCFaction,options,npcName,npcFactionName,npcDescription,initialGrowth,system);
+    }
+  }
+  this.search=function(partOfEntityName,options,cb){ // Searches for entities by part of their name.  Accepts inputs that can be converted to string
     // Returns a compound array of EntityObj and SectorObj
     // Example: [[ entityObj, sectorObj],[ entityObj, sectorObj ], [entityObj, sectorObj ]]
-    var partOfEntityNameToUse=toStringIfPossible(partOfEntityName);
-    if (typeof partOfEntityNameToUse == "string"){
-      var returnArray=[];
-      var results=starNetVerified("/search " + partOfEntityNameToUse,options);
-      let theReg=new RegExp("RETURN: \\[SERVER, FOUND: .*");
-      var resultsArray=returnMatchingLinesAsArray(results,theReg);
-      var shipName;
-      var shipCoords;
-      var line;
-      var tempArray=[];
-      for (let i=0;i<resultsArray.length;i++){
-        line=resultsArray[i].replace(/^RETURN: \[SERVER, FOUND: /,"");
-        shipName=line.replace(/ ->.*$/,"");
-        shipCoords=line.replace(/^.* -> \(/,"").replace(/\), 0\]$/,"").split(", ");
-        tempArray.push(new EntityObj("",shipName));
-        tempArray.push(new SectorObj(shipCoords));
-        returnArray.push(tempArray);
-        tempArray=[];
+    if (typeof cb == "function"){
+      var partOfEntityNameToUse=toStringIfPossible(partOfEntityName);
+      if (typeof partOfEntityNameToUse == "string"){
+        var returnArray=[];
+        return starNetVerified("/search " + partOfEntityNameToUse,options,function(err,results){
+          if (err){
+            return cb(err,results);
+          }
+          let theReg=new RegExp("RETURN: \\[SERVER, FOUND: .*");
+          var resultsArray=returnMatchingLinesAsArray(results,theReg);
+          var shipName;
+          var shipCoords;
+          var line;
+          var tempArray=[];
+          for (let i=0;i<resultsArray.length;i++){
+            line=resultsArray[i].replace(/^RETURN: \[SERVER, FOUND: /,"");
+            shipName=line.replace(/ ->.*$/,"");
+            shipCoords=line.replace(/^.* -> \(/,"").replace(/\), 0\]$/,"").split(", ");
+            tempArray.push(new EntityObj("",shipName));
+            tempArray.push(new SectorObj(shipCoords));
+            returnArray.push(tempArray);
+            tempArray=[];
+          }
+          // RETURN: [SERVER, FOUND: second_name -> (2, 2, 2), 0]
+          // RETURN: [SERVER, FOUND: And this is named -> (1000, 998, 1000), 0]
+          // RETURN: [SERVER, END; Admin command execution ended, 0]
+          return cb(null,returnArray); // Array is empty if no results found
+        });
       }
-      // RETURN: [SERVER, FOUND: second_name -> (2, 2, 2), 0]
-      // RETURN: [SERVER, FOUND: And this is named -> (1000, 998, 1000), 0]
-      // RETURN: [SERVER, END; Admin command execution ended, 0]
-      return returnArray;
+      return cb(new Error("Invalid parameters given to Server.search!"),null);
+    } else {
+      return simplePromisifyIt(self.search,options,partOfEntityName);
     }
-    throw new Error("Invalid parameters given to Server.search!");
   }
-  this.status=function(options){ // returns an object with the server's status, as reported by /server_status
-    let results=starNetVerified("/status",options);
-    // RETURN: [SERVER, PhysicsInMem: 0; Rep: 1, 0]
-    // RETURN: [SERVER, Total queued NT Packages: 0, 0]
-    // RETURN: [SERVER, Loaded !empty Segs / free: 189 / 184, 0]
-    // RETURN: [SERVER, Loaded Objects: 82, 0]
-    // RETURN: [SERVER, Players: 1 / 32, 0]
-    // RETURN: [SERVER, Mem (MB)[free, taken, total]: [214, 631, 845], 0]
-    var returnObj={ };
-    var searchReg=/^RETURN: \[SERVER, PhysicsInMem: .*/;
-    var remReg1=/^RETURN: \[SERVER, PhysicsInMem: /;
-    var remReg2=/, 0\]$/;
-    var physicsLine=returnLineMatch(results,searchReg,remReg1,remReg2);
-    var physicsArray=physicsLine.split("; Rep:");
-    returnObj["physics"]=toNumIfPossible(physicsArray[0]);
-    returnObj["physicsRep"]=toNumIfPossible(physicsArray[1]);
+  this.status=function(options,cb){ // returns an object with the server's status, as reported by /server_status
+    if (typeof cb == "function"){
+      return starNetVerified("/status",options,function(err,results){
+        if (err){
+          return cb(err,results);
+        }
+        // RETURN: [SERVER, PhysicsInMem: 0; Rep: 1, 0]
+        // RETURN: [SERVER, Total queued NT Packages: 0, 0]
+        // RETURN: [SERVER, Loaded !empty Segs / free: 189 / 184, 0]
+        // RETURN: [SERVER, Loaded Objects: 82, 0]
+        // RETURN: [SERVER, Players: 1 / 32, 0]
+        // RETURN: [SERVER, Mem (MB)[free, taken, total]: [214, 631, 845], 0]
+        var returnObj={ };
+        var searchReg=/^RETURN: \[SERVER, PhysicsInMem: .*/;
+        var remReg1=/^RETURN: \[SERVER, PhysicsInMem: /;
+        var remReg2=/, 0\]$/;
+        var physicsLine=returnLineMatch(results,searchReg,remReg1,remReg2);
+        var physicsArray=physicsLine.split("; Rep:");
+        returnObj["physics"]=toNumIfPossible(physicsArray[0]);
+        returnObj["physicsRep"]=toNumIfPossible(physicsArray[1]);
 
-    searchReg=/^RETURN: \[SERVER, Total queued NT Packages: .*/;
-    remReg1=/^RETURN: \[SERVER, Total queued NT Packages: /;
-    remReg2=/, 0\]$/;
-    returnObj["queuedNTPackages"]=toNumIfPossible(returnLineMatch(results,searchReg,remReg1,remReg2));
+        searchReg=/^RETURN: \[SERVER, Total queued NT Packages: .*/;
+        remReg1=/^RETURN: \[SERVER, Total queued NT Packages: /;
+        remReg2=/, 0\]$/;
+        returnObj["queuedNTPackages"]=toNumIfPossible(returnLineMatch(results,searchReg,remReg1,remReg2));
 
-    searchReg=/^RETURN: \[SERVER, Loaded !empty Segs \/ free:.*/;
-    remReg1=/^RETURN: \[SERVER, Loaded !empty Segs \/ free: /;
-    remReg2=/, 0\]$/;
-    var loadedSegsLine=returnLineMatch(results,searchReg,remReg1,remReg2);
-    var loadedSegsArray=loadedSegsLine.split(" / ");
-    returnObj["loadedEmptySegs"]=toNumIfPossible(loadedSegsArray[0]);
-    returnObj["loadedEmptySegsFree"]=toNumIfPossible(loadedSegsArray[1]);
+        searchReg=/^RETURN: \[SERVER, Loaded !empty Segs \/ free:.*/;
+        remReg1=/^RETURN: \[SERVER, Loaded !empty Segs \/ free: /;
+        remReg2=/, 0\]$/;
+        var loadedSegsLine=returnLineMatch(results,searchReg,remReg1,remReg2);
+        var loadedSegsArray=loadedSegsLine.split(" / ");
+        returnObj["loadedEmptySegs"]=toNumIfPossible(loadedSegsArray[0]);
+        returnObj["loadedEmptySegsFree"]=toNumIfPossible(loadedSegsArray[1]);
 
-    searchReg=/^RETURN: \[SERVER, Loaded Objects: .*/;
-    remReg1=/^RETURN: \[SERVER, Loaded Objects: /;
-    remReg2=/, 0\]$/;
-    returnObj["loadedObjects"]=toNumIfPossible(returnLineMatch(results,searchReg,remReg1,remReg2));
+        searchReg=/^RETURN: \[SERVER, Loaded Objects: .*/;
+        remReg1=/^RETURN: \[SERVER, Loaded Objects: /;
+        remReg2=/, 0\]$/;
+        returnObj["loadedObjects"]=toNumIfPossible(returnLineMatch(results,searchReg,remReg1,remReg2));
 
-    searchReg=/^RETURN: \[SERVER, Players: .*/;
-    remReg1=/^RETURN: \[SERVER, Players: /;
-    remReg2=/, 0\]$/;
-    var playersLine=returnLineMatch(results,searchReg,remReg1,remReg2);
-    var playersArray=playersLine.split(" / ");
-    returnObj["players"]=toNumIfPossible(playersArray[0]);
-    returnObj["playersMax"]=toNumIfPossible(playersArray[1]);
+        searchReg=/^RETURN: \[SERVER, Players: .*/;
+        remReg1=/^RETURN: \[SERVER, Players: /;
+        remReg2=/, 0\]$/;
+        var playersLine=returnLineMatch(results,searchReg,remReg1,remReg2);
+        var playersArray=playersLine.split(" / ");
+        returnObj["players"]=toNumIfPossible(playersArray[0]);
+        returnObj["playersMax"]=toNumIfPossible(playersArray[1]);
 
-    searchReg=/^RETURN: \[SERVER, Mem \(MB\)\[free, taken, total\]: \[.*/;
-    remReg1=/^RETURN: \[SERVER, Mem \(MB\)\[free, taken, total\]: \[/;
-    remReg2=/\], 0\]$/;
-    var memLine=returnLineMatch(results,searchReg,remReg1,remReg2);
-    var memArray=memLine.split(", ");
-    returnObj["memFree"]=toNumIfPossible(memArray[0]);
-    returnObj["memTaken"]=toNumIfPossible(memArray[1]);
-    returnObj["memTotal"]=toNumIfPossible(memArray[2]);
-    return returnObj;
+        searchReg=/^RETURN: \[SERVER, Mem \(MB\)\[free, taken, total\]: \[.*/;
+        remReg1=/^RETURN: \[SERVER, Mem \(MB\)\[free, taken, total\]: \[/;
+        remReg2=/\], 0\]$/;
+        var memLine=returnLineMatch(results,searchReg,remReg1,remReg2);
+        var memArray=memLine.split(", ");
+        returnObj["memFree"]=toNumIfPossible(memArray[0]);
+        returnObj["memTaken"]=toNumIfPossible(memArray[1]);
+        returnObj["memTotal"]=toNumIfPossible(memArray[2]);
+        return cb(null,returnObj);
+      });
+    } else {
+      return simplePromisifyIt(self.status,options);
+    }
   }
 
-  // /status
-  // DESCRIPTION: Displays server status
-  // PARAMETERS:
-  // EXAMPLE: /status
-  
+    // /status
+    // DESCRIPTION: Displays server status
+    // PARAMETERS:
+    // EXAMPLE: /status
+    
 
-  // shutdown(seconds,"message") // message is optional.  If given, a countdown timer will be used and then a 1 second shutdown when it is set to expire.
-  // ip
-  // 
+    // shutdown(seconds,"message") // message is optional.  If given, a countdown timer will be used and then a 1 second shutdown when it is set to expire.
+    // ip
+    // 
 
 
 };
 function BotObj(botName){
-  var theBotName=botName.toString(); // This is to allow other objects that can be converted to a string to be used, such as mimicking a player's name, but will return an error if it cannot be turned into a string.
-  if (typeof theBotName == "string"){
-    this.name=theBotName;
-    this.msg=function(player,msgString,options,cb){ // This expects a player object OR a string with a player's name, then the message to send, either as a string or an object that can be converted to a string with .toString()
+  var self=this;
+  this.name=toStringIfPossible(botName); // This is to allow other objects that can be converted to a string to be used, such as mimicking a player's name, but will return an error if it cannot be turned into a string.
+  if (typeof self.name != "string"){
+    throw new Error("Invalid botName given to new BotObj!");
+  }
+  this.msg=function(player,msgString,options,cb){ // This expects a player object OR a string with a player's name, then the message to send, either as a string or an object that can be converted to a string with .toString()
+    if (typeof cb == "function"){
       var theMessage=toStringIfPossible(msgString); // This allows certain objects that can be converted to strings to be used, such as matches or other objects
       if (typeof theMessage == "string"){
-        var thePlayer=new PlayerObj(player); // This creates a new playerObj with the playername string or PlayerObj
+        try {
+          var thePlayer=new PlayerObj(player); // This creates a new playerObj with the playername string or PlayerObj
+        } catch (err){
+          console.log("ERROR:  Invalid input given to BotObj as 'player'!");
+          return cb(err,null);
+        }
         return thePlayer.msg("[" + this.name + "]: " + theMessage,options,cb); // Any options PlayerObj.msg can take will be forwarded to it.
       } else {
-        var theError=new Error("Error with BotObj.msg command.  Invalid input given to message player with!")
-        if (typeof cb=="function"){
-          return cb(theError,false); // Could not send message, so both error and false.
-        } else {
-          throw theError; // Behavior of Sync is to throw an error.
-        }
-        
+        return cb(new Error("Error with BotObj.msg command.  Invalid input given to message player with!"),null); // Could not send message, so both error and false.
       }
+    } else {
+      return simplePromisifyIt(self.msg,options,player,msgString);
     }
-    this.serverMsg=function(msgString,options){ // This expects the message to send either as a string or an object that can be converted to a string
+  }
+  this.serverMsg=function(msgString,options,cb){ // This expects the message to send either as a string or an object that can be converted to a string
+    if (typeof cb == "function"){
       var theMessage=toStringIfPossible(msgString); // This allows certain objects that can be converted to strings to be used, such as matches or other objects
       if (typeof theMessage == "string"){
-        global.server.msg("[" + this.name + "]: " + theMessage,options); // options are forwarded to server.msg
+        return global.server.msg("[" + this.name + "]: " + theMessage,options,cb); // options are forwarded to server.msg
       } else {
-        throw new Error("Invalid message given to BotObj.serverMsg!");
+        return cb(new Error("Invalid message given to BotObj.serverMsg as 'msgString'!"),null);
       }
+    } else {
+      return simplePromisifyIt(self.serverMsg,options,msgString);
     }
-  } else {
-    throw new Error("Invalid botName given to BotObj!");
   }
 };
 function ServerSpawnObj(configurationName,lockFileObj){ // I am discontinuing this idea and focusing on making starmade.js a single-server wrapper to start with. // TODO: Remove this object
@@ -981,17 +934,6 @@ function ServerSpawnObj(configurationName,lockFileObj){ // I am discontinuing th
   // Load the settings.json file from the main dir.
   this.settings=setSettings(configurationName); // This will return the settings, setting them if needed by asking questions.
   // Build the java arguments, separating by java arguments and arguments passed to StarMade.jar
-  this.starMadeJar=path.join(this.settings["starMadeInstallFolder"],"StarMade.jar");
-  var baseJavaArgs=["-Xms" + this.settings["javaMin"], "-Xmx" + this.settings["javaMax"],"-jar"]; // These run on any OS.  TODO: Add support for JVM arguments
-  var baseJavaArgsWindows=["-Xincgc","-Xshare:off"]; // These will run on windows only
-  var baseSMJarArgs=[this.starMadeJar,"-server", "-port:" + this.settings["port"]];
-  if (process.platform == "win32"){
-    this.javaArgs=baseJavaArgs.concat(baseJavaArgsWindows).concat(baseSMJarArgs);
-  } else {
-    this.javaArgs=baseJavaArgs.concat(baseSMJarArgs);
-  }
-  this.cfgFile=path.join(this.settings["starMadeInstallFolder"],"server.cfg");
-  this.cfg=function(){ return ini.getFileAsObj(this.cfgFile) }; // This generates a new ini file object each time it's ran
 
   this.event=new new events.EventEmitter(); // This is for custom events
   if (getObjType(lockFileObj) == "LockFileObj"){ // Only set the lock file if it's provided.
