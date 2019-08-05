@@ -441,7 +441,7 @@ if (fs.existsSync(lockFile) && ignoreLockFile == false){
       }
       console.log("Blamo!");
     } else {
-      console.log("server.lck went poof on it's own!  Wonderful! Contining..");
+      console.log("server.lck went poof on it's own!  Wonderful! Continuing..");
     }
     sleep(200); // Temp
   }
@@ -489,12 +489,12 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   eventEmitter.on('shipSpawn', function(shipSpawn) {
     console.log("shipSpawn detected.");
     let mMessage="/server_message_to plain " + shipSpawn.playerName + " 'Melvin: THAT is one nice ship: " + shipSpawn.shipName + "'";
-    server.stdin.write(mMessage.toString().trim() + "\n");
+    global["server"].spawn.stdin.write(mMessage.toString().trim() + "\n");
   });
   eventEmitter.on('baseSpawn', function(baseSpawn) {
     console.log("baseSpawn detected.");
     let mMessage="/server_message_to plain " + baseSpawn.playerName + " 'Melvin: Cool new base dude! " + baseSpawn.baseName + "'";
-    server.stdin.write(mMessage.toString().trim() + "\n");
+    global["server"].spawn.stdin.write(mMessage.toString().trim() + "\n");
   });
 
 
@@ -512,17 +512,22 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   // Taken from https://stackoverflow.com/questions/10232192/exec-display-stdout-live
   // Running the starmade server process
   try { // This is to catch an error if spawn cannot start the java process
-    console.debug("Starting server with arguments: " + javaArgs,2000);
-    // var server;
-    // if (os == "win32"){
-    //   server = spawn("java", ["-Xms" + settings["javaMin"], "-Xmx" + settings["javaMax"],"-Xincgc","-Xshare:off","-jar", starMadeJar,"-server", "-port:" + settings["port"]], {"cwd": starMadeInstallFolder});
-    // } else {
-    //   server = spawn("java", ["-Xms" + settings["javaMin"], "-Xmx" + settings["javaMax"],"-jar", starMadeJar,"-server", "-port:" + settings["port"]], {"cwd": starMadeInstallFolder});
-    // }
-    global["serverSpawn"] = spawn("java",javaArgs,{"cwd": starMadeInstallFolder});
-    // global["serverSpawn"]=server;
-    var server=global["serverSpawn"];
-    global["server"]=new ServerObj(global["serverSpawn"]); // TODO:  Clean this up and standardize where the server spawn should go
+    // console.debug("Starting server with arguments: " + javaArgs,2000);
+
+    //  // var server;
+    //  // if (os == "win32"){
+    //  //   server = spawn("java", ["-Xms" + settings["javaMin"], "-Xmx" + settings["javaMax"],"-Xincgc","-Xshare:off","-jar", starMadeJar,"-server", "-port:" + settings["port"]], {"cwd": starMadeInstallFolder});
+    //  // } else {
+    //  //   server = spawn("java", ["-Xms" + settings["javaMin"], "-Xmx" + settings["javaMax"],"-jar", starMadeJar,"-server", "-port:" + settings["port"]], {"cwd": starMadeInstallFolder});
+    //  // }
+    // console.log("starMadeInstallFolder: " + starMadeInstallFolder); // temp
+    // global["serverSpawn"] = spawn("java",javaArgs,{"cwd": starMadeInstallFolder});
+    // // global["serverSpawn"]=server;
+    // var server=global["serverSpawn"];
+    // global["server"]=new ServerObj(global["serverSpawn"]);
+
+    global["server"]=new ServerObj(settings); // This object starts the server.
+    global["serverSpawn"]=global["server"].spawn; // temporary, we should reference the server object in the future, to be clear of the source.
 
   } catch (err) { // This does NOT handle errors returned by the spawn process.  This only handles errors actually spawning the process in the first place, such as if we type "javaBlah" instead of "java".  Cannot run "javaBlah" since it doesn't exist.
     console.error("ERROR: Could not spawn server!")
@@ -687,9 +692,9 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   // serverTail.watch(); // TEMPORARY
   // process.exit(); // TEMPORARY
 
-  addServerPID(server.pid); // Adds the PID to the lockfile PID tracker for servers and writes the file
+  addServerPID(global["server"].spawn.pid); // Adds the PID to the lockfile PID tracker for servers and writes the file
   serversRunning++; // Increment the number of servers running.
-  console.log('Spawned server process with PID:' + server.pid);
+  console.log('Spawned server process with PID:' + global["server"].spawn.pid);
 
   // ####################
   // ###    WRAPPER   ###
@@ -746,7 +751,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
             console.log("Player Spawned: " + playerName);
             if (settings["announceSpawnsToMainChat"] == "true") {
               let mMessage="/server_message_broadcast plain " + "'" + playerName + " has spawned.'";
-              server.stdin.write(mMessage.toString().trim() + "\n");
+              global["server"].spawn.stdin.write(mMessage.toString().trim() + "\n");
             }
             let playerObj = new objectCreator.PlayerObj(playerName);
             playerObj["spawnTime"]=Math.floor((new Date()).getTime() / 1000);
@@ -1020,7 +1025,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
     }
   }
 
-  server.stdout.on('data', function (data) { // Displays the standard output from the starmade server
+  global["server"].spawn.stdout.on('data', function (data) { // Displays the standard output from the starmade server
     let dataString=data.toString().trim(); // Clear out any blank lines
     if (dataString){
       if (showStdout == true || showAllEvents == true) {
@@ -1030,7 +1035,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
     }
   });
 
-  server.stderr.on('data', function (data) { // Displays the error output from the starmade server
+  global["server"].spawn.stderr.on('data', function (data) { // Displays the error output from the starmade server
     let dataString=data.toString().trim(); // Clear out any blank lines
     if (dataString){
       if (showStderr == true || showAllEvents == true) {
@@ -1061,17 +1066,17 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
     console.log("Scoped exit event running..");
     if (serversRunning>0){
       // Kill the processes, including all decendent processes.  For example, if we set the starmade server to actually be a script, then this will kill the script + the server.
-      if (server.pid){
-        console.log("Killing server PID, '" + server.pid + "' and all process descendants.");
-        treeKill(server.pid, 'SIGTERM');
+      if (global["server"].spawn.pid){
+        console.log("Killing server PID, '" + global["server"].spawn.pid + "' and all process descendants.");
+        treeKill(global["server"].spawn.pid, 'SIGTERM');
       }
       // We don't decrement the serversRunning value, because the "exit" event for the server process should do it.
     }
   });
 
-  server.on('exit', function (code) { // This handles When the server child process ends, abormally or not.
+  global["server"].spawn.on('exit', function (code) { // This handles When the server child process ends, abormally or not.
     serversRunning--;
-    delServerPID(server.pid); // This updates the lock file
+    delServerPID(global["server"].spawn.pid); // This updates the lock file
     if (code){
       process.exitCode=code;
       // if (code.hasOwnProperty("message")){  // Commenting out to make ESLinter happy
@@ -1088,7 +1093,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
     process.exit(); // This is necessary for now because something is holding up the natural exit of the script
 
   });
-  server.on('error', function (code) {
+  global["server"].spawn.on('error', function (code) {
     // This runs is the java process could not start for some reason.
     console.error("ERROR:  Could not launch server process!")
     if (code.hasOwnProperty("message")){
@@ -1101,13 +1106,13 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   });
 
 
-  server.on('message', function(text) { // I don't think this is needed.  TODO: Remove this.
+  global["server"].spawn.on('message', function(text) { // I don't think this is needed.  TODO: Remove this.
     console.log("Message found: " + text);
   });
 
-  // server.stdin.setEncoding('utf-8');
-  // process.stdin.pipe(server.stdin);
-  // server.stdin.pipe(process.stdin);
+  // global["server"].spawn.stdin.setEncoding('utf-8');
+  // process.stdin.pipe(global["server"].spawn.stdin);
+  // global["server"].spawn.stdin.pipe(process.stdin);
 
 
 
@@ -1221,15 +1226,15 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
       }
     } else {
       console.log("Running Command: " + theText);
-      server.stdin.write(theText + "\n");
-      // server.stdin.write(text.toString() + "\n");
-      // server.stdin.end();
+      global["server"].spawn.stdin.write(theText + "\n");
+      // global["server"].spawn.stdin.write(text.toString() + "\n");
+      // global["server"].spawn.stdin.end();
     }
   });
 
   // This is great to have all the info show on the screen, but how does one turn off a pipe? No idea.  I'll use events instead.
-  // server.stdout.pipe(process.stdout);
-  // server.stderr.pipe(process.stdout);
+  // global["server"].spawn.stdout.pipe(process.stdout);
+  // global["server"].spawn.stderr.pipe(process.stdout);
 
   // var stdinStream = new stream.Readable();
 
