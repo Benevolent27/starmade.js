@@ -26,7 +26,7 @@ const sleep = mySleep.softSleep; // Only accurate for 100ms or higher wait times
 const {sleepPromise}=mySleep; // Less accurate but non-blocking - can only be used in async functions!
 
 // Aliases
-var {getObjType,getOption}=objHelper;
+var {getObjType,getOption,simplePromisifyIt}=objHelper;
 
 // The goal of this import is to provide all the functions needed for object methods
 // Done:
@@ -596,7 +596,7 @@ function verifyResponse(input){ // input should be a full starNet.js response st
 }
 
 
-async function starNetVerifiedCB(string,options,cb){ // Takes a string command.  Options are optional
+function starNetVerifiedCB(string,options,cb){ // Takes a string command.  Options are optional
   var optionsToUse={ }; // I'm creating the options object here, because it's changed and reused for retries
   if (typeof options == "object"){
     optionsToUse=options;
@@ -612,7 +612,7 @@ async function starNetVerifiedCB(string,options,cb){ // Takes a string command. 
   console.log("Using options:"); // temp
   console.dir(optionsToUse);
   if (typeof string == "string"){
-    await starNetCb(string,optionsToUse,function (err,result){
+    return starNetCb(string,optionsToUse,function (err,result){ // replaced "await" with "return"
       if (err){
         // There will not be an error returned unless StarNet.jar terminates abornally or could not be run.
         // We are throwing an error because the wrapper cannot do anything without StarNet.jar operating correctly.
@@ -661,7 +661,11 @@ function starNetVerified(string,options,cb){ // Takes a string command.  Options
   if (typeof cb == "function"){
     return starNetVerifiedCB(string,options,cb);
   } else {
-    // This runs syncronously
+    return simplePromisifyIt(starNetVerified,options,string);
+}
+
+function starNetVerifiedSync(string,options){ // This runs syncronously.  It should NEVER be used, since it WILL hold up the main thread.
+      
     // If retry is enabled, this will still throw an error if a different kind of problem occurs, such as a buffer overflow (which is a response that is too long for StarNet.jar to handle)
     var retryOnConnectionProblem=getOption(options,"retryOnConnectionProblem",false); // by default we do not want the sync version to retry, since this holds up the main thread while it is retrying.
     var retryOnConnectionProblemMs=getOption(options,"retryOnConnectionProblemMs",1000);
