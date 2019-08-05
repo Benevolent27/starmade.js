@@ -34,12 +34,84 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   repeatString,
   getRandomAlphaNumericString,
   arrayMinus,
-  applyFunctionToArray
+  applyFunctionToArray,
+  simplePromisifyIt
 };
 
 const util=require('util');
 const path=require('path');
 const binFolder=path.resolve(__dirname,"../bin/");
+
+
+function simplePromisifyIt(cbFunctionToCall,options){ 
+  // This is used to turn callback functions into promises, provided that they follow the convention used by objectCreator.js
+  // That convention is functionName(arguments1,arguments2,arguments3,options,cb);
+  // The cb function does not need to require any arguments:  functionName(options,cb); is fine.
+  // The function should ALWAYS have an 'options' and a 'cb' parameter required.
+  // Example of usage: simplePromisifyIt(myCBFunction,options,firstArgument,secondArgument,thirdArgument)
+  
+  // The function given should run the CB function in node.js style:  cb(err,result);
+  // err should be null or an error object, the result can be anything.
+  // Example:
+  // function myCB(myInput,options,cb){
+  //   if (myInput==1){
+  //     return cb(null,"The input was 1! Yay!");
+  //   } else {
+  //     var myError=new Error("The input was not 1!  D:");
+  //     return cb(myError,null);
+  //   }
+  // }
+  //  This is the standard for callbacks I adhere to:  http://fredkschott.com/post/2014/03/understanding-error-first-callbacks-in-node-js/
+
+
+  // Takes a callback function with options and arguments specified.
+  // Can take additional parameters as extra arguments after the "options" argument.  Example: simplePromisifyIt(self.whatever,options,someVal,anotherVal,AnotherVal)
+  
+  // As an example, if no extra parameters are needed, such as for the PlayerObj, self.isBanned(options,cb)
+  // ie: simplePromisifyIt(self.isBanned,options)
+
+  // If 1 additional parameter is given, this can be used for the PlayerObj method, this.msg(message,options,cb)
+  // ie: simplePromisifyIt(self.msg,options,message)
+
+  // Any additional parameters given are added to the BEGINNING of the this.whatever method, since the callback should always be at the end, and options should always be second from last.
+
+  if (typeof cbFunctionToCall == "function"){
+    // console.log("Running with arguments: ");
+    // console.dir(arguments);
+    var args=Array.from(arguments);
+    // console.log("arguments as an array: " + args);
+    var theFunctionToCall=cbFunctionToCall;
+    args.splice(0,2); // Splicing while making the array doesn't seem to work properly
+    // console.log("args spliced: ");
+    // console.dir(args);
+    if (args.length<0){ // arguments were used
+      return new Promise(function(resolve,reject){
+        // console.log("promise created WITHOUT parameter");
+        theFunctionToCall(options,function(err,result){
+          if (err){
+            reject(err);
+          } else {
+            resolve(result);
+          }
+        });
+      });
+    } else { // No arguments were used, so we should not expand them
+      return new Promise(function(resolve,reject){
+        // console.log("promise created WITH parameter(s)");
+        theFunctionToCall(...args,options,function(err,result){
+          // console.log("This is the err: " + err); //temp
+          // console.log("This is the result: " + result); //temp
+          if (err){
+            reject(err);
+          } else {
+            resolve(result);
+          }
+        });
+      });
+    }
+  }
+  throw new Error("Invalid input given to simplePromisifyIt as functionToCall!");
+}
 
 function applyFunctionToArray(arrayInput,functionToRun){
   // cycles through an array, running a function on each value, replacing the original value.
