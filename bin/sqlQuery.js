@@ -27,22 +27,49 @@ const addNumToErrorObj=objHelper["addNumToErrorObj"];
 // Note:  the ["whatever"] convention does not work here due to how arguments are processed.
 // Example:  node sqlQuery.js "SELECT * FROM PUBLIC.ENTITIES WHERE X=2;" mapArray
 // Example2:  node sqlQuery.js "SELECT * FROM PUBLIC.ENTITIES WHERE X=2;" columns
+// if (__filename == require.main.filename){ // Only run starnet with command line arguments if this script is running as itself
+//   var clArguments=process.argv.slice(2);
+//   if (clArguments){
+//     var theQuery=clArguments[0];
+//     console.log("Running with query: " + theQuery);
+//     var theResults=new SqlQueryObj(theQuery);
+//     if (clArguments[1]){
+//       console.log("Returning value of '" + clArguments[1] + "':");
+//       let tempStr="theResults." + clArguments[1];
+//       console.dir(eval(tempStr));
+//     } else {
+//       console.log("Results:");
+//       console.dir(theResults);
+//     }
+//   }
+// }
+
+// switching to using the sqlQuery function instead.
 if (__filename == require.main.filename){ // Only run starnet with command line arguments if this script is running as itself
   var clArguments=process.argv.slice(2);
   if (clArguments){
     var theQuery=clArguments[0];
     console.log("Running with query: " + theQuery);
-    var theResults=new SqlQueryObj(theQuery);
-    if (clArguments[1]){
-      console.log("Returning value of '" + clArguments[1] + "':");
-      let tempStr="theResults." + clArguments[1];
-      console.dir(eval(tempStr));
-    } else {
-      console.log("Results:");
-      console.dir(theResults);
-    }
+    sqlQuery(theQuery,"",function(err,result){
+      if (err){
+        console.error("Error performing SQLQuery: ");
+        console.dir(err);
+        return false;
+      }
+      if (clArguments[1]){
+        console.log("Returning value of '" + clArguments[1] + "':");
+        let section=clArguments[1];
+        console.dir(result[section]);
+        return true;
+      } else {
+        console.log("Results:");
+        console.dir(result);
+        return true;
+      }
+    });
   }
 }
+
 function getSQLquery(query){ // This will preprocess a query so that it should work with starNet.js to run correctly.
   // This should correct for improper quote types.
   // For example if someone tries to use a ' character instead of a " character when performing "like" operators
@@ -57,13 +84,13 @@ function getSQLquery(query){ // This will preprocess a query so that it should w
   }
 }
 
-function sqlQuery(sqlQuery,cb){ // Needs testing // Also the code here can be cleaned up since it's a bit wonky
+function sqlQuery(sqlQuery,options,cb){ // Needs testing // Also the code here can be cleaned up since it's a bit wonky
   if (typeof sqlQuery == "string" && sqlQuery != ""){
     var queryToUse=getSQLquery(sqlQuery);
-    return starNet(queryToUse,function(err,resultsStr){
+    return starNetCb(queryToUse,options,function(err,resultsStr){
       var returnObj={};
       if (err){
-        console.error("ERROR when performing sqlQuery on query: " + queryToUse);
+        console.error("StarNet ERROR when performing sqlQuery on query: " + queryToUse);
         return cb(err,resultsStr);
       }
       if (!verifyResponse(resultsStr)){
@@ -89,15 +116,11 @@ function sqlQuery(sqlQuery,cb){ // Needs testing // Also the code here can be cl
           if (theResults["columns"].length > 0){
             // Even if there are no results found, a valid SQL query ALWAYS returns the columns
             returnObj["error"]=false;
-            returnObj["mapArray"]=mapifyColumnsAndAllData(theResults["columns"],theResults["data"]);
-            returnObj["objArray2"]=function(){
-              var returnArray=[];
-              for (let i=0;i<returnObj.mapArray.length;i++){
-                returnArray.push(objHelper.strMapToObj(returnObj.mapArray[i]));
-              }
-              return returnArray;
-            };
-            returnObj["objArray"]=convertMapArrayToObjectArray(returnObj.mapArray);
+            // returnObj["mapArray"]=mapifyColumnsAndAllData(theResults["columns"],theResults["data"]);
+            // returnObj["objArray"]=convertMapArrayToObjectArray(returnObj.mapArray);
+
+            returnObj["objArray"]=objectifyColumnsAndAllData(theResults["columns"],theResults["data"]);
+            
             returnObj["columns"]=theResults["columns"];
             // I'm changing this to be a value rather than function, because it occured to me that if there are 0 results, the map should be empty
             // returnObj.columns=function(){
@@ -219,3 +242,23 @@ function convertMapArrayToObjectArray(theMap){
   }
 return returnArray;
 };
+
+
+function objectifyColumnsAndAllData(columnArray,dataArray){ // this assists the SQL query constructor
+  // dataArray should be an array of nested arrays, which each contain one individual result
+  // If the dataArray is empty, then an empty array is returned.
+  var tempArray=[];
+  for (let e=0;e<dataArray.length;e++){
+    // Working through each set of values from data
+    tempArray.push(objectFromColumnsAndDataSet(columnArray,dataArray[e]));
+  }
+  return tempArray;
+};
+function objectFromColumnsAndDataSet(columnArray,dataArray){ // this assists the SQL query constructor, creating each a new map for each individual result.
+  var tempObject={};
+  for (let i=0;i<columnArray.length;i++){
+    tempObject[columnArray[i]]=dataArray[i];
+  }
+  return tempObject;
+};
+
