@@ -72,7 +72,7 @@ const {verifyStarNetResponse,starNetVerified,starNetVerifiedCB,returnMatchingLin
 const {copyArray,toNumIfPossible,toStringIfPossible,subArrayFromAnother,findSameFromTwoArrays,isInArray} = objectHelper;
 // const colorize              = objectHelper["colorize"];
 // const getObjType            = objectHelper.getObjType; // Gets the prototype name of an object, so instead of using "typeof", which returns "object" for things like arrays and SectorObj's, etc, this will return their object name instead.
-const {testIfInput,trueOrFalse,isTrueOrFalse,isNum,colorize,getObjType,returnLineMatch,applyFunctionToArray} = objectHelper;
+const {testIfInput,trueOrFalse,isTrueOrFalse,isNum,colorize,getObjType,returnLineMatch,applyFunctionToArray,simplePromisifyIt} = objectHelper;
 const {isTrue,isFalse,getOption}=objectHelper;
 const toNum                 = objectHelper.toNumIfPossible;
 
@@ -164,29 +164,50 @@ function showResponseCallback(error,output){ // This is a helper function for te
 // var server;  // This is needed so objects can send text to the server directly.  I may add the global object to this as well.
 // var global;
 
-function ServerObj(spawn){ // Updated for cb/promises // This will be used to run server commands or gather specific information regarding the server.
+function ServerObj(serverSettingsObj){ // Updated for cb/promises // This will be used to run server commands or gather specific information regarding the server.
   // TODO:  Make it so the server is actually spawned when this object is created.
   // TODO: Add sections with information on the parameters used for the server, the path to the jar file ran, etc.
+  // Takes a settings object, which specifies the following, as an example:
+  // {
+  //   starMadeFolder:"/path/to/starmade",
+  //   javaMin:"512m",
+  //   javaMax:"4096m",
+  //   port:"4242",
+  //   addionalJavaArgs:["-jvm blah blah","-more options"], // optional
+  //   additionalSMJarArgs:["-more options","-if any exist"] // optional
+  // }
+
   var self=this; // This is needed to keep this context within subfunctions
   this.filePath="This is just a filler for now till I complete this.";
   this.filePathWithArguments="more filler";
-
-  this.starMadeJar=path.join(this.settings["starMadeInstallFolder"],"StarMade.jar");
-  var baseJavaArgs=["-Xms" + this.settings["javaMin"], "-Xmx" + this.settings["javaMax"],"-jar"]; // These run on any OS.  TODO: Add support for JVM arguments
+  console.dir(serverSettingsObj);
+  this.starMadeInstallFolder=path.join(serverSettingsObj["starMadeFolder"],"StarMade");
+  this.starMadeJar=path.join(self.starMadeInstallFolder,"StarMade.jar");
+  var baseJavaArgs=["-Xms" + serverSettingsObj["javaMin"], "-Xmx" + serverSettingsObj["javaMax"],"-jar"]; // These run on any OS.  TODO: Add support for JVM arguments
+  if (serverSettingsObj.hasOwnProperty("addionalJavaArgs")){
+    baseJavaArgs=serverSettingsObj.addionalJavaArgs.concat(baseJavaArgs);
+  }
   var baseJavaArgsWindows=["-Xincgc","-Xshare:off"]; // These will run on windows only
-  var baseSMJarArgs=[this.starMadeJar,"-server", "-port:" + this.settings["port"]];
+  var baseSMJarArgs=[self.starMadeJar,"-server", "-port:" + serverSettingsObj["port"]];
   if (process.platform == "win32"){
     this.javaArgs=baseJavaArgs.concat(baseJavaArgsWindows).concat(baseSMJarArgs);
   } else {
     this.javaArgs=baseJavaArgs.concat(baseSMJarArgs);
   }
+  console.log("Set javaArgs: " + self.javaArgs);
+
   // starMadeJar + javaArgs = what is needed to run a spawn instance. TODO:  Check to ensure the above is correct.
 
   // Todo:  add start(), stop(), kill(), forceKill(), isResponsive(), etc.
   // This might be useful for spawning:  this.spawn=spawn("java",this.javaArgs,{"cwd": this.settings["starMadeInstallFolder"]});
 
-  this.cfgFile=path.join(this.settings["starMadeInstallFolder"],"server.cfg");
-  this.cfg=function(){ return ini.getFileAsObj(this.cfgFile) }; // This generates a new ini file object each time it's ran
+  this.cfgFile=path.join(self.starMadeInstallFolder,"server.cfg");
+  this.cfg=function(){ // callbackify and promisify this
+    return ini.getFileAsObj(self.cfgFile) 
+  }; // This generates a new ini file object each time it's ran
+  
+  // this.spawn=spawn;
+  this.spawn=spawn("java",self.javaArgs,{"cwd": self.starMadeInstallFolder}); // Spawn the server
 
   // TODO:
   // add isInServerList()  using: getServerListArray()
@@ -203,7 +224,7 @@ function ServerObj(spawn){ // Updated for cb/promises // This will be used to ru
   // getWhitelistedNames
 
 
-  this.spawn=spawn;
+  
   this.onlinePlayers=function(options,cb){
     if (typeof cb == "function"){
       return getPlayerList(options,cb);
@@ -1081,7 +1102,7 @@ function SMNameObj(smName){
   this.getNames=function(options,cb){ // Returns an array of PlayerObj's for all the usernames associated with this registry account name
     if (typeof cb == "function"){
       var theSmNameToUse=this.name.toLowerCase(); // This is in case the smname returned has uppercase letters.  The sql db will ALWAYS have it in lowercase.
-      return sqlQuery("SELECT NAME FROM PUBLIC.PLAYERS WHERE STARMADE_NAME='" + theSmNameToUse + "'",function(err,result){
+      return sqlQuery("SELECT NAME FROM PUBLIC.PLAYERS WHERE STARMADE_NAME='" + theSmNameToUse + "'",options,function(err,result){
         if (err){
           return cb(err,result);
         }
@@ -1095,7 +1116,7 @@ function SMNameObj(smName){
         return cb(null,outputArray);
       });
     } else {
-      return simplePromisifyIt(self.getNames,options,timeToWhitelist);
+      return simplePromisifyIt(self.getNames,options);
     }
   }
 };
@@ -1167,75 +1188,7 @@ function simplePromisifyIt2(functionToCall,options,firstParameter){ // If there 
   throw new Error("Invalid input given to simplePromisifyIt as functionToCall!");
 }
 
-function simplePromisifyIt(cbFunctionToCall,options){ 
-  // This is used to turn callback functions into promises, provided that they follow the convention used by objectCreator.js
-  // That convention is functionName(arguments1,arguments2,arguments3,options,cb);
-  // The cb function does not need to require any arguments:  functionName(options,cb); is fine.
-  // The function should ALWAYS have an 'options' and a 'cb' parameter required.
-  // Example of usage: simplePromisifyIt(myCBFunction,options,firstArgument,secondArgument,thirdArgument)
-  
-  // The function given should run the CB function in node.js style:  cb(err,result);
-  // err should be null or an error object, the result can be anything.
-  // Example:
-  // function myCB(myInput,options,cb){
-  //   if (myInput==1){
-  //     return cb(null,"The input was 1! Yay!");
-  //   } else {
-  //     var myError=new Error("The input was not 1!  D:");
-  //     return cb(myError,null);
-  //   }
-  // }
-  //  This is the standard for callbacks I adhere to:  http://fredkschott.com/post/2014/03/understanding-error-first-callbacks-in-node-js/
 
-
-  // Takes a callback function with options and arguments specified.
-  // Can take additional parameters as extra arguments after the "options" argument.  Example: simplePromisifyIt(self.whatever,options,someVal,anotherVal,AnotherVal)
-  
-  // As an example, if no extra parameters are needed, such as for the PlayerObj, self.isBanned(options,cb)
-  // ie: simplePromisifyIt(self.isBanned,options)
-
-  // If 1 additional parameter is given, this can be used for the PlayerObj method, this.msg(message,options,cb)
-  // ie: simplePromisifyIt(self.msg,options,message)
-
-  // Any additional parameters given are added to the BEGINNING of the this.whatever method, since the callback should always be at the end, and options should always be second from last.
-
-  if (typeof cbFunctionToCall == "function"){
-    // console.log("Running with arguments: ");
-    // console.dir(arguments);
-    var args=Array.from(arguments);
-    // console.log("arguments as an array: " + args);
-    var theFunctionToCall=cbFunctionToCall;
-    args.splice(0,2); // Splicing while making the array doesn't seem to work properly
-    // console.log("args spliced: ");
-    // console.dir(args);
-    if (args.length<0){ // arguments were used
-      return new Promise(function(resolve,reject){
-        // console.log("promise created WITHOUT parameter");
-        theFunctionToCall(options,function(err,result){
-          if (err){
-            reject(err);
-          } else {
-            resolve(result);
-          }
-        });
-      });
-    } else { // No arguments were used, so we should not expand them
-      return new Promise(function(resolve,reject){
-        // console.log("promise created WITH parameter(s)");
-        theFunctionToCall(...args,options,function(err,result){
-          // console.log("This is the err: " + err); //temp
-          // console.log("This is the result: " + result); //temp
-          if (err){
-            reject(err);
-          } else {
-            resolve(result);
-          }
-        });
-      });
-    }
-  }
-  throw new Error("Invalid input given to simplePromisifyIt as functionToCall!");
-}
 
 function returnValFromPlayerInfo(selfInfoFunc,valToGet,options,cb){
   let theFunc=selfInfoFunc;
