@@ -235,14 +235,16 @@ function mapifyShipInfoUIDString(responseStr,options){ // options are optional. 
   // The last line is the "type"
   // The DatabaseEntry value will be processed into a map of it's own and nested
   // entries that are expected to be arrays will be processed into arrays (such as Sector and MinBB values)
-  var returnType="map"; // This is the default
-  if (typeof options == "object"){
-    if (options.hasOwnProperty("objType")){
-      if (options.objType == "object"){
-        returnType="object"
-      }
-    }
-  }
+  var returnType=getOption(options,"objType","map"); // option can be an object
+  
+  
+  // if (typeof options == "object"){
+  //   if (options.hasOwnProperty("objType")){
+  //     if (options.objType == "object"){
+  //       returnType="object"
+  //     }
+  //   }
+  // }
 
   console.debug("Starting mapify!");
   if (typeof responseStr == "string"){
@@ -421,14 +423,8 @@ function getEntityValue(uidOrShipObj,valueString,options){ // Options are option
   // The secondary goal is to make it so this can pull values from the DatabaseEntry if loaded info is not available, without having to load the sector.
   // The tertiary goal is to load a sector prior to trying to pull the value if the ship is currently not loaded.
 
-  var returnType="map"; // This only affects DataBaseEntry.  Everything else are objects, arrays, numbers, or strings by default.
-  if (typeof options == "object"){
-    if (options.hasOwnProperty("objectType")){
-      if (options.objectType == "object"){
-        returnType="object"
-      }
-    }
-  }
+  var returnType=getOption(options,"objectType","map"); // valid option is "object"
+  // This only affects DataBaseEntry.  Everything else are objects, arrays, numbers, or strings by default.
 
   var shipNotExistMsg="Ship does not appear to exist!  Cannot get value of '" + valueString + "'!"
   var malformedRequestMsg="ERROR: Could not get value, '" + valueString + "' because the request was malformed!";
