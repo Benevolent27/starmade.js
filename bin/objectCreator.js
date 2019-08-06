@@ -160,6 +160,132 @@ function showResponseCallback(error,output){ // This is a helper function for te
   }
 }
 
+//  #################
+//  ###  SQUISH  ####
+//  #################
+//  This allows "squishing" an object into a smaller object, JSON.stringifying it, 
+//  storing it to the hard drive, retrieving it, and then recreating the original object.
+//  It will preserve any additional elements added.
+//  It requires strict adherence to recreation of the object, however.  The parameters needed
+//  MUST be stored into the object as they are given, or the values must be able to be converted
+//  back to acceptable input by running ".toString" on the value.  Such as if it's converted to
+//  a sectorObj.
+//  TODO:  Convert objects to be compatible with squish
+
+var STRIP_COMMENTS = /(\/\/.*$)|(\/\*[\s\S]*?\*\/)|(\s*=[^,)]*(('(?:\\'|[^'\r\n])*')|("(?:\\"|[^"\r\n])*"))|(\s*=[^,)]*))/mg;
+var ARGUMENT_NAMES = /([^\s,]+)/g;
+SquishedObj.prototype.unSquish=function(options){ // options are optional
+    return unSquish(this,options);
+}
+
+function squishyElemIsAnythingBut(input){
+    var objTypeName="squishedFromObjectType";
+    var objCreationArrayName="theSquishObjCreationArray";
+    if (input != objTypeName && input != objCreationArrayName){
+        return true;
+    }
+    return false;
+}
+
+function getParamNames(func) {
+    var fnStr = func.toString().replace(STRIP_COMMENTS, '');
+    var result = fnStr.slice(fnStr.indexOf('(')+1, fnStr.indexOf(')')).match(ARGUMENT_NAMES);
+    if(result === null){
+       result = [];
+    }
+    return result;
+    // Source: https://stackoverflow.com/questions/1007981/how-to-get-function-parameter-names-values-dynamically
+}
+
+function squish(inputObj,options){ // The purpose of this is to minify an object to be recreated back later
+    console.log("Squishing object..");
+    // Get the parameters needed to create the function:
+
+    var objType=inputObj.constructor.name;
+    // var objCreationString=inputObj.toString();
+    var paramsNameArray=getParamNames(eval(inputObj.constructor.name));
+    console.log("Parameters: " + paramsNameArray);
+
+    // Instead of using the input parameters to look up values from the object,
+    // we can specify which ones to use, but the results MUST be able to be used
+    // as parameters to create the object.
+    // For example:  MyObj(first,second,third,fourth);
+    // If the object created by this Constructor has a "1st" value, we can provide
+    // that as the map.
+    // example:  squish(myObj,{"elements":["1st","2nd","3rd","4th"]})
+    // This then looks up myObj["1st"] to use later as input to "first"
+    // Even if a parameter will be empty, it must be provided.
+    
+    var iterableParams=getOption(options,"elements",paramsNameArray);
+    var iterableFuncs=getOption(options,"preProcess",[]); // This is used to process any value retrieved to a value that can then be used to recreate the object
+    console.log("Using iterable params: " + iterableParams);
+    if (Array.isArray(iterableParams)){
+        if (iterableParams.length == paramsNameArray.length){
+            var theArgArray=[];
+            var paramName;
+            for (let i=0;i<paramsNameArray.length;i++){
+                paramName=iterableParams[i];
+                if (typeof iterableFuncs[i] == "function"){
+                    theArgArray.push(iterableFuncs[i](inputObj[paramName]));
+                } else {
+                    theArgArray.push(inputObj[paramName]);
+                }
+                
+            }
+            return new SquishedObj(inputObj,objType,theArgArray);
+        } else {
+            throw new Error("ERROR: elements array MUST be the same length as the input parameters required by the input Constructor!");
+        }
+    } else {
+        throw new Error("Invalid input given as 'elements' option!  Expects an array!");
+    }
+};
+
+function unSquish(squishedObj,options){
+    console.log("Unsquishing object..");
+    var squishedFromObjectType=squishedObj["squishedFromObjectType"];
+    console.log("squishedFromObjectType: " + squishedFromObjectType); // temp
+    var theSquishObjCreationArray=squishedObj["theSquishObjCreationArray"];
+    var iterableFuncs=getOption(options,"preProcess",[]); // This is used to process any value retrieved to a value that can then be used to recreate the object
+    for (let i=0;i<iterableFuncs.length;i++){
+        if (typeof iterableFuncs[i] == "function"){
+            // if it's a function, run the function on the value from the array to transform it and replace it.
+            theSquishObjCreationArray[i]=iterableFuncs[i](theSquishObjCreationArray[i]);
+        }
+    }
+    var outputObj=Reflect.construct(eval(squishedFromObjectType),theSquishObjCreationArray);
+    for (var property in squishedObj){ // recreate any non-prototypes
+        if (squishedObj.hasOwnProperty(property)){
+            if (squishyElemIsAnythingBut(property)){
+                outputObj[property]=squishedObj[property];
+            }
+        }
+    }
+    return outputObj;
+};
+
+function SquishedObj(inputObj,objType,objCreationArray){ // Change this to take an array of strings
+    var self=this;
+    this["squishedFromObjectType"]=objType;
+    self["theSquishObjCreationArray"]=objCreationArray;
+    if (typeof inputObj == "object" && typeof objType == "string" && Array.isArray(objCreationArray)){
+        var compareToObj=Reflect.construct(eval(objType),objCreationArray);
+        for (var property in inputObj){
+            if (inputObj.hasOwnProperty(property)){ // I don't want to save prototypes
+                if (!compareToObj.hasOwnProperty(property)){
+                // The element is something not present in the default object type, so let's store it
+                self[property]=inputObj[property];
+                }
+            }
+        }
+        // Object should now be squished!
+    } else {
+        throw new Error("Invalid input given to SquishedObj!");
+    }
+}
+
+
+
 // The following is outdated since I'm using the global object for javascript instead of passing along the info.
 // var server;  // This is needed so objects can send text to the server directly.  I may add the global object to this as well.
 // var global;
@@ -902,7 +1028,7 @@ function ServerObj(serverSettingsObj){ // Updated for cb/promises // This will b
 
 
 };
-function BotObj(botName){ // Updated for cb/promises 
+function BotObj(botName){ // cb/promises compliant 
   var self=this;
   this.name=toStringIfPossible(botName); // This is to allow other objects that can be converted to a string to be used, such as mimicking a player's name, but will return an error if it cannot be turned into a string.
   if (typeof self.name != "string"){
@@ -940,7 +1066,7 @@ function BotObj(botName){ // Updated for cb/promises
   }
 };
 
-function MessageObj(sender,receiver,receiverType,message){
+function MessageObj(sender,receiver,receiverType,message){ // cb/promises compliant
   // Takes string values and converts to strings or objects of the correct types
   this.sender=new PlayerObj(sender); // This should ALWAYS be a player sending a message
   if (receiverType=="DIRECT"){ // This is a private message sent from one player to another
@@ -956,7 +1082,7 @@ function MessageObj(sender,receiver,receiverType,message){
   }
   this.text=message;
 };
-function ChannelObj(channelName){
+function ChannelObj(channelName){ // cb/promises compliant
   var factionTest=new RegExp("^Faction-{0,1}[0-9]+");
   if (channelName == "all"){
     this.type="global";
@@ -975,7 +1101,7 @@ function ChannelObj(channelName){
   }
   this.name=channelName;
 };
-function IPObj(ipAddressString,date){
+function IPObj(ipAddressString,date){ // cb/promises compliant
   // Example:  var myIPObj = new IpObj("192.0.0.100",Date.now());
   // ipAddressString should look something like "7.7.7.7"
   // date can be a string that "new Date()" can turn into an object or can be a Date object.  It's easier to debug if you create the date object yourself and then pass it here, so if there are any issues, the stack trace will point to the place where the bad string is attempted to be converted to a Date object.
@@ -992,7 +1118,7 @@ function IPObj(ipAddressString,date){
   // TODO:  Redo this section to standardize with the same options given as the PlayerObj
   this.ban=function(minutes,options,cb){ 
     if (typeof cb == "function"){
-      return ipBan(this.address,minutes,options,cb);
+      return ipBan(self.address,minutes,options,cb);
     } else {
       return simplePromisifyIt(self.ban,options,minutes);
     }
@@ -1014,7 +1140,7 @@ function IPObj(ipAddressString,date){
   }
   this.ipWhitelist=function(minutes,options,cb){ // minutes is optional.  Permanent whitelist if not specified.
     if (typeof cb == "function"){
-      return ipWhitelist(this.address,minutes,options,cb);
+      return ipWhitelist(self.address,minutes,options,cb);
     } else {
       return simplePromisifyIt(self.ipWhitelist,options,minutes);
     }
@@ -1039,7 +1165,7 @@ function IPObj(ipAddressString,date){
   // Optional:
   // crawl(Num) - reveals all players who share the same IP.  If a Num is provided, then will crawl that level deep, gathering more IP's and ipcrawling those.
 };
-function SMNameObj(smName){
+function SMNameObj(smName){ // cb/promises compliant
   var self=this;
   this.name=smName;
   // TODO:
@@ -1053,30 +1179,29 @@ function SMNameObj(smName){
   // getNames - Returns an array of PlayerObj's for all the usernames associated with this registry account name
   this.isBanned=function (options,cb){ // Returns true or false depending on whether it is banned or not
     if (typeof cb == "function"){
-      return isAccountBanned(this.name,options,cb);
+      return isAccountBanned(self.name,options,cb);
     } else {
       return simplePromisifyIt(self.isBanned,options);
     }
   }
   this.isWhitelisted=function(options,cb){
     if (typeof cb == "function"){
-      return isAccountWhitelisted(this.name,options,cb);
+      return isAccountWhitelisted(self.name,options,cb);
     } else {
       return simplePromisifyIt(self.isWhitelisted,options);
     }
   }
-
   this.ban=function (timeToBan,options,cb){ // timeToBan is optional.  If no number given, it will be a perm ban.  Options can be {"fast":true}
     if (typeof cb == "function"){
       var theTimeToUse=toNumIfPossible(timeToBan);
       if (typeof theTimeToUse=="number"){ // temp ban
-        console.log("Banning player account, '" + this.name + "', for " + theTimeToUse + " minutes.");
-        return runSimpleCommand("/ban_account_temp " + this.name,options + " " + theTimeToUse,cb);
+        console.log("Banning player account, '" + self.name + "', for " + theTimeToUse + " minutes.");
+        return runSimpleCommand("/ban_account_temp " + self.name,options + " " + theTimeToUse,cb);
       } else if (testIfInput(timeToBan)){
         return cb(new Error("Invalid input given to SMNameObj.ban as 'timeToBan'!"),null);
       } else { // permban
-        console.log("Banning player account: " + this.name);
-        return runSimpleCommand("/ban_account " + this.name,options,cb);    
+        console.log("Banning player account: " + self.name);
+        return runSimpleCommand("/ban_account " + self.name,options,cb);    
       }
     } else {
       return simplePromisifyIt(self.ban,options,timeToBan);
@@ -1086,22 +1211,22 @@ function SMNameObj(smName){
     if (typeof cb == "function"){
       var theTimeToUse=toNumIfPossible(timeToWhitelist);
       if (typeof theTimeToUse=="number"){ // temp whitelist
-        console.log("Whitelisting player account, '" + this.name + "', for " + theTimeToUse + " minutes.");
-        return runSimpleCommand("/whitelist_account_temp " + this.name,options + " " + theTimeToUse,cb);
+        console.log("Whitelisting player account, '" + self.name + "', for " + theTimeToUse + " minutes.");
+        return runSimpleCommand("/whitelist_account_temp " + self.name,options + " " + theTimeToUse,cb);
       } else if (testIfInput(timeToWhitelist)){
         return cb(new Error("Invalid input given to SMNameObj.whitelist as 'timeToWhitelist'!"),null);
       } else { // permban
-        console.log("Whitelisting player account: " + this.name);
-        return runSimpleCommand("/whitelist_account " + this.name,options,cb);    
+        console.log("Whitelisting player account: " + self.name);
+        return runSimpleCommand("/whitelist_account " + self.name,options,cb);    
       }
     } else {
       return simplePromisifyIt(self.whitelist,options,timeToWhitelist);
     }
   }
-
   this.getNames=function(options,cb){ // Returns an array of PlayerObj's for all the usernames associated with this registry account name
     if (typeof cb == "function"){
-      var theSmNameToUse=this.name.toLowerCase(); // This is in case the smname returned has uppercase letters.  The sql db will ALWAYS have it in lowercase.
+      var theSmNameToUse=self.name; // The sql db is actually case sensitive.
+      
       return sqlQuery("SELECT NAME FROM PUBLIC.PLAYERS WHERE STARMADE_NAME='" + theSmNameToUse + "'",options,function(err,result){
         if (err){
           return cb(err,result);
@@ -1121,18 +1246,19 @@ function SMNameObj(smName){
   }
 };
 
-function runSimpleCommand(theCommand,options,cb){ // If no cb is given, it will run syncronously, but this should NEVER be used if possible
+function runSimpleCommand(theCommand,options,cb){  // cb/promises compliant (also has sync option for sending to stdin directly IF ran in fast mode)
   // This is used for PlayerObj methods that can be sent to either the console or using StarNet
-  if (theCommand){
+  var theCommandToUse=toStringIfPossible(theCommand);
+  if (typeof theCommandToUse == "string"){
     var fast=getOption(options,"fast",false);
     var msgTestFail=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] \\[ERROR\\]");
     // RETURN: [SERVER, Admin command failed: Error packing parameters, 0]
     // RETURN: [SERVER, Admin command failed: Error packing parameters, 0]
     var msgTestFail2=new RegExp("^RETURN: \\[SERVER, Admin command failed: Error packing parameters, 0\\]")
-    if (fast==true){
-      return sendDirectToServer(theCommand,cb);
+    if (fast==true){ // this can run in Sync if a CB is not specified, since it's only sending input to a stdin of the server
+      return sendDirectToServer(theCommandToUse,cb);
     } else if (typeof cb == "function"){
-      starNetVerified(theCommand,options,function(err,msgResult){
+      return starNetVerified(theCommandToUse,options,function(err,msgResult){
         if (err){
           return cb(err,msgResult);
         } else if (starNetHelper.checkForLine(msgResult,msgTestFail) || starNetHelper.checkForLine(msgResult,msgTestFail2)){ // The player was offline, did not exist, or other parameters were incorrect.
@@ -1141,58 +1267,21 @@ function runSimpleCommand(theCommand,options,cb){ // If no cb is given, it will 
           return cb(err,Boolean(true)); // Err will be null
         }
       });
-    } else { // Run in Sync Mode -- this should not happen any longer.
-      var msgResult=starNetVerified(theCommand); // This will throw an error if the connection to the server fails.
-      if (starNetHelper.checkForLine(msgResult,msgTestFail) || starNetHelper.checkForLine(msgResult,msgTestFail2)){ // The player was offline, did not exist, or other parameters were incorrect.
-        return false;
-      } else { // The command appears to have not failed, so let's assume it succeeded.
-        return true;
-      }
+    } else { // No cb specified, so run in promise mode. 
+      return simplePromisifyIt(runSimpleCommand,options,theCommand);
     }
   }
-  return false;
+  if (typeof cb == "function"){
+    return cb(new Error("No command given to runSimpleCommand!"),null);
+  }
+  throw new Error("No command given to runSimpleCommand!");
 };
 
-function simplePromisifyIt2(functionToCall,options,firstParameter){ // If there is no first parameter, use "" as the input here.
-  // Takes a callback function with options specified.
-  // if no firstParameter is given example: this.msg(options,cb)
-  // If a firstParameter is given example: this.msg(message,options,cb)
-  // Note: If no first parameter, use "" as the input!
-  if (typeof functionToCall == "function"){
-    var theFunctionToCall=functionToCall;
-    var theFirstParameter=firstParameter;
-    return new Promise(function(resolve,reject){
-      if (theFirstParameter==""){
-        console.log("promise created WITHOUT parameter");
-        theFunctionToCall(options,function(err,result){
-          if (err){
-            reject(err);
-          } else {
-            resolve(result);
-          }
-        });
-      } else {
-        console.log("promise created WITH parameter");
-        theFunctionToCall(theFirstParameter,options,function(err,result){
-          console.log("This is the err: " + err); //temp
-          console.log("This is the result: " + result); //temp
-          if (err){
-            reject(err);
-          } else {
-            resolve(result);
-          }
-        });
-      }
-    });
-  }
-  throw new Error("Invalid input given to simplePromisifyIt as functionToCall!");
-}
 
-
-
-function returnValFromPlayerInfo(selfInfoFunc,valToGet,options,cb){
+function returnValFromPlayerInfo(selfInfoFunc,valToGet,options,cb){ // cb/promises compliant
+  // Assists with returning individual values from a PlayerObj.info() result.
   let theFunc=selfInfoFunc;
-  return selfInfoFunc(options,function(err,result) {
+  return theFunc(options,function(err,result) {
     if (err){
       return cb(err,null)
     }
@@ -1204,10 +1293,11 @@ function returnValFromPlayerInfo(selfInfoFunc,valToGet,options,cb){
 }
 
 
-function PlayerObj(player){ // "Player" must be a string and can be just the player's nickname or their full UID
-  if (player){
+function PlayerObj(player){ // cb/promises compliant // "Player" must be a string and can be just the player's nickname or their full UID
+  var thePlayer=toStringIfPossible(player); // This allows other PlayerObj to be used as input.
+  if (typeof thePlayer == "string"){
     var self = this; // this is needed to reference the "this" of functions in other contexts, particularly for creating promises via the outside function.  If "this" is used, the promisify function will not work correctly.
-    var playerName=player.toString().trim(); // This allows the player input to be another PlayerObj
+    var playerName=thePlayer.trim();
     // var playerName=player.replace(/^ENTITY_PLAYERCHARACTER_/,"").replace(/^ENTITY_PLAYERSTATE_/,""); // strip the UID
     this.name=playerName.replace(/^ENTITY_PLAYERCHARACTER_/,"").replace(/^ENTITY_PLAYERSTATE_/,""); // strip the UID
     this.msg=function (message,options,cb){ 
@@ -1286,7 +1376,6 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       }
       return simplePromisifyIt(self.factionPointProtect,options);
     }
-
     self.give=function (input,number,options,cb){ // expects an element name and number of items to give
       if (typeof cb == "function"){
         return runSimpleCommand("/give " + self.name + " " + input + " " + number,options,cb);
@@ -1406,7 +1495,6 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       }
       return simplePromisifyIt(self.giveTorchWeapon,options);
     }
-
     self.giveTorchWeaponOP=function (options,cb){
       if (typeof cb == "function"){
         return runSimpleCommand("/give_torch_weapon_op " + self.name,options,cb);
@@ -1443,6 +1531,71 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
       }
       return simplePromisifyIt(self.setFactionRank,options,number);
     }
+
+
+
+
+
+
+    self.deleteFromFaction=function (options,cb){ 
+      // WARNING: Will leave an empty faction behind if no members left!
+      // This might be what you want if you plan on adding them later, but if not, then you'll want to
+      // check their prior faction member count and delete it if empty.
+      if (typeof cb == "function"){
+        console.debug("Looking up faction..");
+        return self.faction(options,function(err,result){
+          if (err){
+            return cb(err,null);
+          }
+          var theFactionString=toStringIfPossible(result);
+          var theFactionNum=toNumIfPossible(theFactionString);
+          console.debug("faction number found: " + theFactionNum);
+          if (typeof theFactionNum == "number" && theFactionNum){ // If faction number is 0, this will be falsey
+            console.debug("Sending the del command..");
+            return runSimpleCommand("/faction_del_member " + self.name + " " + theFactionNum,options,function(err,result){
+              if (err){
+                console.debug("Encountered an error sending the command!");
+                return cb(err,result);
+              }
+              console.debug("looks like the command succeeded!");
+              return cb(null,result); // should be true if the command succeeded.  False if they are not in a faction.
+            });
+          } else {
+            // the player does not appear to be in a faction, so why bother trying?
+            return cb(null,false); // this is to indicate the command failed.
+          }
+        });
+      }
+      return simplePromisifyIt(self.deleteFromFaction,options);
+    }
+    self.joinFaction=function (theFaction,options,cb){ // Allows FactionObj or number as input
+      // WARNING: Will leave an empty faction behind if no members left!
+      // This might be what you want if you plan on adding them later, but if not, then you'll want to
+      // check their prior faction member count and delete it if empty.
+      if (typeof cb == "function"){
+        var theFactionString=toStringIfPossible(theFaction); 
+        var theFactionNum=toNumIfPossible(theFactionString);
+        if (typeof theFactionNum == "number"){ // Any number is valid, even 0, though that will do nothing.
+          return runSimpleCommand("/faction_join_id " + self.name + " " + theFactionNum,options,function(err,result){
+            if (err){
+              return cb(err,result);
+            }
+            if (result){ // If successful, return the FactionObj of the faction the player is now in.
+              return cb(null,new FactionObj(theFactionNum));
+            } else {
+              return cb(null,Boolean(false)); // join failed for some reason.
+            }
+            
+          });
+        } else { // invalid input given as theFactionNum
+          return cb(new Error("Invalid input given to PlayerObj.joinFaction as theFaction!"),null);
+        }
+      }
+      return simplePromisifyIt(self.setFactionRank,options);
+    }
+
+
+
     self.addAdmin=function (options,cb){ // Adds the player as an admin
       // this gives a warning if player does not exist on the server, so runSimpleCommand will not work
       // TODO: I need separate text processing for this:
@@ -1803,7 +1956,11 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
             var factionLine=returnLineMatch(result,/^RETURN: \[SERVER, \[PL\] FACTION: Faction \[.*/,/^RETURN: \[SERVER, \[PL\] FACTION: Faction \[/); // If the person is not in a faction, this will be undefined.
             // TODO:  Test below.  If the person is not in a faction, will it be undefined?  Or throw an error?
             // This needs to return undefined if not in a faction
-            returnObj["faction"]=new FactionObj(factionLine.match(/^id=[-]{0,1}[0-9]+/).toString().replace(/^id=/,""));
+            if (factionLine){
+              returnObj["faction"]=new FactionObj(factionLine.match(/^id=[-]{0,1}[0-9]+/).toString().replace(/^id=/,""));
+            } else {
+              returnObj["faction"]=null; // Player was not in a faction
+            }
             return cb(null,returnObj);
           }
           return cb(null,false); // Even if the player is offline, this should not happen.
@@ -1812,12 +1969,10 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
         return simplePromisifyIt(self.info,options);
       }
     }
-
-
     self.sector=function(options,cb){ // Returns a player's sector if online, false if offline.
       var valToLookFor="sector";
       if (typeof cb == "function"){
-        return returnValFromPlayerInfo(self.info,valToLookFor,cb);
+        return returnValFromPlayerInfo(self.info,valToLookFor,options,cb);
         // return self.info(options,function(err,result) {
         //   if (err){
         //     return cb(err,null)
@@ -1834,7 +1989,7 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
     self.spacialCoords=function(options,cb){ // Returns a player's personal sector, whether online or offline.
       var valToLookFor="spacialCoords";
       if (typeof cb == "function"){
-        return returnValFromPlayerInfo(self.info,valToLookFor,cb);
+        return returnValFromPlayerInfo(self.info,valToLookFor,options,cb);
       } else {
         return simplePromisifyIt(self[valToLookFor],options);
       }
@@ -1842,7 +1997,7 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
     self.upgraded=function(options,cb){ // Returns a whether a player's registry account was purchased or not.  Returns false if the player is offline.
       var valToLookFor="upgraded";
       if (typeof cb == "function"){
-        return returnValFromPlayerInfo(self.info,valToLookFor,cb);
+        return returnValFromPlayerInfo(self.info,valToLookFor,options,cb);
       } else {
         return simplePromisifyIt(self[valToLookFor],options);
       }
@@ -1850,7 +2005,7 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
     self.smName=function(options,cb){ // Returns a player's registry account if online, false if offline.
       var valToLookFor="smName";
       if (typeof cb == "function"){
-        return returnValFromPlayerInfo(self.info,valToLookFor,cb);
+        return returnValFromPlayerInfo(self.info,valToLookFor,options,cb);
       } else {
         return simplePromisifyIt(self[valToLookFor],options);
       }
@@ -1858,7 +2013,7 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
     self.ip=function(options,cb){ // Returns a player's ip, but only if online.  Returns false if offline.
       var valToLookFor="ip";
       if (typeof cb == "function"){
-        return returnValFromPlayerInfo(self.info,valToLookFor,cb);
+        return returnValFromPlayerInfo(self.info,valToLookFor,options,cb);
       } else {
         return simplePromisifyIt(self[valToLookFor],options);
       }
@@ -1866,7 +2021,7 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
     self.personalTestSector=function(options,cb){ // Returns a player's personal sector, whether online or offline.
       var valToLookFor="personalTestSector";
       if (typeof cb == "function"){
-        return returnValFromPlayerInfo(self.info,valToLookFor,cb);
+        return returnValFromPlayerInfo(self.info,valToLookFor,options,cb);
       } else {
         return simplePromisifyIt(self[valToLookFor],options);
       }
@@ -1874,7 +2029,7 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
     self.credits=function(options,cb){ // Returns a player's credits held, whether online or offline.
       var valToLookFor="credits";
       if (typeof cb == "function"){
-        return returnValFromPlayerInfo(self.info,valToLookFor,cb);
+        return returnValFromPlayerInfo(self.info,valToLookFor,options,cb);
       } else {
         return simplePromisifyIt(self[valToLookFor],options);
       }
@@ -1882,7 +2037,7 @@ function PlayerObj(player){ // "Player" must be a string and can be just the pla
     self.faction=function(options,cb){ // Returns a player's credits held, whether online or offline.
       var valToLookFor="faction";
       if (typeof cb == "function"){
-        return returnValFromPlayerInfo(self.info,valToLookFor,cb);
+        return returnValFromPlayerInfo(self.info,valToLookFor,options,cb);
       } else {
         return simplePromisifyIt(self[valToLookFor],options);
       }
@@ -3999,154 +4154,86 @@ function getAdminsList(options,cb){ // TODO:  Test this.. there are 4 ways of do
   var adminsTxtFile=path.join(global.starMadeInstallFolder,"admins.txt");
   var adminFileContentsArray=[];
   var outputArray=[];
-  if (typeof cb=="function") {
-    if (fast==true){ // Perform callback style file read
-      fs.readFile(adminsTxtFile,"UTF-8",function(err,data){ // node.js documentation has 'utf8' as it's example.. maybe we should use that?
-        if (err){
-          console.error(theReadError);
-          console.dir(err);
-          return cb(err,data);
-        } else {
-          var adminFileContents=data.replace(/\r/g,"");
-          if (adminFileContents){
-            adminFileContentsArray=adminFileContents.split("\n");
-            for (let i=0;i<adminFileContentsArray.length;i++){
-              if (adminFileContentsArray[i].trim()){ // Test to see if the line is blank or not.  Only process it if there is text.
-                if (unrestricted){ // Only add the playerObj if it is an unrestricted admin
-                  if (!(/#.*$/).test(adminFileContentsArray[i])){
-                    outputArray.push(new PlayerObj(adminFileContentsArray[i].replace(/#.*$/g,"").trim()));
-                  }
-                } else {
+  if (fast==true){ // Perform file read style
+    return fs.readFile(adminsTxtFile,"UTF-8",function(err,data){ // node.js documentation has 'utf8' as it's example.. maybe we should use that?
+      if (err){
+        console.error(theReadError);
+        console.dir(err);
+        return cb(err,data);
+      } else {
+        var adminFileContents=data.replace(/\r/g,"");
+        if (adminFileContents){
+          adminFileContentsArray=adminFileContents.split("\n");
+          for (let i=0;i<adminFileContentsArray.length;i++){
+            if (adminFileContentsArray[i].trim()){ // Test to see if the line is blank or not.  Only process it if there is text.
+              if (unrestricted){ // Only add the playerObj if it is an unrestricted admin
+                if (!(/#.*$/).test(adminFileContentsArray[i])){
                   outputArray.push(new PlayerObj(adminFileContentsArray[i].replace(/#.*$/g,"").trim()));
                 }
-              }
-            }
-          }
-          return cb(null,outputArray);
-        }
-      });
-    } else {
-      starNetVerified("/list_admins",options,function(err,result){
-        if (err){
-          console.error(theError);
-          return cb(err,result);
-        } else {
-          processLine=returnLineMatch(result,theReg,remReg,remReg2);
-          processArray=processLine.split(", ");
-          for (let i=0;i<processArray.length;i++){
-            outputArray.push(new PlayerObj(processArray[i].split("=>")[0]));
-          }
-          return cb(null,outputArray);
-        }
-      });
-    }
-  } else if (fast===true){ // Sync mode fast // TODO:  Test this  
-    try {
-      let adminFileContents=fs.readFileSync(adminsTxtFile,"UTF-8").replace(/\r/g,"");
-      if (adminFileContents){
-        adminFileContentsArray=adminFileContents.split("\n");
-        for (let i=0;i<adminFileContentsArray.length;i++){
-          if (adminFileContentsArray[i].trim()){ // Test to see if the line is blank or not.  Only process it if there is text.
-            if (unrestricted){ // Only add the playerObj if it is an unrestricted admin
-              if (!(/#.*$/).test(adminFileContentsArray[i])){
+              } else {
                 outputArray.push(new PlayerObj(adminFileContentsArray[i].replace(/#.*$/g,"").trim()));
               }
-            } else {
-              outputArray.push(new PlayerObj(adminFileContentsArray[i].replace(/#.*$/g,"").trim()));
             }
           }
         }
+        return cb(null,outputArray);
       }
-    } catch (err){
-      console.error(theReadError);
-      console.dir(err);
-      throw err;
-    }
-  } else { // Sync mode slow
-    try {
-      let result=starNetVerified("/list_admins");
-      processLine=returnLineMatch(result,theReg,remReg,remReg2);
-      processArray=processLine.split(", ");
-      for (let i=0;i<processArray.length;i++){
-        outputArray.push(new PlayerObj(processArray[i].split("=>")[0]));
+    });
+  } else { // Use StarNet to get admin list
+    return starNetVerified("/list_admins",options,function(err,result){
+      if (err){
+        console.error(theError);
+        return cb(err,result);
+      } else {
+        processLine=returnLineMatch(result,theReg,remReg,remReg2);
+        processArray=processLine.split(", ");
+        for (let i=0;i<processArray.length;i++){
+          outputArray.push(new PlayerObj(processArray[i].split("=>")[0]));
+        }
+        return cb(null,outputArray);
       }
-    } catch (error){
-      console.error(theError)
-      throw new Error(theError);
-    }
-    // console.log("### AFTER");
-    // console.dir(processArray);
-  }
-  if (typeof cb=="function"){ // Results were created via the SyncRead
-    return cb(null,outputArray);
-  } else {
-    return outputArray;
+    });
   }
 };
 
 
 function isPlayerOnline(name,options,cb){ // Expects a string or PlayerObj as input for name.  Returns true if the player is online, false if not.
-  if (typeof cb == "function"){
-    return getPlayerList(options,function(err,resultArray){
-      if (err){
-        return cb(err,null);
-      } else { 
-        return cb(null,compareToObjectArrayToString(resultArray,name));
-      }
-    });
-  } else { // run in Sync mode
-    var theArray=getPlayerList(options);
-    return compareToObjectArrayToString(theArray,name);
-  }
+  return getPlayerList(options,function(err,resultArray){
+    if (err){
+      return cb(err,null);
+    } else { 
+      return cb(null,compareToObjectArrayToString(resultArray,name));
+    }
+  });
 }
 
 function isPlayerAdmin(name,options,cb){
-  if (typeof cb == "function"){
-    return getAdminsList(options,function(err,result){
-      if (err){
-        return cb(err,result);
-      } else { 
-        return cb(null,compareToObjectArrayToString(result,name));
-      }
-    });
-  } else { // run in Sync mode
-    var theArray=getAdminsList(options);
-    return compareToObjectArrayToString(theArray,name);
-  }
+  return getAdminsList(options,function(err,result){
+    if (err){
+      return cb(err,result);
+    } else { 
+      return cb(null,compareToObjectArrayToString(result,name));
+    }
+  });
 }
 
 function isNameWhitelisted(name,options,cb){ // cb is optional
-  if (typeof cb == "function"){ // Run in async mode
-    return getWhitelistedNameList(options,function(err,resultArray){
-      if (err){
-        return cb(err,null);
-      } else { 
-        return cb(null,compareToObjectArrayToString(resultArray,name));
-      }
-    });
-  } else { // run in Sync mode
-    var theArray=getWhitelistedNameList(options);
-    return compareToObjectArrayToString(theArray,name);
-  }
+  return getWhitelistedNameList(options,function(err,resultArray){
+    if (err){
+      return cb(err,null);
+    } else { 
+      return cb(null,compareToObjectArrayToString(resultArray,name));
+    }
+  });
 }
 function isNameBanned(name,options,cb){ //cb is optional.  Runs Sync if not given.  Options will be added to allow a "fast" option, which will read from the blacklist.txt file.
-  console.log("Running isNameBanned with: "); // temp
-  console.log("name: " + name);
-  console.log("options: " + options);
-  console.log("cb: " + cb);
-
-  if (typeof cb == "function"){ // Run in async mode
-    return getBannedNameList(options,function(err,resultArray){
-      if (err){
-        return cb(err,null); // Could not get Banned name list, so pass on the error
-      } else { 
-        return cb(null,compareToObjectArrayToString(resultArray,name)); // isBanned is a Sync function.
-      }
-    });
-  } else { // run in Sync mode
-    var bannedArray=getBannedNameList(options);
-    return compareToObjectArrayToString(bannedArray,name);
-  }
+  return getBannedNameList(options,function(err,resultArray){
+    if (err){
+      return cb(err,null); // Could not get Banned name list, so pass on the error
+    } else { 
+      return cb(null,compareToObjectArrayToString(resultArray,name)); // isBanned is a Sync function.
+    }
+  });
 }
 
 
@@ -4160,67 +4247,34 @@ function getBannedAccountsList(options,cb){ // Returns an array of SMNameObj
   var regExpToRem2=/}, 0\]$/;
   var theCommand="/list_banned_accounts";
   var theFunctionToRunOnEachResult=makeSMNameObj;
-  var theErrorMsg="StarNet error running getBannedAccountsList()!";
-  if (typeof cb=="function"){
-    return splitHelper1CB(theCommand,options,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult,cb);
-  } else {  
-    try {
-      var result=starNetVerified(theCommand,options);
-      return splitHelper1(result,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult);
-    } catch (error){
-      console.error(theErrorMsg);
-      throw error;
-    }
-  }
+  return splitHelper1CB(theCommand,options,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult,cb);
 }
 function getWhitelistedAccountsList(options,cb){ // Returns an array of SMNameObj
   // RETURN: [SERVER, Whitelisted: {three, two, one}, 0]
-
   var matchReg=/^RETURN: \[SERVER, Whitelisted: {.*/;
   var regExpToRem=/^RETURN: \[SERVER, Whitelisted: {/;
   var regExpToRem2=/}, 0\]$/;
   var theCommand="/list_whitelist_accounts";
   var theFunctionToRunOnEachResult=makeSMNameObj;
-  var theErrorMsg="StarNet error running getWhitelistedAccountsList()!";
-  if (typeof cb=="function"){
-    return splitHelper1CB(theCommand,options,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult,cb);
-  } else {  
-    try {
-      var result=starNetVerified(theCommand,options);
-      return splitHelper1(result,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult);
-    } catch (error){
-      console.error(theErrorMsg);
-      throw error;
-    }
-  }
+  return splitHelper1CB(theCommand,options,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult,cb);
 }
 function isAccountWhitelisted(account,options,cb){
-  if (typeof cb == "function"){ // Run in async mode
-    return getWhitelistedAccountsList(options,function(err,resultArray){
-      if (err){
-        return cb(err,null);
-      } else { 
-        return cb(null,compareToObjectArrayToString(resultArray,account));
-      }
-    });
-  } else { // run in Sync mode
-    let theArray=getWhitelistedAccountsList(options);
-    return compareToObjectArrayToString(theArray,account);
-  }
+  return getWhitelistedAccountsList(options,function(err,resultArray){
+    if (err){
+      return cb(err,null);
+    } else { 
+      return cb(null,compareToObjectArrayToString(resultArray,account));
+    }
+  });
 }
 function isAccountBanned(account,options,cb){
-  if (typeof cb == "function"){ // Run in async mode
-    return getBannedAccountsList(options,function(err,resultArray){
-      if (err){
-        return cb(err,null);
-      } else { 
-        return cb(null,compareToObjectArrayToString(resultArray,account));
-      }
-    });
-  } else { // run in Sync mode
-    let theArray=getBannedAccountsList(options);
-    return compareToObjectArrayToString(theArray,account);
-  }
+  return getBannedAccountsList(options,function(err,resultArray){
+    if (err){
+      return cb(err,null);
+    } else { 
+      return cb(null,compareToObjectArrayToString(resultArray,account));
+    }
+  });
 }
 
 
@@ -4234,18 +4288,7 @@ function getWhitelistedIPList(options,cb){
   var regExpToRem2=/}, 0\]$/;
   var theCommand="/list_whitelist_ip";
   var theFunctionToRunOnEachResult=makeIPObj;
-  var theErrorMsg="StarNet error running getWhitelistedIPList()!";
-  if (typeof cb=="function"){
-    return splitHelper1CB(theCommand,options,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult,cb);
-  } else {  
-    try {
-      var result=starNetVerified(theCommand,options);
-      return splitHelper1(result,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult);
-    } catch (error){
-      console.error(theErrorMsg);
-      throw error;
-    }
-  }
+  return splitHelper1CB(theCommand,options,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult,cb);
 }
 function getBannedIPList(options,cb){
   // RETURN: [SERVER, Banned: {1.2.3.6, 1.2.3.5, 1.2.3.4}, 0]
@@ -4254,18 +4297,7 @@ function getBannedIPList(options,cb){
   var regExpToRem2=/}, 0\]$/;
   var theCommand="/list_banned_ip";
   var theFunctionToRunOnEachResult=makeIPObj;
-  var theErrorMsg="StarNet error running getBannedIPList()!";
-  if (typeof cb=="function"){
-    return splitHelper1CB(theCommand,options,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult,cb);
-  } else {  
-    try {
-      var result=starNetVerified(theCommand,options);
-      return splitHelper1(result,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult);
-    } catch (error){
-      console.error(theErrorMsg);
-      throw error;
-    }
-  }
+  return splitHelper1CB(theCommand,options,matchReg,regExpToRem,regExpToRem2,theFunctionToRunOnEachResult,cb);
 }
 function isIPWhitelisted(ip,options,cb){
   return getWhitelistedIPList(options,function(err,resultArray){
@@ -4287,6 +4319,7 @@ function isIPBanned(ip,options,cb){
 }
 
 function sendDirectToServer(input,cb){ // if cb not given, functions as Sync. Expects a string input, returning "false" if the input wasn't valid.  This sends a command directly to the console with a return character.
+  // Note:  This is probably the one exception I'm making to allow running in sync mode, since it's just sending input to the stdin
   var theResult;
   var theErr=null;
   if (testIfInput(input)){
@@ -4346,14 +4379,7 @@ function getPlayerSpawnLocation(player,options,cb){
         return cb(null,getPlayerSpawnLocationFromResults(result));
       }
     });
-  } else { // Sync mode
-    try {
-      var result=starNetVerified("/player_get_spawn " + player,options);
-      return getPlayerSpawnLocationFromResults(result);
-    } catch (error){
-      console.error("StarNet command failed when attempting to get the spawn sector for player: " + player);
-      throw new Error(error);
-    }
   }
+  return simplePromisifyIt(getPlayerSpawnLocation,options,player);
 }
 
