@@ -35,12 +35,26 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   getRandomAlphaNumericString,
   arrayMinus,
   applyFunctionToArray,
-  simplePromisifyIt
+  simplePromisifyIt,
+  getParamNames
 };
 
 const util=require('util');
 const path=require('path');
 const binFolder=path.resolve(__dirname,"../bin/");
+
+// start of getParamNames
+var STRIP_COMMENTS = /(\/\/.*$)|(\/\*[\s\S]*?\*\/)|(\s*=[^,)]*(('(?:\\'|[^'\r\n])*')|("(?:\\"|[^"\r\n])*"))|(\s*=[^,)]*))/mg;
+var ARGUMENT_NAMES = /([^\s,]+)/g;
+function getParamNames(func) {
+    var fnStr = func.toString().replace(STRIP_COMMENTS, '');
+    var result = fnStr.slice(fnStr.indexOf('(')+1, fnStr.indexOf(')')).match(ARGUMENT_NAMES);
+    if(result === null){
+       result = [];
+    }
+    return result;
+    // Source: https://stackoverflow.com/questions/1007981/how-to-get-function-parameter-names-values-dynamically
+}
 
 
 function simplePromisifyIt(cbFunctionToCall,options){ 

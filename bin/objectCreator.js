@@ -73,7 +73,7 @@ const {copyArray,toNumIfPossible,toStringIfPossible,subArrayFromAnother,findSame
 // const colorize              = objectHelper["colorize"];
 // const getObjType            = objectHelper.getObjType; // Gets the prototype name of an object, so instead of using "typeof", which returns "object" for things like arrays and SectorObj's, etc, this will return their object name instead.
 const {testIfInput,trueOrFalse,isTrueOrFalse,isNum,colorize,getObjType,returnLineMatch,applyFunctionToArray,simplePromisifyIt} = objectHelper;
-const {isTrue,isFalse,getOption}=objectHelper;
+const {isTrue,isFalse,getOption,getParamNames}=objectHelper;
 const toNum                 = objectHelper.toNumIfPossible;
 
 // Set up aliases from the global variable
@@ -83,42 +83,40 @@ console.log("### OBJECT CREATOR - SET SERVER VARIABLE");
 
 
 // Set up prototypes for constructors, such as replacing .toString() functionality with a default value.  Prototypes will not appear as a regular key.
-SectorObj.prototype.toString = function(){ return this.coords.toString() };
-SectorObj.prototype.toArray=function(){ return this.coords.toArray() };
-
-CoordsObj.prototype.toString = function(){ return this.x.toString() + " " + this.y.toString() + " " + this.z.toString() };
-CoordsObj.prototype.toArray=function(){ return [this.x, this.y, this.z]; }
-
-EntityObj.prototype.toString = function(){ return this.fullUID.toString() };
-IPObj.prototype.toString = function(){ return this.address };
-IPObj.prototype.toArray = function(){ return this.address.split(".") };
-PlayerObj.prototype.toString = function(){ return this.name }; // This allows inputs for functions to use a playerObj or string easily.  Example:  playerObj.toString() works the same as playerString.toString(), resulting in a string of the player's name.
-SMNameObj.prototype.toString = function(){ return this.name };
 BluePrintObj.prototype.toString = function(){ return this.name };
 BotObj.prototype.toString = function(){ return this.name };
 ChannelObj.prototype.toString = function(){ return this.name };
+CoordsObj.prototype.toString = function(){ return this.x.toString() + " " + this.y.toString() + " " + this.z.toString() };
+CoordsObj.prototype.toArray=function(){ return [this.x, this.y, this.z]; }
+EntityObj.prototype.toString = function(){ return this.fullUID.toString() };
 FactionObj.prototype.toString = function(){ return toStringIfPossible(this.number) };
+IPObj.prototype.toString = function(){ return this.address };
+IPObj.prototype.toArray = function(){ return this.address.split(".") };
 LocationObj.prototype.toString = function(options){ 
-    // default is to return the sector.toString(), spacial can be given instead by specifying options as {"type":"spacial"}
-  let valToReturnType=getOption(options,"type","sector").toLowerCase();
-  if (valToReturnType == "sector"){
-    return this.sector.toString();
-  } else if (valToReturnType=="spacial"){
-    return this.spacial.toString();
-  }
-  throw new Error("Invalid option given to LocationObj.toString()!");
+  // default is to return the sector.toString(), spacial can be given instead by specifying options as {"type":"spacial"}
+let valToReturnType=getOption(options,"type","sector").toLowerCase();
+if (valToReturnType == "sector"){
+  return this.sector.toString();
+} else if (valToReturnType=="spacial"){
+  return this.spacial.toString();
+}
+throw new Error("Invalid option given to LocationObj.toString()!");
 }; 
 LocationObj.prototype.toArray = function(options){ 
-  // default is to return an array of objects, but an array of strings is an option with {"type":"string"}
-  let valToReturnType=getOption(options,"type","objects").toLowerCase();
-  if (valToReturnType == "objects"){
-    return [this.sector , this.spacial];
-  } else if (valToReturnType=="string"){
-    return [this.sector.toString() , this.spacial.toString()]; 
-  }
-  throw new Error("Invalid option given to LocationObj.toArray()!");
+// default is to return an array of objects, but an array of strings is an option with {"type":"string"}
+let valToReturnType=getOption(options,"type","objects").toLowerCase();
+if (valToReturnType == "objects"){
+  return [this.sector , this.spacial];
+} else if (valToReturnType=="string"){
+  return [this.sector.toString() , this.spacial.toString()]; 
+}
+throw new Error("Invalid option given to LocationObj.toArray()!");
 }; 
 MessageObj.prototype.toString = function(){ return this.text };
+PlayerObj.prototype.toString = function(){ return this.name }; // This allows inputs for functions to use a playerObj or string easily.  Example:  playerObj.toString() works the same as playerString.toString(), resulting in a string of the player's name.
+SectorObj.prototype.toString = function(){ return this.coords.toString() };
+SectorObj.prototype.toArray=function(){ return this.coords.toArray() };
+SMNameObj.prototype.toString = function(){ return this.name };
 ServerObj.prototype.toString = function(){ return this.filePath };
 SystemObj.prototype.toString = function(){ return this.coords.toString() };
 
@@ -166,35 +164,24 @@ function showResponseCallback(error,output){ // This is a helper function for te
 //  This allows "squishing" an object into a smaller object, JSON.stringifying it, 
 //  storing it to the hard drive, retrieving it, and then recreating the original object.
 //  It will preserve any additional elements added.
-//  It requires strict adherence to recreation of the object, however.  The parameters needed
-//  MUST be stored into the object as they are given, or the values must be able to be converted
-//  back to acceptable input by running ".toString" on the value.  Such as if it's converted to
-//  a sectorObj.
+//  It requires strict adherence to recreation of the object.  The parameters needed
+//  should be stored into the object as they are given, or the values must be able to be converted
+//  back to acceptable input by running a function on the value.  
 //  TODO:  Convert objects to be compatible with squish
 
-var STRIP_COMMENTS = /(\/\/.*$)|(\/\*[\s\S]*?\*\/)|(\s*=[^,)]*(('(?:\\'|[^'\r\n])*')|("(?:\\"|[^"\r\n])*"))|(\s*=[^,)]*))/mg;
-var ARGUMENT_NAMES = /([^\s,]+)/g;
+
+// Squishy code start
 SquishedObj.prototype.unSquish=function(options){ // options are optional
-    return unSquish(this,options);
+  return unSquish(this,options);
 }
 
 function squishyElemIsAnythingBut(input){
-    var objTypeName="squishedFromObjectType";
-    var objCreationArrayName="theSquishObjCreationArray";
-    if (input != objTypeName && input != objCreationArrayName){
-        return true;
-    }
-    return false;
-}
-
-function getParamNames(func) {
-    var fnStr = func.toString().replace(STRIP_COMMENTS, '');
-    var result = fnStr.slice(fnStr.indexOf('(')+1, fnStr.indexOf(')')).match(ARGUMENT_NAMES);
-    if(result === null){
-       result = [];
-    }
-    return result;
-    // Source: https://stackoverflow.com/questions/1007981/how-to-get-function-parameter-names-values-dynamically
+  var objTypeName="squishedFromObjectType";
+  var objCreationArrayName="theSquishObjCreationArray";
+  if (input != objTypeName && input != objCreationArrayName){
+      return true;
+  }
+  return false;
 }
 
 function squish(inputObj,options){ // The purpose of this is to minify an object to be recreated back later
@@ -290,7 +277,7 @@ function SquishedObj(inputObj,objType,objCreationArray){ // Change this to take 
 // var server;  // This is needed so objects can send text to the server directly.  I may add the global object to this as well.
 // var global;
 
-function ServerObj(serverSettingsObj){ // Updated for cb/promises // This will be used to run server commands or gather specific information regarding the server.
+function ServerObj(serverSettingsObj){ // Updated for cb/promises/squishy // This will be used to run server commands or gather specific information regarding the server.
   // TODO:  Make it so the server is actually spawned when this object is created.
   // TODO: Add sections with information on the parameters used for the server, the path to the jar file ran, etc.
   // Takes a settings object, which specifies the following, as an example:
@@ -304,9 +291,8 @@ function ServerObj(serverSettingsObj){ // Updated for cb/promises // This will b
   // }
 
   var self=this; // This is needed to keep this context within subfunctions
-  this.filePath="This is just a filler for now till I complete this.";
-  this.filePathWithArguments="more filler";
   console.dir(serverSettingsObj);
+  this.serverSettingsObj=serverSettingsObj;
   this.starMadeInstallFolder=path.join(serverSettingsObj["starMadeFolder"],"StarMade");
   this.starMadeJar=path.join(self.starMadeInstallFolder,"StarMade.jar");
   var baseJavaArgs=["-Xms" + serverSettingsObj["javaMin"], "-Xmx" + serverSettingsObj["javaMax"],"-jar"]; // These run on any OS.  TODO: Add support for JVM arguments
@@ -316,24 +302,22 @@ function ServerObj(serverSettingsObj){ // Updated for cb/promises // This will b
   var baseJavaArgsWindows=["-Xincgc","-Xshare:off"]; // These will run on windows only
   var baseSMJarArgs=[self.starMadeJar,"-server", "-port:" + serverSettingsObj["port"]];
   if (process.platform == "win32"){
-    this.javaArgs=baseJavaArgs.concat(baseJavaArgsWindows).concat(baseSMJarArgs);
+    this.spawnArgs=baseJavaArgs.concat(baseJavaArgsWindows).concat(baseSMJarArgs);
   } else {
-    this.javaArgs=baseJavaArgs.concat(baseSMJarArgs);
+    this.spawnArgs=baseJavaArgs.concat(baseSMJarArgs);
   }
-  console.log("Set javaArgs: " + self.javaArgs);
-
-  // starMadeJar + javaArgs = what is needed to run a spawn instance. TODO:  Check to ensure the above is correct.
+  console.log("Set spawnArgs: " + self.spawnArgs);
 
   // Todo:  add start(), stop(), kill(), forceKill(), isResponsive(), etc.
   // This might be useful for spawning:  this.spawn=spawn("java",this.javaArgs,{"cwd": this.settings["starMadeInstallFolder"]});
 
   this.cfgFile=path.join(self.starMadeInstallFolder,"server.cfg");
   this.cfg=function(){ // callbackify and promisify this
-    return ini.getFileAsObj(self.cfgFile) 
-  }; // This generates a new ini file object each time it's ran
+    return ini.getFileAsObj(self.cfgFile); // This generates a new ini file object each time it's ran
+  }; 
   
   // this.spawn=spawn;
-  this.spawn=spawn("java",self.javaArgs,{"cwd": self.starMadeInstallFolder}); // Spawn the server
+  this.spawn=spawn("java",self.spawnArgs,{"cwd": self.starMadeInstallFolder}); // Spawn the server
 
   // TODO:
   // add isInServerList()  using: getServerListArray()
@@ -1028,9 +1012,9 @@ function ServerObj(serverSettingsObj){ // Updated for cb/promises // This will b
 
 
 };
-function BotObj(botName){ // cb/promises compliant 
+function BotObj(name){ // cb/promises/squishy compliant 
   var self=this;
-  this.name=toStringIfPossible(botName); // This is to allow other objects that can be converted to a string to be used, such as mimicking a player's name, but will return an error if it cannot be turned into a string.
+  this.name=toStringIfPossible(name); // This is to allow other objects that can be converted to a string to be used, such as mimicking a player's name, but will return an error if it cannot be turned into a string.
   if (typeof self.name != "string"){
     throw new Error("Invalid botName given to new BotObj!");
   }
@@ -1066,30 +1050,36 @@ function BotObj(botName){ // cb/promises compliant
   }
 };
 
-function MessageObj(sender,receiver,receiverType,message){ // cb/promises compliant
+function MessageObj(senderString,receiverString,receiverTypeString,text){ // cb/promises/squishy compliant
   // Takes string values and converts to strings or objects of the correct types
-  this.sender=new PlayerObj(sender); // This should ALWAYS be a player sending a message
-  if (receiverType=="DIRECT"){ // This is a private message sent from one player to another
+  this.senderString=senderString;
+  this.receiverString=receiverString;
+  this.receiverTypeString=receiverTypeString;
+  this.text=text;
+
+  this.sender=new PlayerObj(senderString); // This should ALWAYS be a player sending a message
+  if (receiverTypeString=="DIRECT"){ // This is a private message sent from one player to another
     this.type="private";
-    this.receiver=new PlayerObj(receiver);
-  } else if (receiverType=="CHANNEL"){
+    this.receiver=new PlayerObj(receiverString);
+  } else if (receiverTypeString=="CHANNEL"){
     this.type="channel";
-    this.receiver=new ChannelObj(receiver);
+    this.receiver=new ChannelObj(receiverString);
   } else { // This should never happen, but hey maybe in the future they'll expand on the receiverTypes
-    this.receiver=receiver; // This is a string, which is no bueno, and is only temporary till receiverTypes are broken down
-    this.type=receiverType;
-    console.error("ERROR: Unknown Receiever type for message! Set receiver and type as string! " + receiverType);
+    this.receiver=receiverString; // This is a string, which is no bueno, and is only temporary till receiverTypes are broken down
+    this.type=receiverTypeString;
+    console.error("ERROR: Unknown Receiever type for message! Set receiver and type as string! " + receiverTypeString);
   }
-  this.text=message;
 };
-function ChannelObj(channelName){ // cb/promises compliant
+function ChannelObj(name){ // cb/promises/squishy compliant
+  this.name=name;
+
   var factionTest=new RegExp("^Faction-{0,1}[0-9]+");
-  if (channelName == "all"){
+  if (name == "all"){
     this.type="global";
-  } else if (factionTest.test(channelName)){
+  } else if (factionTest.test(name)){
     var getFactionNumberReg=new RegExp("-{0,1}[0-9]+$");
     this.type="faction";
-    var factionNumber=toNumIfPossible(channelName.match(getFactionNumberReg));
+    var factionNumber=toNumIfPossible(name.match(getFactionNumberReg));
     if (testIfInput(factionNumber)){
       this.factionNumber=factionNumber.toString();
     }
@@ -1099,7 +1089,6 @@ function ChannelObj(channelName){ // cb/promises compliant
   } else {
     this.type="named";
   }
-  this.name=channelName;
 };
 function IPObj(ipAddressString,date){ // cb/promises compliant
   // Example:  var myIPObj = new IpObj("192.0.0.100",Date.now());
