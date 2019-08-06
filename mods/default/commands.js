@@ -290,7 +290,7 @@ function regCommand(name,category,adminOnly,displayInHelp,playersArray){
 }
 
 event.on('message', message);
-function message (messageObj) { // Handle messages sent from players
+async function message (messageObj) { // Handle messages sent from players
     // Expects message to be a message type object
     
     // console.log("Message (type: " + messageObj.type +") DETECTED from " + messageObj.sender.name + " to " + messageObj.receiver.name + ": " + messageObj.text);
@@ -306,7 +306,7 @@ function message (messageObj) { // Handle messages sent from players
                 // Note:  the default "help" command can be replaced by a mod if desired.
                 let playerAdminCheck=true;
                 if (commands[lowerCaseCommand].adminOnly){
-                    playerAdminCheck=messageObj.sender.isAdmin({"fast":true}); // Fast makes it read from the file rather than perform a StarNet command.
+                    playerAdminCheck=await messageObj.sender.isAdmin({"fast":true}).catch((err) => console.error(err)); // Fast makes it read from the file rather than perform a StarNet command.
                 }
                 if (playerAdminCheck){
                     event.emit('command',messageObj.sender,lowerCaseCommand,textArray,messageObj);
@@ -333,7 +333,7 @@ function message (messageObj) { // Handle messages sent from players
 
                         let playerAdminCheck=true;
                         if (commands[lowerCaseSubCommand].adminOnly){
-                            playerAdminCheck=messageObj.sender.isAdmin({"fast":true}); // Fast makes it read from the file rather than perform a StarNet command, which is much faster.
+                            playerAdminCheck=await messageObj.sender.isAdmin({"fast":true}).catch((err) => console.error(err)); // Fast makes it read from the file rather than perform a StarNet command, which is much faster.
                         }
                         if (playerAdminCheck){
                             event.emit('command',messageObj.sender,lowerCaseSubCommand,textArray,messageObj); // The messageObj is unchanged, so a mod can detect if it was ran with the !help command or "!command help" if needed for some reason.
@@ -348,7 +348,7 @@ function message (messageObj) { // Handle messages sent from players
                     }
                 } else {
                     // If no arguments are given, then display all the commands in an orderly way
-                    let playerAdminCheck=messageObj.sender.isAdmin({"fast":true});
+                    let playerAdminCheck=await messageObj.sender.isAdmin({"fast":true}).catch((err) => console.error(err));
 
                     // First we need to build the values needed to display
                     var commandCategories={};
@@ -375,7 +375,8 @@ function message (messageObj) { // Handle messages sent from players
 
                         // Before adding the command name to the category, check to ensure the command is hidden or an admin only command.
                         // console.log("Checking command, " + property + ", to see if should be added to help.  commands[property].displayInHelp: " + commands[property].displayInHelp);
-                        if ((!commands[property].adminOnly || playerAdminCheck) && (commands[property].displayInHelp || (playerAdminCheck && showAll))){ // If the command is NOT adminonly OR the player is an admin, let it show up.  If the command is not set to displayInHelp, then do not show it.
+                        // if ((!commands[property].adminOnly || playerAdminCheck) && (commands[property].displayInHelp || (playerAdminCheck && showAll))){ // If the command is NOT adminonly OR the player is an admin, let it show up.  If the command is not set to displayInHelp, then do not show it.
+                        if ((!commands[property].adminOnly || playerAdminCheck) && (commands[property].displayInHelp || (!commands[property].adminOnly && showAll))){ // If the command is NOT adminonly OR the player is an admin, let it show up.  If the command is not set to displayInHelp, then do not show it.
                             commandCategories[theCategory].push(commands[property].name);
                             commandsAddedNum++;
                         }
