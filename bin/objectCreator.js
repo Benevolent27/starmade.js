@@ -277,7 +277,8 @@ function SquishedObj(inputObj,objType,objCreationArray){ // Change this to take 
 // var server;  // This is needed so objects can send text to the server directly.  I may add the global object to this as well.
 // var global;
 
-function ServerObj(serverSettingsObj){ // Updated for cb/promises/squishy // This will be used to run server commands or gather specific information regarding the server.
+function ServerObj(serverSettingsObj){ // cb/promises/squish compliant 
+  // This us used to run server commands or gather specific information regarding the server.
   // TODO:  Make it so the server is actually spawned when this object is created.
   // TODO: Add sections with information on the parameters used for the server, the path to the jar file ran, etc.
   // Takes a settings object, which specifies the following, as an example:
@@ -573,6 +574,14 @@ function ServerObj(serverSettingsObj){ // Updated for cb/promises/squishy // Thi
       return runSimpleCommand("/faction_point_turn",options,cb);
     } else {
       return simplePromisifyIt(self.factionPointTurn,options);
+    }
+  }
+  this.factionReinstitute=function(options,cb){
+    // Does not have success or fail messages
+    if (typeof cb == "function"){
+      return runSimpleCommand("/faction_reinstitute",options,cb);
+    } else {
+      return simplePromisifyIt(self.factionReinstitute,options);
     }
   }
   this.fleetSpeed=function(timeInMs,options,cb){
@@ -1049,7 +1058,6 @@ function BotObj(name){ // cb/promises/squishy compliant
     }
   }
 };
-
 function MessageObj(senderString,receiverString,receiverTypeString,text){ // cb/promises/squishy compliant
   // Takes string values and converts to strings or objects of the correct types
   this.senderString=senderString;
@@ -1072,7 +1080,6 @@ function MessageObj(senderString,receiverString,receiverTypeString,text){ // cb/
 };
 function ChannelObj(name){ // cb/promises/squishy compliant
   this.name=name;
-
   var factionTest=new RegExp("^Faction-{0,1}[0-9]+");
   if (name == "all"){
     this.type="global";
@@ -1090,20 +1097,21 @@ function ChannelObj(name){ // cb/promises/squishy compliant
     this.type="named";
   }
 };
-function IPObj(ipAddressString,date){ // cb/promises compliant
+function IPObj(address,date){ // cb/promises/squish compliant
   // Example:  var myIPObj = new IpObj("192.0.0.100",Date.now());
   // ipAddressString should look something like "7.7.7.7"
   // date can be a string that "new Date()" can turn into an object or can be a Date object.  It's easier to debug if you create the date object yourself and then pass it here, so if there are any issues, the stack trace will point to the place where the bad string is attempted to be converted to a Date object.
   // Options is optional and should be an object, which is passed to subcommands.  Right now only {debug:true} is supported.
   var self=this;
-  this.address=ipAddressString;
+  this.address=address;
   if (typeof date != "undefined"){ // We're using typeof because we don't want to do a truthy assessment
     var possibleDate=createDateObjIfPossible(date);  // Returns false if no information given or invalid information.  Returns a date object if given a date object.
-    if (!possibleDate){
-      console.error("Unable to use date information given when creating new IpObj for IP, " + ipAddressString + "! Invalid date information: " + date);
+    if (possibleDate instanceof Date){
+      self.date=possibleDate;
+    } else {
+      console.error("Unable to use date information given when creating new IpObj for IP, " + address + "! Invalid date information: " + date);
     }
   }
-  if (possibleDate){ this.date = possibleDate } // If date information is given, but it is invalid, it will NOT be included in this object.
   // TODO:  Redo this section to standardize with the same options given as the PlayerObj
   this.ban=function(minutes,options,cb){ 
     if (typeof cb == "function"){
@@ -1154,9 +1162,9 @@ function IPObj(ipAddressString,date){ // cb/promises compliant
   // Optional:
   // crawl(Num) - reveals all players who share the same IP.  If a Num is provided, then will crawl that level deep, gathering more IP's and ipcrawling those.
 };
-function SMNameObj(smName){ // cb/promises compliant
+function SMNameObj(name){ // cb/promises/squish compliant
   var self=this;
-  this.name=smName;
+  this.name=name;
   // TODO:
 
   // TO TEST:
@@ -1235,55 +1243,14 @@ function SMNameObj(smName){ // cb/promises compliant
   }
 };
 
-function runSimpleCommand(theCommand,options,cb){  // cb/promises compliant (also has sync option for sending to stdin directly IF ran in fast mode)
-  // This is used for PlayerObj methods that can be sent to either the console or using StarNet
-  var theCommandToUse=toStringIfPossible(theCommand);
-  if (typeof theCommandToUse == "string"){
-    var fast=getOption(options,"fast",false);
-    var msgTestFail=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] \\[ERROR\\]");
-    // RETURN: [SERVER, Admin command failed: Error packing parameters, 0]
-    // RETURN: [SERVER, Admin command failed: Error packing parameters, 0]
-    var msgTestFail2=new RegExp("^RETURN: \\[SERVER, Admin command failed: Error packing parameters, 0\\]")
-    if (fast==true){ // this can run in Sync if a CB is not specified, since it's only sending input to a stdin of the server
-      return sendDirectToServer(theCommandToUse,cb);
-    } else if (typeof cb == "function"){
-      return starNetVerified(theCommandToUse,options,function(err,msgResult){
-        if (err){
-          return cb(err,msgResult);
-        } else if (starNetHelper.checkForLine(msgResult,msgTestFail) || starNetHelper.checkForLine(msgResult,msgTestFail2)){ // The player was offline, did not exist, or other parameters were incorrect.
-            return cb(err,Boolean(false)); // err will be null
-        } else { // The command appears to have not failed, so let's assume it succeeded.
-          return cb(err,Boolean(true)); // Err will be null
-        }
-      });
-    } else { // No cb specified, so run in promise mode. 
-      return simplePromisifyIt(runSimpleCommand,options,theCommand);
-    }
-  }
-  if (typeof cb == "function"){
-    return cb(new Error("No command given to runSimpleCommand!"),null);
-  }
-  throw new Error("No command given to runSimpleCommand!");
-};
 
 
-function returnValFromPlayerInfo(selfInfoFunc,valToGet,options,cb){ // cb/promises compliant
-  // Assists with returning individual values from a PlayerObj.info() result.
-  let theFunc=selfInfoFunc;
-  return theFunc(options,function(err,result) {
-    if (err){
-      return cb(err,null)
-    }
-    if (result.hasOwnProperty(valToGet)){
-      return cb(null,result[valToGet]);
-    }
-    return cb(null,Boolean(false));
-  })
-}
 
 
-function PlayerObj(player){ // cb/promises compliant // "Player" must be a string and can be just the player's nickname or their full UID
-  var thePlayer=toStringIfPossible(player); // This allows other PlayerObj to be used as input.
+
+
+function PlayerObj(name){ // cb/promises/squish compliant // "Player" must be a string and can be just the player's nickname or their full UID
+  var thePlayer=toStringIfPossible(name); // This allows other PlayerObj to be used as input.
   if (typeof thePlayer == "string"){
     var self = this; // this is needed to reference the "this" of functions in other contexts, particularly for creating promises via the outside function.  If "this" is used, the promisify function will not work correctly.
     var playerName=thePlayer.trim();
@@ -1344,9 +1311,25 @@ function PlayerObj(player){ // cb/promises compliant // "Player" must be a strin
         if (isTrueOrFalse(input)){
           return runSimpleCommand("/invisibility_mode " + self.name + " " + input,options,cb);
         }
+        return cb(new Error("Invalid input given to PlayerObj.invisibilityMode! Expects true or false!"),null);
       }
       return simplePromisifyIt(self.invisibilityMode,options,input);
     }
+
+
+    self.setInfiniteInventoryVolume=function (input,options,cb){ // expects true or false as either boolean or string
+      if (typeof cb == "function"){
+        if (isTrueOrFalse(input)){
+          return runSimpleCommand("/set_infinite_inventory_volume " + self.name + " " + input,options,cb);
+        }
+        return cb(new Error("Invalid input given to PlayerObj.setInfiniteInventoryVolume! Expects true or false!"),null);
+      }
+      return simplePromisifyIt(self.setInfiniteInventoryVolume,options,input);
+    }
+
+
+
+
     this.isBanned=function(options,cb){
       if (typeof cb == "function"){
         return isNameBanned(self.name,options,cb);
@@ -1558,7 +1541,7 @@ function PlayerObj(player){ // cb/promises compliant // "Player" must be a strin
       return simplePromisifyIt(self.deleteFromFaction,options);
     }
     self.joinFaction=function (theFaction,options,cb){ // Allows FactionObj or number as input
-      // WARNING: Will leave an empty faction behind if no members left!
+      // WARNING: Might leave an empty faction behind if no members left!
       // This might be what you want if you plan on adding them later, but if not, then you'll want to
       // check their prior faction member count and delete it if empty.
       if (typeof cb == "function"){
@@ -1569,7 +1552,10 @@ function PlayerObj(player){ // cb/promises compliant // "Player" must be a strin
             if (err){
               return cb(err,result);
             }
-            if (result){ // If successful, return the FactionObj of the faction the player is now in.
+            if (result){ 
+              // IMPORTANT:  The faction MUST exist before joining the player to it, otherwise the command will fail.
+              // However, even if the command fails, there is no error message, so it will appear to have succeeded.
+              // An ".exists()" command should be ran on the FactionObj returned before acting on it!
               return cb(null,new FactionObj(theFactionNum));
             } else {
               return cb(null,Boolean(false)); // join failed for some reason.
@@ -1580,9 +1566,64 @@ function PlayerObj(player){ // cb/promises compliant // "Player" must be a strin
           return cb(new Error("Invalid input given to PlayerObj.joinFaction as theFaction!"),null);
         }
       }
-      return simplePromisifyIt(self.setFactionRank,options);
+      return simplePromisifyIt(self.joinFaction,options);
     }
 
+    self.suspendFromFaction=function (options,cb){ // Temporarily removes the player from their faction
+      if (typeof cb == "function"){
+        return runSimpleCommand("/player_suspend_faction " + self.name,options,cb);
+      }
+      return simplePromisifyIt(self.suspendFromFaction,options);
+    }
+    self.unsuspendFromFaction=function (options,cb){ // Returns the player to their prior faction
+      if (typeof cb == "function"){
+        return runSimpleCommand("/player_unsuspend_faction " + self.name,options,cb);
+      }
+      return simplePromisifyIt(self.unsuspendFromFaction,options);
+    }
+
+    self.kickPlayerOutOfEntity=function (options,cb){ // Kicks a player out of the entity they are currently in
+      if (typeof cb == "function"){
+        return runSimpleCommand("/player_unsuspend_faction " + self.name,options,cb);
+      }
+      return simplePromisifyIt(self.kickPlayerOutOfEntity,options);
+    }
+
+    self.putPlayerIntoEntity=function (entity,options,cb){ // Returns the EntityObj if successful, otherwise false.
+      if (typeof cb == "function"){
+        var theEntityString=toStringIfPossible(entity); 
+        if (typeof theFactionNum == "string"){ // Any number is valid, even 0, though that will do nothing.
+          return runSimpleCommand("/player_put_into_entity_uid " + self.name + " '" + theEntityString + "'",options,function(err,result){
+            if (err){
+              return cb(err,result);
+            }
+            if (result){ // Returns an EntityObj of the entity the player was put into
+              return cb(null,new EntityObj(theEntityString));
+            } else {
+              return cb(null,Boolean(false)); // failed
+            }
+            
+          });
+        } else { // invalid input given as theFactionNum
+          return cb(new Error("Invalid input given to PlayerObj.joinFaction as theFaction!"),null);
+        }
+      }
+      return simplePromisifyIt(self.putPlayerIntoEntity,options);
+    }
+
+    self.tint=function (red,green,blue,alpha,options,cb){ // expects float values to denote percentages
+      if (typeof cb == "function"){
+        var theRed=toNumIfPossible(red);
+        var theGreen=toNumIfPossible(green);
+        var theBlue=toNumIfPossible(blue);
+        var theAlpha=toNumIfPossible(alpha);
+        if (typeof theRed == "number" && typeof theGreen == "number" && typeof theBlue == "number" && typeof theAlpha == "number"){
+          return runSimpleCommand("/tint_name " + theRed + " " + theGreen + " " + theBlue + " " + theAlpha + " " + self.name,options,cb);
+        }
+        return cb(new Error("Invalid input given to PlayerObj.tint! Expects red, green, blue, and alpha as float numbers!"),null);
+      }
+      return simplePromisifyIt(self.tint,options,red,green,blue,alpha);
+    }
 
 
     self.addAdmin=function (options,cb){ // Adds the player as an admin
@@ -1697,7 +1738,20 @@ function PlayerObj(player){ // cb/promises compliant // "Player" must be a strin
       }
       return simplePromisifyIt(self.ban,options,toKick,reason,time);
     }
-
+    self.whitelist=function (timeToWhitelist,options,cb){ // timeToWhitelist is optional.  If no number given, it will be a perm whitelist.  Options can be {"fast":true}
+    if (typeof cb == "function"){
+      var theTimeToUse=toNumIfPossible(timeToWhitelist);
+      if (typeof theTimeToUse=="number"){ // temp whitelist
+        return runSimpleCommand("/whitelist_name_temp " + self.name,options + " " + theTimeToUse,cb);
+      } else if (testIfInput(timeToWhitelist)){
+        return cb(new Error("Invalid input given to PlayerObj.whitelist as 'timeToWhitelist'!"),null);
+      } else { // permawhitelist
+        return runSimpleCommand("/whitelist_name " + self.name,options,cb);    
+      }
+    } else {
+      return simplePromisifyIt(self.whitelist,options,timeToWhitelist);
+    }
+  }
     // We should not cycle through commands with callbacks.
     // self.giveMetaItem=function (metaItem,number,options){ // number is optional, but if options are given, it should be "".  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
     //   // EXAMPLE: /give_metaitem schema blueprint, recipe, log_book, helmet, build_prohibiter, flash_light, virtual_blueprint, block_storage, laser, heal, power_supply, marker, rocket_launcher, sniper_rifle, grapple, torch, transporter_marker
@@ -2093,7 +2147,7 @@ function PlayerObj(player){ // cb/promises compliant // "Player" must be a strin
         return simplePromisifyIt(self.currentEntity,options); 
       }
     }
-    this.ips=function(options,cb){ // Returns an array of IPObj of a user as returned by /player_info
+    self.ips=function(options,cb){ // Returns an array of IPObj of a user as returned by /player_info
     // Note:  By default it will only return unique IP's, but an option can be specified to return them all, which includes the timestamp of the login from the IP
     if (typeof cb=="function"){
         var unique=getOption(options,"unique",true); // By default only return unique IP's
@@ -2364,51 +2418,77 @@ function PlayerObj(player){ // cb/promises compliant // "Player" must be a strin
     throw new Error("ERROR: No playername provided to playerObj constructor!");
   }
 };
-function SystemObj(x,y,z){
+function returnValFromPlayerInfo(selfInfoFunc,valToGet,options,cb){
+  // Assists with returning individual values from a PlayerObj.info() result.
+  let theFunc=selfInfoFunc;
+  return theFunc(options,function(err,result) {
+    if (err){
+      return cb(err,null)
+    }
+    if (result.hasOwnProperty(valToGet)){
+      return cb(null,result[valToGet]);
+    }
+    return cb(null,Boolean(false));
+  })
+};
+function SystemObj(x,y,z){ // cb/promises/squish compliant
+  var self=this;
   this.coords=new CoordsObj(x,y,z);
+  this.x=self.coords.x;
+  this.y=self.coords.y;
+  this.z=self.coords.z;
   // TODO: Add Info methods:
   // center - returns the center set of coordinates as a SectorObj
   // type - returns the system type, so black hole, star, giant, double star, void
 
   // Action Methods:
   // load - Uses "/load_system x y z" to load the whole system.
-  this.spawnNPCFaction=function(npcName,npcFactionName,npcDescription,initialGrowth,options){ // Normally options would never be given since who cares about making this fast?
+  this.spawnNPCFaction=function(npcName,npcFactionName,npcDescription,initialGrowth,options,cb){ // Normally options would never be given since who cares about making this fast?
     // DOES NOT GIVE AN ERROR IF THE NPC TYPE IS NOT CORRECT - NEED TO DO MY OWN CHECKING HERE TO SEE IF VALID.
-    if (!testIfInput(npcName)){
-      throw new Error("No NPC name given to SystemObj.spawnNPCFaction!"); // Input was either blank or a blank object or something.
-    }
-    var npcNameToUse=npcName.toString(); // If it's an object or something that can be converted to a string, we can use the string.  This will throw an error if it cannot be converted to a string.
-    if (typeof npcNameToUse != "string"){
-      throw new Error("Invalid NPC name given to SystemObj.spawnNPCFaction!");
-    }
-    if (!testIfInput(npcFactionName)){
-      throw new Error("No NPC faction name given to SystemObj.spawnNPCFaction!"); // Input was either blank or a blank object or something.
-    }
-    var npcFactionNameToUse=npcFactionName.toString();
-    if (typeof npcFactionNameToUse != "string"){
-      throw new Error("Invalid NPC faction name given to SystemObj.spawnNPCFaction!");
-    }
+    if (typeof cb == "function"){
+      if (!testIfInput(npcName)){
+        throw new Error("No NPC name given to SystemObj.spawnNPCFaction!"); // Input was either blank or a blank object or something.
+      }
+      var npcNameToUse=npcName.toString(); // If it's an object or something that can be converted to a string, we can use the string.  This will throw an error if it cannot be converted to a string.
+      if (typeof npcNameToUse != "string"){
+        throw new Error("Invalid NPC name given to SystemObj.spawnNPCFaction!");
+      }
+      if (!testIfInput(npcFactionName)){
+        throw new Error("No NPC faction name given to SystemObj.spawnNPCFaction!"); // Input was either blank or a blank object or something.
+      }
+      var npcFactionNameToUse=npcFactionName.toString();
+      if (typeof npcFactionNameToUse != "string"){
+        throw new Error("Invalid NPC faction name given to SystemObj.spawnNPCFaction!");
+      }
 
-    // Description and initial growth can be blank, but throw error if invalid input given
-    var npcDescriptionToUse="";
-    if (testIfInput(npcDescription)){
-      npcDescriptionToUse=npcDescription.toString();
+      // Description and initial growth can be blank, but throw error if invalid input given
+      var npcDescriptionToUse="";
+      if (testIfInput(npcDescription)){
+        npcDescriptionToUse=npcDescription.toString();
+      }
+      var initialGrowthToUse=10;
+      if (isNum(initialGrowth)){
+        initialGrowthToUse=initialGrowth;
+      }
+      // /npc_spawn_faction_pos_fixed
+      // DESCRIPTION: Spawns a faction on a fixed position
+      // PARAMETERS: name(String), description(String), preset (npc faction config folder name)(String), Initial Growth(Integer), System X(Integer), System Y(Integer), System Z(Integer)
+      // EXAMPLE: /npc_spawn_faction_pos_fixed "My NPC Faction" "My Faction's description" "Outcasts" 10 12 3 22
+      return runSimpleCommand("/npc_spawn_faction_pos_fixed \"" + npcNameToUse + "\" \"" + npcFactionNameToUse + "\" \"" + npcDescriptionToUse + "\" " + initialGrowthToUse + " " + this.coords.toString(),options);
     }
-    var initialGrowthToUse=10;
-    if (isNum(initialGrowth)){
-      initialGrowthToUse=initialGrowth;
+    return simplePromisifyIt(self.spawnNPCFaction,options,npcName,npcFactionName,npcDescription,initialGrowth);
+  }
+  this.territoryMakeUnclaimable=function(options,cb){
+    if (typeof cb == "function"){
+      return runSimpleCommand("/territory_make_unclaimable " + this.coords.toString(),options);
     }
-    // /npc_spawn_faction_pos_fixed
-    // DESCRIPTION: Spawns a faction on a fixed position
-    // PARAMETERS: name(String), description(String), preset (npc faction config folder name)(String), Initial Growth(Integer), System X(Integer), System Y(Integer), System Z(Integer)
-    // EXAMPLE: /npc_spawn_faction_pos_fixed "My NPC Faction" "My Faction's description" "Outcasts" 10 12 3 22
-    return runSimpleCommand("/npc_spawn_faction_pos_fixed \"" + npcNameToUse + "\" \"" + npcFactionNameToUse + "\" \"" + npcDescriptionToUse + "\" " + initialGrowthToUse + " " + this.coords.toString(),options);
+    return simplePromisifyIt(self.territoryMakeUnclaimable,options);
   }
-  this.territoryMakeUnclaimable=function(options){
-    return runSimpleCommand("/territory_make_unclaimable " + this.coords.toString(),options);
-  }
-  this.territoryReset=function(options){
-    return runSimpleCommand("/territory_reset " + this.coords.toString(),options);
+  this.territoryReset=function(options,cb){
+    if (typeof cb == "function"){
+      return runSimpleCommand("/territory_reset " + this.coords.toString(),options);
+    }
+    return simplePromisifyIt(self.territoryReset,options);
   }
 
 
@@ -2433,7 +2513,8 @@ function SystemObj(x,y,z){
     this.extraInfo=extraInfoArray;
   }
 };
-function SpawnObj(playerName,date){ // date is optional.  Current time is used if not provided.
+function SpawnObj(playerName,date){ // Discontinuing TODO:  Delete this object
+  // date is optional.  Current time is used if not provided.
   var possibleDate;
   if (typeof date == "undefined"){ // We're using typeof because we don't want to do a truthy assessment
     possibleDate = new Date(Date.now())
@@ -2447,8 +2528,9 @@ function SpawnObj(playerName,date){ // date is optional.  Current time is used i
   this.player=new PlayerObj(playerName);
   // Right now there really are no console commands for spawn mechanics, but a separate object is used here in case there are in the future.
 };
-function BluePrintObj(bluePrintName){
-  this.name=bluePrintName.toString(); // This will throw an error if anything given cannot be turned into a string.
+function BluePrintObj(name){  // cb/promises/squish compliant
+  var self=this;
+  this.name=name.toString(); // This will throw an error if anything given cannot be turned into a string.  This is intentional.
   // Info Methods to add:
   // folder - Gets the path to the folder the blueprint is in
 
@@ -2466,8 +2548,13 @@ function BluePrintObj(bluePrintName){
   // DESCRIPTION: removes blueprint permanently (warning: cannot be undone)
   // PARAMETERS: blueprintname(String)
   // EXAMPLE: /blueprint_delete my_ship
-  this.del=function(options){
-    return runSimpleCommand("/blueprint_delete \"" + this.name + "\"",options);
+  this.del=function(options,cb){
+    if (typeof cb == "function"){
+      return runSimpleCommand("/blueprint_delete \"" + this.name + "\"",options);
+    } else {
+      return simplePromisifyIt(self.del,options);
+    }
+
     // c:\coding\starmade.js\bin>node starNet.js "/blueprint_delete \"A test blueprint\""
     // RETURN: [SERVER, [ADMIN COMMAND] [ERROR] blueprint not found (name is case sensitive): A test blueprint, 0]
     // RETURN: [SERVER, END; Admin command execution ended, 0]
@@ -2512,78 +2599,354 @@ function BluePrintObj(bluePrintName){
       // // Blueprint not found:
       // RETURN: [SERVER, [ADMIN COMMAND] [ERROR] blueprint not found (name is case sensitive): A catalogue testdfdf, 0]
       // RETURN: [SERVER, END; Admin command execution ended, 0]
-  this.info = function(options){
-    var output={};
-    var result=starNetVerified("/blueprint_info '" + this.name + "'",options); // Throws an error if connection problem to the server
-    if (result){
-      output["UID"]=returnLineMatch(result,/^UID: .*/,/^UID: /);
-      var theTest=returnLineMatch(result,/^Owner: .*/,/^Owner: /);
-      console.log("### OWNED BY PLAYER: " + theTest);
-      output["owner"]=new PlayerObj(returnLineMatch(result,/^Owner: .*/,/^Owner: /));
-      output["date"]=new Date(toNumIfPossible(returnLineMatch(result,/^DateMS: .*/,/^DateMS: /)));
-      output["description"]=returnLineMatch(result,/^Description: .*/,/^Description: /);
-      output["mass"]=toNumIfPossible(returnLineMatch(result,/^Mass: .*/,/^Mass: /));
-      output["spawnCount"]=toNumIfPossible(returnLineMatch(result,/^SpawnCount: .*/,/^SpawnCount: /));
-      output["price"]=toNumIfPossible(returnLineMatch(result,/^Price: .*/,/^Price: /));
-      output["rating"]=toNumIfPossible(returnLineMatch(result,/^Rating: .*/,/^Rating: /));
-      output["blocks"]=toNumIfPossible(returnLineMatch(result,/^Blocks: .*/,/^Blocks: /));
-      output["blocksInclChilds"]=toNumIfPossible(returnLineMatch(result,/^BlocksInclChilds: .*/,/^BlocksInclChilds: /));
-      output["dockCountOnMother"]=toNumIfPossible(returnLineMatch(result,/^DockCountOnMother: .*/,/^DockCountOnMother: /));
-      var DimensionInclChilds=returnLineMatch(result,/^DimensionInclChilds: .*/,/^DimensionInclChilds: /);
-      DimensionInclChilds=DimensionInclChilds.replace("[","").replace("]","").replace(/\(/g,"").replace(/\)/g,"").split("|");
-      for (let i=0;i<DimensionInclChilds.length;i++){
-        DimensionInclChilds[i]=new CoordsObj(DimensionInclChilds[i].split(", "));
+  this.spawnTo=function (shipName,location,spacialCoords,faction,aiActiveTrueOrFalse,options,cb){ // spacialCoords optional
+    // location can be sectorObj,CoordsObj, or a LocationObj
+    if (typeof cb=="function"){
+      var theShipName=toStringIfPossible(shipName);
+      if (typeof theShipName != "string"){
+        console.error("Invalid input given to BlueprintObj.spawnTo for shipName!");
+        return cb(new Error("Invalid input given to BlueprintObj.spawnTo for shipName!"),null);
       }
-      output["dimensionInclChilds"]=DimensionInclChilds; // This is an array with 2 CoordsObj in it
-      output["permissionMask"]=toNumIfPossible(returnLineMatch(result,/^PermissionMask: .*/,/^PermissionMask: /));
-      output["permissionFaction"]=trueOrFalse(returnLineMatch(result,/^PermissionFaction: .*/,/^PermissionFaction: /));
-      output["permissionHomeOnly"]=trueOrFalse(returnLineMatch(result,/^PermissionHomeOnly: .*/,/^PermissionHomeOnly: /));
-      output["permissionOthers"]=trueOrFalse(returnLineMatch(result,/^PermissionOthers: .*/,/^PermissionOthers: /));
-      output["permissionEnemyUsable"]=trueOrFalse(returnLineMatch(result,/^PermissionEnemyUsable: .*/,/^PermissionEnemyUsable: /));
-      output["permissionLocked"]=trueOrFalse(returnLineMatch(result,/^PermissionLocked: .*/,/^PermissionLocked: /));
-      return output;
-      // Output looks like this:
-      // }
-      //   "UID":string
-      //   "owner":PlayerObj
-      //   "date":Date Object
-      //   "description":string,
-      //   "mass":Number,
-      //   "spawnCount":Number,
-      //   "price":Number,
-      //   "rating":Number,
-      //   "blocks":Number,
-      //   "blocksInclChilds":Number,
-      //   "dockCountOnMother":Number,
-      //   "dimensionInclChilds":Array containing 2 CoordsObj,
-      //   "permissionMask":Number,
-      //   "permissionFaction":true/false,
-      //   "permissionHomeOnly":true/false,
-      //   "permissionOthers":true/false,
-      //   "permissionEnemyUsable":true/false,
-      //   "permissionLocked":true/false
-      // }
+      try {
+        var theSector=new SectorObj(location); // Allows LocationObj, SectorObj, CoordsObj, or anything that can create a CoordsObj as input
+      } catch (err){
+        console.error("Invalid input given to BlueprintObj.spawnTo for location!");
+        return cb(err,null);
+      }
+      var theSpacial;
+      if (testIfInput(spacialCoords)){
+        try {
+          theSpacial=new CoordsObj(spacialCoords);
+        } catch (err){
+          console.error("Invalid input given to BlueprintObj.spawnTo for spacialCoords!");
+          return cb(err,null);
+        }
+      }
+      if (location instanceof LocationObj){ // Always prefer the LocationObj spacial coords if two values given
+        theSpacial=location.spacial;
+      }
+      var theSectorString=theSector.toString();
+      var factionNum;
+      if (testIfInput(faction)){
+        var factionString=toStringIfPossible(faction); // Allows FactionObj as input
+        if (typeof factionString == "string"){
+          factionNum=toNumIfPossible(factionString);
+          if (typeof factionNum != "number"){ // It should convert to a number
+            return cb(new Error("Invalid input given to BluePrintObj for faction! (non-number)"),null);
+          }
+        } else {
+          return cb(new Error("Invalid input given to BluePrintObj for faction!  (Could not convert to string!)"),null);
+        }
+      } else { // No faction number given, so use 0.
+        factionNum=0;
+      }
+      var aiActiveTrueOrFalseToUse=true; // by default, AI will be turned on.
+      if (testIfInput(aiActiveTrueOrFalse)){
+        if (isTrueOrFalse(aiActiveTrueOrFalse)){
+          aiActiveTrueOrFalseToUse=aiActiveTrueOrFalse;
+        } else {
+          return cb(new Error("Invalid input given to BlueprintObj.spawnTo for aiActiveTrueOrFalse! (Should be true or false value)"),null);
+        }
+      }
+
+      if (theSpacial){
+        var theSpacialString=theSpacial.toString();
+        return runSimpleCommand("/spawn_entity_pos '" + self.name + "' '" + theShipName + "' " + theSectorString + " " + theSpacialString + " " + factionNum + " " + aiActiveTrueOrFalseToUse,options,cb);
+        // /spawn_entity_pos mySavedShip shipName sectorX sectorY sectorZ local-X local-Y local-Z -1 true
+
+      } else {
+        // /spawn_entity
+        return runSimpleCommand("/spawn_entity '" + self.name + "' '" + theShipName + "' " + theSectorString + " " + factionNum + " " + aiActiveTrueOrFalseToUse,options,cb);
+      }
+ 
     }
-    return false;
+    return simplePromisifyIt(self.spawnTo,options,shipName,location,spacialCoords,faction,aiActiveTrueOrFalse);
   }
-  this.UID=function(){ return this.info().UID };
-  this.owner=function(){ return this.info().owner };
-  this.date=function(){ return this.info().date };
-  this.description=function(){ return this.info().description };
-  this.mass=function(){ return this.info().mass };
-  this.spawnCount=function(){ return this.info().spawnCount };
-  this.price=function(){ return this.info().price };
-  this.rating=function(){ return this.info().rating };
-  this.blocks=function(){ return this.info().blocks };
-  this.blocksInclChilds=function(){ return this.info().blocksInclChilds };
-  this.dockCountOnMother=function(){ return this.info().dockCountOnMother };
-  this.dimensionInclChilds=function(){ return this.info().dimensionInclChilds };
-  this.permissionMask=function(){ return this.info().permissionMask };
-  this.permissionFaction=function(){ return this.info().permissionFaction };
-  this.permissionHomeOnly=function(){ return this.info().permissionHomeOnly };
-  this.permissionOthers=function(){ return this.info().permissionOthers };
-  this.permissionEnemyUsable=function(){ return this.info().permissionEnemyUsable };
-  this.permissionLocked=function(){ return this.info().permissionLocked };
+
+
+  this.info = function(options,cb){
+    if (typeof cb=="function"){
+      return starNetVerified("/blueprint_info '" + self.name + "'",options,function(err,result){
+        var outputObj={};
+        if (err){
+          return cb(err,result);
+        }
+        if (result){
+          outputObj["UID"]=returnLineMatch(result,/^UID: .*/,/^UID: /);
+          var ownerTest=returnLineMatch(result,/^Owner: .*/,/^Owner: /);
+          console.log("### OWNED BY: " + ownerTest); // temp
+          if (ownerTest == "(unknown)"){
+            outputObj["owner"]=null;
+          } else {
+            outputObj["owner"]=new PlayerObj(ownerTest);
+          }
+          outputObj["date"]=new Date(toNumIfPossible(returnLineMatch(result,/^DateMS: .*/,/^DateMS: /)));
+          outputObj["description"]=returnLineMatch(result,/^Description: .*/,/^Description: /);
+          outputObj["mass"]=toNumIfPossible(returnLineMatch(result,/^Mass: .*/,/^Mass: /));
+          outputObj["spawnCount"]=toNumIfPossible(returnLineMatch(result,/^SpawnCount: .*/,/^SpawnCount: /));
+          outputObj["price"]=toNumIfPossible(returnLineMatch(result,/^Price: .*/,/^Price: /));
+          outputObj["rating"]=toNumIfPossible(returnLineMatch(result,/^Rating: .*/,/^Rating: /));
+          outputObj["blocks"]=toNumIfPossible(returnLineMatch(result,/^Blocks: .*/,/^Blocks: /));
+          outputObj["blocksInclChilds"]=toNumIfPossible(returnLineMatch(result,/^BlocksInclChilds: .*/,/^BlocksInclChilds: /));
+          outputObj["dockCountOnMother"]=toNumIfPossible(returnLineMatch(result,/^DockCountOnMother: .*/,/^DockCountOnMother: /));
+          var DimensionInclChilds=returnLineMatch(result,/^DimensionInclChilds: .*/,/^DimensionInclChilds: /);
+          DimensionInclChilds=DimensionInclChilds.replace(/\[|\]|\(|\)/g,"").split("|");
+          for (let i=0;i<DimensionInclChilds.length;i++){
+            DimensionInclChilds[i]=new CoordsObj(DimensionInclChilds[i].split(", "));
+          }
+          outputObj["dimensionInclChilds"]=DimensionInclChilds; // This is an array with 2 CoordsObj in it
+          outputObj["permissionMask"]=toNumIfPossible(returnLineMatch(result,/^PermissionMask: .*/,/^PermissionMask: /));
+          outputObj["permissionFaction"]=trueOrFalse(returnLineMatch(result,/^PermissionFaction: .*/,/^PermissionFaction: /));
+          outputObj["permissionHomeOnly"]=trueOrFalse(returnLineMatch(result,/^PermissionHomeOnly: .*/,/^PermissionHomeOnly: /));
+          outputObj["permissionOthers"]=trueOrFalse(returnLineMatch(result,/^PermissionOthers: .*/,/^PermissionOthers: /));
+          outputObj["permissionEnemyUsable"]=trueOrFalse(returnLineMatch(result,/^PermissionEnemyUsable: .*/,/^PermissionEnemyUsable: /));
+          outputObj["permissionLocked"]=trueOrFalse(returnLineMatch(result,/^PermissionLocked: .*/,/^PermissionLocked: /));
+          return cb(null,outputObj);
+        }
+        return cb(null,Boolean(false)); // this should never happen
+      });
+        // Successful Output looks like this:
+        // }
+        //   "UID":string
+        //   "owner":PlayerObj/null
+        //   "date":Date Object
+        //   "description":string,
+        //   "mass":Number,
+        //   "spawnCount":Number,
+        //   "price":Number,
+        //   "rating":Number,
+        //   "blocks":Number,
+        //   "blocksInclChilds":Number,
+        //   "dockCountOnMother":Number,
+        //   "dimensionInclChilds":Array containing 2 CoordsObj,
+        //   "permissionMask":Number,
+        //   "permissionFaction":true/false,
+        //   "permissionHomeOnly":true/false,
+        //   "permissionOthers":true/false,
+        //   "permissionEnemyUsable":true/false,
+        //   "permissionLocked":true/false
+        // }
+
+    } else {
+      return simplePromisifyIt(self.info,options);
+    }
+  }
+  this.UID=function(options,cb){ 
+    var valToGet="UID";
+    if (typeof cb == "function"){
+      return this.info(options,function(err,result){
+        if (err){
+          return cb(err,result);
+        }
+        return result[valToGet];
+      })
+    }
+    return simplePromisifyIt(self[valToGet],options);
+  };
+  this.owner=function(options,cb){ 
+    var valToGet="owner";
+    if (typeof cb == "function"){
+      return this.info(options,function(err,result){
+        if (err){
+          return cb(err,result);
+        }
+        return result[valToGet];
+      })
+    }
+    return simplePromisifyIt(self[valToGet],options);
+  };
+  this.date=function(options,cb){ 
+    var valToGet="date";
+    if (typeof cb == "function"){
+      return this.info(options,function(err,result){
+        if (err){
+          return cb(err,result);
+        }
+        return result[valToGet];
+      })
+    }
+    return simplePromisifyIt(self[valToGet],options);
+  };
+  this.description=function(options,cb){ 
+    var valToGet="description";
+    if (typeof cb == "function"){
+      return this.info(options,function(err,result){
+        if (err){
+          return cb(err,result);
+        }
+        return result[valToGet];
+      })
+    }
+    return simplePromisifyIt(self[valToGet],options);
+  };
+  this.mass=function(options,cb){ 
+    var valToGet="mass";
+    if (typeof cb == "function"){
+      return this.info(options,function(err,result){
+        if (err){
+          return cb(err,result);
+        }
+        return result[valToGet];
+      })
+    }
+    return simplePromisifyIt(self[valToGet],options);
+  };
+  this.spawnCount=function(options,cb){ 
+    var valToGet="spawnCount";
+    if (typeof cb == "function"){
+      return this.info(options,function(err,result){
+        if (err){
+          return cb(err,result);
+        }
+        return result[valToGet];
+      })
+    }
+    return simplePromisifyIt(self[valToGet],options);
+  };
+  this.price=function(options,cb){ 
+    var valToGet="price";
+    if (typeof cb == "function"){
+      return this.info(options,function(err,result){
+        if (err){
+          return cb(err,result);
+        }
+        return result[valToGet];
+      })
+    }
+    return simplePromisifyIt(self[valToGet],options);
+  };
+  this.rating=function(options,cb){ 
+    var valToGet="rating";
+    if (typeof cb == "function"){
+      return this.info(options,function(err,result){
+        if (err){
+          return cb(err,result);
+        }
+        return result[valToGet];
+      })
+    }
+    return simplePromisifyIt(self[valToGet],options);
+  };
+  this.blocks=function(options,cb){ 
+    var valToGet="blocks";
+    if (typeof cb == "function"){
+      return this.info(options,function(err,result){
+        if (err){
+          return cb(err,result);
+        }
+        return result[valToGet];
+      })
+    }
+    return simplePromisifyIt(self[valToGet],options);
+  };
+  this.blocksInclChilds=function(options,cb){ 
+    var valToGet="blocksInclChilds";
+    if (typeof cb == "function"){
+      return this.info(options,function(err,result){
+        if (err){
+          return cb(err,result);
+        }
+        return result[valToGet];
+      })
+    }
+    return simplePromisifyIt(self[valToGet],options);
+  };
+  this.dockCountOnMother=function(options,cb){ 
+    var valToGet="dockCountOnMother";
+    if (typeof cb == "function"){
+      return this.info(options,function(err,result){
+        if (err){
+          return cb(err,result);
+        }
+        return result[valToGet];
+      })
+    }
+    return simplePromisifyIt(self[valToGet],options);
+  };
+  this.dimensionInclChilds=function(options,cb){ 
+    var valToGet="dimensionInclChilds";
+    if (typeof cb == "function"){
+      return this.info(options,function(err,result){
+        if (err){
+          return cb(err,result);
+        }
+        return result[valToGet];
+      })
+    }
+    return simplePromisifyIt(self[valToGet],options);
+  };
+  this.permissionMask=function(options,cb){ 
+    var valToGet="permissionMask";
+    if (typeof cb == "function"){
+      return this.info(options,function(err,result){
+        if (err){
+          return cb(err,result);
+        }
+        return result[valToGet];
+      })
+    }
+    return simplePromisifyIt(self[valToGet],options);
+  };
+  this.permissionFaction=function(options,cb){ 
+    var valToGet="permissionFaction";
+    if (typeof cb == "function"){
+      return this.info(options,function(err,result){
+        if (err){
+          return cb(err,result);
+        }
+        return result[valToGet];
+      })
+    }
+    return simplePromisifyIt(self[valToGet],options);
+  };
+  this.permissionHomeOnly=function(options,cb){ 
+    var valToGet="permissionHomeOnly";
+    if (typeof cb == "function"){
+      return this.info(options,function(err,result){
+        if (err){
+          return cb(err,result);
+        }
+        return result[valToGet];
+      })
+    }
+    return simplePromisifyIt(self[valToGet],options);
+  };
+  this.permissionOthers=function(options,cb){ 
+    var valToGet="permissionOthers";
+    if (typeof cb == "function"){
+      return this.info(options,function(err,result){
+        if (err){
+          return cb(err,result);
+        }
+        return result[valToGet];
+      })
+    }
+    return simplePromisifyIt(self[valToGet],options);
+  };
+  this.permissionEnemyUsable=function(options,cb){ 
+    var valToGet="permissionEnemyUsable";
+    if (typeof cb == "function"){
+      return this.info(options,function(err,result){
+        if (err){
+          return cb(err,result);
+        }
+        return result[valToGet];
+      })
+    }
+    return simplePromisifyIt(self[valToGet],options);
+  };
+  this.permissionLocked=function(options,cb){ 
+    var valToGet="permissionLocked";
+    if (typeof cb == "function"){
+      return this.info(options,function(err,result){
+        if (err){
+          return cb(err,result);
+        }
+        return result[valToGet];
+      })
+    }
+    return simplePromisifyIt(self[valToGet],options);
+  };
 
   // blueprint_set_owner
   // DESCRIPTION: sets owner for a blueprint
@@ -2591,12 +2954,182 @@ function BluePrintObj(bluePrintName){
   // EXAMPLE: /blueprint_set_owner my_ship schema
 
 };
-function FactionObj(factionNumber){
-  this.number=factionNumber;
+function FactionObj(number){  // cb/promises/squish compliant
+  // number is the Faction Number
+  this.number=toNumIfPossible(number);
+  var self=this;
+
+  this.delete=function(options,cb){ // deletes the faction
+    if (typeof cb == "function"){
+      return runSimpleCommand("/faction_delete " + self.number,options,cb);
+    }
+    return simplePromisifyIt(self.delete,options);
+  }
+  this.npcRemoveFaction=function(options,cb){ // deletes the NPC faction and all of it's stuff
+    if (typeof cb == "function"){
+      return runSimpleCommand("/npc_remove_faction " + self.number,options,cb);
+    }
+    return simplePromisifyIt(self.npcRemoveFaction,options);
+  }
+
+  this.deleteMember=function(player,options,cb){ // Accepts a playername string or PlayerObj.  Returns false if the player is not in the faction.
+    if (typeof cb == "function"){
+      var thePlayerName=toStringIfPossible(player);
+      if (typeof thePlayerName == "string"){
+        var thePlayerObj=new PlayerObj(thePlayerName);
+        return thePlayerObj.faction(options,function(err,result){
+          if (err){
+            return cb(err,null);
+          }
+          var theFactionString=toStringIfPossible(result);
+          var theFactionNum=toNumIfPossible(theFactionString);
+          if (typeof theFactionNum == "number" && theFactionNum == self.number){
+            return runSimpleCommand("/faction_del_member " + thePlayerName + " " + self.number,options,function(err,result){
+              if (err){
+                return cb(err,result);
+              }
+              return cb(null,result); // should be true if the command succeeded.  False if some other problem happened.
+            });
+          } else {
+            // the player does not appear to be in this faction
+            return cb(null,false); // this is to indicate the command failed since the player was not in the faction.
+          }
+        });
+      }
+      return cb(new Error("Invalid input given to FactionObj.deleteMember as player!"),null);
+
+    }
+    return simplePromisifyIt(self.deleteMember,options,player);
+
+  }
+  this.edit=function(newName,newDescription,options,cb){ // If no newDescription given, will use blank.
+    if (typeof cb == "function"){
+      var theName=toStringIfPossible(newName);
+      if (typeof theName == "string"){
+        var theDescription=toStringIfPossible(newDescription);
+        if (typeof theDescription != "string"){
+          theDescription=" ";
+        }
+        return runSimpleCommand("/faction_edit " + self.number + " " + theName + " " + theDescription);
+      }
+      return cb(new Error("Invalid newName given to FactionObj.edit!"));
+
+    }
+    return simplePromisifyIt(self.edit,options,newName,newDescription);
+
+  }
+  this.addMember=function(player,options,cb){
+    if (typeof cb == "function"){
+      var thePlayerName=toStringIfPossible(player);
+      if (typeof thePlayerName == "string"){
+        var thePlayerObj=new PlayerObj(thePlayerName);
+        return thePlayerObj.joinFaction(self.number,options,function(err,result){
+          if (err){
+            return cb(err,result);
+          }
+          return cb(null,result); // returns true/false, depending on success/failure.
+        });
+      }
+      return cb(new Error("Invalid input given to FactionObj.deleteMember as player!"),null);
+
+    }
+    return simplePromisifyIt(self.addMember,options,player);
+
+  }
+  this.listMembers=function(options,cb){
+    if (typeof cb == "function"){
+      //RETURN: [SERVER, [ADMIN COMMAND] [SUCCESS] Merc Dragon: {Lightspeed12=>FactionPermission [playerUID=Lightspeed12, roleID=2], Nosajimiki=>FactionPermission [playerUID=Nosajimiki, roleID=4]}, 0]
+      // TODO: Add an option to return an array of pairs, player and role number.
+      return starNetVerified("/faction_list_members " + self.number,options,function(err,result){
+        if (err){
+          return cb(err,result);
+        }
+        let regMatch=/^RETURN: \[SERVER, \[ADMIN COMMAND\] \[SUCCESS\]/;
+        let regRem1=/^RETURN: \[SERVER, \[ADMIN COMMAND\] \[SUCCESS\] [^:]*: {/
+        let regRem2=/}, 0\]$/
+        var theList=returnLineMatch(result,regMatch,regRem1,regRem2);
+        if (typeof theList == "string"){
+          var theArray=theList.split('], ');
+          var outputArray=[];
+          for (let i=0;i<theArray.length;i++){
+            outputArray.push(new PlayerObj(theArray[i].match(/^[^=]*/).toString()));
+          }
+          return cb(null,outputArray); // I'm guessing if a faction exists but has no members, this will output an empty array.
+        }
+        return cb(null,false); // command failed for some reason.  Maybe the faction doesn't exist?  Maybe no members?
+      });
 
 
-  this.delete=function(options){ // deletes the faction
-    return runSimpleCommand("/faction_delete",options);
+    }
+    return simplePromisifyIt(self.listMembers,options);
+
+  }
+  this.modRelation=function(targetFaction,newStatus,options,cb){ // newStatus can be enemy/ally/neutral
+    if (typeof cb == "function"){
+      var theTargetFaction=toStringIfPossible(targetFaction);
+      var theTargetFactionNum=toNumIfPossible(theTargetFaction);
+      if (typeof theTargetFactionNum == "number"){
+        var theNewStatus=toStringIfPossible(newStatus);
+        if (typeof theNewStatus=="string"){
+          theNewStatus=theNewStatus.toLowerCase();
+          if (theNewStatus=="enemy" || theNewStatus=="ally" || theNewStatus=="neutral"){
+            return runSimpleCommand("/faction_mod_relation " + self.number + " " + theTargetFactionNum + " " + theNewStatus,options,cb);
+          }
+          return cb(new Error("Invalid input given to FactionObj.modRelation for newStatus! (must be 'enemy', 'ally', or 'neutral')"),null);  
+        }
+        return cb(new Error("Invalid input given to FactionObj.modRelation for newStatus! (not stringable)"),null);  
+      }
+      return cb(new Error("Invalid input given to FactionObj.modRelation for targetFaction! (cannot convert to number)"),null);
+    }
+    return simplePromisifyIt(self.modRelation,options,targetFaction,newStatus);
+  }
+  this.addFactionPoints=function(number,options,cb){ // numToAdd can be negative to remove
+    if (typeof cb == "function"){
+      var theNumToUse=toNumIfPossible(number);
+      if (typeof theNumToUse == "number"){
+        return runSimpleCommand("/faction_point_add " + self["number"] + " " + theNumToUse,options,cb);
+      }
+      return cb(new Error("Invalid number given to FactionObj.addFactionPoints!"),null);
+    }
+    return simplePromisifyIt(self.addFactionPoints,options,number);
+
+  }
+  this.setFactionPoints=function(number,options,cb){
+    if (typeof cb == "function"){
+      var theNumToUse=toNumIfPossible(number);
+      if (typeof theNumToUse == "number"){
+        return runSimpleCommand("/faction_point_set " + self["number"] + " " + theNumToUse,options,cb);
+      }
+      return cb(new Error("Invalid number given to FactionObj.setFactionPoints!"),null);
+    }
+    return simplePromisifyIt(self.setFactionPoints,options,number);
+  }
+  this.getFactionPoints=function(options,cb){
+    if (typeof cb == "function"){
+      return starNetVerified("/faction_point_get " + self.number,options,function(err,result){
+        if (err){
+          return cb(err,result);
+        }
+        // RETURN: [SERVER, [ADMIN COMMAND] [SUCCESS] faction points of whatever now: 426.0, 0]
+        var regExpMatch=/RETURN: \[SERVER, \[ADMIN COMMAND\] \[SUCCESS\] faction points of.*/;
+        var regExpRemove=/RETURN: \[SERVER, \[ADMIN COMMAND\] \[SUCCESS\] faction points of [^:]*: /;
+        var regExpRemove2=/, 0\]$/;
+        var thePointsTest=toNumIfPossible(returnLineMatch(result,regExpMatch,regExpRemove,regExpRemove2));
+        if (typeof thePointsTest == "number"){
+          return cb(null,thePointsTest);
+        } else {
+          return cb(null,false);
+        }
+      })
+    }
+    return simplePromisifyIt(self.getFactionPoints,options);
+  }
+
+  this.resetActivity=function(options,cb){ // resets activity flags for all members of the faction (all to inactive)
+    if (typeof cb == "function"){
+      return runSimpleCommand("/faction_reset_activity " + self.number,options,cb);
+    }
+    return simplePromisifyIt(self.resetActivity,options);
   }
 
 
@@ -2627,7 +3160,8 @@ function FactionObj(factionNumber){
   // duplicate(Num) - This will create duplicate new open factions with fake names as the leaders with the same name as this faction (uses /faction_create_amount [Name] [Number])
   // serverMessage(MessageString,info/warning/error) - Sends a message to all online players of this faction.  If no method is specified "plain" is used, which shows up on the player's main chat.
 };
-function LocationObj(sector,spacialCoords){ // This is to store an exact location, including system, sector, and spacial coordinates.
+function LocationObj(sector,spacial){  // cb/promises/squish compliant
+  // This is to store an exact location, including system, sector, and spacial coordinates.
   // self.system=sectorObj.getSystem();
   var self = this; // this is needed to reference the "this" of functions in other contexts, particularly for creating promises via the outside function.  If "this" is used, the promisify function will not work correctly.
   // if (sectorObj instanceof SectorObj){
@@ -2643,7 +3177,7 @@ function LocationObj(sector,spacialCoords){ // This is to store an exact locatio
   // } else {
   //   self.spacial=new CoordsObj(coordsObj); // This will throw an error if invalid input
   // }
-  self.spacial=new CoordsObj(spacialCoords); // This will throw an error if invalid input
+  self.spacial=new CoordsObj(spacial); // This will throw an error if invalid input
 };
 function SectorObj(xGiven,yGiven,zGiven){
   var self = this; // this is needed to reference the "this" of functions in other contexts, particularly for creating promises via the outside function.  If "this" is used, the promisify function will not work correctly.
@@ -2973,66 +3507,66 @@ function SectorObj(xGiven,yGiven,zGiven){
     throw new Error("ERROR: Invalid values given to SectorObj constructor!");
   }
 };
-
-function CoordsObj(xInput,yInput,zInput){ // xInput can be a string or space or comma separated numbers, coordsObj, or a sectorObj
+function CoordsObj(x,y,z){  // cb/promises/squish compliant
+  // x can be a string or space or comma separated numbers, coordsObj, or a sectorObj
   // test to ensure string, array, CoordsObj, SectorObj, and regular numbers/strings(which are numbers) works.
   var self = this; // this is needed to reference the "this" of functions in other contexts, particularly for creating promises via the outside function.  If "this" is used, the promisify function will not work correctly.
-  var x=objectHelper.toNumIfPossible(xInput);
-  var y=objectHelper.toNumIfPossible(yInput);
-  var z=objectHelper.toNumIfPossible(zInput);
+  var xToTry=objectHelper.toNumIfPossible(x);
+  var yToTry=objectHelper.toNumIfPossible(y);
+  var zToTry=objectHelper.toNumIfPossible(z);
   var xToUse;
   var yToUse;
   var zToUse;
-  if (typeof x == "number" && typeof y == "number" && typeof z == "number"){
-    xToUse=x;
-    yToUse=y;
-    zToUse=z;
-  } else if (typeof xInput == "string" && typeof y == "undefined"){ // This handles coords with spaces or commas
+  if (typeof xToTry == "number" && typeof yToTry == "number" && typeof zToTry == "number"){
+    xToUse=xToTry;
+    yToUse=yToTry;
+    zToUse=zToTry;
+  } else if (typeof x == "string" && typeof yToTry == "undefined"){ // This handles coords with spaces or commas
     var tempArray=[];
-    if (xInput.indexOf(",") > "-1"){ // comma separated values
-      tempArray=xInput.split(",");
-    } else if (xInput.indexOf(" ") > "-1") {
-      tempArray=xInput.split(" "); // space separated values
+    if (x.indexOf(",") > "-1"){ // comma separated values
+      tempArray=x.split(",");
+    } else if (x.indexOf(" ") > "-1") {
+      tempArray=x.split(" "); // space separated values
     } else {
-      throw new Error("Invalid string given as input to CoordsObj: " + x);
+      throw new Error("Invalid string given as input to CoordsObj: " + xToTry);
     }
     if (tempArray.length == 3){
       xToUse=objectHelper.toNumIfPossible(tempArray[0].trim());
       yToUse=objectHelper.toNumIfPossible(tempArray[1].trim());
       zToUse=objectHelper.toNumIfPossible(tempArray[2].trim());
     } else {
-      console.error("Invalid amount of numbers given as string to CoordsObj. (" + tempArray.length + "): " + xInput);
+      console.error("Invalid amount of numbers given as string to CoordsObj. (" + tempArray.length + "): " + x);
       throw new Error("Invalid amount of numbers given as string to CoordsObj.");
     }
-  } else if (typeof xInput=="object"){ // This handles arrays or other objects
-    if (objectHelper.getObjType(xInput) == "Array"){
-      if (xInput.length==3){
-        if (typeof xInput[0] == "number"){ // This is necessary because .trim() will throw an error if attempted on a number
-          xToUse=xInput[0];
+  } else if (typeof x=="object"){ // This handles arrays or other objects
+    if (objectHelper.getObjType(x) == "Array"){
+      if (x.length==3){
+        if (typeof x[0] == "number"){ // This is necessary because .trim() will throw an error if attempted on a number
+          xToUse=x[0];
         } else { 
-          xToUse=objectHelper.toNumIfPossible(xInput[0].trim()); 
+          xToUse=objectHelper.toNumIfPossible(x[0].trim()); 
         }
-        if (typeof xInput[1] == "number"){
-          yToUse=xInput[1];
+        if (typeof x[1] == "number"){
+          yToUse=x[1];
         } else { 
-          yToUse=objectHelper.toNumIfPossible(xInput[1].trim()); 
+          yToUse=objectHelper.toNumIfPossible(x[1].trim()); 
         }
-        if (typeof xInput[2] == "number"){
-          zToUse=xInput[2];
+        if (typeof x[2] == "number"){
+          zToUse=x[2];
         } else { 
-          zToUse=objectHelper.toNumIfPossible(xInput[2].trim()); 
+          zToUse=objectHelper.toNumIfPossible(x[2].trim()); 
         }
       } else {
-        var errMsgObj=new Error("Invalid number of values given in array to CoordsObj (" + x.length + "): " + x);
+        var errMsgObj=new Error("Invalid number of values given in array to CoordsObj (" + xToTry.length + "): " + xToTry);
         throw errMsgObj;
       }
-    } else if (objectHelper.getObjType(xInput) == "CoordsObj" || objectHelper.getObjType(xInput) == "SectorObj"){
-      var coordArrayTemp=xInput.toArray();
+    } else if (objectHelper.getObjType(x) == "CoordsObj" || objectHelper.getObjType(x) == "SectorObj"){
+      var coordArrayTemp=x.toArray();
       xToUse=coordArrayTemp[0];
       yToUse=coordArrayTemp[1];
       zToUse=coordArrayTemp[2];
     } else {
-      throw new Error("Invalid object input given to CoordsObj: " + x);
+      throw new Error("Invalid object input given to CoordsObj: " + xToTry);
     }
   }
   if (typeof xToUse != "number" || typeof yToUse != "number" || typeof zToUse != "number"){
@@ -3042,7 +3576,9 @@ function CoordsObj(xInput,yInput,zInput){ // xInput can be a string or space or 
   self.x=xToUse;
   self.y=yToUse;
   self.z=zToUse;
-  self.coords=function(){ return new CoordsObj(self.x,self.y,self.z) }; // This is to allow a sectorObj to gracefully morph into a CoordsObj and for a CoordsObj to be duplicated and then possibly modified.
+  self.coords=function(){ 
+    return new CoordsObj(self.x,self.y,self.z) 
+  }; // This is to allow a sectorObj to gracefully morph into a CoordsObj and for a CoordsObj to be duplicated and then possibly modified.
   
 
   // This can be expanded to allow storing information, such as a description, if more than values than expected are given to the constructor
@@ -3055,13 +3591,15 @@ function CoordsObj(xInput,yInput,zInput){ // xInput can be a string or space or 
   }
   // self.toString=function(){ return self.string };
 };
-function CreatureObj(fullUID){ // TODO: create creature object
+function CreatureObj(fullUID){  // Not usable right now since there are no creature commands that accept UID inputs
+  // TODO: create creature object
   console.log("Complete me plz.");
   var self = this; // this is needed to reference the "this" of functions in other contexts, particularly for creating promises via the outside function.  If "this" is used, the promisify function will not work correctly.
   self.UID=stripFullUIDtoUID(fullUID);
   self.fullUID=fullUID;
 };
-function EntityObj(fullUID,shipName){ // takes EITHER the full UID or the ship name.  If a ship name is provided, it will look up the full UID via a StarNet.jar command.
+function EntityObj(fullUID,shipName){ // TODO:  Make this ONLY ACCEPT fullUID - figure out which events only give an entity name and change it to return a promise that returns an EntityObj instead.
+  // takes EITHER the full UID or the ship name.  If a ship name is provided, it will look up the full UID via a StarNet.jar command.
   var self = this; // this is needed to reference the "this" of functions in other contexts, particularly for creating promises via the outside function.  If "this" is used, the promisify function will not work correctly.
 
   // This builds an entity object based on the full UID
@@ -4371,4 +4909,35 @@ function getPlayerSpawnLocation(player,options,cb){
   }
   return simplePromisifyIt(getPlayerSpawnLocation,options,player);
 }
+
+function runSimpleCommand(theCommand,options,cb){  // cb/promises compliant (also has sync option for sending to stdin directly IF ran in fast mode)
+  // This is used for PlayerObj methods that can be sent to either the console or using StarNet
+  var theCommandToUse=toStringIfPossible(theCommand);
+  if (typeof theCommandToUse == "string"){
+    var fast=getOption(options,"fast",false);
+    var msgTestFail=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] \\[ERROR\\]");
+    // RETURN: [SERVER, Admin command failed: Error packing parameters, 0]
+    // RETURN: [SERVER, Admin command failed: Error packing parameters, 0]
+    var msgTestFail2=new RegExp("^RETURN: \\[SERVER, Admin command failed: Error packing parameters, 0\\]")
+    if (fast==true){ // this can run in Sync if a CB is not specified, since it's only sending input to a stdin of the server
+      return sendDirectToServer(theCommandToUse,cb);
+    } else if (typeof cb == "function"){
+      return starNetVerified(theCommandToUse,options,function(err,msgResult){
+        if (err){
+          return cb(err,msgResult);
+        } else if (starNetHelper.checkForLine(msgResult,msgTestFail) || starNetHelper.checkForLine(msgResult,msgTestFail2)){ // The player was offline, did not exist, or other parameters were incorrect.
+            return cb(err,Boolean(false)); // err will be null
+        } else { // The command appears to have not failed, so let's assume it succeeded.
+          return cb(err,Boolean(true)); // Err will be null
+        }
+      });
+    } else { // No cb specified, so run in promise mode. 
+      return simplePromisifyIt(runSimpleCommand,options,theCommand);
+    }
+  }
+  if (typeof cb == "function"){
+    return cb(new Error("No command given to runSimpleCommand!"),null);
+  }
+  throw new Error("No command given to runSimpleCommand!");
+};
 

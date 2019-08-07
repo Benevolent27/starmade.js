@@ -330,7 +330,7 @@ function ShipInfoUidObj(uidOrShipObj,options){ // options are optional and are m
 }
 
 
-function getUIDfromName (name,options){
+function getUIDfromName (name,options){ // Runs in sync mode to assist in creating EntityObj from an entity name, since some events only return the entity name, not the UID..  I need to figure out workarounds for this.
   // Returns:
   // If ship not found:  null
   // If an error is encountered running starnet:  undefined
