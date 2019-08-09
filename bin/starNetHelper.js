@@ -605,8 +605,8 @@ function starNetVerifiedCB(string,options,cb){ // Takes a string command.  Optio
   // If these options don't exist on the options, add them for the next try (if needed).
   optionsToUse.starNetVerifiedCBTryCount=getOption(options,"starNetVerifiedCBTryCount",1);
   optionsToUse.starNetVerifiedCBtimeToRetryTill=getOption(options,"starNetVerifiedCBtimeToRetryTill",new Date().getTime() + optionsToUse.maxTimeToRetry);
-  console.log("Using options:"); // temp
-  console.dir(optionsToUse);
+  // console.log("Using options:"); // temp
+  // console.dir(optionsToUse);
   if (typeof string == "string"){
     return starNetCb(string,optionsToUse,function (err,result){ // replaced "await" with "return"
       if (err){

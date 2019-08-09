@@ -23,9 +23,12 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   SMNameObj,
   SystemObj,
   RemoteServer: RemoteServerObj,
+  decodeChmodNum,
   isPlayerOnline,
   getPlayerList,
-  getAdminsList
+  getAdminsList,
+  getProtectionsDifferentialString,
+  getChmodArrayFromNum
 }
 
 // Requires
@@ -626,6 +629,7 @@ function ServerObj(serverSettingsObj){ // cb/promises/squish compliant
   this.forceSave=function(options,cb){ // Performs a force save
     // Does not have success or fail messages
     if (typeof cb == "function"){
+      console.log("Running force save..");
       return runSimpleCommand("/force_save",options,cb);
     } else {
       return simplePromisifyIt(self.forceSave,options,trueOrFalse);
@@ -3179,7 +3183,7 @@ function LocationObj(sector,spacial){  // cb/promises/squish compliant
   // }
   self.spacial=new CoordsObj(spacial); // This will throw an error if invalid input
 };
-function SectorObj(xGiven,yGiven,zGiven){
+function SectorObj(x,y,z){ // TODO: Make cb/promises compliant  Already squish compliant
   var self = this; // this is needed to reference the "this" of functions in other contexts, particularly for creating promises via the outside function.  If "this" is used, the promisify function will not work correctly.
   // TODO: Add Info methods:
   // getSystem - Returns a SystemObj
@@ -3215,51 +3219,69 @@ function SectorObj(xGiven,yGiven,zGiven){
   // spawnEntity
 
 
-  var theCoordsObj=new CoordsObj(xGiven,yGiven,zGiven); // This will handle any conversions needed of various inputs, either strings of x y z, Array of coordinates, other sector or coords objects, etc.
-  var x=theCoordsObj.x;
-  var y=theCoordsObj.y;
-  var z=theCoordsObj.z;
+  var theCoordsObj=new CoordsObj(x,y,z); // This will handle any conversions needed of various inputs, either strings of x y z, Array of coordinates, other sector or coords objects, etc.
+  self.x=theCoordsObj.x;
+  self.y=theCoordsObj.y;
+  self.z=theCoordsObj.z;
   // Only if this is valid should we proceed.
-  if (typeof x == "number" && typeof y == "number" && typeof z == "number"){
+  if (typeof self.x == "number" && typeof self.y == "number" && typeof self.z == "number"){
     self.coords=theCoordsObj;
-    self.clearMines=function(options){
+    self.clearMines=function(options,cb){
       // RETURN: [SERVER, Mines cleared in 2, 2, 2!, 0]
-      return runSimpleCommand("/clear_mines_sector " + self.coords.toString(),options);
+      if (typeof cb == "function"){
+        return runSimpleCommand("/clear_mines_sector " + self.coords.toString(),options,cb);
+      } else {
+        return simplePromisifyIt(self.clearMines,options);
+      }
     }
-    self.clearOverheating=function(options){
+    self.clearOverheating=function(options,cb){
       // Will error and return false if the sector is unloaded.
-      return runSimpleCommand("/clear_overheating_sector " + self.coords.toString(),options);
+      if (typeof cb == "function"){
+        return runSimpleCommand("/clear_overheating_sector " + self.coords.toString(),options,cb);
+      } else {
+        return simplePromisifyIt(self.clearOverheating,options);
+      }
     }
-    self.despawn=function(partOfShipName,used,shipOnly,options){
+    self.despawn=function(partOfShipName,used,shipOnly,options,cb){
       // /despawn_sector
       // EXAMPLE: /despawn_sector MOB_ unused true 2 2 2
       // Will error and return false if the sector is unloaded.
-      var partOfShipNameToUse=toStringIfPossible(partOfShipName);
-      if (typeof partOfShipNameToUse != "string"){
-        throw new Error("Invalid input given to SectorObj.despawn!");
+      if (typeof cb == "function"){
+        var partOfShipNameToUse=toStringIfPossible(partOfShipName);
+        if (typeof partOfShipNameToUse != "string"){
+          return cb(new Error("Invalid input given to SectorObj.despawn!"),null);
+        }
+        var usedToUse="all";
+        var usedTest=toStringIfPossible(used);
+        if (typeof usedTest == "string"){
+          usedTest=usedTest.toLowerCase();
+        }
+        if (usedTest == "all" || usedTest == "used" || usedTest == "unused"){
+          usedToUse=usedTest;
+        }
+        var shipOnlyToUse="false";
+        if (isTrueOrFalse(shipOnly)){
+          shipOnlyToUse=shipOnly;
+        }
+        return runSimpleCommand("/despawn_sector \"" + partOfShipNameToUse + "\" " + usedToUse + " " + shipOnlyToUse + " " + self.coords.toString(),options,cb);
       }
-      var usedToUse="all";
-      var usedTest=toStringIfPossible(used);
-      if (typeof usedTest == "string"){
-        usedTest=usedTest.toLowerCase();
-      }
-      if (usedTest == "all" || usedTest == "used" || usedTest == "unused"){
-        usedToUse=usedTest;
-      }
-      var shipOnlyToUse="false";
-      if (isTrueOrFalse(shipOnly)){
-        shipOnlyToUse=shipOnly;
-      }
-      return runSimpleCommand("/despawn_sector \"" + partOfShipNameToUse + "\" " + usedToUse + " " + shipOnlyToUse + " " + self.coords.toString(),options);
+      return simplePromisifyIt(self.despawn,options,partOfShipName,used,shipOnly);
     }
-    self.isLoaded=function(options){
+    self.isLoaded=function(options,cb){
       // ^RETURN\: \[SERVER, LOADED SECTOR INFO\:
       // RETURN: [SERVER, LOADED SECTOR INFO: Sector[132](2, 2, 2); Permission[Peace,Protected,NoEnter,NoExit,NoIndication,NoFpLoss]: 000000; Seed: -4197430019395025102; Type: VOID;, 0]
-      let result=starNetVerified("/sector_info " + self.coords.toString(),options);
-      let theReg=new RegExp("^RETURN: \\[SERVER, LOADED SECTOR INFO:.*");
-      return starNetHelper.checkForLine(result,theReg);
+      if (typeof cb == "function"){
+        return starNetVerified("/sector_info " + self.coords.toString(),options,function(err,result){
+          if (err){
+            return cb(err,result);
+          }
+          let theReg=/^RETURN: \[SERVER, LOADED SECTOR INFO:.*/;
+          return cb(null,starNetHelper.checkForLine(result,theReg));
+        });
+      }
+      return simplePromisifyIt(self.isLoaded,options);
     }
-    self.importSector=function(sectorExport,options){
+    self.importSector=function(sectorExport,options,cb){
       // /import_sector
       // DESCRIPTION: make sure that the target sector is unloaded
       // PARAMETERS: toX(Integer), toY(Integer), toZ(Integer), name(String)
@@ -3271,116 +3293,238 @@ function SectorObj(xGiven,yGiven,zGiven){
       // Only gives errors if parameters incorrect.  RETURN: [SERVER, Admin command failed: Error packing parameters, 0]
 
       // global.starMadeInstallFolder
-      if (typeof sectorExport == "string"){
-        var sectorExportFile=sectorExport;
-        if (!(/\.smsec$/i).test(sectorExportFile)){
-          sectorExportFile+=".smsec";
-        }
-        var exportFolder=path.join(global.starMadeInstallFolder,"sector-export/");
-        var sectorExportFilePath=path.join(exportFolder,sectorExportFile);
-        // StarMade seems to behave in a case insensitive way on windows, but case sensitive on linux and probably mac
-        var theTest=false;
-        if (process.platform=="win32"){
-          theTest=miscHelpers.isFileInFolderCaseInsensitive(sectorExportFilePath); // This is literal for the path but not for the file.
-        } else {
-          theTest=miscHelpers.existsAndIsFile(sectorExportFilePath); // This does a literal check.
-        }
-        if (theTest){ // Does a lowercase test of the filename because I believe StarMade does not care.  This needs to be tested on linux.
-          // File exists
-          if (self.isLoaded()){
-            return false;
+      if (typeof cb == "function"){
+        var sectorExportFile=toStringIfPossible(sectorExport);
+        if (typeof sectorExportFile == "string"){
+          if (!(/\.smsec$/i).test(sectorExportFile)){
+            sectorExportFile+=".smsec";
           }
-          // This will not return any errors unless the parameters are incorrect.
-          return runSimpleCommand("/import_sector " + self.coords.toString() + " " + sectorExport,options);
+          var exportFolder=path.join(global.starMadeInstallFolder,"sector-export/");
+          var sectorExportFilePath=path.join(exportFolder,sectorExportFile);
+          // StarMade seems to behave in a case insensitive way on windows, but case sensitive on linux and probably mac
+          var theTest=false;
+          if (process.platform=="win32"){
+            theTest=miscHelpers.isFileInFolderCaseInsensitive(sectorExportFilePath); // This is literal for the path but not for the file.
+          } else {
+            theTest=miscHelpers.existsAndIsFile(sectorExportFilePath); // This does a literal check for linux/mac.
+          }
+          if (theTest){
+            // File exists
+            return self.isLoaded(options,function(err,result){
+              if (err){
+                console.error("Error when checking if sector was loaded: " + self.coords.toString());
+                return cb(err,result);
+              }
+              if (result){
+                return cb(null,Boolean(false)); // Sector was loaded, so we cannot load the sector
+              }
+              return runSimpleCommand("/import_sector " + self.coords.toString() + " " + sectorExport,options);  
+            });
+            // This will not return any errors unless the parameters are incorrect.
+          } else {
+            // File does not exist
+            console.error("ERROR: Could not load sector export!  File does not exist: " + sectorExportFilePath);
+            return cb(null,Boolean(false));
+          }
         }
+        return cb(new Error("ERROR: Input given as sectorExport given to SectorObj was invalid! (not stringable)"),null);
       }
-      return false;
+      return simplePromisifyIt(self.importSector,options,sectorExport);
     }
-    self.exportSector=function(sectorExport,options){
+    self.exportSector=function(sectorExport,options,cb){
       // Will not give any error whether it did anything or not, unless parameters are incorrect
-      var sectorExportToUse=toStringIfPossible(sectorExport);
-      if (typeof sectorExportToUse == "string"){
-        return runSimpleCommand("/export_sector " + self.coords.toString() + " " + sectorExport,options);
+      if (typeof cb == "function"){
+        var sectorExportToUse=toStringIfPossible(sectorExport);
+        if (typeof sectorExportToUse == "string"){
+          return runSimpleCommand("/export_sector " + self.coords.toString() + " " + sectorExport,options,cb);
+        }
+        return cb(new Error("Invalid input given to SectorObj.exportSector as sectorExport!"),null);
       }
-      throw new Error("Invalid input given to SectorObj.exportSector as sectorExport!");
+      return simplePromisifyIt(self.exportSector,options);
     }
-    self.populate=function(options){
+    self.populate=function(options,cb){
       // Will not give any error whether it did anything or not, unless parameters are incorrect
       // DESCRIPTION: WARNING: this will populate the sector. Use this as a reset after using /despawn_sector!
-      return runSimpleCommand("/populate_sector " + self.coords.toString(),options);
+      if (typeof cb == "function"){
+        return runSimpleCommand("/populate_sector " + self.coords.toString(),options,cb);
+      }
+      return simplePromisifyIt(self.populate,options);
     }
-    self.repair=function(options){
+    self.repair=function(options,cb){
       // WARNING - I think this is broken via StarNet.jar or through the console.  It ALWAYS gives the following error:
       // RETURN: [SERVER, [ADMIN COMMAND] [ERROR] player not found for your client, 0]
       // DESCRIPTION: attempts to correct the regitry of the sector
-      return runSimpleCommand("/repair_sector " + self.coords.toString(),options);
+      if (typeof cb == "function"){
+        return runSimpleCommand("/repair_sector " + self.coords.toString(),options,cb);
+      }
+      return simplePromisifyIt(self.repair,options);
     }
-    self.spawnEntity=function(blueprintObj,shipName,factionNum,aiActiveBoolean,options){
+
+
+
+
+
+    self.spawnEntity=function(blueprintObj,shipName,factionNum,aiActiveBoolean,options,cb){
       // factionNum and aiActive are optional
       // factionNum can be a faction object.
-
-      var blueprintName=toStringIfPossible(blueprintObj);
-      if (typeof blueprintName != "string"){
-        throw new Error("Invalid input given to SectorObj.spawnEntity as blueprintObj!");
-      }
-      var shipNameToUse=toStringIfPossible(shipName);
-      if (typeof shipNameToUse != "string"){
-        throw new Error("Invalid input given to SectorObj.spawnEntity as shipName!");
-      }
-
-      var factionNumToUse=0;
-      if (testIfInput(factionNum)){ // If no input given, that is ok, we'll just use 0.
-        var factionNumTest=toStringIfPossible(factionNum); // This handles a factionObj
-        if (isNum(factionNumTest)){ // Will be true if the string is a number.
-          factionNumToUse=factionNumTest;
-        } else { // Some invalid string or object was given
-          throw new Error("Invalid input given to SectorObj.spawnEntity as factionNum!");
+      if (typeof cb == "function"){
+        var blueprintName=toStringIfPossible(blueprintObj);
+        if (typeof blueprintName != "string"){
+          return cb(new Error("Invalid input given to SectorObj.spawnEntity as blueprintObj!"),null);
         }
-      }
-      var aiActiveBooleanToUse=false;
-      if (testIfInput(aiActiveBoolean)){ // If no input, that is ok.  We'll just use false.
-        if (isTrueOrFalse(aiActiveBoolean)){
-          aiActiveBooleanToUse=aiActiveBoolean;
-        } else {
-          throw new Error("Invalid input given to SectorObj.spawnEntity as aiActiveBoolean!");
+        var shipNameToUse=toStringIfPossible(shipName);
+        if (typeof shipNameToUse != "string"){
+          return cb(new Error("Invalid input given to SectorObj.spawnEntity as shipName!"),null);
         }
+
+        var factionNumToUse=0;
+        if (testIfInput(factionNum)){ // If no input given, that is ok, we'll just use 0.
+          var factionNumTest=toStringIfPossible(factionNum); // This handles a factionObj
+          if (isNum(factionNumTest)){ // Will be true if the string is a number.
+            factionNumToUse=factionNumTest;
+          } else { // Some invalid string or object was given
+            return cb(new Error("Invalid input given to SectorObj.spawnEntity as factionNum!"),null);
+          }
+        }
+        var aiActiveBooleanToUse=false;
+        if (testIfInput(aiActiveBoolean)){ // If no input, that is ok.  We'll just use false.
+          if (isTrueOrFalse(aiActiveBoolean)){
+            aiActiveBooleanToUse=aiActiveBoolean;
+          } else {
+            return cb(new Error("Invalid input given to SectorObj.spawnEntity as aiActiveBoolean!"),null);
+          }
+        }
+        return runSimpleCommand("/spawn_entity \"" + blueprintName + "\" \"" + shipNameToUse + "\" " + self.coords.toString() + " " + factionNumToUse + " " + aiActiveBooleanToUse,options,cb);
+        // /spawn_entity // Also in the BluePrintObj
+        // DESCRIPTION: Spawns a ship in any sector with a faction tag and AI tag.
+        // PARAMETERS: BlueprintName(String), ShipName(String), X(Integer), Y(Integer), Z(Integer), factionID(Integer), ActiveAI(True/False)
+        // EXAMPLE: /spawn_entity mySavedShip shipName sectorX sectorY sectorZ -1 true
       }
-      return runSimpleCommand("/spawn_entity \"" + blueprintName + "\" \"" + shipNameToUse + "\" " + self.coords.toString() + " " + factionNumToUse + " " + aiActiveBooleanToUse,options);
-      // /spawn_entity // Also in the BluePrintObj
-      // DESCRIPTION: Spawns a ship in any sector with a faction tag and AI tag.
-      // PARAMETERS: BlueprintName(String), ShipName(String), X(Integer), Y(Integer), Z(Integer), factionID(Integer), ActiveAI(True/False)
-      // EXAMPLE: /spawn_entity mySavedShip shipName sectorX sectorY sectorZ -1 true
+      return simplePromisifyIt(self.spawnEntity,options,blueprintObj,shipName,factionNum,aiActiveBoolean);
     }
 
 
     // Below needs to be brought up to the current standard of true=success,false=fail, throw error on connection problem.
-    self.load=function(){
+    self.load=function(options,cb){
       // old method:
       // This returns "true" if the command ran, false for anything else, such as if the server was down.
       // let theResponse=starNetSync("/load_sector_range " + self.coords.toString() + " " + self.coords.toString());
       // return starNetHelper.detectRan(theResponse);
-      return runSimpleCommand("/load_sector_range " + self.coords.toString() + " " + self.coords.toString());
-    };
-    self.setChmod=function(val,options){ // val should be a string
-      // This will return true if it was a success, false otherwise.
-      // Example vals:  "+ peace" or "- protected"
-      return sectorSetChmod(self.coords,val,options);
-    };
-    self.getChmodArray=function(options){
-      // This really should do a force save before pulling the values.. wish there was a way to do it silently..
-      return decodeChmodNum(getChmodNum(self.coords,options));
-    };
-    self.getChmodNum=function(){
-      // This really should do a force save before pulling the values.. wish there was a way to do it silently..
-      return getChmodNum(self.coords);
-    };
-    self.setChmodNum=function(newNum,options){ // Only has 1 option, which is to do a forcesave and then intelligently add/remove chmod values rather than the default of bruteforcing adding all needed and removing all unneeded.
-      var chmodResults=sectorSetChmodNum(self.coords,newNum,options);
-      if (!objectHelper.isArrayAllEqualTo(chmodResults,true)){ // The return value should be an array of true/false values.  If any of them were not true (false), it means something failed.
-        console.error("Error setting one of the chmod values for " + self.coords + " with values for chmod number, " + newNum + "!");
+      if (typeof cb == "function"){
+        return runSimpleCommand("/load_sector_range " + self.coords.toString() + " " + self.coords.toString(),options,cb);
       }
-      return chmodResults;
+      return simplePromisifyIt(self.load,options);
     };
+    self.setChmod=function(val,options,cb){ // val should be a string or an array of strings.
+      // This will return true if it was a success, false otherwise.
+      // Example vals:  "+ peace" or "- protected" <-- the space is required!
+      if (typeof cb == "function"){
+        if (Array.isArray(val)){
+          var promiseArray=[];
+          for (let i=0;i<val.length;i++){
+            promiseArray.push(self.setChmod(val[i],options)); // Build an array of promises
+          }
+          // I have no idea if this will work or what, but I think this is the right idea.
+          // It's ambiguous what happens if an error happens.  Will they all still try to complete?  Will it stop?  I have no idea.
+          return Promise.all(promiseArray).then(function (resultArray){
+            return cb(null,resultArray); // Returns an array of results?
+          },function(err){
+            return cb(err,null); // No idea what this returns?  An array of errors?  1 error?
+          });
+
+
+
+
+        } else {
+          var theVal=toStringIfPossible(val);
+          if (typeof theVal=="string"){
+            console.log("Setting sectorchmod for sector, '" + self.coords + "', to: " + theVal);
+            return sectorSetChmod(self.coords,theVal,options,cb);
+          } else {
+            return cb(new Error("Invalid input given to SectorObj.setChmod as val!"),null);
+          }
+        }
+        
+      }
+      return simplePromisifyIt(self.setChmod,options,val);
+    };
+    self.getChmodNum=function(options,cb){
+      // This really should do a force save before pulling the values.. wish there was a way to do it silently..
+      if (typeof cb == "function"){
+        var theQuery="SELECT PROTECTION FROM PUBLIC.SECTORS WHERE X=" + self.coords.x + " AND Y=" + self.coords.y + " AND Z=" + self.coords.x + ";";
+        return sqlQuery(theQuery,options,function(err,theQueryResult){
+          if (err){
+            return cb(err,theQueryResult);  // some StarNet error happened when performing the SQL query.
+          }
+          if (theQueryResult["error"] == false){ // No error happened, such as an invalid sql query.
+            if (theQueryResult["objArray"].length > 0){
+              return cb(null,toNumIfPossible(theQueryResult["objArray"][0]["PROTECTION"])); // Return the number
+            } else {
+              return cb(null,0); // No results found, so the sector is not in the DB yet.  Return default of 0.
+            }
+          }
+          return cb(theQueryResult["error"],null); // An invalid SQL query was given.  This should never happen!
+        });
+      }
+      return simplePromisifyIt(self.getChmodNum,options);
+    };
+    self.getChmodArray=function(options,cb){
+      // This really should do a force save before pulling the values.. wish there was a way to do it silently..
+      if (typeof cb == "function"){
+        return self.getChmodNum(options,function(err,result){
+          if (err){
+            return cb(err,result);
+          }
+          return cb(null,decodeChmodNum(result));
+        });
+      }
+      return simplePromisifyIt(self.getChmodArray,options);
+    };
+
+
+
+
+
+
+
+
+
+    self.setChmodNum=function(newNum,options,cb){ // Only has 1 option, which is to do a forcesave and then intelligently add/remove chmod values rather than the default of bruteforcing adding all needed and removing all unneeded.
+      if (typeof cb=="function"){
+        var theNumToUse=toNumIfPossible(newNum);
+        if (typeof theNumToUse=="number"){
+          return starNetVerified("/force_save",options,async function(err,result){
+            if (err){
+              return cb(err,null);
+            }
+            var theCurrentChmodNum=await self.getChmodNum(options);
+            var arrayToUse=[];
+            var bruteOption=getOption(options,"bruteForce",false);
+            if (bruteOption == false){
+              try{
+                arrayToUse=getProtectionsDifferentialString(theCurrentChmodNum,theNumToUse);
+              } catch (error){
+                return cb(error,null);
+              }
+            } else {
+              try{
+                arrayToUse=getChmodArrayFromNum(theNumToUse); // This is slower but guarantees results.
+              } catch (error){
+                return cb(error,null);
+              }
+            }
+            return self.setChmod(arrayToUse,options,cb);
+          });
+        }
+        return cb(new Error("Invalid input given to SectorObj.setChmodNum for newNum!"),null);
+      }
+      return simplePromisifyIt(self.setChmodNum,options,newNum);
+    }
+
+
+
+
+
     self.listEntityUIDs=function(filter,options){
       return returnEntityUIDList(self.coords.toString(),filter,options);
     };
@@ -3598,7 +3742,8 @@ function CreatureObj(fullUID){  // Not usable right now since there are no creat
   self.UID=stripFullUIDtoUID(fullUID);
   self.fullUID=fullUID;
 };
-function EntityObj(fullUID,shipName){ // TODO:  Make this ONLY ACCEPT fullUID - figure out which events only give an entity name and change it to return a promise that returns an EntityObj instead.
+function EntityObj(fullUID,shipName){ // TODO: Make cb/promises compliant
+  // TODO:  Make this ONLY ACCEPT fullUID - figure out which events only give an entity name and change it to return a promise that returns an EntityObj instead.
   // takes EITHER the full UID or the ship name.  If a ship name is provided, it will look up the full UID via a StarNet.jar command.
   var self = this; // this is needed to reference the "this" of functions in other contexts, particularly for creating promises via the outside function.  If "this" is used, the promisify function will not work correctly.
 
@@ -4143,58 +4288,9 @@ function createDateObjIfPossible(input){ // Takes either a date string that "new
   }
   return false; // Returns false if no input given
 };
-function getChmodNum(sectorObjArrayOrString,options){
-  // This performs a sql query and returns the protections number for a sector as a number
-  // Input can be a SectorObj,CoordsObj, Array of 3 numbers, or a string with a space or comma separating each value.  The preferred type is a SectorObj
-  // Example inputs:
-  // mySectorObj
-  // 2,2,2
-  // 2 2 2
-  // [2,2,2]
-  var returnNum=0;
-  var coordsToUse=[];
-  // Preprocess the input since it can be 3 different types of values
-  const trueType=getObjType(sectorObjArrayOrString);
-  if (trueType=="SectorObj"){
-    coordsToUse=sectorObjArrayOrString.coords.toArray();
-  } else if (trueType=="CoordsObj"){
-    coordsToUse=sectorObjArrayOrString.toArray();
-  } else if (typeof sectorObjArrayOrString == "string") {
-    if (sectorObjArrayOrString.indexOf(" ")){
-      coordsToUse=sectorObjArrayOrString.trim().split(" ");
-    } else if (sectorObjArrayOrString.indexOf(",")){
-      coordsToUse=sectorObjArrayOrString.trim().split(",");
-    } else {
-      throw new Error("ERROR: Invalid string given to function, getChmodNum!");
-    }
-  } else if (trueType=="Array"){ // TODO: Test to ensure "Array" is returned and not "array"
-    if (sectorObjArrayOrString.length == 3){
-      coordsToUse=sectorObjArrayOrString;
-      // I could keep checking each value in the array to ensure they are numbers and throw an error if not.. but meh.
-    } else {
-      throw new Error("ERROR: Invalid array given to getChmodNum function!  Expected an array of 3 numbers!");
-    }
-  } else {
-    throw new Error("ERROR: Invalid input given to getChmodNum function!  Expected a SectorObj, coordinates string, or array of 3 numbers!");
-  }
-  // console.log("Using coords: " + coordsToUse);
-  if (coordsToUse.length == 3){
-    var theQuery="SELECT PROTECTION FROM PUBLIC.SECTORS WHERE X=" + coordsToUse[0] + " AND Y=" + coordsToUse[1] + " AND Z=" + coordsToUse[2] + ";";
-    var theQueryResult=new SqlQueryObj(theQuery);
-    // console.log("sqlquery result:");
-    // console.dir(theQueryResult);
-    if (theQueryResult["error"] == false){ // If there were no results, it means the sector is not in the HSQL database and should have a default protection value of 0
-      if (theQueryResult["mapArray"][0].has("PROTECTION")){ // if there was an entry, there SHOULD be a PROTECTION value, but just in case, let's check for it.
-        returnNum=theQueryResult["mapArray"][0].get("PROTECTION");
-        // console.log("Number found: " + returnNum);
-      }
-    }
-  } else {
-    throw new Error("ERROR: Invalid number of coordinates given to function, getChmodNum! Coordinates given: " + coordsToUse.length);
-  }
-  return toNum(returnNum);
-};
-function decodeChmodNum(num){ // A number should be provided, but a number as a string should be coerced into a number.
+
+function decodeChmodNum(num){ // runs as Sync
+  // A number should be provided, but a number as a string should be coerced into a number.
   // This converts a chmod number value from a sql query to an array of strings, such as ["peace","protected","noindications"].  Values are always returned in an array, even if only a single protection is in the number.  A 0 number will return an empty array.
   var theNum=toNum(num);
   if (typeof theNum == "number"){
@@ -4203,6 +4299,7 @@ function decodeChmodNum(num){ // A number should be provided, but a number as a 
     var exponentValue=numberOfProtections - 1;
     var highestValue=Math.pow(2,exponentValue);  // The "highestValue" is what each potential value in the array represents, starting with the first value in the array
     var highestTotal=Math.pow(2,numberOfProtections);
+    var errorMsg;
     if (num <= highestTotal && num > 0){ // Valid numbers can only be lower/equal to the highest total or larger than 0
       for (let i=0;i<sectorProtectionsArray.length && theNum > 0;i++){
         if (theNum >= highestValue){
@@ -4212,46 +4309,42 @@ function decodeChmodNum(num){ // A number should be provided, but a number as a 
         highestValue /= 2; // Halve it!
       }
     } else if (theNum > highestTotal){
-      console.error("ERROR: Number given to decodeChmodNum function was too large!  It should be no more than " + highestTotal + "!")
+      errorMsg="ERROR: Number given to decodeChmodNum function was too large!  It should be no more than " + highestTotal + "!";
+      throw new Error(errorMsg);
     } else if (theNum < 0){
-      console.error("ERROR: Number given to decodeChmodNum function was too small!  It should always be an integer larger than 0!");
+      errorMsg="ERROR: Number given to decodeChmodNum function was too small!  It should always be an integer larger than 0!";
+      throw new Error(errorMsg);
     }
     return returnArray;
   } else {
     throw new Error("ERROR: Invalid input given to function, decodeChmodNum!  Expected a number!");
   }
 };
-function sectorSetChmod(coordsObj,stringOrArray,options){ // val can be a string or an array of strings
-  // This can be used to set multiple chmod values at the same time
+function sectorSetChmod(coordsObj,chmodString,options,cb){ // Performs a single sectorChmod
   // Simple example:  sectorSetChmod(mySectorObj,"+ protected"); // This sets the sector number from mySectorObj to add protected, returning true or false depending on the success.
-  // Using Array: sectorSetChmod(mySectorObj,["+ protected","- peace","- noindications"]); // This will cycle through the array and set each chmod, and then will return an array of true/false values corresponding to each string given.
-  // Note that when false values are given, it simply means the chmod failed, but does not give a reason why.  For example, if "+ nonsense" is given, it will return false.  If the server is down and StarNet.jar couldn't connect, it will also return false.
-  // Handling false values is up to the script invoking this function.
-  let theType=objectHelper.getObjType(stringOrArray);
-  console.log("Setting chmod values for: " + stringOrArray);
-  // console.log("sectorSetChmod running!");
-  if (theType == "string"){
-    // console.log("Setting " + val + " for sector: " + coordsObj.toString());
-    let theValLower=stringOrArray.toLowerCase();
-    let theCommand="/sector_chmod " + coordsObj.toString() + " " + theValLower;
-    // This needs to be changed to throw an error if the connection fails.
-    // return starNetHelper.detectSuccess(starNetSync(theCommand));
-    let theResult=starNetVerified(theCommand,options);
-    return starNetHelper.detectSuccess(theResult);
-  } else if (theType == "Array"){
-    var resultsArray=[];
-    for (let i=0;i<stringOrArray.length;i++){
-      let theSubType=objectHelper.getObjType(stringOrArray[i]);
-      if (theSubType == "string"){
-        let theValLower=stringOrArray[i].toLowerCase();
-        resultsArray.push(starNetHelper.detectSuccess(starNetVerified("/sector_chmod " + coordsObj.toString() + " " + theValLower,options)));
-      } else {
-        resultsArray.push(false);
-      }
+  try{
+    var theCoordsObj=new CoordsObj(coordsObj); // Allows this to use any input a coordsObj can accept
+  } catch (err){
+    console.error(new Error("Invalid input given to sectorSetChmod() for coordsObj!"));
+    return cb(err,null);
+  }
+  var theChmodString=toStringIfPossible(chmodString);
+  if (typeof theChmodString == "string"){
+    let coordsObjString=toStringIfPossible(theCoordsObj);
+    if (typeof coordsObjString=="string"){
+      theChmodString=theChmodString.toLowerCase();
+      let theCommand="/sector_chmod " + coordsObj.toString() + " " + theChmodString;
+      return starNetVerified(theCommand,options,function(err,result){
+        if (err){
+          return cb(err,result);
+        }
+        return cb(null,starNetHelper.detectSuccess(result)); // returns true/false based on success message
+      });
+    } else {
+      return cb(new Error("Invalid input given to sectorSetChmod() for coordsObj!!"),null);  // Redundant
     }
-    return resultsArray;
   } else {
-    return new Error("Invalid sector chmod value given!");
+    return cb(new Error("Invalid input given to sectorSetChmod() for chmodString!"),null);
   }
 };
 function sectorSetChmodNum(coordsOrSectorObj,newChmodNum,options){ // Options are optional.
@@ -4922,12 +5015,16 @@ function runSimpleCommand(theCommand,options,cb){  // cb/promises compliant (als
     if (fast==true){ // this can run in Sync if a CB is not specified, since it's only sending input to a stdin of the server
       return sendDirectToServer(theCommandToUse,cb);
     } else if (typeof cb == "function"){
+      console.log("Running StarNet command..");
       return starNetVerified(theCommandToUse,options,function(err,msgResult){
         if (err){
+          console.log("Returning an error: " + err);
           return cb(err,msgResult);
         } else if (starNetHelper.checkForLine(msgResult,msgTestFail) || starNetHelper.checkForLine(msgResult,msgTestFail2)){ // The player was offline, did not exist, or other parameters were incorrect.
+            console.log("Returning an false on success.");
             return cb(err,Boolean(false)); // err will be null
         } else { // The command appears to have not failed, so let's assume it succeeded.
+          console.log("Returning an true on success.");
           return cb(err,Boolean(true)); // Err will be null
         }
       });
