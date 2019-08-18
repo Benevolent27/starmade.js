@@ -75,8 +75,10 @@ const toNum                 = objectHelper.toNumIfPossible;
 const {areCoordsBetween}=miscHelpers;
 
 // Set up aliases from the global variable
-var server=global["serverSpawn"];
-console.log("### OBJECT CREATOR - SET SERVER VARIABLE");
+if (global.hasOwnProperty("console")){ // allows the global.debug and other modifications to pass through here.
+  var console=global.console;
+}
+
 
 
 
@@ -1315,8 +1317,6 @@ function PlayerObj(name){ // cb/promises/squish compliant // "Player" must be a 
       }
       return simplePromisifyIt(self.invisibilityMode,options,input);
     }
-
-
     self.setInfiniteInventoryVolume=function (input,options,cb){ // expects true or false as either boolean or string
       if (typeof cb == "function"){
         if (isTrueOrFalse(input)){
@@ -1326,10 +1326,6 @@ function PlayerObj(name){ // cb/promises/squish compliant // "Player" must be a 
       }
       return simplePromisifyIt(self.setInfiniteInventoryVolume,options,input);
     }
-
-
-
-
     this.isBanned=function(options,cb){
       if (typeof cb == "function"){
         return isNameBanned(self.name,options,cb);
@@ -1584,7 +1580,7 @@ function PlayerObj(name){ // cb/promises/squish compliant // "Player" must be a 
 
     self.kickPlayerOutOfEntity=function (options,cb){ // Kicks a player out of the entity they are currently in
       if (typeof cb == "function"){
-        return runSimpleCommand("/player_unsuspend_faction " + self.name,options,cb);
+        return runSimpleCommand("/kick_player_name_out_of_entity " + self.name,options,cb);
       }
       return simplePromisifyIt(self.kickPlayerOutOfEntity,options);
     }
@@ -3740,6 +3736,7 @@ function EntityObj(fullUID,shipName){ // TODO: Make cb/promises compliant
 
     // Needs testing below:
     self.decay=function(options,cb){ // decays the ship
+      console.log("Decaying UID: " + self.fullUID);
       return runSimpleCommand("/decay_uid " + self.fullUID,options,cb); // handles promises
     }
     self.setFaction=function(factionNumOrObj,options,cb){ // Expects a faction number or FactionObj as input.
@@ -3766,7 +3763,7 @@ function EntityObj(fullUID,shipName){ // TODO: Make cb/promises compliant
       return simplePromisifyIt(self.setFactionRank,options,rankNum);
     }
     self.kickPlayersOut=function(options,cb){ // kicks any players out of the ship
-      return runSimpleCommand("/kick_players_out_of_entity_uid " + self.fullUID,options,cb); // handles promises
+      return runSimpleCommand("/kick_players_out_of_entity_uid \"" + self.fullUID + "\"",options,cb); // handles promises
     }
     self.kickPlayersOutDock=function(options,cb){ // kicks any players out of the ship and anything docked to it
       return runSimpleCommand("/kick_players_out_of_entity_uid_dock \"" + self.fullUID + "\"",options,cb);
@@ -5236,16 +5233,24 @@ function runSimpleCommand(theCommand,options,cb){  // cb/promises compliant
       if (fast==true){ // this can run in Sync if a CB is not specified, since it's only sending input to a stdin of the server
         return sendDirectToServer(theCommandToUse,cb);
       }
-      // console.log("Running StarNet command..");
+      console.debug("Running StarNet command: " + theCommandToUse);
+      if (testIfInput(options)){
+        console.debug("Using options:");
+        console.debug(options);
+      }
+      
       return starNetVerified(theCommandToUse,options,function(err,msgResult){
         if (err){
           // console.log("Returning an error: " + err);
           return cb(err,msgResult);
         } else if (starNetHelper.checkForLine(msgResult,msgTestFail) || starNetHelper.checkForLine(msgResult,msgTestFail2)){ // The player was offline, did not exist, or other parameters were incorrect.
-          // console.log("Returning a false on success.");
+          console.debug("Command connection succeeded, but command failed. Returning a false value.");
+          console.debug("msgResult: " + msgResult);
           return cb(err,Boolean(false)); // err will be null
         } else { // The command appears to have not failed, so let's assume it succeeded.
           // console.log("Returning an true on success.");
+          console.debug("Command connection succeeded and command succeeded. Returning a true value.");
+          console.debug("msgResult: " + msgResult);
           return cb(err,Boolean(true)); // Err will be null
         }
       });

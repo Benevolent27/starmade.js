@@ -75,7 +75,7 @@ console.debug=function (vals,sleepTime) { // for only displaying text when the -
     }
   }
 }
-global["debugLog"]=console.debug;
+global["console"]=console;
 
 // #######################
 // ### SCRIPT REQUIRES ###
@@ -226,12 +226,15 @@ var debug                     = false; // This enables debug messages
 var os                        = process.platform;
 global["starMadeInstallFolder"]=starMadeInstallFolder;
 global["starMadeServerConfigFile"]=starMadeServerConfigFile;
-global["debug"]=debug;
+// global["debug"]=debug;
 const botObj=new BotObj(settings["botName"]);
 console.log("Created bot object:");
-console.dir(botObj);
+// console.dir(botObj);
 global["bot"]=botObj;
 global["log"]=log;
+
+
+
 
 var starMadeStarter;
 // TODO: Fix this to use the .exe file properly when doing installs.  Sure the Jar works, but might be a bad idea for some reason.
@@ -345,7 +348,6 @@ if (process.argv[2]){
     } else if (argumentRoot=="-debug"){
       console.log("Turning debug messages on!");
       debug=true;
-
     } else {
       console.error("Error:  Unrecognized argument, '" + argumentsPassed[i] + "'!  Ignoring!")
     }
