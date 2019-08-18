@@ -20,6 +20,7 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   subArrayFromAnother, // Subtracts any values that exist in one array from another.
   findSameFromTwoArrays,  // Finds whatever values exist in both arrays
   getOption, // Processes options given to objects {"whatever":true}.  getOption(input,elementToLookFor,whatToUseIfNotFound)
+  addOption, // Adds an option to an existing options object and returns the result
   isObjHasPropAndEquals, // Checks if input is an object, has a property, and that property strictly equals a value
   objHasPropAndEquals, // For when you have many property checks and you've already ensured what is being fed is an object
   isObjEmpty, // Checks for empty object
@@ -484,5 +485,15 @@ function getOption(options,optionToLookFor,whatToUseIfNoOption){ // This is used
     }
   }
   return whatToUseIfNoOption;
+}
+function addOption(options,parameter,value){
+  var optionsToReturn;
+  if (typeof options=="object"){
+    optionsToReturn=options;
+  } else {
+    optionsToReturn={};
+  }
+  optionsToReturn[parameter]=value;
+  return optionsToReturn;
 }
 

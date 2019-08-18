@@ -68,16 +68,11 @@ var sectorProtectionsArray  = regExpHelper.sectorProtections; // This should inc
 // const starNetVerified       = starNetVerified; // If the response does not verify, this consumes the response and throws an error instead
 const {sqlQuery,SqlQueryObj}=sqlQueryJs;
 const {verifyStarNetResponse,starNetVerified,starNetVerifiedCB,returnMatchingLinesAsArray,checkForLine} = starNetHelper;
-// const copyArray             = objectHelper.copyArray;
-// const toNumIfPossible       = objectHelper.toNumIfPossible;
-// const subArrayFromAnother   = objectHelper.subArrayFromAnother;
-// const findSameFromTwoArrays = objectHelper.findSameFromTwoArrays;
 const {copyArray,toNumIfPossible,toStringIfPossible,subArrayFromAnother,findSameFromTwoArrays,isInArray} = objectHelper;
-// const colorize              = objectHelper["colorize"];
-// const getObjType            = objectHelper.getObjType; // Gets the prototype name of an object, so instead of using "typeof", which returns "object" for things like arrays and SectorObj's, etc, this will return their object name instead.
 const {testIfInput,trueOrFalse,isTrueOrFalse,isNum,colorize,getObjType,returnLineMatch,applyFunctionToArray,simplePromisifyIt} = objectHelper;
-const {isTrue,isFalse,getOption,getParamNames}=objectHelper;
+const {isTrue,isFalse,getOption,addOption,getParamNames}=objectHelper;
 const toNum                 = objectHelper.toNumIfPossible;
+const {areCoordsBetween}=miscHelpers;
 
 // Set up aliases from the global variable
 var server=global["serverSpawn"];
@@ -91,6 +86,7 @@ BotObj.prototype.toString = function(){ return this.name };
 ChannelObj.prototype.toString = function(){ return this.name };
 CoordsObj.prototype.toString = function(){ return this.x.toString() + " " + this.y.toString() + " " + this.z.toString() };
 CoordsObj.prototype.toArray=function(){ return [this.x, this.y, this.z]; }
+CreatureObj.prototype.toString=function(){ return this.fullUID.toString() };
 EntityObj.prototype.toString = function(){ return this.fullUID.toString() };
 FactionObj.prototype.toString = function(){ return toStringIfPossible(this.number) };
 IPObj.prototype.toString = function(){ return this.address };
@@ -3183,7 +3179,7 @@ function LocationObj(sector,spacial){  // cb/promises/squish compliant
   // }
   self.spacial=new CoordsObj(spacial); // This will throw an error if invalid input
 };
-function SectorObj(x,y,z){ // TODO: Make cb/promises compliant  Already squish compliant
+function SectorObj(x,y,z){ // cb/promises/squish compliant
   var self = this; // this is needed to reference the "this" of functions in other contexts, particularly for creating promises via the outside function.  If "this" is used, the promisify function will not work correctly.
   // TODO: Add Info methods:
   // getSystem - Returns a SystemObj
@@ -3481,19 +3477,11 @@ function SectorObj(x,y,z){ // TODO: Make cb/promises compliant  Already squish c
       return simplePromisifyIt(self.getChmodArray,options);
     };
 
-
-
-
-
-
-
-
-
     self.setChmodNum=function(newNum,options,cb){ // Only has 1 option, which is to do a forcesave and then intelligently add/remove chmod values rather than the default of bruteforcing adding all needed and removing all unneeded.
       if (typeof cb=="function"){
         var theNumToUse=toNumIfPossible(newNum);
         if (typeof theNumToUse=="number"){
-          return starNetVerified("/force_save",options,async function(err,result){
+          return starNetVerified("/force_save",options,async function(err){ // Not sure if this needs to be async
             if (err){
               return cb(err,null);
             }
@@ -3525,118 +3513,109 @@ function SectorObj(x,y,z){ // TODO: Make cb/promises compliant  Already squish c
 
 
 
-    self.listEntityUIDs=function(filter,options){
-      return returnEntityUIDList(self.coords.toString(),filter,options);
+    self.listEntityUIDs=function(filter,options,cb){
+      // If a filter is provided, it should include the FULL UID, including for example "ENTITY_SHIP_", unless type is given to options.
+      // Options: { "type":["ship","station","shop","asteroid","creature","planet","player"] }
+      // If a type is given, the filter will be placed AFTER the ENTITY_SHIP_, ENTITY_SHOP_,etc.
+      // return returnEntityUIDListOld(self.coords.toString(),filter,options);
+      if (typeof cb=="function"){
+        return returnEntityUIDList(self.coords.toString(),filter,options,cb);
+      }
+      return simplePromisifyIt(self.listEntityUIDs,options,filter);
     };
-    self.listShipUIDs=function(){
-      return returnEntityUIDList(self.coords.toString(),"ENTITY_SHIP_");
+
+    self.listShipUIDs=function(filter,options,cb){
+      return self.listEntityUIDs(filter,addOption(options,"type","ship"),cb); // handles promises
     };
-    self.listStationUIDs=function(){
-      return returnEntityUIDList(self.coords.toString(),"ENTITY_SPACESTATION_");
+    self.listStationUIDs=function(filter,options,cb){
+      return self.listEntityUIDs(filter,addOption(options,"type","station"),cb); // handles promises
     };
-    self.listShopUIDs=function(){
-      return returnEntityUIDList(self.coords.toString(),"ENTITY_SHOP_");
+    self.listShopUIDs=function(filter,options,cb){
+      return self.listEntityUIDs(filter,addOption(options,"type","shop"),cb); // handles promises
     };
-    self.listCreatureUIDs=function(){
-      return returnEntityUIDList(self.coords.toString(),"ENTITY_CREATURE_");
+    self.listCreatureUIDs=function(filter,options,cb){
+      return self.listEntityUIDs(filter,addOption(options,"type","creature"),cb); // handles promises
     };
-    self.listAsteroidUIDs=function(){
-      return returnEntityUIDList(self.coords.toString(),"(ENTITY_FLOATINGROCK_|ENTITY_FLOATINGROCKMANAGED_)");
+    self.listAsteroidUIDs=function(filter,options,cb){
+      return self.listEntityUIDs(filter,addOption(options,"type","asteroid"),cb); // handles promises
     };
-    self.listPlanetUIDs=function(){
-      return returnEntityUIDList(self.coords.toString(),"(ENTITY_PLANET_|ENTITY_PLANETCORE_)");
+    self.listPlanetUIDs=function(filter,options,cb){
+      return self.listEntityUIDs(filter,addOption(options,"type","planet"),cb); // handles promises
     };
-    self.listPlayerUIDs=function(){
-      return returnEntityUIDList(self.coords.toString(),"(ENTITY_PLAYERCHARACTER_|ENTITY_PLAYERSTATE_)");
+    self.listPlayerUIDs=function(filter,options,cb){
+      return self.listEntityUIDs(filter,addOption(options,"type","player"),cb); // handles promises
     };
-    self.entities=function(filter,options){
+
+
+    self.entities=function(filter,options,cb){
       // "filter" is optional, it should look something like this "(ENTITY_SHIP_|ENTITY_CREATURE_)".  This will return all ships and creatures.
       // "options" are simply forwarded to the listEntityUIDs method and are also optional
-      var returnArray=[];
-      var uidArray=self.listEntityUIDs(filter,options);
-      if (uidArray){ // Will be Null if the StarNet command fails for some reason
-        for (let i=0;i<uidArray.length;i++){
-          // Set the correct type of object for each entity in the sector.  If new commands come out for planets or asteroids, we should prefer those types.
-          if (uidArray[i].match(/^(ENTITY_SHIP_|ENTITY_SPACESTATION_|ENTITY_SHOP_|ENTITY_FLOATINGROCK_|ENTITY_FLOATINGROCKMANAGED_|ENTITY_PLANET_|ENTITY_PLANETCORE_)/)){
-            returnArray.push(new EntityObj(uidArray[i]));
-          } else if (uidArray[i].match(/^(ENTITY_PLAYERCHARACTER_|ENTITY_PLAYERSTATE_)/)){
-            returnArray.push(new PlayerObj(uidArray[i]));
-          } else if (uidArray[i].match(/^ENTITY_CREATURE_/)){
-            returnArray.push(new CreatureObj(uidArray[i]));
+      if (typeof cb=="function"){
+        // var returnType=getOption(options,"type","any").toLowerCase();
+        // console.log("From SectorObj.entities returnType: " + returnType); // temp
+        // var methodToUse;
+        // if (returnType=="any"){
+        //   methodToUse="listEntityUIDs";
+        // } else if (returnType=="ship"){
+        //   methodToUse="listShipUIDs";
+        // } else if (returnType=="shop"){
+        //   methodToUse="listShopUIDs";
+        // } else if (returnType=="asteroid"){
+        //   methodToUse="listAsteroidUIDs";
+        // } else if (returnType=="planet"){
+        //   methodToUse="listPlanetUIDs";
+        // } else if (returnType=="player"){
+        //   methodToUse="listPlayerUIDs";
+        // } else if (returnType=="creature"){
+        //   methodToUse="listCreatureUIDs";
+        // } else {
+        //   throw new Error("Invalid option given to SectorObj.entities as 'type'!");
+        // }
+        // console.log("From SectorObj.entities methodToUse: " + methodToUse); // temp
+
+        // return self[methodToUse](filter,options,function(err,uidArray){ // Switch this to directly using the self.listEntityUIDs with option to only return a certain type
+        return self.listEntityUIDs(filter,options,function(err,uidArray){ 
+          if (err){
+            return cb(err,uidArray);
           }
-        }
+          if (uidArray){
+            var returnArray=[];
+            for (let i=0;i<uidArray.length;i++){
+              // Set the correct type of object for each entity in the sector.  If new commands come out for planets or asteroids, we should prefer those types.
+              if (uidArray[i].match(/^(ENTITY_SHIP_|ENTITY_SPACESTATION_|ENTITY_SHOP_|ENTITY_FLOATINGROCK_|ENTITY_FLOATINGROCKMANAGED_|ENTITY_PLANET_|ENTITY_PLANETCORE_)/)){
+                returnArray.push(new EntityObj(uidArray[i]));
+              } else if (uidArray[i].match(/^(ENTITY_PLAYERCHARACTER_|ENTITY_PLAYERSTATE_)/)){
+                returnArray.push(new PlayerObj(uidArray[i]));
+              } else if (uidArray[i].match(/^ENTITY_CREATURE_/)){
+                returnArray.push(new CreatureObj(uidArray[i]));
+              }
+            }
+          }
+          return cb(null,returnArray);
+        });
       }
-      return returnArray;
+      return simplePromisifyIt(self.entities,options,filter);
     };
-    self.ships=function(){
-      var returnArray=[];
-      var uidArray=self.listShipUIDs();
-      if (uidArray){ // Will be Null if the StarNet command fails for some reason
-        for (let i=0;i<uidArray.length;i++){
-          returnArray.push(new EntityObj(uidArray[i]));
-        }
-      }
-      return returnArray;
+    self.ships=function(filter,options,cb){ // filter should be a string.  Can be a RegExp pattern.
+      return self.entities(filter,addOption(options,"type","ship"),cb); // handles promises
     };
-    self.stations=function(){
-      var returnArray=[];
-      var uidArray=self.listStationUIDs();
-      if (uidArray){ // Will be Null if the StarNet command fails for some reason
-        for (let i=0;i<uidArray.length;i++){
-          returnArray.push(new EntityObj(uidArray[i]));
-        }
-      }
-      return returnArray;
+    self.stations=function(filter,options,cb){
+      return self.entities(filter,addOption(options,"type","station"),cb); // handles promises
     };
-    self.shops=function(){
-      var returnArray=[];
-      var uidArray=self.listShopUIDs();
-      if (uidArray){ // Will be Null if the StarNet command fails for some reason
-        for (let i=0;i<uidArray.length;i++){
-          returnArray.push(new EntityObj(uidArray[i]));
-        }
-      }
-      return returnArray;
+    self.shops=function(filter,options,cb){
+      return self.entities(filter,addOption(options,"type","shop"),cb); // handles promises
     };
-    self.creatures=function(){ // This includes NPC's, spiders, hoppies, or custom creations
-      var returnArray=[];
-      var uidArray=self.listCreatureUIDs();
-      if (uidArray){ // Will be Null if the StarNet command fails for some reason
-        for (let i=0;i<uidArray.length;i++){
-          returnArray.push(new CreatureObj(uidArray[i]));
-        }
-      }
-      return returnArray;
+    self.creatures=function(filter,options,cb){ // This includes NPC's, spiders, hoppies, or custom creations
+      return self.entities(filter,addOption(options,"type","creature"),cb); // handles promises
     };
-    self.asteroids=function(){ // TODO: Consider creating an AsteroidObj as opposed to entity if there are commands that won't work correctly with them
-      var returnArray=[];
-      var uidArray=self.listAsteroidUIDs();
-      if (uidArray){ // Will be Null if the StarNet command fails for some reason
-        for (let i=0;i<uidArray.length;i++){
-          returnArray.push(new EntityObj(uidArray[i]));
-        }
-      }
-      return returnArray;
+    self.asteroids=function(filter,options,cb){ // TODO: Consider creating an AsteroidObj as opposed to entity if there are commands that won't work correctly with them
+      return self.entities(filter,addOption(options,"type","asteroid"),cb); // handles promises
     };
-    self.planets=function(){ // TODO: Consider creating an PlanetObj as opposed to entity if there are commands that won't work correctly with them
-      var returnArray=[];
-      var uidArray=self.listPlanetUIDs();
-      if (uidArray){ // Will be Null if the StarNet command fails for some reason
-        for (let i=0;i<uidArray.length;i++){
-          returnArray.push(new EntityObj(uidArray[i]));
-        }
-      }
-      return returnArray;
+    self.planets=function(filter,options,cb){ // TODO: Consider creating an PlanetObj as opposed to entity if there are commands that won't work correctly with them
+      return self.entities(filter,addOption(options,"type","planet"),cb); // handles promises
     };
-    self.players=function(){ // I do not think this will actually work.
-      var returnArray=[];
-      var uidArray=self.listPlayerUIDs();
-      if (uidArray){ // Will be Null if the StarNet command fails for some reason
-        for (let i=0;i<uidArray.length;i++){
-          returnArray.push(new PlayerObj(uidArray[i]));
-        }
-      }
-      return returnArray;
+    self.players=function(filter,options,cb){
+      return self.entities(filter,addOption(options,"type","player"),cb); // handles promises
     };
     // This can be expanded to allow storing information, such as a description, if more than values than expected are given to the constructor
     if (arguments.length > SectorObj.length){
@@ -4347,41 +4326,7 @@ function sectorSetChmod(coordsObj,chmodString,options,cb){ // Performs a single 
     return cb(new Error("Invalid input given to sectorSetChmod() for chmodString!"),null);
   }
 };
-function sectorSetChmodNum(coordsOrSectorObj,newChmodNum,options){ // Options are optional.
-  // There are two strategies we can use here:
-  // 1. We can do a force save, pulling the existing values for the sector and only add or remove the ones needed.  This way will display an annoying auto-save popup for everyone everytime it runs, but will be slightly faster.
-  // 2. We can brute force things, adding and removing chmod values to match the exact ones it should have.  This is slower, but there is no annoying popup for everyone.  This is the default behavior.
-  // Example to use force safe:  sectorSetChmodNum(coordsObj,25,{forcesave:true})
-  var forceSave=false;
-  if (typeof options == "object"){ // Parse the options
-    if (options.hasOwnProperty("forcesave")){
-      if (options["forcesave"] === true){ // We only want to enable it if it is exactly set to true, not a truthy value
-        forceSave=true;
-      }
-    }
-  }
-  var theCoords=coordsOrSectorObj.toString();
-  var arrayToUse=[];
 
-  if (forceSave == true){
-    // try {
-      starNetVerified("/force_save");
-      var currentChmodNum=getChmodNum(coordsOrSectorObj);
-      arrayToUse=getProtectionsDifferentialString(currentChmodNum,newChmodNum);
-    // } catch (error) {
-    //   console.error("Unable to set chmod for sector, " + theCoords + ", to protection number, " + newChmodNum + "!");
-    //   console.error("Error message: " + error.message);
-    // }
-  } else {
-    // brute force it.  It's the only option that won't have globally annoying consequences, even if it is a bit slow.
-    arrayToUse=getChmodArrayFromNum(newChmodNum);
-  }
-  if (arrayToUse.length > 0){ // If the array is empty, it means no changes were needed
-    return sectorSetChmod(theCoords,arrayToUse); // This returns an array of true/false values, each determining the success or failure of a chmod
-  } else {
-    return [true]; // Since no changes were needed, we can just return an array with a single true value to indicate success
-  }
-};
 function getChmodArrayFromNum(newChmodNum){ // This outputs the chmod values for a chmod number as an array, including values it should have and subtracting values it should NOT have
   // Example: [ "+ protected","+ peace","- nofploss","- noindications","- noexit","- noenter" ]
   // This kind of array can be fed directly to the sectorSetChmod function.
@@ -4425,7 +4370,264 @@ function getInverseProtectionsArrayFromArray(arrayToInvert,baseProtectionsArray)
   }
   return subArrayFromAnother(arrayToInvert,arrayToUse);
 };
-function returnEntityUIDList(coordsString,beginFilter,options){
+
+
+function returnEntityUIDList(coords,beginFilter,options,cb){
+  // TODO: Add an option to only return certain type(s). { "type":["one","or","more","types"]}
+  // beginFilter can be a string or an array of strings
+
+  // coords can be a string that can convert to a CoordsObj, a SectorObj, CoordsObj, or a LocationObj
+  // beginFilter should be a string.  It can be a RegExp pattern, but should not be /regexp/.  But just regexp
+
+  // TODO: Test to ensure the options for filtering work
+  // Example: returnEntityUIDList("2 2 2")
+  // Example2: returnEntityUIDList("2 2 2","ENTITY_SHIP_");
+  // Example3: returnEntityUIDList("2 2 2","ENTITY_SHIP_",{spawnerFilter:"Benevolent27",lastModifierFilter:"Benevolent27",uidFilter:"TheShip",nameFilter:"TheShipName",factionFilter:"10000",touchedFilter:true});
+
+  // TODO: Implement the option filtering.
+  // Returns an array of strings of UID's.  Does NOT convert to objects!
+  // Returns null if the command failed for some reason.
+  // Examples:
+  // returnEntityUIDList("2 2 2"); // Returns all entities in the sector
+  // returnEntityUIDList("2 2 2","ENTITY_SHIP_"); // Returns only ships in the sector
+  // returnEntityUIDList("2 2 2","ENTITY_SHIP_|ENTITY_SPACESTATION_"); // Returns ships and stations in the sector
+
+  var type=getOption(options,"type","any");  // By default return any
+  console.log("Using type: " + type);
+  var theTypeArray=[];
+
+  if (type != "any"){
+    var typeArray=[];
+    if (Array.isArray(type)){
+      typeArray=type;
+    } else {
+      typeArray.push(type);
+    }
+    console.log("typeArray: " + typeArray);
+    for (let i=0;i<typeArray.length;i++){
+      // More than 1 type can be included.  Any filter will be added to the END
+      if (typeArray[i] == "ship"){
+        theTypeArray.push("ENTITY_SHIP_");
+      } else if (typeArray[i] == "station"){
+        theTypeArray.push("ENTITY_SPACESTATION_");
+      } else if (typeArray[i] == "shop"){
+        theTypeArray.push("ENTITY_SHOP_");
+      } else if (typeArray[i] == "creature"){
+        theTypeArray.push("ENTITY_CREATURE_");
+      } else if (typeArray[i] == "asteroid"){
+        theTypeArray.push("ENTITY_FLOATINGROCK_");
+        theTypeArray.push("ENTITY_FLOATINGROCKMANAGED_");
+      } else if (typeArray[i] == "planet"){
+        theTypeArray.push("ENTITY_PLANET_");
+        theTypeArray.push("ENTITY_PLANETCORE_");
+      } else if (typeArray[i] == "player"){
+        theTypeArray.push("ENTITY_PLAYERCHARACTER_");
+        theTypeArray.push("ENTITY_PLAYERSTATE_");
+      }
+    }
+  }
+  console.log("theTypeArray: " + theTypeArray);
+  console.log("theTypeArray.length: " + theTypeArray.length);
+
+
+  try {
+    var theSector=new SectorObj(coords);
+    var theCoords=theSector.toString();
+  } catch (err){
+    console.error(err);
+    throw new Error("Invalid input given to returnEntityUIDList as 'coords'!  (Expect coordinates!)");
+  }
+
+  var theReg=new RegExp("");
+  console.debug("beginFilter: " + beginFilter);
+  console.debug("typeof beginFilter: " + typeof beginFilter);
+  var filterArray=[];
+  if (typeof beginFilter=="string"){
+    filterArray.push(beginFilter);
+  } else if (Array.isArray(beginFilter)){
+    filterArray=beginFilter;
+  } else if (typeof beginFilter != "undefined" && beginFilter !== null && beginFilter != "") {
+    throw new Error("Invalid input given to returnEntityUIDList as beginFilter!");
+  }
+  
+
+  var finalFilterArray=[];
+  if (theTypeArray.length > 0){
+    for (let i=0;i<theTypeArray.length;i++){ // add types to the beginning of each filter.
+      if (filterArray.length > 0){
+        for (let e=0;e<filterArray.length;e++){
+          finalFilterArray.push(theTypeArray[i] + filterArray[e]);
+        }
+      } else { // If no filters given, just push the type as the filter.
+        finalFilterArray.push(theTypeArray[i]);
+      }
+    }
+  } else { // No types were given, so just use the filter Array.
+    finalFilterArray=filterArray;
+  }
+  console.log("finalFilterArray:" + finalFilterArray);
+  var finalFilterRegArray=[];
+  var tempValue;
+  for (let i=0;i<finalFilterArray.length;i++){
+    tempValue=toStringIfPossible(finalFilterArray[i]);
+    if (typeof tempValue == "string"){ // String check all the filters given and only add valid ones.
+      finalFilterRegArray.push(tempValue)
+    } else { // If not a string, discard it, with an error.
+      console.error("Invalid input given to returnEntityUIDList as beginFilter!  Skipping!");
+    }
+  }
+
+  if (finalFilterRegArray.length > 0){ // Build the uid filter
+    for (let i=0;i<finalFilterRegArray.length;i++){
+      finalFilterRegArray[i]="uid=" + finalFilterRegArray[i] + "[^,]*";
+    }
+    theReg=new RegExp(finalFilterRegArray.join("|")); // Make it a regExp
+  } else { // No filters were given
+    theReg=new RegExp("uid=[^,]*");
+  }
+  console.log("finalFilterRegArray:");
+  console.dir(finalFilterRegArray);
+
+  // Check for options
+  var checkSpawner=getOption(options,"spawnerFilter",false);
+  if (checkSpawner !== false){
+    var spawnerRegExp=new RegExp("spawner=" + options["spawnerFilter"] + ","); // It MUST end in a , so the filter is looking at the spawner full spawner data.  Partial matches will not be included.
+  }
+  var checkLastModifier=getOption(options,"lastModifierFilter",false);
+  if (checkLastModifier !== false){
+    var lastModifierRegExp=new RegExp("lastModifier=" + options["lastModifierFilter"] + ",");
+  }
+  var checkUID=getOption(options,"uidFilter",false);
+  if (checkUID !== false){
+    var uidRegExp=new RegExp("uid=" + options["uidFilter"] + ",");
+  }
+  var checkName=getOption(options,"nameFilter",false);
+  if (checkName !== false){
+    var nameRegExp=new RegExp("realName=" + options["nameFilter"] + ",");
+  }
+  var checkFaction=getOption(options,"factionFilter",false);
+  if (checkFaction !== false){
+    var factionRegExp=new RegExp("faction=" + options["factionFilter"] + ",");
+  }
+  var checkIfTouched=trueOrFalse(getOption(options,"touchedFilter","false24352345345234534"));
+  if (checkIfTouched !== "false24352345345234534"){
+    var touchedRegExp;
+    if (checkIfTouched == true){
+      touchedRegExp=new RegExp("touched=true,");
+    } else if (checkIfTouched == false){
+      touchedRegExp=new RegExp("touched=false,");
+    }
+  }
+  var checkSpacialCoords=getOption(options,"betweenSpacialCoordsFilter",false);
+  if (checkSpacialCoords !== false){
+    // Should be an array of values that can be made into CoordsObj (could be CoordsObj's)
+    if (Array.isArray(checkSpacialCoords)){
+      if (checkSpacialCoords.length == 2){
+        try {
+          var spacialCoordsFilterPointAObj=new CoordsObj(checkSpacialCoords[0]);
+          var spacialCoordsFilterPointBObj=new CoordsObj(checkSpacialCoords[1]);
+        } catch (err) {
+          throw new Error("Invalid option given to returnEntityUIDList as 'betweenSpacialCoordsFilter'!  Expected an Array containing two coordinates! (input was not coordinates!)");
+        }
+
+    
+      } else {
+        throw new Error("Invalid option given to returnEntityUIDList as 'betweenSpacialCoordsFilter'!  Expected an Array containing TWO coordinates! (Invalid number of inputs in array)");
+      }
+    } else {
+      throw new Error("Invalid option given to returnEntityUIDList as 'betweenSpacialCoordsFilter'!  Expected an Array containing two coordinates! (non-array input given)");
+    }
+  }
+
+
+  if (typeof theCoords == "string"){
+    // This will return an array of entities within the sector
+    // Todo: Add an option to convert from full UID to hsql uid
+    var shipListResults="";
+    return theSector.load(options,function(err,results){
+      if (err){
+        console.error("ERROR:  Could not load sector!");
+        return cb(err,results);
+      }
+      return starNetVerified("/sector_info " + theCoords,options,function(err,shipListResults){
+        if (err){
+          console.error("Error getting sector_info for sector: " + theCoords);
+          return cb(err,shipListResults);
+        }
+        var resultsArray=shipListResults.split("\n");
+        resultsArray.pop(); // Remove "command execution ended" line
+        resultsArray.pop(); // Remove the sector info line
+        var returnResults=[];
+        var entityUID={};
+        
+
+        var proceed;
+        for (let i=0;i<resultsArray.length;i++){ // If there were any results, cycle through them one by one
+          // example: RETURN: [SERVER, DatabaseEntry [uid=ENTITY_SHIP_TopolM_1526337858159, sectorPos=(2, 2, 2), type=5, seed=0, lastModifier=ENTITY_PLAYERSTATE_TopolM, spawner=ENTITY_PLAYERSTATE_TopolM, realName=TopolM_1526337858159, touched=true, faction=0, pos=(121.83931, 271.8866, -1257.7705), minPos=(-2, -2, -2), maxPos=(2, 2, 2), creatorID=0], 0]
+          entityUID=resultsArray[i].match(theReg);
+          if (entityUID){ // will be null if no match found on this line
+            proceed=true;
+            if (spawnerRegExp){
+              if (!resultsArray[i].match(spawnerRegExp)){
+                proceed=false;
+              }
+            }
+            if (lastModifierRegExp && proceed){
+              if (!resultsArray[i].match(lastModifierRegExp)){
+                proceed=false;
+              }
+            }
+            if (uidRegExp && proceed){
+              if (!resultsArray[i].match(uidRegExp)){
+                proceed=false;
+              }
+            }
+            if (nameRegExp && proceed){
+              if (!resultsArray[i].match(nameRegExp)){
+                proceed=false;
+              }
+            }
+            if (factionRegExp && proceed){
+              if (!resultsArray[i].match(factionRegExp)){
+                proceed=false;
+              }
+            }
+            if (touchedRegExp && proceed){
+              if (!resultsArray[i].match(touchedRegExp)){
+                proceed=false;
+              }
+            }
+            if (checkSpacialCoords !== false && proceed){
+              // TODO: Create the function that can compare a set of floating point coordinates against a set
+              // Example (loaded and unloaded):
+              // pos=(121.83931, 271.8866, -1257.7705) // Can be an E type value, so make sure to convert during the check.
+              var posResult=resultsArray[i].match(/pos=[(][0-9, .E-][)]/)
+              if (posResult){ // This is redundant, there should ALWAYS be a match, but just in case..
+                var posString=posResult[0].replace(/^pos=[(]/,"").replace(/[)]$/,"");
+                var posCoordsObj=new CoordsObj(posString); // This converts any E numbers to floating point
+                if (!areCoordsBetween(posCoordsObj,spacialCoordsFilterPointAObj,spacialCoordsFilterPointBObj)){
+                    proceed=false;
+                }
+              } else { // I guess the entity didn't have spacial coords somehow?
+                proceed=false;
+              }
+            }
+            if (proceed){ // If all tests passed, then push the UID
+              returnResults.push(entityUID[0].replace(/^uid=/,"")); // Grab the first value from the match object created to get the string. Don't use .toString() because this doesn't work right when using | either/or type regex patterns on the uid filter
+            }
+
+          }
+        }
+        return cb(null,returnResults); // Outputs an array of UIDs
+      });
+    });
+  } else {
+    throw new Error("Invalid input given to returnEntityUIDList as Coords!");
+  }
+};
+
+
+function returnEntityUIDListOld(coordsString,beginFilter,options){
   // TODO: Test to ensure the options for filtering work
   // Example: returnEntityUIDList("2 2 2")
   // Example2: returnEntityUIDList("2 2 2","ENTITY_SHIP_");
