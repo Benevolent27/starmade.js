@@ -29,6 +29,7 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   isFalse, // Only string "false" or boolean false will return true
   trueOrFalse, // This allows string or boolean true or false values, returning boolean.  Returns undefined if neither true nor false.
   isTrueOrFalse, // This returns true if the input is either true or false as a string or boolean, false for anything else.
+  toBooleanIfPossible, // same as trueOrFalse, except returns the input if it cannot be converted to Boolean rather than undefined.
   isNum, // This returns true if the value is a number, even if it is a string.
   isArray, // This returns true if an array, even if it is empty.
   returnLineMatch,
@@ -235,7 +236,7 @@ function toNumIfPossible(input){ // This also converts numbers from scientific n
   return input;
 }
 function toStringIfPossible(input,options){ // This also converts numbers from scientific notation to floating point
-  if (typeof input != "undefined" && input != ""){ // This check is necessary since Number will create a 0 number using them
+  if (typeof input !== "undefined" && input !== ""){ // This check is necessary since Number will create a 0 number using them
     try {
       var output=input.toString(options); // Sometimes the .toString() prototype will take options, such as for LocationObj
     } catch (err){
@@ -431,11 +432,18 @@ function isFalse(input){
 function trueOrFalse(input){ // This allows string or boolean true or false values.  Returns undefined if neither true nor false.
   var returnVal;
   if (isTrue(input)){
-    returnVal=true;
+    returnVal=Boolean(true);
   } else if (isFalse(input)){
-    returnVal=false;
+    returnVal=Boolean(false);
   }
   return returnVal;
+}
+function toBooleanIfPossible(input){ // This allows string or boolean true or false values.  Returns undefined if neither true nor false.
+  var returnVal=trueOrFalse(input);
+  if (typeof returnVal != "undefined"){
+    return returnVal;
+  }
+  return input;
 }
 
 function isTrueOrFalse(input){ // Returns true if the input value is either true or false, either string or boolean.
