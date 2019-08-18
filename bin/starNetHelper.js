@@ -27,7 +27,7 @@ const sleep = mySleep.softSleep; // Only accurate for 100ms or higher wait times
 const {sleepPromise}=mySleep; // Less accurate but non-blocking - can only be used in async functions!
 
 // Aliases
-var {getObjType,getOption,simplePromisifyIt,toStringIfPossible}=objHelper;
+var {getObjType,getOption,simplePromisifyIt,toStringIfPossible,toNumIfPossible}=objHelper;
 
 // The goal of this import is to provide all the functions needed for object methods
 // Done:
@@ -230,6 +230,11 @@ function getCoordsAndReturnNumArray(inputStr,numsExpected){ // If no
 }
 
 function mapifyShipInfoUIDString(responseStr,options){ // options are optional.  Allows a setting to return objects instead of maps, which are easier to write to a .json file if nested.
+  // TODO:  Add processing for:
+  // 'ReactorHP' => '40 / 40',
+  // 'MissileCapacity' => '1.0 / 1.0',
+  // 'Attached' => '[PlS[Benevolent27 [Benevolent27]*; id(2)(1)f(10003)]]',
+  
   // The goal here is to take the response of a /entity_info_uid command and turn it into an Map object with nested values
   // Special considerations:
   // The last line is the "type"
@@ -266,6 +271,19 @@ function mapifyShipInfoUIDString(responseStr,options){ // options are optional. 
         if (loadedVal == true){
           returnMap.set("exists",true);
         }
+      } else if (/(^RETURN: \[SERVER, Blocks: )|(^RETURN: \[SERVER, Mass: )/.test(results[i])){
+        let cleanedVal=cleanRegularValue(results[i]);
+        let tempArray=cleanedVal.split(": ");
+        returnMap.set(tempArray[0],toNumIfPossible(tempArray[1]));
+      } else if (/(^RETURN: \[SERVER, ReactorHP: )|(^RETURN: \[SERVER, MissileCapacity: )/.test(results[i])){
+        let cleanedVal=cleanRegularValue(results[i]);
+        let tempArray=cleanedVal.split(": ");
+        let tempArray2=tempArray[1].split(" / ");
+        for (let i=0;i<tempArray2.length;i++){ // Set the string numbers to numbers
+          tempArray2[i]=toNumIfPossible(tempArray2[i]);
+        }
+        returnMap.set(tempArray[0],tempArray2);
+
       } else if (/^RETURN: \[SERVER, DatabaseEntry \[/.test(results[i])){  // This is only for the DatabaseEntry line, which needs to be treated specially to produce a DatabaseEntry map
         if (returnType == "object"){
           returnMap.set("DatabaseEntry", objHelper.strMapToObj(mapifyDatabaseEntry(results[i]))); // Coerce into an object if return value is set to an object
@@ -330,7 +348,7 @@ function ShipInfoUidObj(uidOrShipObj,options){ // options are optional and are m
 }
 
 
-function getUIDfromName (name,options){ // Runs in sync mode to assist in creating EntityObj from an entity name, since some events only return the entity name, not the UID..  I need to figure out workarounds for this.
+function getUIDfromName(name,options){ // Runs in sync mode to assist in creating EntityObj from an entity name, since some events only return the entity name, not the UID..  I need to figure out workarounds for this.
   // Returns:
   // If ship not found:  null
   // If an error is encountered running starnet:  undefined
@@ -424,7 +442,7 @@ function getEntityValue(uidOrShipObj,valueString,options,cb){
 
   // If necessary, the sector the entity is in will be loaded so the value can be retrieved successfully.
 
-  
+
 
   // Options are optional.  Allows setting the return type for DataBaseEntry to an object
   // The goal of this is to find a value without creating a full map of everything, stopping once the value is found, so it is as efficient as possible.

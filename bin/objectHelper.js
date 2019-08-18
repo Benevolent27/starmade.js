@@ -27,9 +27,9 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   testIfInput, // Checks if any valid, non-empty input is given.  Returns false for empty objects, true for any boolean value.
   isTrue, // Only string "true" or boolean true will return true
   isFalse, // Only string "false" or boolean false will return true
-  trueOrFalse, // This allows string or boolean true or false values, returning boolean.  Returns undefined if neither true nor false.
-  isTrueOrFalse, // This returns true if the input is either true or false as a string or boolean, false for anything else.
-  toBooleanIfPossible, // same as trueOrFalse, except returns the input if it cannot be converted to Boolean rather than undefined.
+  trueOrFalse, // This allows string or boolean true or false values, returning boolean.  Returns undefined if neither true nor false.  Does NOT convert 0 to false.
+  isTrueOrFalse, // This returns true if the input is either true or false as a string or boolean, false for anything else.  Does NOT convert 0 to false.
+  toTrueOrFalseIfPossible, // same as trueOrFalse, except returns the input if it cannot be converted to Boolean rather than undefined.
   isNum, // This returns true if the value is a number, even if it is a string.
   isArray, // This returns true if an array, even if it is empty.
   returnLineMatch,
@@ -438,7 +438,7 @@ function trueOrFalse(input){ // This allows string or boolean true or false valu
   }
   return returnVal;
 }
-function toBooleanIfPossible(input){ // This allows string or boolean true or false values.  Returns undefined if neither true nor false.
+function toTrueOrFalseIfPossible(input){ // This allows string or boolean true or false values.  Returns undefined if neither true nor false.
   var returnVal=trueOrFalse(input);
   if (typeof returnVal != "undefined"){
     return returnVal;

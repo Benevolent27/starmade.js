@@ -34,7 +34,7 @@ module.exports={ // Always put module.exports at the top so circular dependencie
 // Requires
 const fs                   = require('fs');
 const path                 = require('path');
-const events               = require('events');
+// const events               = require('events');
 const mainFolder           = path.dirname(require.main.filename); // This should be where the starmade.js is, unless this script is ran by itself for testing purposes.
 const binFolder            = path.resolve(__dirname,"../bin/");
 const spawn                = require('child_process').spawn;
@@ -45,12 +45,12 @@ const sqlQueryJs             = requireBin("sqlQuery.js");
 // SqlQueryObj is not in the module.exports above because it cannot be defined till after sqlQuery.js is required.
 module.exports.SqlQueryObj = sqlQueryJs.SqlQueryObj; // Module injections should occur as quickly as possible to allow circular dependencies to function properly
 const starNet              = requireBin("starNet.js");
-const {starNetSync,starNetCb}=starNet;
+const {starNetCb}=starNet;
 const starNetHelper        = requireBin("starNetHelper.js");
 const objectHelper         = requireBin("objectHelper.js");
 const regExpHelper         = requireBin("regExpHelper.js");
 const ini                  = requireBin("iniHelper.js");
-var setSettings            = requireBin("setSettings2.js"); // This will confirm the settings.json file is created and the install folder is set up.
+var setSettings            = requireBin("setSettings.js"); // This will confirm the settings.json file is created and the install folder is set up.
 const installAndRequire    = requireBin("installAndRequire.js");
 const sleep                = requireBin("mySleep.js").softSleep;
 
@@ -67,9 +67,9 @@ var sectorProtectionsArray  = regExpHelper.sectorProtections; // This should inc
 // const verifyStarNetResponse = starNetHelper.verifyResponse; // This can be used to perform a verification on a StarNet response without consuming the response
 // const starNetVerified       = starNetVerified; // If the response does not verify, this consumes the response and throws an error instead
 const {sqlQuery,SqlQueryObj}=sqlQueryJs;
-const {verifyStarNetResponse,starNetVerified,starNetVerifiedCB,returnMatchingLinesAsArray,checkForLine} = starNetHelper;
+const {verifyStarNetResponse,starNetVerified,starNetVerifiedCB,returnMatchingLinesAsArray,checkForLine,mapifyShipInfoUIDString} = starNetHelper;
 const {copyArray,toNumIfPossible,toStringIfPossible,subArrayFromAnother,findSameFromTwoArrays,isInArray} = objectHelper;
-const {testIfInput,trueOrFalse,isTrueOrFalse,isNum,colorize,getObjType,returnLineMatch,applyFunctionToArray,simplePromisifyIt,toBooleanIfPossible} = objectHelper;
+const {testIfInput,trueOrFalse,isTrueOrFalse,isNum,colorize,getObjType,returnLineMatch,applyFunctionToArray,simplePromisifyIt,toTrueOrFalseIfPossible} = objectHelper;
 const {isTrue,isFalse,getOption,addOption,getParamNames}=objectHelper;
 const toNum                 = objectHelper.toNumIfPossible;
 const {areCoordsBetween}=miscHelpers;
@@ -90,13 +90,7 @@ CoordsObj.prototype.toString = function(){ return this.x.toString() + " " + this
 CoordsObj.prototype.toArray=function(){ return [this.x, this.y, this.z]; }
 CreatureObj.prototype.toString=function(){ return this.fullUID.toString() };
 EntityObj.prototype.toString = function(){ return this.fullUID.toString() };
-
-FactionObj.prototype.toString = function(){ 
-  var theNum=this.number;
-  console.log("FactionObj.prototype.toString: " + toStringIfPossible(theNum)); // temp
-  console.log("typeof FactionObj.prototype.toString: " + typeof toStringIfPossible(theNum)); // temp
-  return toStringIfPossible(theNum); 
-};
+FactionObj.prototype.toString = function(){ return toStringIfPossible(this.number) };
 IPObj.prototype.toString = function(){ return this.address };
 IPObj.prototype.toArray = function(){ return this.address.split(".") };
 LocationObj.prototype.toString = function(options){ 
@@ -3404,10 +3398,7 @@ function SectorObj(x,y,z){ // cb/promises/squish compliant
 
     // Below needs to be brought up to the current standard of true=success,false=fail, throw error on connection problem.
     self.load=function(options,cb){
-      // old method:
       // This returns "true" if the command ran, false for anything else, such as if the server was down.
-      // let theResponse=starNetSync("/load_sector_range " + self.coords.toString() + " " + self.coords.toString());
-      // return starNetHelper.detectRan(theResponse);
       if (typeof cb == "function"){
         return runSimpleCommand("/load_sector_range " + self.coords.toString() + " " + self.coords.toString(),options,cb);
       }
@@ -3723,7 +3714,7 @@ function CreatureObj(fullUID){  // Not usable right now since there are no creat
   self.UID=stripFullUIDtoUID(fullUID);
   self.fullUID=fullUID;
 };
-function EntityObj(fullUID,shipName){ // TODO: Make cb/promises compliant
+function EntityObj(fullUID,shipName){ // cb/promises/squish compliant
   // TODO:  Make this ONLY ACCEPT fullUID - figure out which events only give an entity name and change it to return a promise that returns an EntityObj instead.
   // takes EITHER the full UID or the ship name.  If a ship name is provided, it will look up the full UID via a StarNet.jar command.
   var self = this; // this is needed to reference the "this" of functions in other contexts, particularly for creating promises via the outside function.  If "this" is used, the promisify function will not work correctly.
@@ -3742,26 +3733,25 @@ function EntityObj(fullUID,shipName){ // TODO: Make cb/promises compliant
 
     // Needs testing below:
     self.decay=function(options,cb){ // decays the ship
-      console.log("Decaying UID: " + self.fullUID);
+      console.debug("Decaying UID: " + self.fullUID);
       return runSimpleCommand("/decay_uid " + self.fullUID,options,cb); // handles promises
     }
     self.setFaction=function(factionNumOrObj,options,cb){ // Expects a faction number or FactionObj as input.
       if (typeof cb=="function"){
         let factionNum=toNumIfPossible(toStringIfPossible(factionNumOrObj)); // This converts FactionObj to a string and then back to a number.
         if (typeof factionNum == "number"){
-          return runSimpleCommand("/faction_set_entity_uid " + self.fullUID + " " + factionNum,options);
+          return runSimpleCommand("/faction_set_entity_uid " + self.fullUID + " " + factionNum,options,cb);
         } else {
           return cb(new Error("Invalid input given to EntityObj.setFaction() for factionNumOrObj!"),null);
         }
-      } else {
-        return simplePromisifyIt(self.setFaction,options);
       }
+      return simplePromisifyIt(self.setFaction,options,factionNumOrObj);
     }
     self.setFactionRank=function(rankNum,options,cb){
       if (typeof cb=="function"){
         let theRankNum=toNumIfPossible(rankNum);
         if (typeof theRankNum == "number"){
-          return runSimpleCommand("/faction_set_entity_rank_uid " + self.fullUID + " " + theRankNum,options);
+          return runSimpleCommand("/faction_set_entity_rank_uid " + self.fullUID + " " + theRankNum,options,cb);
         } else {
           return cb(new Error("Invalid input given to EntityObj.setFactionRank() for rankNum!"),null);
         }
@@ -3794,8 +3784,7 @@ function EntityObj(fullUID,shipName){ // TODO: Make cb/promises compliant
           return runSimpleCommand("/save_uid \"" + self.fullUID + "\" \"" + theBlueprintName + "\"",options,function(err,result){
             if (err){
               return cb(err,null);
-            }
-            if (result){
+            } else if (testIfInput(result)){ // The result could be 0, so a truthy check is a bad idea.
               return cb(null,new BlueprintObj(theBlueprintName)); // It would be a good idea for the mod to use this BlueprintObj to set the owner
             } else {
               return cb(null,false);
@@ -3910,7 +3899,7 @@ function EntityObj(fullUID,shipName){ // TODO: Make cb/promises compliant
           if (fast){
             return sendDirectToServer(teleportToCommand,cb);         
           } else {
-            return starNetVerified(teleportToCommand,function(err,result){
+            return starNetVerified(teleportToCommand,options,function(err,result){
               if (err){
                 return cb(err,result);
               }
@@ -3929,6 +3918,32 @@ function EntityObj(fullUID,shipName){ // TODO: Make cb/promises compliant
       }
       return simplePromisifyIt(self.teleportTo,options,coords);
     }
+
+    this.dataMap=function(options,cb){ 
+      // return new starNetHelper.ShipInfoUidObj(self.fullUID);
+      if (typeof cb=="function"){
+        return starNetVerified("/ship_info_uid \"" + self.fullUID +"\"",options,function(err,result){
+          if (err){
+            return cb(err,result);
+          }
+          return cb(null,mapifyShipInfoUIDString(result,options));
+        });
+      }
+      return simplePromisifyIt(self.dataMap,options);
+    }; // TODO:  This seems broken
+    this.dataObj=function(options,cb){ 
+      // return new starNetHelper.ShipInfoUidObj(self.fullUID,{"objType":"object"})
+      if (typeof cb=="function"){
+        return starNetVerified("/ship_info_uid \"" + self.fullUID + "\"",options,function(err,result){
+          if (err){
+            return cb(err,result);
+          }
+          return cb(null,mapifyShipInfoUIDString(result,addOption(options,"objType","object")));
+        });
+      }
+      return simplePromisifyIt(self.dataObj,options);
+    }; // TODO:  This seems broken
+
 
     this.isLoaded=function(options,cb){ 
       return starNetHelper.getEntityValue(self.fullUID,"loaded",options,cb); // handles promises
@@ -3950,33 +3965,117 @@ function EntityObj(fullUID,shipName){ // TODO: Make cb/promises compliant
       return simplePromisifyIt(self.faction,options);
     };
 
-    this["mass"]=function(){ return starNetHelper.getEntityValue(self.fullUID,"Mass") };
-    // TODO: Change this to return an array of objects that are attached.  Players I think normally?  Are NPC's also possible though?
-    this["attached"]=function(){ return starNetHelper.getEntityValue(self.fullUID,"Attached") };
-    // TODO: Change this to "docked", which will return an array of EntityObjs
-    this["dockedUIDs"]=function(){ return starNetHelper.getEntityValue(self.fullUID,"DockedUIDs") };
-    this["blocks"]=function(){ return starNetHelper.getEntityValue(self.fullUID,"Blocks") };
-    // TODO: See what sorts of values might appear for lastModified and have it return the correct types of objects rather than a string value
-    this["lastModified"]=function(){ return starNetHelper.getEntityValue(self.fullUID,"LastModified") };
-    // TODO: See what sorts of values might appear for creator and have it return the correct types of objects rather than a string value
-    this["creator"]=function(){ return starNetHelper.getEntityValue(self.fullUID,"Creator") };
-    this["sector"]=function(){ return new SectorObj(...starNetHelper.getEntityValue(self.fullUID,"Sector")) };
-    this["name"]=function(){ return starNetHelper.getEntityValue(self.fullUID,"Name") };
-    this["minBB"]=function(){ return new CoordsObj(...starNetHelper.getEntityValue(self.fullUID,"MinBB(chunks)")) };
-    this["maxBB"]=function(){ return new CoordsObj(...starNetHelper.getEntityValue(self.fullUID,"MaxBB(chunks)")) };
-    this["spacialCoords"]=function(){ return new CoordsObj(...starNetHelper.getEntityValue(self.fullUID,"Local-Pos")) };
+    this.mass=function(options,cb){ return starNetHelper.getEntityValue(self.fullUID,"Mass",options,cb) };
+    this["attached"]=function(options,cb){ 
+      // TODO: Change this to return an array of objects that are attached.  Players I think normally?  Are NPC's also possible though?  Needs testing.
+      return starNetHelper.getEntityValue(self.fullUID,"Attached",options,cb); // handles promises
+    };
+    
+    this["dockedUIDs"]=function(options,cb){ 
+      // TODO: Change this to "docked", which will return an array of EntityObjs
+      // Note:  Currently nothing seems to be returned in this field anymore.
+      return starNetHelper.getEntityValue(self.fullUID,"DockedUIDs",options,cb); // handles promises
+    };
+    this.blocks=function(options,cb){ 
+      return starNetHelper.getEntityValue(self.fullUID,"Blocks",options,cb); // handles promises
+    }; 
+    
+    this.lastModified=function(options,cb){ 
+      // TODO: See what sorts of values might appear for lastModified and have it return the correct types of objects rather than a string value
+      return starNetHelper.getEntityValue(self.fullUID,"LastModified",options,cb); // handles promises 
+    };
+    this.creator=function(options,cb){ 
+      // TODO: See what sorts of values might appear for creator and have it return the correct types of objects rather than a string value
+      return starNetHelper.getEntityValue(self.fullUID,"Creator",options,cb); // handles promises 
+    };
+    this.sector=function(options,cb){
+      if (typeof cb == "function"){
+        return starNetHelper.getEntityValue(self.fullUID,"Sector",options,function(err,result){
+          if (err){
+            return cb(err,result);
+          } else if (result){
+            return cb(null,new SectorObj(result));
+          } else {
+            return cb(null,result);
+          }
+        });
+      }
+      return simplePromisifyIt(self.sector,options);
+    };
+    this.spacialCoords=function(options,cb){ 
+      if (typeof cb == "function"){
+        return starNetHelper.getEntityValue(self.fullUID,"Local-Pos",options,function(err,result){
+          if (err){
+            return cb(err,result);
+          } else if (result){
+            return cb(null,new CoordsObj(...result));
+          } else {
+            return cb(null,result);
+          }
+        });
+      }
+      return simplePromisifyIt(self.spacialCoords,options);
+    };  
+
+
+
+    this.name=function(options,cb){ 
+      return starNetHelper.getEntityValue(self.fullUID,"Name",options,cb) 
+    };
+    this.minBB=function(options,cb){
+      if (typeof cb == "function"){
+        return starNetHelper.getEntityValue(self.fullUID,"MinBB(chunks)",options,function(err,result){
+          if (err){
+            return cb(err,result);
+          } else if (result){
+            return cb(null,new CoordsObj(...result));
+          } else {
+            return cb(null,result);
+          }
+        });
+      }
+      return simplePromisifyIt(self.minBB,options);
+    };       
+    this.maxBB=function(options,cb){ 
+      if (typeof cb == "function"){
+        return starNetHelper.getEntityValue(self.fullUID,"MaxBB(chunks)",options,function(err,result){
+          if (err){
+            return cb(err,result);
+          } else if (result){
+            return cb(null,new CoordsObj(...result));
+          } else {
+            return cb(null,result);
+          }
+        });
+      }
+      return simplePromisifyIt(self.maxBB,options);
+    };       
     // TODO: Create an OrientationObj. Till then though, just return an array of values.
-    this["orientation"]=function(){ return starNetHelper.getEntityValue(self.fullUID,"Orientation") };
-    this["type"]=function(){ return starNetHelper.getEntityValue(self.fullUID,"type") };
+    this.orientation=function(options,cb){ 
+      return starNetHelper.getEntityValue(self.fullUID,"Orientation",options,cb); // handles promises  
+    };
+    this.type=function(options,cb){ 
+      return starNetHelper.getEntityValue(self.fullUID,"type",options,cb); // handles promises 
+    };
     // this["objType"]="EntityObj"; // Totally not necessary since we have objHelper.getObjType()
 
-    this["dataMap"]=function(){ return new starNetHelper.ShipInfoUidObj(self.fullUID) }; // TODO:  This seems broken
-    this["dataObj"]=function(){ return new starNetHelper.ShipInfoUidObj(self.fullUID,{"objType":"object"}) }; // TODO:  This seems broken
 
 
-    self.load=function(){
+    self.load=function(options,cb){
       // This returns "true" if the command ran, false for anything else, such as if the server was down.
-      return self.sector().load();
+      if (typeof cb=="function"){
+        return self.sector(options,function(err,theSector){
+          if (err){
+            return cb(err,theSector);
+          } else if (theSector){ // Will be false or null if there was some problem
+            return theSector.load(options,cb); // Will provide error or true/false value on success/fail.
+          } else {
+            return cb(null,theSector); // Command connected but failed for some reason.
+          }
+          
+        })
+      }
+      return simplePromisifyIt(self.load,options);
     };
     // self.toString=function(){ return self.fullUID.toString() }; // This is visible as an element, so really we should set the prototype outside of the constructor.
 
@@ -4453,7 +4552,7 @@ function returnEntityUIDList(coords,beginFilter,options,cb){
   // returnEntityUIDList("2 2 2","ENTITY_SHIP_|ENTITY_SPACESTATION_"); // Returns ships and stations in the sector
 
   var type=getOption(options,"type","any");  // By default return any
-  console.log("Using type: " + type);
+  // console.debug("Using type: " + type);
   var theTypeArray=[];
 
   if (type != "any"){
@@ -4463,7 +4562,7 @@ function returnEntityUIDList(coords,beginFilter,options,cb){
     } else {
       typeArray.push(type);
     }
-    console.log("typeArray: " + typeArray);
+    // console.debug("typeArray: " + typeArray);
     for (let i=0;i<typeArray.length;i++){
       // More than 1 type can be included.  Any filter will be added to the END
       if (typeArray[i] == "ship"){
@@ -4486,8 +4585,8 @@ function returnEntityUIDList(coords,beginFilter,options,cb){
       }
     }
   }
-  console.log("theTypeArray: " + theTypeArray);
-  console.log("theTypeArray.length: " + theTypeArray.length);
+  // console.debug("theTypeArray: " + theTypeArray);
+  // console.debug("theTypeArray.length: " + theTypeArray.length);
 
 
   try {
@@ -4499,8 +4598,8 @@ function returnEntityUIDList(coords,beginFilter,options,cb){
   }
 
   var theReg=new RegExp("");
-  console.debug("beginFilter: " + beginFilter);
-  console.debug("typeof beginFilter: " + typeof beginFilter);
+  // console.debug("beginFilter: " + beginFilter);
+  // console.debug("typeof beginFilter: " + typeof beginFilter);
   var filterArray=[];
   if (typeof beginFilter=="string"){
     filterArray.push(beginFilter);
@@ -4525,7 +4624,7 @@ function returnEntityUIDList(coords,beginFilter,options,cb){
   } else { // No types were given, so just use the filter Array.
     finalFilterArray=filterArray;
   }
-  console.log("finalFilterArray:" + finalFilterArray);
+  // console.debug("finalFilterArray:" + finalFilterArray);
   var finalFilterRegArray=[];
   var tempValue;
   for (let i=0;i<finalFilterArray.length;i++){
@@ -4545,8 +4644,7 @@ function returnEntityUIDList(coords,beginFilter,options,cb){
   } else { // No filters were given
     theReg=new RegExp("uid=[^,]*");
   }
-  console.log("finalFilterRegArray:");
-  console.dir(finalFilterRegArray);
+  console.debug("finalFilterRegArray: " + finalFilterRegArray);
 
   // Check for options
   var checkSpawner=getOption(options,"spawnerFilter",false);
@@ -4685,167 +4783,6 @@ function returnEntityUIDList(coords,beginFilter,options,cb){
     throw new Error("Invalid input given to returnEntityUIDList as Coords!");
   }
 };
-
-
-function returnEntityUIDListOld(coordsString,beginFilter,options){
-  // TODO: Test to ensure the options for filtering work
-  // Example: returnEntityUIDList("2 2 2")
-  // Example2: returnEntityUIDList("2 2 2","ENTITY_SHIP_");
-  // Example3: returnEntityUIDList("2 2 2","ENTITY_SHIP_",{spawnerFilter:"Benevolent27",lastModifierFilter:"Benevolent27",uidFilter:"TheShip",nameFilter:"TheShipName",factionFilter:"10000",touchedFilter:true});
-
-  var checkSpacialCoords=false;
-  var checkIfTouched=false;
-  var checkFaction=false;
-  var checkSpawner=false;
-  var checkLastModifier=false;
-  var checkUID=false;
-  var checkName=false;
-  if (typeof options == "object"){
-    if (!objectHelper.isObjEmpty(options)){ // the isObjEmpty EXPECTS an object, so we must first verify the options is an object
-      if (options.hasOwnProperty("spawnerFilter")){
-        checkSpawner=true;
-        var spawnerRegExp=new RegExp("spawner=" + options["spawnerFilter"] + ","); // It MUST end in a , so the filter is looking at the spawner full spawner data.  Partial matches will not be included.
-      }
-      if (options.hasOwnProperty("lastModifierFilter")){
-        checkLastModifier=true;
-        var lastModifierRegExp=new RegExp("lastModifier=" + options["lastModifierFilter"] + ",");
-      }
-      if (options.hasOwnProperty("uidFilter")){
-        checkUID=true;
-        // TODO: Make it so the UID filter only looks at the name of the UID, not the FULL UID
-        var uidRegExp=new RegExp("uid=" + options["uidFilter"] + ",");
-      }
-      if (options.hasOwnProperty("nameFilter")){
-        checkName=true;
-        var nameRegExp=new RegExp("realName=" + options["nameFilter"] + ",");
-      }
-      if (options.hasOwnProperty("factionFilter")){
-        checkFaction=true;
-        var factionRegExp=new RegExp("faction=" + options["factionFilter"] + ",");
-      }
-      if (options.hasOwnProperty("touchedFilter")){
-        // options here are true/false, so it will only show entities that either were or were not touched
-        checkIfTouched=true;
-        var touchedRegExp=new RegExp("");
-        if (options["touchedFilter"] == true){
-          touchedRegExp=new RegExp("touched=true,");
-        } else if (options["touchedFilter"] == false){
-          touchedRegExp=new RegExp("touched=false,");
-        }
-      }
-      if (options.hasOwnProperty("betweenSpacialCoordsFilter")){
-        if (objectHelper.getObjType(options["betweenSpacialCoordsFilter"]) == "Array"){
-          if (options["betweenSpacialCoordsFilter"].length == 2){
-            checkSpacialCoords=true;
-            var spacialCoordsFilterPointAObj=new CoordsObj(options["betweenSpacialCoordsFilter"][0]);
-            var spacialCoordsFilterPointBObj=new CoordsObj(options["betweenSpacialCoordsFilter"][1]);
-          } else {
-            throw new Error("Invalid input given to betweenSpacialCoordsFilter!  Must be an array with two sets of coordinates!");
-          }
-        } else {
-          throw new Error("Invalid input given to betweenSpacialCoordsFilter!  Must be an array!");
-        }
-      }
-      // Note that there is no "type" filter because the "type" is given in two different ways depending on if the sector is loaded, either as a number OR as a name. Like "4" when unloaded and "ship" when loaded.  Instead the main filter is used for this looking at the first part of the UID.
-    }
-  }
-  // TODO: Implement the option filtering.
-
-  // Returns an array of strings of UID's.  Does NOT convert to objects!
-  // Returns null if the command failed for some reason.
-  // Examples:
-  // returnEntityUIDList("2 2 2"); // Returns all entities in the sector
-  // returnEntityUIDList("2 2 2","ENTITY_SHIP_"); // Returns only ships in the sector
-  // returnEntityUIDList("2 2 2","ENTITY_SHIP_|ENTITY_SPACESTATION_"); // Returns ships and stations in the sector
-  if (typeof coordsString == "string"){
-    // This will return an array of entities within the sector
-    // Todo: Add an option to convert from full UID to hsql uid
-    var shipListResults="";
-    if (starNetHelper.detectRan(starNetSync("/load_sector_range " + coordsString + " " + coordsString))){ // Load the sector first, otherwise some entities like creatures won't load
-      shipListResults=starNetSync("/sector_info " + coordsString);
-      if (starNetHelper.detectRan(shipListResults)){
-        var resultsArray=shipListResults.split("\n");
-        resultsArray.pop(); // Remove "command execution ended" line
-        resultsArray.pop(); // Remove the sector info line
-        var returnResults=[];
-        var shipUID={};
-        var theReg=new RegExp("");
-        if (typeof beginFilter == "string"){
-          theReg=new RegExp("uid=" + beginFilter + "[^,]*");
-        } else {
-          theReg=new RegExp("uid=[^,]*");
-        }
-        var proceed=true;
-        for (let i=0;i<resultsArray.length;i++){ // If there were any results, cycle through them one by one
-          // example: RETURN: [SERVER, DatabaseEntry [uid=ENTITY_SHIP_TopolM_1526337858159, sectorPos=(2, 2, 2), type=5, seed=0, lastModifier=ENTITY_PLAYERSTATE_TopolM, spawner=ENTITY_PLAYERSTATE_TopolM, realName=TopolM_1526337858159, touched=true, faction=0, pos=(121.83931, 271.8866, -1257.7705), minPos=(-2, -2, -2), maxPos=(2, 2, 2), creatorID=0], 0]
-          shipUID=resultsArray[i].match(theReg);
-          if (shipUID){ // will be null if no match found on this line
-            proceed=true;
-            if (checkSpawner){
-              if (!resultsArray[i].match(spawnerRegExp)){
-                proceed=false;
-              }
-            }
-            if (checkLastModifier && proceed){
-              if (!resultsArray[i].match(lastModifierRegExp)){
-                proceed=false;
-              }
-            }
-            if (checkUID && proceed){
-              if (!resultsArray[i].match(uidRegExp)){
-                proceed=false;
-              }
-            }
-            if (checkName && proceed){
-              if (!resultsArray[i].match(nameRegExp)){
-                proceed=false;
-              }
-            }
-            if (checkFaction && proceed){
-              if (!resultsArray[i].match(factionRegExp)){
-                proceed=false;
-              }
-            }
-            if (checkIfTouched && proceed){
-              if (!resultsArray[i].match(touchedRegExp)){
-                proceed=false;
-              }
-            }
-            if (checkSpacialCoords && proceed){
-              // TODO: Create the function that can compare a set of floating point coordinates against a set
-              // Example (loaded and unloaded):
-              // pos=(121.83931, 271.8866, -1257.7705) // Can be an E type value, so make sure to convert during the check.
-              var posResult=resultsArray[i].match(/pos=[(][0-9, .E-][)]/)
-              if (posResult){ // This is redundant, there should ALWAYS be a match, but just in case..
-                var posString=posResult[0].replace(/^pos=[(]/,"").replace(/[)]$/,"");
-                var posCoordsObj=new CoordsObj(posString); // This converts any E numbers to floating point
-                if (!miscHelpers.areCoordsBetween(posCoordsObj,spacialCoordsFilterPointAObj,spacialCoordsFilterPointBObj)){
-                    proceed=false;
-                }
-              } else { // I guess the entity didn't have spacial coords somehow?
-                proceed=false;
-              }
-            }
-            if (proceed){
-              // If all tests passed, then push the UID
-              returnResults.push(shipUID[0].replace(/^uid=/,"")); // Grab the first value from the match object created to get the string. Don't use .toString() because this doesn't work right when using | either/or type regex patterns on the uid filter
-            }
-          }
-        }
-        return returnResults;
-      } else { // Some kind of error occurred when attempting to get the sector info
-        console.error("ERROR: Unable to run starnet command to grab the ship list!");
-      }
-    }
-  }
-  return null;
-};
-
-
-
-
-
-
 
 // applyFunctionToArray(theArray,function(input){ return new PlayerObj(input) })
 
