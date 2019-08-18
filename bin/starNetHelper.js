@@ -1,6 +1,7 @@
 module.exports={ // Always put module.exports at the top so circular dependencies work correctly.
   mapifyShipInfoUIDString,
   getCoordsAndReturnNumArray,
+  getEntityValueSync,
   getEntityValue,
   ShipInfoUidObj,
   starNetVerified,
@@ -26,7 +27,7 @@ const sleep = mySleep.softSleep; // Only accurate for 100ms or higher wait times
 const {sleepPromise}=mySleep; // Less accurate but non-blocking - can only be used in async functions!
 
 // Aliases
-var {getObjType,getOption,simplePromisifyIt}=objHelper;
+var {getObjType,getOption,simplePromisifyIt,toStringIfPossible}=objHelper;
 
 // The goal of this import is to provide all the functions needed for object methods
 // Done:
@@ -71,7 +72,6 @@ if (require.main.filename == __filename){ // This is so it only runs based on ar
     console.log("theArguments[0]: " + theArguments[0]);
     console.log("theArguments[1]: " + theArguments[1]);
     if (theArguments[0]){
-      // theResult=getEntityValue(theArguments[0],theArguments[1]); // This is to test mapping out a /ship_info_uid command
       console.log("Using: " + theArguments[0]);
       theResult=getUIDfromName(theArguments[0]); // This is to test getting the UID from a ship name
       console.log("Result: " + theResult);
@@ -418,7 +418,110 @@ function getUIDfromName (name,options){ // Runs in sync mode to assist in creati
 }
 
 // TODO: Create a "getEntityValueUsingEntityName" function which will parse the /ship_info_name results -- Note that the results returned are much different so a whole set of supporting functions needs to be created
-function getEntityValue(uidOrShipObj,valueString,options){ // Options are optional.  Allows setting the return type for DataBaseEntry to an object
+function getEntityValue(uidOrShipObj,valueString,options,cb){ 
+  // valueString can be one of the following:
+
+
+  // If necessary, the sector the entity is in will be loaded so the value can be retrieved successfully.
+
+  
+
+  // Options are optional.  Allows setting the return type for DataBaseEntry to an object
+  // The goal of this is to find a value without creating a full map of everything, stopping once the value is found, so it is as efficient as possible.
+  // The secondary goal is to make it so this can pull values from the DatabaseEntry if loaded info is not available, without having to load the sector.
+  // The tertiary goal is to load a sector prior to trying to pull the value if the ship is currently not loaded.
+  if (typeof cb=="function"){
+    var returnType=getOption(options,"objectType","map"); // valid option is "object"
+    // This only affects DataBaseEntry.  Everything else are objects, arrays, numbers, or strings by default.
+    var shipNotExistMsg="Ship does not appear to exist!  Cannot get value of '" + valueString + "'!"
+    var malformedRequestMsg="ERROR: Could not get value, '" + valueString + "' because the request was malformed!";
+    var returnVal;
+    var uidToUse=toStringIfPossible(uidOrShipObj);
+    if (typeof uidToUse != "string"){
+      return cb(new Error("Invalid input given to getEntityValue as uidOrShipObj!"),null);
+    }
+    if (typeof valueString != "string"){
+      return cb(new Error("Invalid input given to getEntityValue as valueString!"),null);
+    }
+
+    return starNetVerified("/ship_info_uid \"" + uidToUse + "\"",options,function(err,result){
+      if (err){
+        return cb(err,result);
+      }
+      var resultMap=mapifyShipInfoUIDString(result);
+      // console.log("\nMapify result:");
+      // console.dir(resultMap);
+      // console.log("\nJust because, here's the nameMap:");
+      // console.dir(nameMap);
+      if (resultMap.get("loaded") == true){
+        // If no value existed, this will be returned as undefined.  An exception is made for "faction" because this will likely be included by Schema shortly
+        if (valueString == "faction"){
+          returnVal=resultMap.get("DatabaseEntry").get("faction"); // This is a special exception since it can only be found here.
+        } else if (valueString == "DatabaseEntry" && returnType == "object"){
+          returnVal=objHelper.strMapToObj(returnVal); // A special exception needs to be made for DatabaseEntry, because we will either return it in it's native form as a map, or turn it into an object if directed to do so.
+        } else {
+          returnVal=resultMap.get(valueString);
+        }
+        // If no value existed, this will be returned as undefined.
+      } else if (valueString == "loaded"){ // This should always be present, provided the ship existed.
+        returnVal=resultMap.get("loaded");
+      } else if (nameMap.hasOwnProperty(valueString)){ // Return the database entry (when available) if the ship isn't loaded
+        // resultMap.existsInDB // will only be true if DatabaseEntry was found
+        // resultMap.exists // Will only be true if data was found besides the "loaded" value
+        if (resultMap.get("existsInDB") == true){
+          returnVal=resultMap.get("DatabaseEntry").get(nameMap[valueString]);
+          // console.log("Ship not loaded.  Translated query of '" + valueString + "' to the DatabaseEntry value, '" + nameMap[valueString] + "'.");
+        } else if (resultMap.get("malformedRequest" == true)){
+            return cb(new Error(malformedRequestMsg),null);
+        } else {
+          console.error(shipNotExistMsg);
+          return cb(null,Boolean(false)); // The command failed because the ship did not exist in the DB.
+          // If it doesn't exist in the DB, then there is no way to load the ship, even if it exists but is not in the database yet, so we are forced to return undefined.
+        }
+      } else if (resultMap.get("existsInDB") == true){
+          // Ship was not loaded and value does not exist in the DataBaseEntry, so let's try loading the sector and pull the value
+          let theSector=resultMap.get("DatabaseEntry").get("sectorPos");
+          let theSectorString;
+          var tryAgain=true;
+          for (let i=0;i<theSector.length;i++){
+            if (typeof theSector[i] == "number"){
+              if (theSectorString){
+                theSectorString+=" " + theSector[i].toString();
+              } else {
+                theSectorString=theSector[i].toString();
+              }
+            } else {
+              // invalid coordinates were found, so break out of the loop and allow the script to return undefined.
+              tryAgain=false;
+              break;
+            }
+          }
+          if (tryAgain==true){
+            console.debug("Value only available when sector is loaded.  Loading sector, " + theSectorString + ", and trying again.." + new Date());
+            return starNetVerified("/load_sector_range " + theSectorString + " " + theSectorString,options,function(err,result2){
+              if (err){
+                return cb(err,result2);
+              }
+              return getEntityValue(uidToUse,valueString,options,cb); // Try again till successful.  This will cause an infinite loop while the sector is unloaded, but will not run again if the command fails.
+              // If the entity loads and no value is present, 'undefined' will be returned.  This is intended.
+              // The reason we try loading the sector is for futureproofing.
+            });
+          }
+      } else if (resultMap.get("malformedRequest")){
+          console.error(malformedRequestMsg);
+          return cb(new Error(malformedRequestMsg),null);
+      } else {
+        console.error(shipNotExistMsg);
+        return cb(null,Boolean(false));
+      }
+      return cb(null,returnVal); // Returns undefined if no value was present.
+    });
+  }
+  return simplePromisifyIt(getEntityValue,options,uidOrShipObj,valueString);
+}
+
+
+function getEntityValueSync(uidOrShipObj,valueString,options){ // Options are optional.  Allows setting the return type for DataBaseEntry to an object
   // The goal of this is to find a value without creating a full map of everything, stopping once the value is found, so it is as efficient as possible.
   // The secondary goal is to make it so this can pull values from the DatabaseEntry if loaded info is not available, without having to load the sector.
   // The tertiary goal is to load a sector prior to trying to pull the value if the ship is currently not loaded.
@@ -493,7 +596,7 @@ function getEntityValue(uidOrShipObj,valueString,options){ // Options are option
         if (tryAgain==true){
           // console.debug("Value only available when sector is loaded.  Loading sector, " + theSectorString + ", and trying again.." + new Date());
           starNetSync("/load_sector_range " + theSectorString + " " + theSectorString,options);
-          returnVal=getEntityValue(uidToUse,valueString); // Try again till successful.  This will cause an infinite loop while the sector is unloaded, but will not run again if the command fails.
+          returnVal=getEntityValueSync(uidToUse,valueString); // Try again till successful.  This will cause an infinite loop while the sector is unloaded, but will not run again if the command fails.
           // If the entity loads and no value is present, 'undefined' will be returned.  This is intended.
           // The reason we try loading the sector is for futureproofing.
         }
@@ -507,6 +610,10 @@ function getEntityValue(uidOrShipObj,valueString,options){ // Options are option
     throw new Error("ERROR: Invalid parameters given to getEntity function!");
   }
 }
+
+
+
+
 
 function detectSuccess(input){ // input should be a full starNet.js response as a string
   // This will look for "RETURN: [SERVER, [ADMIN COMMAND] [SUCCESS]" and return true if found.
