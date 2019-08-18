@@ -6,7 +6,7 @@
 
 module.exports={ // Always put module.exports at the top so circular dependencies work correctly.
   // init, // This is needed so objects can send text directly to the server
-  BluePrintObj,
+  BlueprintObj,
   BotObj,
   ChannelObj,
   CoordsObj,
@@ -81,7 +81,7 @@ console.log("### OBJECT CREATOR - SET SERVER VARIABLE");
 
 
 // Set up prototypes for constructors, such as replacing .toString() functionality with a default value.  Prototypes will not appear as a regular key.
-BluePrintObj.prototype.toString = function(){ return this.name };
+BlueprintObj.prototype.toString = function(){ return this.name };
 BotObj.prototype.toString = function(){ return this.name };
 ChannelObj.prototype.toString = function(){ return this.name };
 CoordsObj.prototype.toString = function(){ return this.x.toString() + " " + this.y.toString() + " " + this.z.toString() };
@@ -762,7 +762,7 @@ function ServerObj(serverSettingsObj){ // cb/promises/squish compliant
           if (theReg.test(theArray[i])){
             theLine=theArray[i].replace(/^RETURN: \[SERVER, \[CATALOG\] INDEX [0-9]+: /,"");
             theLine=theLine.replace(/, 0\]$/,"");
-            returnArray.push(new BluePrintObj(theLine));
+            returnArray.push(new BlueprintObj(theLine));
             theLine="";
           }
         }
@@ -2287,7 +2287,7 @@ function PlayerObj(name){ // cb/promises/squish compliant // "Player" must be a 
               theCatalogString=theArray[i].match(theReg); // is undefined if no match
               if (theCatalogString){
                 theCatalogString=theCatalogString.toString().replace(/^RETURN: \[SERVER, \[CATALOG\] INDEX [0-9]+: /,"").replace(/, 0\]$/,"");
-                outputArray.push(new BluePrintObj(theCatalogString));
+                outputArray.push(new BlueprintObj(theCatalogString));
               }
             }
             return cb(null,outputArray); // outputs an empty array if the player had no blueprints
@@ -2528,7 +2528,7 @@ function SpawnObj(playerName,date){ // Discontinuing TODO:  Delete this object
   this.player=new PlayerObj(playerName);
   // Right now there really are no console commands for spawn mechanics, but a separate object is used here in case there are in the future.
 };
-function BluePrintObj(name){  // cb/promises/squish compliant
+function BlueprintObj(name){  // cb/promises/squish compliant
   var self=this;
   this.name=name.toString(); // This will throw an error if anything given cannot be turned into a string.  This is intentional.
   // Info Methods to add:
@@ -2632,10 +2632,10 @@ function BluePrintObj(name){  // cb/promises/squish compliant
         if (typeof factionString == "string"){
           factionNum=toNumIfPossible(factionString);
           if (typeof factionNum != "number"){ // It should convert to a number
-            return cb(new Error("Invalid input given to BluePrintObj for faction! (non-number)"),null);
+            return cb(new Error("Invalid input given to BlueprintObj for faction! (non-number)"),null);
           }
         } else {
-          return cb(new Error("Invalid input given to BluePrintObj for faction!  (Could not convert to string!)"),null);
+          return cb(new Error("Invalid input given to BlueprintObj for faction!  (Could not convert to string!)"),null);
         }
       } else { // No faction number given, so use 0.
         factionNum=0;
@@ -3391,7 +3391,7 @@ function SectorObj(x,y,z){ // cb/promises/squish compliant
           }
         }
         return runSimpleCommand("/spawn_entity \"" + blueprintName + "\" \"" + shipNameToUse + "\" " + self.coords.toString() + " " + factionNumToUse + " " + aiActiveBooleanToUse,options,cb);
-        // /spawn_entity // Also in the BluePrintObj
+        // /spawn_entity // Also in the BlueprintObj
         // DESCRIPTION: Spawns a ship in any sector with a faction tag and AI tag.
         // PARAMETERS: BlueprintName(String), ShipName(String), X(Integer), Y(Integer), Z(Integer), factionID(Integer), ActiveAI(True/False)
         // EXAMPLE: /spawn_entity mySavedShip shipName sectorX sectorY sectorZ -1 true
@@ -3739,59 +3739,78 @@ function EntityObj(fullUID,shipName){ // TODO: Make cb/promises compliant
     this["fullUID"]=fullUIDToUse;
 
     // Needs testing below:
-    self.decay=function(options){ // decays the ship
-      return runSimpleCommand("/decay_uid " + self.fullUID,options);
+    self.decay=function(options,cb){ // decays the ship
+      return runSimpleCommand("/decay_uid " + self.fullUID,options,cb); // handles promises
     }
-    self.setFaction=function(factionNumOrObj,options){ // Expects a faction number or FactionObj as input.
-      let factionNum=toNumIfPossible(toStringIfPossible(factionNumOrObj)); // This converts FactionObj to a string and then back to a number.
-      if (typeof factionNum == "number"){
-        return runSimpleCommand("/faction_set_entity_uid " + self.fullUID + " " + factionNum,options);
-      } else {
-        throw new Error("Invalid input given to EntityObj.setFaction() for factionNumOrObj!");
-      }
-    }
-    self.setFactionRank=function(rankNum,options){
-      let theRankNum=toNumIfPossible(rankNum);
-      if (typeof theRankNum == "number"){
-        return runSimpleCommand("/faction_set_entity_rank_uid " + self.fullUID + " " + theRankNum,options);
-      } else {
-        throw new Error("Invalid input given to EntityObj.setFactionRank() for rankNum!");
-      }
-    }
-    self.kickPlayersOut=function(options){ // decays the ship
-      return runSimpleCommand("/kick_players_out_of_entity_uid " + self.fullUID,options);
-    }
-    self.kickPlayersOutDock=function(options){ // decays the ship
-      return runSimpleCommand("/kick_players_out_of_entity_uid_dock \"" + self.fullUID + "\"",options);
-    }
-    self.putPlayerIntoThisEntity=function(thePlayer,options){ // player can be their name or a PlayerObj
-      let thePlayerName=toStringIfPossible(thePlayer); // This converts PlayerObj to the name of the player as a string
-      if (typeof thePlayerName == "string"){
-        return runSimpleCommand("/player_put_into_entity_uid " + thePlayerName + " \"" + self.fullUID + "\"",options);
-      } else {
-        throw new Error("Invalid input given to EntityObj.putPlayerIntoThisEntity() for thePlayer!");
-      }
-    }
-    self.saveAsBlueprint=function(blueprintName,options){ // Saves the ship as a blueprint with no owner.  Can accept a BlueprintObj as input
-      // Note:  Returns a BlueprintObj if successful instead of true
-      let theBlueprintName=toStringIfPossible(blueprintName); // This converts BlueprintObj a string
-      if (typeof theBlueprintName == "string"){
-        if(runSimpleCommand("/save_uid \"" + self.fullUID + "\" \"" + theBlueprintName + "\"",options)){
-          return new BluePrintObj(theBlueprintName);
+    self.setFaction=function(factionNumOrObj,options,cb){ // Expects a faction number or FactionObj as input.
+      if (typeof cb=="function"){
+        let factionNum=toNumIfPossible(toStringIfPossible(factionNumOrObj)); // This converts FactionObj to a string and then back to a number.
+        if (typeof factionNum == "number"){
+          return runSimpleCommand("/faction_set_entity_uid " + self.fullUID + " " + factionNum,options);
         } else {
-          return false;
+          return cb(new Error("Invalid input given to EntityObj.setFaction() for factionNumOrObj!"),null);
         }
       } else {
-        throw new Error("Invalid input given to EntityObj.putPlayerIntoThisEntity() for thePlayer!");
+        return simplePromisifyIt(self.setFaction,options);
       }
     }
-    self.shopRestockFull=function(options){ // restocks a shop to full
-      // WARNING: If a station has a shop on it, it will be restocked incorrectly to include even illegal items that should never be found in a shop, such as gold bars and green dirt.
-      return runSimpleCommand("/shop_restock_full_uid \"" + self.fullUID + "\"",options);
+    self.setFactionRank=function(rankNum,options,cb){
+      if (typeof cb=="function"){
+        let theRankNum=toNumIfPossible(rankNum);
+        if (typeof theRankNum == "number"){
+          return runSimpleCommand("/faction_set_entity_rank_uid " + self.fullUID + " " + theRankNum,options);
+        } else {
+          return cb(new Error("Invalid input given to EntityObj.setFactionRank() for rankNum!"),null);
+        }
+      }
+      return simplePromisifyIt(self.setFactionRank,options,rankNum);
     }
-    self.shopRestock=function(options){ // restocks a shop
+    self.kickPlayersOut=function(options,cb){ // kicks any players out of the ship
+      return runSimpleCommand("/kick_players_out_of_entity_uid " + self.fullUID,options,cb); // handles promises
+    }
+    self.kickPlayersOutDock=function(options,cb){ // kicks any players out of the ship and anything docked to it
+      return runSimpleCommand("/kick_players_out_of_entity_uid_dock \"" + self.fullUID + "\"",options,cb);
+    }
+    self.putPlayerIntoThisEntity=function(thePlayer,options,cb){ // player can be their name or a PlayerObj
+      if (typeof cb=="function"){
+        let thePlayerName=toStringIfPossible(thePlayer); // This converts PlayerObj to the name of the player as a string
+        if (typeof thePlayerName == "string"){
+          return runSimpleCommand("/player_put_into_entity_uid " + thePlayerName + " \"" + self.fullUID + "\"",options,cb);
+        } else {
+          return cb(new Error("Invalid input given to EntityObj.putPlayerIntoThisEntity() for thePlayer!"),null);
+        }
+      } else {
+        return simplePromisifyIt(self.putPlayerIntoThisEntity,options,thePlayer);
+      }
+    }
+    self.saveAsBlueprint=function(blueprintName,options,cb){ // Saves the ship as a blueprint with no owner.  Can accept a BlueprintObj as input
+      // Note:  Returns a BlueprintObj if successful instead of true
+      if (typeof cb=="function"){
+        let theBlueprintName=toStringIfPossible(blueprintName); // This converts BlueprintObj a string
+        if (typeof theBlueprintName == "string"){
+          return runSimpleCommand("/save_uid \"" + self.fullUID + "\" \"" + theBlueprintName + "\"",options,function(err,result){
+            if (err){
+              return cb(err,null);
+            }
+            if (result){
+              return cb(null,new BlueprintObj(theBlueprintName)); // It would be a good idea for the mod to use this BlueprintObj to set the owner
+            } else {
+              return cb(null,false);
+            }
+          });
+        } else {
+          return cb(new Error("Invalid input given to EntityObj.saveAsBlueprint() for blueprintName!"),null);
+        }
+      }
+      return simplePromisifyIt(self.saveAsBlueprint,options,blueprintName);
+    }
+    self.shopRestockFull=function(options,cb){ // restocks a shop to full
       // WARNING: If a station has a shop on it, it will be restocked incorrectly to include even illegal items that should never be found in a shop, such as gold bars and green dirt.
-      return runSimpleCommand("/shop_restock_uid \"" + self.fullUID + "\"",options);
+      return runSimpleCommand("/shop_restock_full_uid \"" + self.fullUID + "\"",options,cb); // handles promises
+    }
+    self.shopRestock=function(options,cb){ // restocks a shop
+      // WARNING: If a station has a shop on it, it will be restocked incorrectly to include even illegal items that should never be found in a shop, such as gold bars and green dirt.
+      return runSimpleCommand("/shop_restock_uid \"" + self.fullUID + "\"",options,cb); // handles promises
     }    
     self.softDespawn=function(options){ // despawns an entity as though it were destroyed, till the sector is reloaded.
       // WARNING: if an entity has docked entities on it and it is soft-despawns, I believe this causes them to undock.
@@ -5205,38 +5224,35 @@ function getPlayerSpawnLocation(player,options,cb){
   return simplePromisifyIt(getPlayerSpawnLocation,options,player);
 }
 
-function runSimpleCommand(theCommand,options,cb){  // cb/promises compliant (also has sync option for sending to stdin directly IF ran in fast mode)
+function runSimpleCommand(theCommand,options,cb){  // cb/promises compliant
   // This is used for PlayerObj methods that can be sent to either the console or using StarNet
-  var theCommandToUse=toStringIfPossible(theCommand);
-  if (typeof theCommandToUse == "string"){
-    var fast=getOption(options,"fast",false);
-    var msgTestFail=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] \\[ERROR\\]");
-    // RETURN: [SERVER, Admin command failed: Error packing parameters, 0]
-    // RETURN: [SERVER, Admin command failed: Error packing parameters, 0]
-    var msgTestFail2=new RegExp("^RETURN: \\[SERVER, Admin command failed: Error packing parameters, 0\\]")
-    if (fast==true){ // this can run in Sync if a CB is not specified, since it's only sending input to a stdin of the server
-      return sendDirectToServer(theCommandToUse,cb);
-    } else if (typeof cb == "function"){
-      console.log("Running StarNet command..");
+  // An option can be specified so that it sends directly to the console.  {"fast":true}
+  if (typeof cb == "function"){
+    var theCommandToUse=toStringIfPossible(theCommand);
+    if (typeof theCommandToUse == "string"){
+      var fast=getOption(options,"fast",false);
+      var msgTestFail=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] \\[ERROR\\]");
+      var msgTestFail2=new RegExp("^RETURN: \\[SERVER, Admin command failed: Error packing parameters, 0\\]")
+      if (fast==true){ // this can run in Sync if a CB is not specified, since it's only sending input to a stdin of the server
+        return sendDirectToServer(theCommandToUse,cb);
+      }
+      // console.log("Running StarNet command..");
       return starNetVerified(theCommandToUse,options,function(err,msgResult){
         if (err){
-          console.log("Returning an error: " + err);
+          // console.log("Returning an error: " + err);
           return cb(err,msgResult);
         } else if (starNetHelper.checkForLine(msgResult,msgTestFail) || starNetHelper.checkForLine(msgResult,msgTestFail2)){ // The player was offline, did not exist, or other parameters were incorrect.
-            console.log("Returning an false on success.");
-            return cb(err,Boolean(false)); // err will be null
+          // console.log("Returning a false on success.");
+          return cb(err,Boolean(false)); // err will be null
         } else { // The command appears to have not failed, so let's assume it succeeded.
-          console.log("Returning an true on success.");
+          // console.log("Returning an true on success.");
           return cb(err,Boolean(true)); // Err will be null
         }
       });
-    } else { // No cb specified, so run in promise mode. 
-      return simplePromisifyIt(runSimpleCommand,options,theCommand);
+    } else {
+      return cb(new Error("No command given to runSimpleCommand!"),null);
     }
+  } else { // No cb specified, so run in promise mode. 
+    return simplePromisifyIt(runSimpleCommand,options,theCommand);
   }
-  if (typeof cb == "function"){
-    return cb(new Error("No command given to runSimpleCommand!"),null);
-  }
-  throw new Error("No command given to runSimpleCommand!");
 };
-

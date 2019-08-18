@@ -289,7 +289,7 @@ function regCommand(name,category,adminOnly,displayInHelp,playersArray){
     }
 }
 
-event.on('message', message);
+event.on('playerMessage', message);
 async function message (messageObj) { // Handle messages sent from players
     // Expects message to be a message type object
     

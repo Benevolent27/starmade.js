@@ -185,14 +185,14 @@ var isPidAlive        = miscHelpers.isPidAlive;
 var {isDirectory,getDirectories,isFile,getFiles,log}=miscHelpers;  // Sets up file handling
 
 // Object aliases
-var {BotObj,SqlQueryObj,EntityObj,SectorObj,CoordsObj,FactionObj,MessageObj,BluePrintObj,PlayerObj,ServerObj}=objectCreator;
+var {BotObj,SqlQueryObj,EntityObj,SectorObj,CoordsObj,FactionObj,MessageObj,BlueprintObj,PlayerObj,SMNameObj,ServerObj}=objectCreator;
 // var SqlQueryObj    = objectCreator.SqlQueryObj;
 // var EntityObj      = objectCreator.EntityObj;
 // var SectorObj      = objectCreator.SectorObj;
 // var CoordsObj      = objectCreator.CoordsObj;
 // var FactionObj     = objectCreator.FactionObj;
 // var MessageObj     = objectCreator.MessageObj;
-// var BluePrintObj   = objectCreator.BluePrintObj;
+// var BlueprintObj   = objectCreator.BlueprintObj;
 // var PlayerObj      = objectCreator.PlayerObj;
 var {repeatString,isInArray,getRandomAlphaNumericString,arrayMinus}=objectHelper;
 
@@ -478,24 +478,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   // #####  PLAYER MESSAGES  #####  TODO:  Remove this section since the modloader is working now.
 
   // temp:  This has been disabled by renaming the event it listens for from 'message' to 'message2'.  It should be handled by a default mod now.
-  eventEmitter.on('message', function(messageObj) { // Handle messages sent from players
-    // Expects message to be a message type object
-    console.log("Message (type: " + messageObj.type +") DETECTED from " + messageObj.sender.name + " to " + messageObj.receiver.name + ": " + messageObj.text);
 
-  });
-  eventEmitter.on('playerSpawn', function(playerSpawn) {
-    console.log("playerSpawn detected.");
-  });
-  eventEmitter.on('shipSpawn', function(shipSpawn) {
-    console.log("shipSpawn detected.");
-    let mMessage="/server_message_to plain " + shipSpawn.playerName + " 'Melvin: THAT is one nice ship: " + shipSpawn.shipName + "'";
-    global["server"].spawn.stdin.write(mMessage.toString().trim() + "\n");
-  });
-  eventEmitter.on('baseSpawn', function(baseSpawn) {
-    console.log("baseSpawn detected.");
-    let mMessage="/server_message_to plain " + baseSpawn.playerName + " 'Melvin: Cool new base dude! " + baseSpawn.baseName + "'";
-    global["server"].spawn.stdin.write(mMessage.toString().trim() + "\n");
-  });
 
 
   // todo: Support for JVM arguments on the command line.
@@ -722,12 +705,12 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
         let receiverType      = dataInput.match(/\[receiverType=[A-Za-z0-9_-]*/).toString().replace(/^\[receiverType=/,"");
         let message           = dataInput.match(/\[message=.*(?=\]$)/).toString().replace(/^\[message=/,"");
         //arguments[0]: [CHANNELROUTER] RECEIVED MESSAGE ON Server(0): [CHAT][sender=Benevolent27][receiverType=CHANNEL][receiver=all][message=words]
-        console.log("Message found: ");
-        console.log("sender: " + sender);
-        console.log("receiver: " + receiver);
-        console.log("receiverType: " + receiverType);
-        console.log("message: " + message);
-        eventEmitter.emit('message',new MessageObj(sender,receiver,receiverType,message),global);
+        // console.log("Message found: ");
+        // console.log("sender: " + sender);
+        // console.log("receiver: " + receiver);
+        // console.log("receiverType: " + receiverType);
+        // console.log("message: " + message);
+        eventEmitter.emit('playerMessage',new MessageObj(sender,receiver,receiverType,message),global);
 
       // ### Player Spawns ###
       } else if (theArguments[0] == "[SERVER][SPAWN]" ) {
@@ -852,7 +835,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           }
           console.dir(playerObj);
 
-          let blueprintObj=new BluePrintObj(bluePrintName);
+          let blueprintObj=new BlueprintObj(bluePrintName);
           console.dir(blueprintObj);
 
           let factionObj=new FactionObj(factionNumber);
@@ -921,15 +904,14 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           // theArguments[10]: messages
 
       } else if (dataInput.match(/^\[SERVER\] PlayerCharacter\[.*/) || dataInput.match(/^\[SERVER\] Ship\[.*/) || dataInput.match(/^\[SERVER\] ManagedAsteroid\(.*/) || dataInput.match(/^\[SERVER\] Planet\(.*/)) {
-        console.log("Sector change detected: " + dataInput);
+        // console.log("Sector change detected: " + dataInput);
         var excerptArray=dataInput.match(/has players attached. Doing Sector Change for PlS.*/);
-        console.log("excerptArray: ");
-        console.dir(excerptArray);
+        // console.log("excerptArray: ");
+        // console.dir(excerptArray);
         if (excerptArray){
           var excerpt=excerptArray[0];
           var whittled=excerpt.replace(/^has players attached. Doing Sector Change for PlS\[/,"");
           var whittledArray=whittled.split(" ");
-          console.dir(whittledArray); // temp
           // Example line: Weedle [Benevolent27]*; id(1712)(8)f(10533)]: Sector[2067](665, 666, 666) -> Sector[1960](666, 666, 666)
           var playerNameCaptured=whittledArray[0];
           // var playerSMNameCaptured=whittledArray[1].replace(/[\[\]\*;]/g,""); // Working
@@ -941,27 +923,20 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           for (let i=0;i<coordsArray.length;i++){
             cleanCoordsArray.push(coordsArray[i].match(/[-]{0,1}[0-9]+, [-]{0,1}[0-9]+, [-]{0,1}[0-9]+/)[0].split(","))
           }
-          console.log("Coords:");
-          console.dir(cleanCoordsArray); // First set is the sector starting in, second is going to
-          console.log("Player Name: " + playerNameCaptured);
-          console.log("Player SM Name:" + playerSMNameCaptured);
+          // console.log("Coords:");
+          // console.dir(cleanCoordsArray); // First set is the sector starting in, second is going to
+          // console.log("Player Name: " + playerNameCaptured);
+          // console.log("Player SM Name:" + playerSMNameCaptured);
 
-          var startingCoords=new CoordsObj(cleanCoordsArray[0]); // TODO: It's not really necessary to make a CoordsObj here..
-          var endingCoords=new CoordsObj(cleanCoordsArray[1]);
 
-          var sectorChangeObject={
-            startCoords: new SectorObj(startingCoords.x,startingCoords.y,startingCoords.z), // Clean this up
-            endCoords: new SectorObj(endingCoords.x,endingCoords.y,endingCoords.z),
-            // startCoords: new SectorObj(cleanCoordsArray[0][0],cleanCoordsArray[0][1],cleanCoordsArray[0][2]), // not sure why this didn't work
-            // endCoords: new SectorObj(cleanCoordsArray[1][0],cleanCoordsArray[1][1],cleanCoordsArray[1][2]),
-            player: new PlayerObj(playerNameCaptured),
-            playerSMName: playerSMNameCaptured
-          }
-          console.log("Object Created:");
-          console.dir(sectorChangeObject);
+          var startingCoords=new SectorObj(cleanCoordsArray[0]);
+          var endingCoords=new SectorObj(cleanCoordsArray[1]);
+          var player=new PlayerObj(playerNameCaptured);
+          var playerSMName=new SMNameObj(playerSMNameCaptured);
 
           // TODO:  Test this to see if it works
-
+          console.log("Sector change detected for player, '" + player.toString() + "', with registry name, '" + playerSMName.toString() + "', from sector, '" + startingCoords.toString() + "', to sector, '" + endingCoords.toString() + "'.");
+          eventEmitter.emit('playerSectorChange',player,startingCoords,endingCoords,playerSMName); // playerObj will be undefined if the blueprint was spawned by admin or mass spawned
         }
         // Bash scripting:  (needs converting to javascript)
         // tempVar=$(echo "${@}" | grep -o "has players attached. Doing Sector Change for PlS.*")
@@ -1104,15 +1079,6 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
     // TODO:  Set error codes for launch fails.  This will require parsing the error thrown.
     throw new Error("Server launch fail!"); // This should kill the server and dump the text to the console.
   });
-
-
-  global["server"].spawn.on('message', function(text) { // I don't think this is needed.  TODO: Remove this.
-    console.log("Message found: " + text);
-  });
-
-  // global["server"].spawn.stdin.setEncoding('utf-8');
-  // process.stdin.pipe(global["server"].spawn.stdin);
-  // global["server"].spawn.stdin.pipe(process.stdin);
 
 
 
