@@ -69,7 +69,7 @@ var sectorProtectionsArray  = regExpHelper.sectorProtections; // This should inc
 const {sqlQuery,SqlQueryObj}=sqlQueryJs;
 const {verifyStarNetResponse,starNetVerified,starNetVerifiedCB,returnMatchingLinesAsArray,checkForLine} = starNetHelper;
 const {copyArray,toNumIfPossible,toStringIfPossible,subArrayFromAnother,findSameFromTwoArrays,isInArray} = objectHelper;
-const {testIfInput,trueOrFalse,isTrueOrFalse,isNum,colorize,getObjType,returnLineMatch,applyFunctionToArray,simplePromisifyIt} = objectHelper;
+const {testIfInput,trueOrFalse,isTrueOrFalse,isNum,colorize,getObjType,returnLineMatch,applyFunctionToArray,simplePromisifyIt,toBooleanIfPossible} = objectHelper;
 const {isTrue,isFalse,getOption,addOption,getParamNames}=objectHelper;
 const toNum                 = objectHelper.toNumIfPossible;
 const {areCoordsBetween}=miscHelpers;
@@ -90,7 +90,13 @@ CoordsObj.prototype.toString = function(){ return this.x.toString() + " " + this
 CoordsObj.prototype.toArray=function(){ return [this.x, this.y, this.z]; }
 CreatureObj.prototype.toString=function(){ return this.fullUID.toString() };
 EntityObj.prototype.toString = function(){ return this.fullUID.toString() };
-FactionObj.prototype.toString = function(){ return toStringIfPossible(this.number) };
+
+FactionObj.prototype.toString = function(){ 
+  var theNum=this.number;
+  console.log("FactionObj.prototype.toString: " + toStringIfPossible(theNum)); // temp
+  console.log("typeof FactionObj.prototype.toString: " + typeof toStringIfPossible(theNum)); // temp
+  return toStringIfPossible(theNum); 
+};
 IPObj.prototype.toString = function(){ return this.address };
 IPObj.prototype.toArray = function(){ return this.address.split(".") };
 LocationObj.prototype.toString = function(options){ 
@@ -3732,7 +3738,7 @@ function EntityObj(fullUID,shipName){ // TODO: Make cb/promises compliant
 
   if (fullUIDToUse){
     self.UID=stripFullUIDtoUID(fullUIDToUse); // Returns the UID as used with SQL queries, without the "ENTITY_SHIP_" whatever stuff.
-    this["fullUID"]=fullUIDToUse;
+    this.fullUID=fullUIDToUse;
 
     // Needs testing below:
     self.decay=function(options,cb){ // decays the ship
@@ -3809,103 +3815,141 @@ function EntityObj(fullUID,shipName){ // TODO: Make cb/promises compliant
       // WARNING: If a station has a shop on it, it will be restocked incorrectly to include even illegal items that should never be found in a shop, such as gold bars and green dirt.
       return runSimpleCommand("/shop_restock_uid \"" + self.fullUID + "\"",options,cb); // handles promises
     }    
-    self.softDespawn=function(options){ // despawns an entity as though it were destroyed, till the sector is reloaded.
+    self.softDespawn=function(options,cb){ // despawns an entity as though it were destroyed, till the sector is reloaded.
       // WARNING: if an entity has docked entities on it and it is soft-despawns, I believe this causes them to undock.
-      return runSimpleCommand("/soft_despawn \"" + self.fullUID + "\"",options);
+      return runSimpleCommand("/soft_despawn \"" + self.fullUID + "\"",options,cb);
     }    
-    self.softDespawnDock=function(options){ // despawns an entity (and all docked entities) as though it were destroyed, till the sector is reloaded.
-      return runSimpleCommand("/soft_despawn_dock \"" + self.fullUID + "\"",options);
+    self.softDespawnDock=function(options,cb){ // despawns an entity (and all docked entities) as though it were destroyed, till the sector is reloaded.
+      return runSimpleCommand("/soft_despawn_dock \"" + self.fullUID + "\"",options,cb);
     }    
-    self.setMinable=function(trueOrFalse,options){ // Sets whether an entity should be minable by salvager beams
-      let booleanToUse=trueOrFalse(trueOrFalse); // allows truthy values to convert to the words, "true" or "false"
-      // Does not have success or fail messages
-      if (isTrueOrFalse(booleanToUse)){
-        return runSimpleCommand("/structure_set_minable_uid \"" + self.fullUID + "\" " + booleanToUse,options);
-      } else {
-        throw new Error("Invalid input given to EntityObj.setMinable() for trueOrFalse!");
-      }
-    }
-    self.setVulnerable=function(trueOrFalse,options){ // Sets whether an entity is invincible
-      let booleanToUse=trueOrFalse(trueOrFalse); // allows truthy values to convert to the words, "true" or "false"
-      // Does not have success or fail messages
-      if (isTrueOrFalse(booleanToUse)){
-        return runSimpleCommand("/structure_set_vulnerable_uid \"" + self.fullUID + "\" " + booleanToUse,options);
-      } else {
-        throw new Error("Invalid input given to EntityObj.setVulnerable() for trueOrFalse!");
-      }
-    }
-    self.changeSector=function(sector,options){ // sector can be a LocationObj, SectorObj, CoordsObj, or other input that can be translated to a CoordsObj.
-      // This should accept a location Obj, a pair of sectorObj and coordsObj, or any other pair of input that can translate to a CoordsObj
-      var sectorToUse;
-      if (testIfInput(sector)){ // Non-object input given
-        sectorToUse=toStringIfPossible(sector); // This converts any obj, including SectorObj, CoordsObj, and LocationObj to a string
-        try { // Let's see if coordinates can be made from the input.  A String (separated by , or spaces) or an Array can be given as input.
-          sectorToUse=new CoordsObj(sectorToUse).toString();
-        } catch (error){ // Invalid input given.
-          console.error("Invalid input given to EntityObj.changeSector as sector!");
-          throw error; 
-        }
-      } else { // Invalid amount of arguments given
-        throw new Error("No sector value given EntityObj.changeSector for sector!");
-      }
-      if (typeof sectorToUse=="string"){
-        // We should be all set to send the command now.
-        var fast=getOption(options,"fast",false);
-        var changeSectorCommand="/change_sector_for_uid \"" + self.fullUID + "\" " + sectorToUse;
-        if (fast){
-          return sendDirectToServer(changeSectorCommand);         
+    self.setMinable=function(trueOrFalse,options,cb){ // Sets whether an entity should be minable by salvager beams
+      if (typeof cb=="function"){
+        let booleanToUse=trueOrFalse(trueOrFalse); // allows truthy values to convert to the words, "true" or "false"
+        // Does not have success or fail messages
+        if (isTrueOrFalse(booleanToUse)){
+          return runSimpleCommand("/structure_set_minable_uid \"" + self.fullUID + "\" " + booleanToUse,options,cb);
         } else {
-          var result2=starNetVerified(changeSectorCommand,options); // This will throw an error if the connection to the server fails.
-          // Success: RETURN: [SERVER, [ADMIN COMMAND] [SUCCESS] changed sector for Benevolent27 to (1000, 1000, 1000), 0]
-          // Fail: RETURN: [SERVER, [ADMIN COMMAND] [ERROR] player not found for your client Benevolent27, 0]
-          var theReg3=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] \\[SUCCESS\\]");
-          if (starNetHelper.checkForLine(result2,theReg3)){ // The command succeeded.
-            return true;
-          } else { // The command failed.  Player either offline or does not exist for some reason.
-            return false;
+          return cb(new Error("Invalid input given to EntityObj.setMinable() for trueOrFalse!"),null);
+        }
+      }
+      return simplePromisifyIt(self.setMinable,options,trueOrFalse);
+    }
+    self.setVulnerable=function(trueOrFalse,options,cb){ // Sets whether an entity is invincible
+      if (typeof cb=="function"){
+        let booleanToUse=trueOrFalse(trueOrFalse); // allows truthy values to convert to the words, "true" or "false"
+        // Does not have success or fail messages
+        if (isTrueOrFalse(booleanToUse)){
+          return runSimpleCommand("/structure_set_vulnerable_uid \"" + self.fullUID + "\" " + booleanToUse,options,cb);
+        } else {
+          return cb(new Error("Invalid input given to EntityObj.setVulnerable() for trueOrFalse!"),null);
+        }
+      }
+      return simplePromisifyIt(self.setVulnerable,options,trueOrFalse);
+    }
+    self.changeSector=function(sector,options,cb){ // sector can be a LocationObj, SectorObj, CoordsObj, or other input that can be translated to a CoordsObj.
+      // This should accept a location Obj, a pair of sectorObj and coordsObj, or any other pair of input that can translate to a CoordsObj
+      if (typeof cb=="function"){
+        var sectorToUse;
+        if (testIfInput(sector)){ // Non-object input given
+          // sectorToUse=toStringIfPossible(sector); // This converts any obj, including SectorObj, CoordsObj, and LocationObj to a string
+          sectorToUse=sector; // We should not make it into a string, in case an array is given.
+          try { // Let's see if coordinates can be made from the input.  A String (separated by , or spaces) or an Array can be given as input.
+            sectorToUse=new CoordsObj(sectorToUse).toString();
+          } catch (error){ // Invalid input given.
+            return cb(new Error("Invalid input given to EntityObj.changeSector as sector!"),null);
+          }
+        } else { // Invalid amount of arguments given
+          return cb(new Error("No sector value given EntityObj.changeSector for sector!"),null);
+        }
+        if (typeof sectorToUse=="string"){
+          // We should be all set to send the command now.
+          var fast=getOption(options,"fast",false);
+          var changeSectorCommand="/change_sector_for_uid \"" + self.fullUID + "\" " + sectorToUse;
+          if (fast){
+            return sendDirectToServer(changeSectorCommand,cb);         
+          } else {
+            return starNetVerified(changeSectorCommand,options,function(err,result){
+              if (err){
+                return cb(err,result);
+              }
+              // Success: RETURN: [SERVER, [ADMIN COMMAND] [SUCCESS] changed sector for Benevolent27 to (1000, 1000, 1000), 0]
+              // Fail: RETURN: [SERVER, [ADMIN COMMAND] [ERROR] player not found for your client Benevolent27, 0]
+              var theReg=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] \\[SUCCESS\\]");
+              if (starNetHelper.checkForLine(result,theReg)){ // The command succeeded.
+                return cb(null,Boolean(true));
+              } else { // The command failed.  Player either offline or does not exist for some reason.
+                return cb(null,Boolean(false));
+              }
+            }); // This will throw an error if the connection to the server fails.
           }
         }
+        return cb(new Error("Invalid parameters given to EntityObj.changeSector!"),null); // This is redundant
       }
-      throw new Error("Invalid parameters given to EntityObj.changeSector!"); // This is redundant
+      return simplePromisifyIt(self.changeSector,options,sector);
     }
     // self.changeSectorCopy // There is no "/change_sector_for_uid_copy" command in-game right now.
-    self.teleportTo=function(coords,options){ // Accepts CoordsObj or LocationObj or any set of input that will translate to a CoordsObj
-      if (testIfInput(coords)){ // Input given
-        var spacialCoordsToUse=toStringIfPossible(coords,{"type":"spacial"}); // This option will allow a LocationObj to have it's spacial coords converted to as tring.  Any other object, such as a CoordsObj will ignore the option.
-        try { // Let's see if coordinates can be made from the input.  If a LocationObj was provided, the string returned will work.
-          spacialCoordsToUse=new CoordsObj(coords).toString();
-        } catch (error){ // Invalid input given.
-          console.error("Invalid input given to EntityObj.teleportTo for coords!");
-          throw error; 
-        }
-      }
-      var fast=getOption(options,"fast",false);
-      // I'm not using runSimpleCommand() since I know what the success message is for this, and this provides better accuracy on the success/fail result.
-      if (typeof spacialCoordsToUse=="string" && testIfInput(coords)){ // This is a redundant check.
-        var teleportToCommand="/teleport_uid_to \"" + self.fullUID + "\" " + spacialCoordsToUse;
-        if (fast){
-          return sendDirectToServer(teleportToCommand);         
-        } else {
-          var result2=starNetVerified(teleportToCommand); // This will throw an error if the connection to the server fails.
-          // Success: RETURN: [SERVER, [ADMIN COMMAND] teleported Benevolent27 to , 0]
-          // Fail: RETURN: [SERVER, [ADMIN COMMAND] [ERROR] player not found for your client, 0]
-          var theReg3=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] teleported");
-          if (starNetHelper.checkForLine(result2,theReg3)){ // The command succeeded.
-            return true;
-          } else { // The command failed.  Player either offline or does not exist for some reason.
-            return false;
+    self.teleportTo=function(coords,options,cb){ // Accepts CoordsObj or LocationObj or any set of input that will translate to a CoordsObj
+      if (typeof cb=="function"){
+        if (testIfInput(coords)){ // Input given
+          var spacialCoordsToUse;
+          if (Array.isArray(coords)){
+            spacialCoordsToUse=coords;
+          } else {
+            spacialCoordsToUse=toStringIfPossible(coords,{"type":"spacial"}); // This option will allow a LocationObj to have it's spacial coords converted to as tring.  Any other object, such as a CoordsObj will ignore the option.
+          }
+          try { // Let's see if coordinates can be made from the input.  If a LocationObj was provided, the string returned will work.
+            spacialCoordsToUse=new CoordsObj(spacialCoordsToUse).toString();
+          } catch (error){ // Invalid input given.
+            return cb(new Error("Invalid input given to EntityObj.teleportTo for coords!"),null);
           }
         }
+        var fast=getOption(options,"fast",false);
+        // I'm not using runSimpleCommand() since I know what the success message is for this, and this provides better accuracy on the success/fail result.
+        if (typeof spacialCoordsToUse=="string" && testIfInput(coords)){ // This is a redundant check.
+          var teleportToCommand="/teleport_uid_to \"" + self.fullUID + "\" " + spacialCoordsToUse;
+          if (fast){
+            return sendDirectToServer(teleportToCommand,cb);         
+          } else {
+            return starNetVerified(teleportToCommand,function(err,result){
+              if (err){
+                return cb(err,result);
+              }
+              // Success: RETURN: [SERVER, [ADMIN COMMAND] teleported Benevolent27 to , 0]
+              // Fail: RETURN: [SERVER, [ADMIN COMMAND] [ERROR] player not found for your client, 0]
+              var theReg=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] teleported");
+              if (starNetHelper.checkForLine(result,theReg)){ // The command succeeded.
+                return cb(null,Boolean(true));
+              } else { // The command failed.  Player either offline or does not exist for some reason.
+                return cb(null,Boolean(false));
+              }
+            }); // This will throw an error if the connection to the server fails.
+          }
+        }
+        return cb(new Error("Invalid parameters given EntityObj.teleportTo for coords!"),null); // This is redundant and should never happen.
       }
-      throw new Error("Invalid parameters given EntityObj.teleportTo for coords!"); // This is redundant and should never happen.
+      return simplePromisifyIt(self.teleportTo,options,coords);
     }
 
+    this.isLoaded=function(options,cb){ 
+      return starNetHelper.getEntityValue(self.fullUID,"loaded",options,cb); // handles promises
+    };
+    this.faction=function(options,cb){ 
+      // faction.number is WILDLY INACCURATE RIGHT NOW - WAITING ON FIX FROM SCHEMA - WILL NEED TO BE FIXED IN starNetHelper.js
+      if (typeof cb=="function"){
+        return starNetHelper.getEntityValue(self.fullUID,"faction",options,function(err,result){
+          if (err){
+            return cb(err,result);
+          }
+          if (testIfInput(result)){
+            return cb(null,new FactionObj(result));
+          } else {
+            return cb(null,Boolean(false));
+          }
+        });
+      }
+      return simplePromisifyIt(self.faction,options);
+    };
 
-
-
-    this["loaded"]=function(){ return starNetHelper.getEntityValue(self.fullUID,"loaded") };
-    // faction.number is WILDLY INACCURATE RIGHT NOW - WAITING ON FIX FROM SCHEMA - WILL NEED TO BE FIXED IN starNetHelper.js
-    this["faction"]=function(){ return new FactionObj(starNetHelper.getEntityValue(self.fullUID,"faction")) };
     this["mass"]=function(){ return starNetHelper.getEntityValue(self.fullUID,"Mass") };
     // TODO: Change this to return an array of objects that are attached.  Players I think normally?  Are NPC's also possible though?
     this["attached"]=function(){ return starNetHelper.getEntityValue(self.fullUID,"Attached") };
