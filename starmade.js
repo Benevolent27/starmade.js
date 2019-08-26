@@ -128,72 +128,34 @@ global["exitHook"]=exitHook;
 
 
 // ### Set up submodules and aliases from requires.
+
+
+// Customize the eventEmitter to record listeners as they are registered so these can have their caches deleted when mods are unloaded and reloaded.
 var eventEmitter      = new global["events"].EventEmitter(); // This is for custom events
-
-
 var eventListenersToRemoveOnReload=[];
+var event=objectHelper.copyObj(eventEmitter);
+event["on"]=eventOn;
+function eventOn(eventName,theFunction){
+  addEventsToRemoveOnModReload(eventName,theFunction);
+  return eventEmitter.on(eventName,theFunction);
+}
+event["once"]=eventOnce;
+function eventOnce(eventName,theFunction){
+  addEventsToRemoveOnModReload(eventName,theFunction);
+  return eventEmitter.once(eventName,theFunction);
+}
+global["event"]=event;
 function addEventsToRemoveOnModReload(eventName,eventFunction){
   var theObj={};
   theObj[eventName]=eventFunction;
   eventListenersToRemoveOnReload.push(theObj);
 }
 
-
-var event=objectHelper.copyObj(eventEmitter);
-event["on"]=eventOn;
-function eventOn(eventName,theFunction){
-  addEventsToRemoveOnModReload(eventName,theFunction);
-  eventEmitter.on(eventName,theFunction);
-}
-event["once"]=eventOnce;
-function eventOnce(eventName,theFunction){
-  addEventsToRemoveOnModReload(eventName,theFunction);
-  eventEmitter.once(eventName,theFunction);
-}
-// var event={ // This is to replace the regular eventEmmiter to capture listeners from mods to remove them when reloading the mods
-//   // Use this for on and emit functions for the eventEmitter
-//   "on":function (eventName,theFunction){
-//     addEventsToRemoveOnModReload(eventName,theFunction);
-//     eventEmitter.on(eventName,theFunction);
-//   }
-//   // },
-//   // "emit":function(){ // This is a passthrough
-//   //   var argsArray=[];
-//   //   for (let i=0;i<arguments.length;i++){
-//   //     argsArray.push(arguments[i]);
-//   //   }
-//   //   eventEmitter.emit(...argsArray);
-//   // }
-// }
-
-// // This is broken:
-// for(var key in eventEmitter) { // Rebuild the event to duplicate all the functionality of the regular event emitter
-//   if (key != "on"){ // Add everything but the 'on' event, which we replace above.
-//     if (eventEmitter.hasOwnProperty(key)){
-//       event[key]=eventEmitter[key];
-//     } else {
-//       event.prototype[key] = eventEmitter[key];
-//     }
-//   }
-// }
-
-// global["event"]=eventEmitter; // temp - Replace the global "event" with an event wrapper to capture the events listeners of mods to be able to unload and reload them later when reloading mods
-global["event"]=event; // Testing
-// global["eventEmitter"]=eventEmitter; // This should NOT be used by mods.  Removing this from the global, since we want to force mods to use the custom event handler
-
 var isPidAlive        = miscHelpers.isPidAlive;
 var {isDirectory,getDirectories,isFile,getFiles,log}=miscHelpers;  // Sets up file handling
 
 // Object aliases
-var {BotObj,SqlQueryObj,EntityObj,SectorObj,CoordsObj,FactionObj,MessageObj,BlueprintObj,PlayerObj,SMNameObj,ServerObj}=objectCreator;
-// var SqlQueryObj    = objectCreator.SqlQueryObj;
-// var EntityObj      = objectCreator.EntityObj;
-// var SectorObj      = objectCreator.SectorObj;
-// var CoordsObj      = objectCreator.CoordsObj;
-// var FactionObj     = objectCreator.FactionObj;
-// var MessageObj     = objectCreator.MessageObj;
-// var BlueprintObj   = objectCreator.BlueprintObj;
-// var PlayerObj      = objectCreator.PlayerObj;
+var {BotObj,EntityObj,SectorObj,CoordsObj,FactionObj,MessageObj,BlueprintObj,PlayerObj,SMNameObj,ServerObj}=objectCreator;
 var {repeatString,isInArray,getRandomAlphaNumericString,arrayMinus}=objectHelper;
 
 
@@ -207,8 +169,7 @@ var showStdout                = false;
 var showServerlog             = true;
 var showAllEvents             = false;
 var enumerateEventArguments   = false;
-// var pauseBeforeStartingServer = "2000"; // Default: 2 - After any sort of installs, config verifications, etc, how long should we wait before pulling the trigger on the server spawn in ms?
-var pauseBeforeStartingServer = "1"; // Default: 2 - After any sort of installs, config verifications, etc, how long should we wait before pulling the trigger on the server spawn in ms?
+var pauseBeforeStartingServer = "1"; // Default: 2000 - After any sort of installs, config verifications, etc, how long should we wait before pulling the trigger on the server spawn in ms?
 var settingsFile              = path.join(mainFolder, "settings.json");
 console.log("Importing settings..");
 var starNetJarURL             = "http://files.star-made.org/StarNet.jar";
@@ -257,56 +218,6 @@ var excludePatternRegex   = patterns.excludes();
 var includePatternServerLogRegex   = patterns.serverLogIncludes();
 var excludePatternServerLogRegex   = patterns.serverLogExcluded();
 
-
-
-// New Methods needed:
-// factionList() - Returns an array of all the factions as FactionObj's using "/faction_list".  Can be given a server object to run on that instance
-// factionlistMembers(FactionNum OR FactionObj) - Returns an array of all the members of a faction as PlayerObj's using "/faction_list_members [FactionNum]"
-// setFleetSpeed([ms])- Sets the speed fleets take to cross sector borders when unloaded with "/fleet_speed [ms]"
-// setFogOfWar(true/false) - sets fog of war on or off with "/fog_of_war true/false"
-// forceSave(TimeInSeconds) - initiates a forcesave with /force_save, TimeInSeconds is optional but it will wait that long before performing the action if specified
-// ignoreDockingArea(true/false) - uses /ignore_docking_area true/false
-// exportSector(FileToSave,[X,Y,Z]/SectorObj/CoordsObj)
-// importSector(ExportFileToUse,[X,Y,Z]/SectorObj/CoordsObj)
-// importSectorBulk(bulkExportFile.txt) - Uses a special text file from the starmade directory to import a bunch of sectors
-
-// listAdmins - Returns an array of PlayerObj's for all admins
-// listAdminDeniedCommands(playerName/PlayerObj) - Returns an array of all forbidden commands for the admin
-// listBannedAccounts - Returns an array of SMNameObj's
-// listBannedIPs - Returns an array of IPObj's for banned IP's
-// listBannedNames - Returns an array of PlayerObj's for banned names
-// ListWhitelistAccounts - Returns an array of SMNameObj's - Uses /list_whitelist_accounts
-// ListWhitelistIPs - Returns an array of IPObj's - Uses /list_whitelist_ip
-// ListWhitelistNames - Returns an array of PlayerObj's - Uses /list_whitelist_name
-
-
-// loadSystem([X,Y,Z]/SystemObj/CoordsObj) - Loads an entire system
-// loadSector([X,Y,Z]/SystemObj/CoordsObj) - Loads a sector
-// loadSectorRange(Radius,startCoords,endCoords) - Loads a sector range with either a radius or using a range between startCoords and endCoords, which can either be arrays with X,Y,Z values or SectorObj's/CoordsObj's
-// killPlayer(playerName/PlayerObj) - Uses /kill_character to kill a player
-
-// missileDefenseFriendlyFire(true/false) - Uses /missile_defense_friendly_fire to turn on or off
-
-// npcSpawnFaction(FactionNameString,FactionDescriptionString,NPCPresetFolderNameString,InitialGrowthInt) - Uses: /npc_spawn_faction [FactionName] [FactionDescription] [NPCFactionPresetFolderName] [InitialGrowthInt]
-// npcSpawnFactionTo(FactionNameString,FactionDescriptionString,NPCPresetFolderNameString,InitialGrowthInt,[X,Y,Z]/SectorObj/CoordsObj) - Users: /npc_spawn_faction_pos_fixed [FactionName] [FactionDescription] [NPCFactionPresetFolderName] [InitialGrowthInt] X Y Z
-// npcTurnAll - Forces a turn for all NPC factions
-
-// refreshServerMsg - Runs a /refresh_server_msg to refresh the server welcome message.
-
-// reconstructAABB - Runs the /restruct_aabb command, which apparently reconstructs all the AABBs of all object on the server (whatever that means)
-// sectorSize - Runs the "/sector_size 2000" command to set the current sector sizes for the server on the fly.  WARNING:  It is VERY DANGEROUS to lower sector sizes!
-// aiSimulation(true/false) - Turns AI simulation on or off.  Uses: /simulation_ai_enable true/false
-// clearSimulation - Clears all currently active AI simulation.  Uses: /simulation_clear_all
-
-
-// search - runs the /search command and returns a map object with ship names paired with SectorObj's.  It's .size property will be 0 if there were no results.
-
-// serverMessage(MessageString,info/warning/error) - Broadcasts a message to all online players.  If a method is not provided, it uses "plain" which shows on the player's main chat.  Uses: /server_message_broadcast plain/info/warning/error [Message]
-// serverMessageTo(PlayerName/PlayerObj,MessageString,info/warning/error) - Sends a personal message to a specific.  If a method is not provided, it uses "plain" which shows on the player's main chat.  Uses: /server_message_to plain/info/warning/error [PlayerName] [Message]
-
-// shutdown(TimeInSeconds,publicMessageString,CountdownMessageString) - No fields are required, but if no time is given, 10 seconds is default.  If a publicMessageString is given, an announcement is made to the public channel. If CountdownMessageString is provided, then a countdown starts with a message and 1 second before it ends, the actual shutdown is started.  This will allow the server to shut down without auto-restarting.
-
-// Optional: /list_control_Units
 
 log("starmade.js launched.");
 
@@ -562,6 +473,8 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
     function reloadMods(){ // This function is meant to reload ALL mods.  Specificity is not possible right now.
       console.log("Removing any event listeners registered by mods..");
       unloadModListeners(); // I do not think it is possible to specify only removing listeners for a specific mod..
+      console.log("Removing any registered Constructors for mods..");
+      objectCreator.deregAllConstructors();
       console.log("Deleting the require cache's for mods..");
       unloadMods();
       console.log("Re-requiring the mods..");

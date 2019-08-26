@@ -1,6 +1,8 @@
 
 // This script assists with creating all custom object types used by the wrapper.
 
+// TODO: Look into how a mod might extend the object types here, for use with squish/unsquish
+
 // Some reading:
 // Callback standard used:  http://fredkschott.com/post/2014/03/understanding-error-first-callbacks-in-node-js/
 
@@ -23,12 +25,18 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   SMNameObj,
   SystemObj,
   RemoteServer: RemoteServerObj,
+  regConstructor, // Allows outside scripts to register new functions for use with squish/unsquish
+  deregAllConstructors, // Deregisters constructors registered by mods
+  deregConstructor, // Deregisters a specific constructor added by a mod
   decodeChmodNum,
   isPlayerOnline,
   getPlayerList,
   getAdminsList,
   getProtectionsDifferentialString,
-  getChmodArrayFromNum
+  getChmodArrayFromNum,
+  squish,
+  unSquish,
+  isSquishable
 }
 
 // Requires
@@ -53,6 +61,7 @@ const ini                  = requireBin("iniHelper.js");
 var setSettings            = requireBin("setSettings.js"); // This will confirm the settings.json file is created and the install folder is set up.
 const installAndRequire    = requireBin("installAndRequire.js");
 const sleep                = requireBin("mySleep.js").softSleep;
+
 
 // NPM installable requires
 const treeKill      = installAndRequire('tree-kill'); // https://www.npmjs.com/package/tree-kill To kill the server and any sub-processes
@@ -126,7 +135,59 @@ SystemObj.prototype.toString = function(){ return this.coords.toString() };
 //  #######################
 //  ###     TESTING     ###
 //  #######################
+function nameFunction(name, body) {
+  return {[name](...args) { return body(...args) }}[name]
+}
 
+
+var registeredConstructors={};
+function regConstructor(theFunction){
+  if (typeof theFunction == "function"){
+    if (typeof theFunction.name == "string"){
+      registeredConstructors[theFunction.name]=theFunction;
+      module.exports[theFunction.name]=theFunction;
+      console.log("Registered new Constructor: " + theFunction.name); // This does not make it a constructor.
+      return true;
+    }
+    throw new Error("Unable to register unnamed constructor!  Please only attempt to register VALID constructors!");
+  }
+  return false;
+}
+// need a deRegConstructor(name) command and deRegAllConstructors.
+function deregConstructor(theFunction){
+  var theFunctionTypeName;
+  if (typeof theFunction == "function"){
+    if (theFunction.hasOwnProperty("name")){
+      theFunctionTypeName=theFunction.name;
+    } else {
+      throw new Error("Invalid input given to deregConstructor!  Expects a named function or string!");
+    }
+  } else if (typeof theFunction == "string"){
+    theFunctionTypeName=theFunction;
+  } else {
+    throw new Error("Invalid input given to deregConstructor!  Expects a named function or string!");
+  }
+  var deregged=false;
+  for (let i=0;i<registeredConstructors.length;i++){
+    if (theFunctionTypeName === registeredConstructors[i]){
+      deregged=true;
+      Reflect.deleteProperty(module.exports, theFunctionTypeName);
+      registeredConstructors.splice(i,1);
+    }
+  }
+  return deregged; // Returns true if successful, false if not found.
+}
+function deregAllConstructors(){
+  var deregged=false;
+  for (let i=0;i<registeredConstructors.length;i++){
+    if (module.exports.hasOwnProperty(registeredConstructors[i])){
+      deregged=true;
+      Reflect.deleteProperty(module.exports, registeredConstructors[i]);
+    }
+    registeredConstructors.splice(i,1); // Remove it from the registered constructor array whether it was valid or not.
+  }
+  return deregged; // Returns true if something was removed, false if not.
+}
 
 if (__filename == require.main.filename){ // Only run the arguments IF this script is being run by itself and NOT as a require.
   // I'm phasing out the test suits since mods are a thing now.
@@ -184,55 +245,98 @@ function squishyElemIsAnythingBut(input){
   }
   return false;
 }
+function isSquishable(inputObj){
+  if (typeof inputObj=="object"){
+    var inputObjName=inputObj.constructor.name;
+    // console.log("inputObjName: " + inputObjName);
+    // console.log("typeof inputObjName: " + typeof inputObjName);
+    if (typeof inputObjName == "string" && inputObjName !== ""){
+      // console.log("Seeing if module.exports.hasOwnProperty(" + inputObjName + ")");
+      if (module.exports.hasOwnProperty(inputObjName)){
+        if (inputObjName[0].match(/^[A-Z]+/)){ // Must have a capitalized letter as the first letter.
+          // It is a registered object type, but can it be successfully squished and unsquished?
+          try {
+            var squishedObj=squish(inputObj);
+          } catch (err){
+            // console.log("Could not squish!",err);
+            return false;
+          }
+          try {
+            var unSquishedObj=unSquish(squishedObj);
+          } catch (err){
+            // console.log("Could not unsquish!",err);
+            return false;
+          }
+          // console.log("Made it to checking of objects are equivalent..");
+          return objectHelper.areObjsEquivalent(inputObj,unSquishedObj); // Does the squished/unsquished object equal the original?
+        }
+      }
+    }
+  }
+  return false;
+}
 
 function squish(inputObj,options){ // The purpose of this is to minify an object to be recreated back later
     console.log("Squishing object..");
     // Get the parameters needed to create the function:
 
     var objType=inputObj.constructor.name;
-    // var objCreationString=inputObj.toString();
-    var paramsNameArray=getParamNames(eval(inputObj.constructor.name));
-    console.log("Parameters: " + paramsNameArray);
+    // var objType=inputObj.name;
 
-    // Instead of using the input parameters to look up values from the object,
-    // we can specify which ones to use, but the results MUST be able to be used
-    // as parameters to create the object.
-    // For example:  MyObj(first,second,third,fourth);
-    // If the object created by this Constructor has a "1st" value, we can provide
-    // that as the map.
-    // example:  squish(myObj,{"elements":["1st","2nd","3rd","4th"]})
-    // This then looks up myObj["1st"] to use later as input to "first"
-    // Even if a parameter will be empty, it must be provided.
-    
-    var iterableParams=getOption(options,"elements",paramsNameArray);
-    var iterableFuncs=getOption(options,"preProcess",[]); // This is used to process any value retrieved to a value that can then be used to recreate the object
-    console.log("Using iterable params: " + iterableParams);
-    if (Array.isArray(iterableParams)){
-        if (iterableParams.length == paramsNameArray.length){
-            var theArgArray=[];
-            var paramName;
-            for (let i=0;i<paramsNameArray.length;i++){
-                paramName=iterableParams[i];
-                if (typeof iterableFuncs[i] == "function"){
-                    theArgArray.push(iterableFuncs[i](inputObj[paramName]));
-                } else {
-                    theArgArray.push(inputObj[paramName]);
-                }
-                
-            }
-            return new SquishedObj(inputObj,objType,theArgArray);
-        } else {
-            throw new Error("ERROR: elements array MUST be the same length as the input parameters required by the input Constructor!");
-        }
+    // var objCreationString=inputObj.toString();
+    console.log("Object type: " + objType);
+    // var theConstructor=eval(inputObj.constructor.name); // temp.  Works fine with natively registered constructors from this script but not from registered.
+    // Cannot use "new", must instead use the module.exports[objType]
+
+    if (module.exports.hasOwnProperty(objType)){
+      var theConstructor=module.exports[objType];
+      var paramsNameArray=getParamNames(theConstructor);
+      console.log("Parameters: " + paramsNameArray);
+  
+      // Instead of using the input parameters to look up values from the object,
+      // we can specify which ones to use, but the results MUST be able to be used
+      // as parameters to create the object.
+      // For example:  MyObj(first,second,third,fourth);
+      // If the object created by this Constructor has a "1st" value, we can provide
+      // that as the map.
+      // example:  squish(myObj,{"elements":["1st","2nd","3rd","4th"]})
+      // This then looks up myObj["1st"] to use later as input to "first"
+      // Even if a parameter will be empty, it must be provided.
+      
+      var iterableParams=getOption(options,"elements",paramsNameArray);
+      var iterableFuncs=getOption(options,"preProcess",[]); // This is used to process any value retrieved to a value that can then be used to recreate the object
+      console.log("Using iterable params: " + iterableParams);
+      if (Array.isArray(iterableParams)){
+          if (iterableParams.length == paramsNameArray.length){
+              var theArgArray=[];
+              var paramName;
+              for (let i=0;i<paramsNameArray.length;i++){
+                  paramName=iterableParams[i];
+                  if (typeof iterableFuncs[i] == "function"){
+                      theArgArray.push(iterableFuncs[i](inputObj[paramName]));
+                  } else {
+                      theArgArray.push(inputObj[paramName]);
+                  }
+                  
+              }
+              console.log("Returning squished object..");
+              return new SquishedObj(inputObj,objType,theArgArray);
+          } else {
+              throw new Error("ERROR: elements array MUST be the same length as the input parameters required by the input Constructor!");
+          }
+      } else {
+          throw new Error("Invalid input given as 'elements' option!  Expects an array!");
+      }
     } else {
-        throw new Error("Invalid input given as 'elements' option!  Expects an array!");
+      throw new Error("Invalid object type given to squish!  Please register the constructor for that object type!");
     }
+
 };
 
 function unSquish(squishedObj,options){
-    console.log("Unsquishing object..");
+    // console.log("Unsquishing object..");
     var squishedFromObjectType=squishedObj["squishedFromObjectType"];
-    console.log("squishedFromObjectType: " + squishedFromObjectType); // temp
+    // console.log("squishedFromObjectType: " + squishedFromObjectType); // temp
     var theSquishObjCreationArray=squishedObj["theSquishObjCreationArray"];
     var iterableFuncs=getOption(options,"preProcess",[]); // This is used to process any value retrieved to a value that can then be used to recreate the object
     for (let i=0;i<iterableFuncs.length;i++){
@@ -241,7 +345,8 @@ function unSquish(squishedObj,options){
             theSquishObjCreationArray[i]=iterableFuncs[i](theSquishObjCreationArray[i]);
         }
     }
-    var outputObj=Reflect.construct(eval(squishedFromObjectType),theSquishObjCreationArray);
+    // var outputObj=Reflect.construct(eval(squishedFromObjectType),theSquishObjCreationArray);
+    var outputObj=new module.exports[squishedFromObjectType](...theSquishObjCreationArray);
     for (var property in squishedObj){ // recreate any non-prototypes
         if (squishedObj.hasOwnProperty(property)){
             if (squishyElemIsAnythingBut(property)){
@@ -257,7 +362,16 @@ function SquishedObj(inputObj,objType,objCreationArray){ // Change this to take 
     this["squishedFromObjectType"]=objType;
     self["theSquishObjCreationArray"]=objCreationArray;
     if (typeof inputObj == "object" && typeof objType == "string" && Array.isArray(objCreationArray)){
-        var compareToObj=Reflect.construct(eval(objType),objCreationArray);
+        // var compareToObj=Reflect.construct(eval(objType),objCreationArray);
+        // Rather than constructing using reflect, we can simply call the function and look at the output
+        // console.log("objType: " + objType);
+        // console.log("objCreationArray:");
+        // console.dir(objCreationArray);
+        
+        var compareToObj=new module.exports[objType](...objCreationArray);
+        // console.log("compareToObj:"); // temp
+        // console.dir(compareToObj); // temp
+        
         for (var property in inputObj){
             if (inputObj.hasOwnProperty(property)){ // I don't want to save prototypes
                 if (!compareToObj.hasOwnProperty(property)){
@@ -351,7 +465,6 @@ function ServerObj(serverSettingsObj){ // cb/promises/squish compliant
       return simplePromisifyIt(self.getAdmins,options);
     }
   };
-
   this.getBannedAccounts=function(options,cb){ 
     if (typeof cb == "function"){
       return getBannedAccountsList(options,cb) 
@@ -373,7 +486,6 @@ function ServerObj(serverSettingsObj){ // cb/promises/squish compliant
       return simplePromisifyIt(self.getBannedNames,options);
     }
   };
-
   this.getWhitelistedAccounts=function(options,cb){ 
     if (typeof cb == "function"){
       return getWhitelistedAccountsList(options,cb); 
@@ -395,8 +507,6 @@ function ServerObj(serverSettingsObj){ // cb/promises/squish compliant
       return simplePromisifyIt(self.getWhitelistedNames,options);
     }
   };
-
-
   this.msg=function (message,options,cb){ // Sends a message to online players.
     // options can be {"type":plain/info/warning/error} <-- pick one.
     if (typeof cb == "function"){
@@ -829,13 +939,13 @@ function ServerObj(serverSettingsObj){ // cb/promises/squish compliant
       return simplePromisifyIt(self.npcLoadedFleetSpeed,options,floatTime);
     }
   }
-  this.npcTurn=function(options,cb){ // "Turn for all NPC factions"
+  this.npcTurnAll=function(options,cb){ // "Turn for all NPC factions"
   if (typeof cb == "function"){
     return runSimpleCommand("/npc_turn_all",options,cb);
   } else {
     return simplePromisifyIt(self.npcTurn,options);
   }
-}
+  }
   this.refreshServerMessage=function(options,cb){ // Refreshes the server message that players see upon joining the server from the "server-message.txt" located in the StarMade folder.
     if (typeof cb == "function"){
       return runSimpleCommand("/refresh_server_msg",options,cb);
@@ -1019,7 +1129,14 @@ function ServerObj(serverSettingsObj){ // cb/promises/squish compliant
   }
     // shutdown(seconds,"message") // message is optional.  If given, a countdown timer will be used and then a 1 second shutdown when it is set to expire.
     // ip
-    // 
+    //
+    
+    // New Methods needed:
+
+// shutdown(TimeInSeconds,publicMessageString,CountdownMessageString) - No fields are required, but if no time is given, 10 seconds is default.  If a publicMessageString is given, an announcement is made to the public channel. If CountdownMessageString is provided, then a countdown starts with a message and 1 second before it ends, the actual shutdown is started.  This will allow the server to shut down without auto-restarting.
+
+
+
 
 
 };
@@ -1289,7 +1406,7 @@ function PlayerObj(name){ // cb/promises/squish compliant // "Player" must be a 
         return simplePromisifyIt(self.botMsg,options,message);
       }
     }
-    self.creativeMode=function (input,options,cb){ // expects true or false as either boolean or string
+    this.creativeMode=function (input,options,cb){ // expects true or false as either boolean or string
       if (typeof cb == "function"){
         if (isTrueOrFalse(input)){
           return runSimpleCommand("/creative_mode " + self.name + " " + input,options,cb);
@@ -1299,7 +1416,7 @@ function PlayerObj(name){ // cb/promises/squish compliant // "Player" must be a 
         return simplePromisifyIt(self.creativeMode,options,input);
       }
     }
-    self.godMode=function (input,options,cb){ // expects true or false as either boolean or string
+    this.godMode=function (input,options,cb){ // expects true or false as either boolean or string
       if (typeof cb == "function"){
         if (isTrueOrFalse(input)){
           return runSimpleCommand("/god_mode " + self.name + " " + input,options,cb);
@@ -1499,12 +1616,6 @@ function PlayerObj(name){ // cb/promises/squish compliant // "Player" must be a 
       }
       return simplePromisifyIt(self.setFactionRank,options,number);
     }
-
-
-
-
-
-
     self.deleteFromFaction=function (options,cb){ 
       // WARNING: Will leave an empty faction behind if no members left!
       // This might be what you want if you plan on adding them later, but if not, then you'll want to
@@ -1671,31 +1782,39 @@ function PlayerObj(name){ // cb/promises/squish compliant // "Player" must be a 
     }
     self.removeAdminDeniedCommand=function (command,options,cb){ // Adds denied commands for an admin, input can be an array of commands to deny.  It will cycle through them all.
       if (typeof cb == "function"){
-        // Note:  This does not check to ensure the command actually exists.
-      // var returnVal=true;
-      // var result;
-      // if (typeof commandOrCommands == "object"){ // An array is an object typeof
-      //   if (commandOrCommands instanceof Array){ // This is how you figure out it is an array.  We cannot do this directly, because if it is not an object, this will throw an error.
-      //     if (commandOrCommands.length){ // This is to make sure it isn't an empty array
-      //       for (var i=0;i<commandOrCommands.length;i++){
-      //         // result=sendDirectToServer("/remove_admin_denied_comand " + self.name + " " + commandOrCommands[i]);
-      //         result=runSimpleCommand("/remove_admin_denied_comand " + self.name + " " + commandOrCommands[i],options);
-      //         if (result===false){ returnVal=false; }
-      //       }
-      //       return returnVal; // This will return false if ANY of the inputs failed.
-      //     } else {
-      //       return false;
-      //     }
-      //   }
-      //   return false; // This handles if an object of another type was given, which would be invalid.
-      // }
-      // if (testIfInput(commandOrCommands)){ // This would trigger for strings or numbers.
-      //   // return sendDirectToServer("/remove_admin_denied_comand " + self.name + " " + commandOrCommands);
+        // Note:  This cannot check to ensure the command being denied actually exists.
         return runSimpleCommand("/remove_admin_denied_comand " + self.name + " " + command,options,cb);
-      // }
-      // return false; // This should never happen.
       }
       return simplePromisifyIt(self.removeAdminDeniedCommand,options,command);
+    }
+    this.listAdminDeniedCommands=function (options,cb){ // Returns an array of all forbidden commands for the admin
+      if (typeof cb=="function"){
+        console.log("Unfinished.");
+        return starNetVerified("/list_admin_denied_commands " + self.name,options,function(err,result){
+          if (err){
+            return cb(err,null);
+          }
+          // RETURN: [SERVER, Denied Commands for weedle:, 0]
+          // RETURN: [SERVER, ban, 0]
+          // RETURN: [SERVER, END; Admin command execution ended, 0]
+
+          // RETURN: [SERVER, Player benevolent27 has no denied commands, 0]
+          // RETURN: [SERVER, END; Admin command execution ended, 0]
+          var outputArray=[];
+          if (checkForLine(result,/^RETURN: \[SERVER, Denied Commands.*/)){
+            var theArray=result.trim().split("\n");
+            var theMatch;
+            for (let i=1;i<theArray.length-1;i++){ // Skip the first and last line
+              theMatch=theArray[i].match(/(?<=^RETURN: \[SERVER, )[^,]+/);
+              if (theMatch){
+                outputArray.push(theMatch.toString());
+              }
+            }
+          } 
+          return cb(null,outputArray); // If no denied commands, this will be an empty array
+        });
+      }
+      return simplePromisifyIt(self.listAdminDeniedCommands,options);
     }
     self.unban=function (options,cb){
       if (typeof cb == "function"){
@@ -1735,42 +1854,19 @@ function PlayerObj(name){ // cb/promises/squish compliant // "Player" must be a 
       return simplePromisifyIt(self.ban,options,toKick,reason,time);
     }
     self.whitelist=function (timeToWhitelist,options,cb){ // timeToWhitelist is optional.  If no number given, it will be a perm whitelist.  Options can be {"fast":true}
-    if (typeof cb == "function"){
-      var theTimeToUse=toNumIfPossible(timeToWhitelist);
-      if (typeof theTimeToUse=="number"){ // temp whitelist
-        return runSimpleCommand("/whitelist_name_temp " + self.name,options + " " + theTimeToUse,cb);
-      } else if (testIfInput(timeToWhitelist)){
-        return cb(new Error("Invalid input given to PlayerObj.whitelist as 'timeToWhitelist'!"),null);
-      } else { // permawhitelist
-        return runSimpleCommand("/whitelist_name " + self.name,options,cb);    
+      if (typeof cb == "function"){
+        var theTimeToUse=toNumIfPossible(timeToWhitelist);
+        if (typeof theTimeToUse=="number"){ // temp whitelist
+          return runSimpleCommand("/whitelist_name_temp " + self.name,options + " " + theTimeToUse,cb);
+        } else if (testIfInput(timeToWhitelist)){
+          return cb(new Error("Invalid input given to PlayerObj.whitelist as 'timeToWhitelist'!"),null);
+        } else { // permawhitelist
+          return runSimpleCommand("/whitelist_name " + self.name,options,cb);    
+        }
+      } else {
+        return simplePromisifyIt(self.whitelist,options,timeToWhitelist);
       }
-    } else {
-      return simplePromisifyIt(self.whitelist,options,timeToWhitelist);
     }
-  }
-    // We should not cycle through commands with callbacks.
-    // self.giveMetaItem=function (metaItem,number,options){ // number is optional, but if options are given, it should be "".  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
-    //   // EXAMPLE: /give_metaitem schema blueprint, recipe, log_book, helmet, build_prohibiter, flash_light, virtual_blueprint, block_storage, laser, heal, power_supply, marker, rocket_launcher, sniper_rifle, grapple, torch, transporter_marker
-    //   // Note:  The primary usage for this is for log_book, helmet, and build_prohibiter
-    //   var theNum=toNumIfPossible(number);
-    //   var countTo=1; // The default times to run the command is 1
-    //   var result;
-    //   var resultToReturn=true;
-    //   if (testIfInput(metaItem)){
-    //     if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.  We don't use 'isNum()' since this would be duplicating efforts.
-    //       if (theNum>1){ countTo=theNum; } 
-    //     }
-    //     for (var i=0;countTo>i;i++){
-    //       // result=sendDirectToServer("/give_metaitem " + self.name + " " + metaItem.toString().trim()); // the input should never fail, so this should normally always return true
-    //       result=runSimpleCommand("/give_metaitem " + self.name + " " + metaItem.toString().trim(),options);
-    //       if (result===false){
-    //         resultToReturn=false;
-    //       }
-    //     }
-    //     return resultToReturn; // If any of the commands given to the server are invalid, then this will be false
-    //   }
-    //   return false; // The input was invalid, so return false.
-    // }
     self.giveMetaItem=function (metaItem,options,cb){
       // EXAMPLE: /give_metaitem schema blueprint, recipe, log_book, helmet, build_prohibiter, flash_light, virtual_blueprint, block_storage, laser, heal, power_supply, marker, rocket_launcher, sniper_rifle, grapple, torch, transporter_marker
       // Note:  The primary usage for this is for log_book, helmet, and build_prohibiter
@@ -1802,7 +1898,6 @@ function PlayerObj(name){ // cb/promises/squish compliant // "Player" must be a 
       if (typeof cb == "function"){
         var sectorToUse=location;
         var spacialToUse=coordsObj;
-
         if (typeof location=="object"){
           if (location instanceof LocationObj){
             if (location.hasOwnProperty("spacial") && location.hasOwnProperty("sector")){ // This handles LocationObj types given.  This will lead to the coordsObj being ignored if given.
@@ -2081,7 +2176,6 @@ function PlayerObj(name){ // cb/promises/squish compliant // "Player" must be a 
         return simplePromisifyIt(self[valToLookFor],options);
       }
     }
-
     // TODO - create this: // self.controlling=function(input){ } // This is an alternative for currentEntity.  It cannot return the UID for asteroids or planets, but it will at least return SOMETHING.  currentEntity will return false if the player is in an asteroid.
     self.playerProtect=function (smName,options,cb){ // Requires smName, which can be a string or a SMNameObj
       if (typeof cb=="function"){
@@ -2100,7 +2194,6 @@ function PlayerObj(name){ // cb/promises/squish compliant // "Player" must be a 
       }
       return simplePromisifyIt(self.playerUnprotect,options); 
     }
-
     self.currentEntity=function(options,cb){
       // This uses the /entity_info_by_player_uid command instead of /player_info command, since that will not work with asteroids nor planets.
       // IMPORTANT NOTE:  This does not work with asteroids currently!
@@ -2123,8 +2216,7 @@ function PlayerObj(name){ // cb/promises/squish compliant // "Player" must be a 
       if (typeof cb=="function"){
         return starNetVerified("/entity_info_by_player_uid " + self.name,options,function(err,result){
           if (err){
-            console.error("PlayerObj.currentEntity encountered a StarNet problem.  On Player: " + self.name);
-            console.dir(err);
+            console.error("PlayerObj.currentEntity encountered a StarNet problem.  On Player: " + self.name,err);
             return cb(new Error(err),null);
           }
           if (!returnLineMatch(result,/^RETURN: \[SERVER, \[ADMIN COMMAND\] \[ERROR\]/)){
@@ -2259,8 +2351,6 @@ function PlayerObj(name){ // cb/promises/squish compliant // "Player" must be a 
         return simplePromisifyIt(self.inventory,options); 
       }
     }
-
-
     self.blueprints = function (options,cb){ // Returns an array of blueprint objects.
       if (typeof cb=="function"){
         var verbose=getOption(options,"verbose",false); // Not sure if I'll actually use this

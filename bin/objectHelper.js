@@ -23,6 +23,11 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   addOption, // Adds an option to an existing options object and returns the result
   isObjHasPropAndEquals, // Checks if input is an object, has a property, and that property strictly equals a value
   objHasPropAndEquals, // For when you have many property checks and you've already ensured what is being fed is an object
+  areObjsEquivalent, // Tests to see if two objects have the same elements and values for those elements (supports values as Map Objects, Date Objects, Objects, Arrays, Strings, and Numbers)
+  areMapsEqual, // (supports values as Map Objects, Date Objects, Objects, Arrays, Strings, and Numbers)
+  areArraysEqual, // (supports values as Map Objects, Date Objects, Objects, Arrays, Strings, and Numbers)
+  areDatesEqual, // Checks the time of date objects.  If non-date objects given, will always return false.
+  isEquivalent, // Handles Map Objects, Date Objects, Arrays, Objects, strings, numbers, NaN, undefined, and "".  Will get caught in an infinite loop if given handle recursive objects/maps!
   isObjEmpty, // Checks for empty object
   testIfInput, // Checks if any valid, non-empty input is given.  Returns false for empty objects, true for any boolean value.
   isTrue, // Only string "true" or boolean true will return true
@@ -505,3 +510,189 @@ function addOption(options,parameter,value){
   return optionsToReturn;
 }
 
+function isEquivalent(input,input2){
+  // areObjsEquivalent,,,areFunctionsEqual
+
+  if (Array.isArray(input)){
+    console.log("Testing arrays..");
+    return areArraysEqual(input,input2);
+  } else if (input instanceof Map){
+    console.log("Testing maps..");
+    return areMapsEqual(input,input2);
+  } else if (input instanceof Date){
+    console.log("Testing dates..");
+    return areDatesEqual(input,input2);
+  } else if (typeof input == "function"){
+    console.log("Testing functions..");
+    return areFunctionsEqual(input,input2);
+  } else if (typeof input == "object"){
+    console.log("Testing objects..");
+    return areObjsEquivalent(input,input2);
+  } else if (input !== input2) {
+    console.log("Testing everything else..");
+    if (!(isNaN(input) && isNaN(input2))){
+      return false;
+    }
+  }
+  return true; // They were both NaN, null, or strictly equal to each other
+}
+
+function areObjsEquivalent(a, b) { // This should NOT be used on objects that have infinite recursion, otherwise it will cause an infinite loop!
+  // Create arrays of property names
+  var aProps = Object.getOwnPropertyNames(a);
+  var bProps = Object.getOwnPropertyNames(b);
+  // If number of properties is different,
+  // objects are not equivalent
+  if (aProps.length != bProps.length) {
+      return false;
+  }
+  for (var i=0;i<aProps.length;i++){
+    var propName = aProps[i];
+    // If values of same property are not equal,
+    // objects are not equivalent
+    if (!b.hasOwnProperty(propName)){
+      return false;
+    }
+    // We need to test things differently depending on what the value for the elemnt is.
+    if (Array.isArray(a[propName])){ // The value is an array
+      if (!areArraysEqual(a[propName],b[propName])){
+        return false;
+      }
+    } else if (typeof a[propName] == "function"){
+      if (!areFunctionsEqual(a[propName],b[propName])){
+        return false;
+      }
+    } else if (a[propName] instanceof Map){ // The value is a Map object
+      if (!areMapsEqual(a[propName],b[propName])){
+        return false;
+      }
+    } else if (a[propName] instanceof Date){ // It's a Date object
+      if (!areDatesEqual(a[propName],b[propName])){
+        return false;
+      }
+    } else if (typeof a[propName] == "object"){ // For objects, we can use a recusion check.  Warning:  This can cause an infinite loop if the object has infinite recursion
+      if (!areObjsEquivalent(a[propName],b[propName])){
+        return false;
+      }
+    } else if (a[propName] !== b[propName]){ // Must be a string or number
+      if (!(typeof a[propName] == "number" && isNaN(a[propName]) && typeof b[propName] == "number" && isNaN(b[propName]))){
+        return false;
+      }
+    }
+  }
+  // If we made it this far, objects
+  // are considered equivalent
+  return true;
+  // Source: http://adripofjavascript.com/blog/drips/object-equality-in-javascript.html
+}
+
+function areArraysEqual(arr1, arr2) {
+  if (!Array.isArray(arr1) || !Array.isArray(arr2)){
+    return false;
+  }
+  if (arr1.length !== arr2.length){ // Check if the arrays are the same length
+    return false;
+  }
+  for (let i=0;i<arr1.length;i++) { // Check if all items exist and are in the same order
+    // The array may contain other arrays, Map objects, or objects, so we need to differentiate
+    if (Array.isArray(arr1[i])){ // The value is an array
+      if (!areArraysEqual(arr1[i],arr2[i])){
+        return false;
+      }
+    } else if (typeof arr1[i] == "function"){
+      if (!areFunctionsEqual(arr1[i],arr2[i])){
+        return false;
+      }
+    } else if (arr1[i] instanceof Map){ // It's a map object
+      if (!areMapsEqual(arr1[i],arr2[i])){
+        return false;
+      }
+    } else if (arr1[i] instanceof Date){ // It's a Date object
+      if (!areDatesEqual(arr1[i],arr2[i])){
+        return false;
+      }
+    } else if (typeof arr1[i]=="object"){ // It's an object
+      if (!areObjsEquivalent(arr1[i],arr2[i])){
+        return false;
+      }
+    } else if (arr1[i] !== arr2[i]){ // It must be a string or number
+      if (!(typeof arr1[i] == "number" && isNaN(arr1[i]) && typeof arr2[i] == "number" && isNaN(arr2[i]))){
+        return false;
+      }
+    }
+  }
+  return true;
+};
+
+function areMapsEqual(map1, map2) {
+  if (!(map1 instanceof Map) || !(map2 instanceof Map)){
+    return false;
+  }
+  var testVal;
+  if (map1.size !== map2.size) {
+      return false;
+  }
+  for (var [key, val] of map1) {
+    // in cases of an undefined value, make sure the key
+    // actually exists on the object so there are no false positives
+
+    if (!map2.has(key)){
+      return false;
+    }
+    testVal = map2.get(key);
+    // We need to test values based on what type they represent
+    if (Array.isArray(val)){ // It's an array
+      if (!Array.isArray(testVal)){
+        return false
+      } else if (!areArraysEqual(val,testVal)){
+        return false;
+      }
+    } else if (typeof val == "function"){
+      if (!areFunctionsEqual(val,testVal)){
+        return false;
+      }
+    } else if (val instanceof Map){ // It's a map object
+      if (!(testVal instanceof Map)){
+        return false;
+      } else if (!areMapsEqual(val,testVal)){
+        return false;
+      }
+    } else if (val instanceof Date){ // It's a Date object
+      if (!areDatesEqual(val,testVal)){
+        return false;
+      }
+    } else if (typeof val=="object"){ // It's an object
+      if (typeof testVal != "object"){
+        return false;
+      } else if (!areObjsEquivalent(val,testVal)){
+        return false;
+      }
+    } else if (testVal !== val) { // It must be a string or number
+      if (!(typeof testVal == "number" && isNaN(testVal) && typeof val == "number" && isNaN(val))){
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+function areFunctionsEqual(func1,func2){
+  if (typeof func1 == "function" && typeof func2 == "function"){
+    var func1String=func1.toString();
+    var func2String=func2.toString();
+    var func1Cut=func1String.substring(func1String.indexOf("("));
+    var func2Cut=func2String.substring(func2String.indexOf("("));
+    return func1Cut === func2Cut;
+  }
+  return false;
+}
+
+function areDatesEqual(date1,date2){
+  if (!(date1 instanceof Date) || !(date2 instanceof Date)){
+    return false;
+  }
+  if (date1.getTime() != date2.getTime()){
+    return false;
+  }
+  return true;
+}
