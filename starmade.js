@@ -421,9 +421,12 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
     // // global["serverSpawn"]=server;
     // var server=global["serverSpawn"];
     // global["server"]=new ServerObj(global["serverSpawn"]);
+    console.log("############## Loading Mods ###############");
+    loadMods();
 
+    console.log("############## Starting Server ###############");
     global["server"]=new ServerObj(settings); // This object starts the server.
-    global["serverSpawn"]=global["server"].spawn; // temporary, we should reference the server object in the future, to be clear of the source.
+    // global["serverSpawn"]=global["server"].spawn; // temporary, we should reference the server object in the future, to be clear of the source.
 
   } catch (err) { // This does NOT handle errors returned by the spawn process.  This only handles errors actually spawning the process in the first place, such as if we type "javaBlah" instead of "java".  Cannot run "javaBlah" since it doesn't exist.
     console.error("ERROR: Could not spawn server!")
@@ -443,8 +446,6 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
     // ###################
     // #### MODLOADER ####
     // ###################
-    console.log("############## Loading Mods ###############");
-    loadMods();
     function loadMods(){
       var modFolders=getDirectories(modsFolder)
       global["modFolders"]=modFolders;
@@ -523,10 +524,6 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
         global["mods"]=[];
       }
     }
-    // I don't know if I should actually add these to the global variable or not, since this is potentially dangerous
-    // global["loadMods"]=loadMods();
-    // global["unloadMods"]=unloadMods();
-    // global["reloadMods"]=reloadMods();
 
     // To allow loading, unloading, and reloading of mods, a mod should probably emit an event to trigger the event here, rather than run it within it's own process.
     eventEmitter.on("loadMods", function(){

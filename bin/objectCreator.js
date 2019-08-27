@@ -5229,18 +5229,20 @@ function isIPBanned(ip,options,cb){
 
 function sendDirectToServer(input,cb){ // if cb not given, functions as Sync. Expects a string input, returning "false" if the input wasn't valid.  This sends a command directly to the console with a return character.
   // Note:  This is probably the one exception I'm making to allow running in sync mode, since it's just sending input to the stdin
-  var theResult;
+  var theResult=null;
   var theErr=null;
   if (testIfInput(input)){
-    // return global.serverSpawn.stdin.write(input + "\n");
     try {
-      theResult=global.serverSpawn.stdin.write(input + "\n");
+      theResult=global.server.spawn.stdin.write(input + "\n");
     } catch (err){
       theErr=err;
     }
     if (typeof cb=="function"){
       return cb(theErr,theResult);
     } else {
+      if (theErr){
+        throw theErr;
+      }
       return theResult; // This should not happen any longer
     }
   }
@@ -5248,7 +5250,7 @@ function sendDirectToServer(input,cb){ // if cb not given, functions as Sync. Ex
   if (typeof cb=="function"){
     return cb(theErr,theResult);
   } else {
-    return false;
+    throw theErr;
   }
 };
 // TODO: Create a function that gives a specific protection a value based on the sectorProtections array.
