@@ -25,7 +25,7 @@ test_script:
   # Output useful info for debugging.
   - node --version
   - npm --version
-  - ./node_modules/.bin/eslint lib
+  - /node_modules/.bin/eslint lib
   # run tests
   - npm test
   # - eslint starmade.js
