@@ -1,5 +1,7 @@
 // This script will check to ensure a module can be required, and if not attempt to install it with NPM.
 // When it is available, it will return the module, otherwise it will exit the script with an error displayed.
+// If a specific version is desired, this can be included
+
 const fs = require('fs');
 const child = require('child_process');
 const path = require('path');
@@ -16,11 +18,19 @@ function isModuleAvailableSync(moduleName) { // Based on code from: https://stac
   });
   return ret;
 }
-function installAndRequire(theModule){  // This should only ever be ran on modules that are installable through NPM
+function installAndRequire(theModule,version){  // This should only ever be ran on modules that are installable through NPM
+  // npm install lodash@^4.0.0
+  // example:  installAndRequire("lodash","^4.0.0");
+  var verToUse="";
+  var verText="";
+  if (typeof version == "string"){
+    verToUse="@" + version;
+    verText=" Version: " + version;
+  }
   if (isModuleAvailableSync(theModule) == false){
     try {
-      process.stdout.write("Installing required module: " + theModule);
-      child.execSync('npm install --save ' + theModule,{"cwd": mainDirName});
+      process.stdout.write("Installing required module: " + theModule + verText);
+      child.execSync('npm install --save ' + theModule + verToUse,{"cwd": mainDirName});
       process.stdout.write(" ..Done!\n");
     } catch(error) {
       console.error("ERROR installing module, " + theModule + "! Exiting!");
