@@ -116,17 +116,19 @@ global["regExpHelper"]=regExpHelper;
 // ### NPM DOWNLOADABLE REQUIRES ###
 // #################################
 console.log("Importing NPM requires, installing if need be..");
-const treeKill        = installAndRequire('tree-kill'); // https://www.npmjs.com/package/tree-kill To kill the server and any sub-processes
+const treeKill        = installAndRequire('tree-kill',"^1.2.1"); // https://www.npmjs.com/package/tree-kill To kill the server and any sub-processes
 // const iniPackage      = installAndRequire('ini'); // https://www.npmjs.com/package/ini Imports ini files as objects.  It's a bit wonky with # style comments (in that it removes them and all text that follows) and leaves // type comments, so I created some scripting to modify how it loads ini files and also created some functions to handle comments.
-const prompt          = installAndRequire("prompt-sync")({"sigint":true}); // https://www.npmjs.com/package/prompt-sync This creates sync prompts and can have auto-complete capabilties.  The sigint true part makes it so pressing CTRL + C sends the normal SIGINT to the parent javascript process
-var Tail            = installAndRequire('tail').Tail; // https://github.com/lucagrulla/node-tail/blob/master/README.md For following the server log.  I forgot that the console output does NOT have everything.  This is NOT a perfect solution because whenever file rotation occurs, there is a 1 second gap in coverage.  Argh.
-const exitHook        = installAndRequire('exit-hook'); // https://github.com/sindresorhus/exit-hook Handles normal shutdowns, sigterm, sigint, and a "message=shutdown" event.  Good for ensuring the server gets shutdown.
-const sqlite3 = installAndRequire("sqlite3").verbose();
+const prompt          = installAndRequire("prompt-sync","^4.1.7")({"sigint":true}); // https://www.npmjs.com/package/prompt-sync This creates sync prompts and can have auto-complete capabilties.  The sigint true part makes it so pressing CTRL + C sends the normal SIGINT to the parent javascript process
+var Tail            = installAndRequire('tail',"^2.0.3").Tail; // https://github.com/lucagrulla/node-tail/blob/master/README.md For following the server log.  I forgot that the console output does NOT have everything.  This is NOT a perfect solution because whenever file rotation occurs, there is a 1 second gap in coverage.  Argh.
+const exitHook        = installAndRequire('exit-hook',"^2.2.0"); // https://github.com/sindresorhus/exit-hook Handles normal shutdowns, sigterm, sigint, and a "message=shutdown" event.  Good for ensuring the server gets shutdown.
+const sqlite3 = installAndRequire("sqlite3","^4.1.0").verbose(); // Embedded sql database
+const _=installAndRequire("lodash","^4.17.15"); // Useful javascript shortcuts http://zetcode.com/javascript/lodash/
 global["treeKill"]=treeKill;
 global["prompt"]=prompt;
 global["Tail"]=Tail;
 global["exitHook"]=exitHook;
 global['sqlite3']=sqlite3;
+global['_']=_;
 
 
 // ### Set up submodules and aliases from requires.

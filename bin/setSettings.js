@@ -26,9 +26,9 @@ module.exports = function() {
   var settingsFile=path.join(mainFolder, "/settings.json");
 
   // console.log("Loading dependencies..");
-  const prompt = installAndRequire("prompt-sync")({"sigint":true}); // https://www.npmjs.com/package/prompt-sync - This creates sync prompts and can have auto-complete capabilties.  The sigint true part makes it so pressing CTRL + C sends the normal SIGINT to the parent javascript process
-  const isInvalidPath = installAndRequire("is-invalid-path"); // https://www.npmjs.com/package/is-invalid-path -- Not using the "is-valid-path" because my force require scripting won't work with it since it uses a non-standard path to it's scripts
-  const mkdirp = installAndRequire("mkdirp"); // https://www.npmjs.com/package/mkdirp - Great for sync or async folder creation, creating all folders necessary up to the end folder
+  const prompt = installAndRequire("prompt-sync",'^4.1.7')({"sigint":true}); // https://www.npmjs.com/package/prompt-sync - This creates sync prompts and can have auto-complete capabilties.  The sigint true part makes it so pressing CTRL + C sends the normal SIGINT to the parent javascript process
+  const isInvalidPath = installAndRequire("is-invalid-path",'^1.0.2'); // https://www.npmjs.com/package/is-invalid-path -- Not using the "is-valid-path" because my force require scripting won't work with it since it uses a non-standard path to it's scripts
+  const mkdirp = installAndRequire("mkdirp",'^0.5.1'); // https://www.npmjs.com/package/mkdirp - Great for sync or async folder creation, creating all folders necessary up to the end folder
 
   function isValidCommandOperator(testString){
     // Command operators cannot be / characters, alphanumeric, blank, and must be 1 character

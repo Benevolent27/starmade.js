@@ -64,9 +64,9 @@ const sleep                = requireBin("mySleep.js").softSleep;
 
 
 // NPM installable requires
-const treeKill      = installAndRequire('tree-kill'); // https://www.npmjs.com/package/tree-kill To kill the server and any sub-processes
-const isInvalidPath = installAndRequire("is-invalid-path"); // https://www.npmjs.com/package/is-invalid-path -- Not using the "is-valid-path" because my force require scripting won't work with it since it uses a non-standard path to it's scripts
-const exitHook      = installAndRequire('exit-hook'); // https://github.com/sindresorhus/exit-hook Handles normal shutdowns, sigterm, sigint, and a "message=shutdown" event.  Good for ensuring the server gets shutdown.
+const treeKill      = installAndRequire('tree-kill','^1.2.1'); // https://www.npmjs.com/package/tree-kill To kill the server and any sub-processes
+const isInvalidPath = installAndRequire("is-invalid-path",'^1.0.2'); // https://www.npmjs.com/package/is-invalid-path -- Not using the "is-valid-path" because my force require scripting won't work with it since it uses a non-standard path to it's scripts
+const exitHook      = installAndRequire('exit-hook','2.2.0'); // https://github.com/sindresorhus/exit-hook Handles normal shutdowns, sigterm, sigint, and a "message=shutdown" event.  Good for ensuring the server gets shutdown.
 
 var lockFile   = path.join(mainFolder,"server.lck");
 

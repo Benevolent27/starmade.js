@@ -26,7 +26,7 @@ const binFolder         = path.resolve(__dirname,"../bin/");
 const logFolder         = path.resolve(mainFolder,"logs/");
 // const objectCreator=require(path.join(binFolder,"objectCreator.js"));
 const installAndRequire = requireBin("installAndRequire");
-const makeDir           = installAndRequire('make-dir'); // https://www.npmjs.com/package/make-dir This allows creating folders recursively if they do not exist, with either async or sync functionality.
+const makeDir           = installAndRequire('make-dir','^3.0.0'); // https://www.npmjs.com/package/make-dir This allows creating folders recursively if they do not exist, with either async or sync functionality.
 const sleep             = requireBin("mySleep.js").softSleep;
 const objectHelper      = requireBin("objectHelper.js");
 ensureFolderExists(logFolder); // Let's just do this once the helper being loaded.

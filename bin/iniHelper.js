@@ -13,11 +13,13 @@ module.exports={
   "getVarsWhereVal":getVariablesWhereValueEqualsString
 }
 
+// TODO: Make cb/promise versions instead of relying on sync only
+
 const fs=require('fs');
 const path=require('path');
 const binFolder=path.resolve(__dirname,"../bin/");
 var installAndRequire = require(path.join(binFolder, "installAndRequire.js"));
-const ini = installAndRequire('ini'); // https://www.npmjs.com/package/ini Imports ini files as objects.
+const ini = installAndRequire('ini',"^1.3.5"); // https://www.npmjs.com/package/ini Imports ini files as objects.
 // Notes: The ini npm package is mishandles # style comments, removing them, but leaves // type comments as part of the value.
 // The goals of this helper script are:
 // 1. To modify how the ini package loads ini files and saves them, to correctly preserve # style comments
