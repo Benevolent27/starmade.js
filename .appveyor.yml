@@ -10,7 +10,8 @@ install:
   # Get the latest stable version of Node.js or io.js
   - ps: Install-Product node $env:nodejs_version $env:platform
   # install modules
-  - npm -g i eslint-cli
+  # - npm -g i eslint-cli
+  - npm -g i eslint
   - eslint --init
   - npm install
 
