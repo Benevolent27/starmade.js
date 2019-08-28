@@ -16,7 +16,7 @@ install:
   # - npm install --save-dev
   - npm install --save-dev eslint@^4.18.2
   # - eslint lib
-  - npm -g i eslint-cli
+  # - npm -g i eslint-cli
 
 
 
