@@ -13,7 +13,7 @@ install:
   # - npm -g i eslint-cli
   # - npm -g i eslint
   # - npm install
-  - npm install --save-dev
+  # - npm install --save-dev
   - npm install --save-dev eslint
   # - eslint lib
   - npm -g i eslint-cli
