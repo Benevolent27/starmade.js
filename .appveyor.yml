@@ -12,7 +12,8 @@ install:
   # install modules
   # - npm -g i eslint-cli
   - npm -g i eslint
-  - eslint --init
+  - npm -g i eslint-cli
+  # - eslint --init
   - npm install
 
 # Post-install test scripts.
