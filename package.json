@@ -20,7 +20,7 @@
   "scripts": {
     "lint": "./node_modules/.bin/eslint **/*.js",
     "build": "...",
-    "test": "eslint starmade.js"
+    "test": "./node_modules/.bin/eslint **/*.js"
   },
   "dependencies": {
     "blessed": "^0.1.81",
