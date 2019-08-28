@@ -12,8 +12,7 @@ install:
   # install modules
   # - npm -g i eslint-cli
   # - npm -g i eslint
-  - npm -g i eslint-cli
-  # - eslint --init
+  # - npm -g i eslint-cli
   # - npm install
   - npm install --save-dev
 
