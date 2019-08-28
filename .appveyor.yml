@@ -11,12 +11,11 @@ install:
   - ps: Install-Product node $env:nodejs_version $env:platform
   # install modules
   # - npm -g i eslint-cli
-  # - npm -g i eslint
+  # - npm i eslint
   # - npm install
   - npm install --save-dev
   # - npm install --save-dev eslint@^4.18.2
   # - eslint lib
-  - ./node_modules/.bin/eslint lib
   - npm -g i eslint-cli
 
 
@@ -26,6 +25,7 @@ test_script:
   # Output useful info for debugging.
   - node --version
   - npm --version
+  - ./node_modules/.bin/eslint lib
   # run tests
   - npm test
   # - eslint starmade.js
