@@ -11,7 +11,7 @@ install:
   - ps: Install-Product node $env:nodejs_version $env:platform
   # install modules
   # - npm -g i eslint-cli
-  - npm -g i eslint
+  # - npm -g i eslint
   - npm -g i eslint-cli
   # - eslint --init
   - npm install
