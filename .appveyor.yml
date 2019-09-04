@@ -14,7 +14,7 @@ install:
   # - npm i eslint
   # - npm install
   # - npm install --save-dev
-  - npm ci
+  - npm ci # this does a clean install
   # - npm install --save-dev eslint@^4.18.2
   # - eslint lib
   - npm -g i eslint-cli
