@@ -1,5 +1,10 @@
 global object:
 
+events
+
+
+
+
 mainFolder
 binFolder
 modsFolder
@@ -7,13 +12,20 @@ console
 miscHelpers
 requireBin
 settings
+starNet
+starNetHelper
+
 objectCreator
 installAndRequire // Installs a NPM module on the fly and then requires it.  This adds it to the package.json file.
 sleep
 ini
 objectHelper
 regExpHelper
-event
+
+
+
+
+event // custom event emitter that logs event listeners to deregister when mods are reloaded
 log // Writes a log entry to the main wrapper log.
 
 sqlite3 // https://www.npmjs.com/package/sqlite3
@@ -25,9 +37,13 @@ exitHook // https://github.com/sindresorhus/exit-hook Handles normal shutdowns, 
 
 starMadeInstallFolder
 starMadeServerConfigFile
-debug
+serverCfg // the server.cfg file, as loaded by the ini module
 
-server // The SpawnObj of the server.  global.server.spawn = the actual spawn
+bot // a BotObj for the server, configured upon install.
+
+
+server // The ServerObj of the server.  global.server.spawn = the actual spawn
 
 modFolders // An array of all the mod folders
 modFiles // An array of all the loaded .js files loaded from the mod folders
+mods // an array of all the required mod .js files
