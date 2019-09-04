@@ -71,7 +71,7 @@ console.debug=function (vals,sleepTime) { // for only displaying text when the -
   if (debug==true){
     console.log(vals);
     if (sleepTime){
-      sleep(sleepTime);
+      sleepSync(sleepTime);
     }
   }
 }
@@ -94,7 +94,8 @@ global["settings"]=settings;
 console.log("Loading Objects..");
 const objectCreator     = requireBin("objectCreator.js");
 const installAndRequire = requireBin("installAndRequire.js"); // This is used to install missing NPM modules and then require them without messing up the require cache with modules not found (which blocks requiring them till an app restart).
-const sleep             = requireBin("mySleep.js").softSleep; // Only accurate for 100ms or higher wait times.
+const sleepSync             = requireBin("mySleep.js").softSleep; // Only accurate for 100ms or higher wait times.
+const sleepPromise = requireBin("mySleep.js").sleepPromise;
 const patterns          = requireBin("patterns.js"); // Import the patterns that will be used to match to in-game events like deaths and messages.
 var starNet           = requireBin("starNet.js"); // Performs sql queries and gets back a string result if successful
 var starNetHelper       = requireBin("starNetHelper.js"); // needs testing
@@ -107,7 +108,9 @@ global["starNet"]=starNet; // not used here, but good to have on the global
 global["starNetHelper"]=starNetHelper; // not used here, but good to have on the global
 global["objectCreator"]=objectCreator;
 global["installAndRequire"]=installAndRequire;
-global["sleep"]=sleep;
+global["sleep"]=sleepPromise;
+global["sleepSync"]=sleepSync;
+
 global["ini"]=ini;
 global["objectHelper"]=objectHelper;
 global["regExpHelper"]=regExpHelper;
@@ -160,7 +163,8 @@ var {isDirectory,getDirectories,isFile,getFiles,log}=miscHelpers;  // Sets up fi
 
 // Object aliases
 var {BotObj,EntityObj,SectorObj,CoordsObj,FactionObj,MessageObj,BlueprintObj,PlayerObj,SMNameObj,ServerObj}=objectCreator;
-var {repeatString,isInArray,getRandomAlphaNumericString,arrayMinus}=objectHelper;
+var {repeatString,isInArray,getRandomAlphaNumericString,arrayMinus,toStringIfPossible,testIfInput}=objectHelper;
+var {getUIDfromName,getFactionNumberFromName,getFactionObjFromName}=starNetHelper;
 
 
 
@@ -169,8 +173,11 @@ var {repeatString,isInArray,getRandomAlphaNumericString,arrayMinus}=objectHelper
 // #####################
 var lockFile                  = path.join(mainFolder,"server.lck");
 var showStderr                = false; // Normally this would be true but can be turned to false if testing
+var stderrFilter;
 var showStdout                = false;
+var stdoutFilter;
 var showServerlog             = true;
+var serverlogFilter;
 var showAllEvents             = false;
 var enumerateEventArguments   = false;
 var pauseBeforeStartingServer = "1"; // Default: 2000 - After any sort of installs, config verifications, etc, how long should we wait before pulling the trigger on the server spawn in ms?
@@ -296,7 +303,7 @@ if (fs.existsSync(lockFile) && ignoreLockFile == false){
           treeKill(lockFileObject["mainPID"], 'SIGTERM');
           // We should initiate a loop giving up to 5 minutes for it to shut down before sending a sig-kill.
           miscHelpers.waitAndThenKill(300000,lockFileObject["mainPID"]);
-          sleep(1000); // Give the sigKILL time to complete if it was necessary.
+          sleepSync(1000); // Give the sigKILL time to complete if it was necessary.
         } else {
           console.log("Alrighty, I'll just let it run then.");
         }
@@ -323,7 +330,7 @@ if (fs.existsSync(lockFile) && ignoreLockFile == false){
               console.log("KILLING IT WITH FIRE! (SIGTERM)")
               process.kill(serverPIDS[i],'SIGTERM');
               miscHelpers.waitAndThenKill(300,serverPIDS[i]);
-              sleep(1000); // Giving the SIGKILL time to complete.
+              sleepSync(1000); // Giving the SIGKILL time to complete.
               // We should initiate a loop giving up to 5 minutes for it to shut down before sending a sig-kill.
             } else {
               console.log("Alrighty then, I'll just let it keep running.")
@@ -360,7 +367,7 @@ if (fs.existsSync(lockFile) && ignoreLockFile == false){
     } else {
       console.log("server.lck went poof on it's own!  Wonderful! Continuing..");
     }
-    sleep(200); // Temp
+    sleepSync(200); // Temp
   }
 } else if (fs.existsSync(lockFile)){
   console.log("Ignored existing lock file!");
@@ -466,7 +473,12 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           if (fileList[e].match(/.\.js$/)) {
             console.log("Loading JS file: " + fileList[e]);
             modFiles.push(fileList[e]);
-            mods.push(require(fileList[e])); // This will load and run the mod
+            try{
+              mods.push(require(fileList[e])); // This will load and run the mod
+            } catch (err){
+              console.log("Error loading mod: " + fileList[e],err);
+              throw err;
+            }
           }
         }
       }
@@ -514,7 +526,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           if (inputPathToUse == fileList[e]){
             console.log("Unloading JS file: " + fileList[e]);
             global["modFiles"]=arrayMinus(global["modFiles"],fileList[e]); // This should work
-            global["mods"]=arrayMinus(global["mods"],require(fileList[e])); // I have no idea if this will actually work since it's an array of objects.  Can they be directly compared?
+            global["mods"]=arrayMinus(global["mods"],require(fileList[e])); // I have no idea if this will actually work since it's an array of objects.  Can they be directly compared? // TODO:  This should not work, comparing objects directly cannot work, but since things seem to be working.. I'll leave this be for now.
             // The above might need: require.cache[require.resolve(fileList[e])]
             Reflect.deleteProperty(require.cache,require.resolve(fileList[e])); // Source: http://derpturkey.com/reload-module-with-node-js-require/ with some modification to use reflect.
           }
@@ -599,7 +611,8 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   // ###    WRAPPER   ###
   // ####################
 
-  // For console output:
+ 
+  var lastMessage; // Used for player deaths since the console gets spammed with multiple death messages per player when more than 1 output of a weapon exists, which was responsible for the player's death.
   function processDataInput(dataInput){ // This function is run on every single line that is output by the server console.
     if (testMatch(dataInput)) { // Check to see if the message fits any of the regex patterns
       
@@ -626,10 +639,318 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
         // console.log("receiver: " + receiver);
         // console.log("receiverType: " + receiverType);
         // console.log("message: " + message);
-        eventEmitter.emit('playerMessage',new MessageObj(sender,receiver,receiverType,message),global);
+        eventEmitter.emit('playerMessage',new MessageObj(sender,receiver,receiverType,message));
+
+      } else if (theArguments[0] == "[DEATH]"){
+        // Post 2.0 weapons update:
+        // [2018-07-15 13:21:05] [DEATH] TheDerpGamer has been killed by 'Responsible: Mine//1342'; controllable: Mine [id=1342, sectorPos=(22, 28, 36), mineType=MINE_TYPE_MISSILE, active=true(5)]
+        // [2018-07-15 10:17:31] [DEATH] Starjet1 has been killed by 'Killer: Starjet1 (0.0/120.0 HP left)'; controllable: PlS[Starjet1 [Starjet]; id(2704)(15)f(0)]
+        // [2018-07-15 21:04:33] [DEATH] WARLOCKZIKE has been killed by 'Killer: WARLOCKZIKE (0.0/120.0 HP left)'; controllable: PlS[WARLOCKZIKE [WARLOCKZIKE]; id(27544)(80)f(0)]
+        // [2018-07-15 21:33:48] [DEATH] jacknickels2 has been killed by 'Responsible: Small Cargo Shitrl80[Phantomhive]'; controllable: Ship[Small Cargo Shitrl80](97)
+        // [2018-07-15 21:36:15] [DEATH] Spongy9698 has been killed by 'Responsible: MASS REMOVERrl00[V I R U S]'; controllable: Ship[MASS REMOVERrl00](4120)
+        // [2018-07-15 22:45:58] [DEATH] Danger89 committed suicide
+        // [2018-07-15 22:45:58] [DEATH] Danger89 has been killed by 'Killer: Danger89 (0.0/120.0 HP left)'; controllable: PlS[Danger89 [Danger89]*; id(17964)(55)f(0)]
+        // [2018-07-16 00:01:30] [DEATH] Eidolon2 has been killed by 'Responsible: Pirate-Tok-Jake_Forager-OT-H-2 85-0[Pirates]'; controllable: Ship[Pirate-Tok-Jake_Forager-OT-H-2 85-0](31790)
+    
+      
+        var person=dataInput.match(/(?<=\[DEATH\] )[^ ]+(?= has been killed by.*)/);
+        if (person){
+          person=person.toString(); // We use .toString() here because the player might be named "0", which could produce a falsey condition.
+          var personObj=new PlayerObj(person);
+          var theCurrentDate=new Date();
+          var theMonth;
+          theMonth=theCurrentDate.getMonth() + 1;
+          if (theMonth < 10){
+            theMonth="0" + theMonth.toString();
+          }
+          var theDay;
+          theDay=theCurrentDate.getDate()+1;
+          if (theDay < 10){
+            theDay="0" + theDay;
+          }
+
+          var theYear=theCurrentDate.getFullYear();
+          var theDate= theMonth + "-" + theDay + "-" + theYear;
+
+          var theHour;
+          theHour=theCurrentDate.getHours();
+          if (theHour < 10){
+            theHour="0" + theHour;
+          }
+          var theMinute;
+          theMinute=theCurrentDate.getMinutes();
+          if (theMinute < 10){
+            theMinute="0" + theMinute;
+          }
+          var theSeconds;
+          theSeconds=theCurrentDate.getSeconds();
+          if (theSeconds < 10){
+            theSeconds="0" + theSeconds;
+          }
+          var theTime=theHour + ":" + theMinute + ":" + theSeconds;
+
+          var message=`[${theDate}] [${theTime}]: ${person}`
+          // There are TWO very different ways that both the entity and player name might show up in a death message
+    
+          // We gotta see if "responsible" is a "sun" or other sort of entity first before even trying to see if it's a player or ship
+          // responsible=$(echo $b | grep -o "'Responsible: .*;" | sed "s/'Responsible: //g" | sed "s/';//g" ) // | sed 's/\[.*//g')
+          
+          // Updating after weapons 2.0
+          var responsible=toStringIfPossible(dataInput.match(/(?<=Responsible: )[^']+(?='.*)/));
+          // Shipyard:  D_1508536985403 (design)
+          var deathType;
+          if ( responsible == "Sun"){
+            deathType="star"
+          } else if (responsible == "Black Hole"){
+            deathType="blackhole"
+          } else if (responsible == "Floating Rock <can be harvested>"){
+            deathType="asteroid"
+          } else if (responsible == "PlanetSegment(Planet);"){
+            deathType="planetSegment"
+          }else if ((/\(design\)/).test(responsible)){
+            deathType="shipyarddesign"
+          } else {
+            var killer=dataInput.match(/(?<='Killer: )[^(]*/);
+            if (killer){
+              killer=killer.toString(); // We use toString here because a player might be named 0, which would create a falsey condition
+              if (person == killer){
+                // This probably should be broadened to include suiciding via their own ship
+                message="[${theDate}] [${theTime}]: ${person} killed themselves."
+                deathType="suicide"
+              } else {
+                var responsibleEntity=toStringIfPossible(dataInput.match(/(?<=controllable: Ship\[)[^\]]*/));
+                if (responsibleEntity){
+                  // Since we know the killer's name and also the entity, set to having been perpetrated by a person in an entity
+                  message=`[${theDate}] [${theTime}]: ${person} was killed by ${killer}, in entity ${responsibleEntity}`
+                  deathType="personInShip"
+    
+                  // Let's look up the responsible faction, if there is one.
+                  // responsibleFaction=$(echo "$responsible" | sed -E 's/((^.*\[)|(\]$))//g')
+                  var responsibleFaction=toStringIfPossible(responsible.match(/(?<=\[)[^\]]+/));
+                  if (testIfInput(responsibleFaction)){
+                    message=`${message}, of the faction, '${responsibleFaction}'`
+                  }
+                } else {
+                  message=`[${theDate}] [${theTime}]: ${person} was killed by ${killer}.`
+                  deathType="person"
+                }
+              }
+            } else {
+              // killer=$(echo "$b" | grep -o "'Killer: [^(]*" | sed "s/^'Killer:[ ]*//g" | sed 's/ $//g')
+              // If no killer found by first check, then check for the entity name and person's name via the "responsible entity"
+              // Gotta figure out why removing the ] fucks up the responsible faction..
+              // echo "No Killer found.. Running secondary check.."
+              killer=toStringIfPossible(responsible.match(/(?<=\<)[^>]*(?=\>.*)/));
+              // console.log(`killer: ${killer}`);
+              if (person == killer){
+                // This probably should be broadened to include suiciding via their own ship
+                message=`${message} killed themselves.`
+                deathType="suicide"
+              } else if (responsible){
+                if (killer){
+                  message=`${message} was killed by ${killer}`
+                  deathType="person"
+                } else {
+                  // If no killer was found with the first or second check, then we have to assume an entity will be found, but we'll double check anyhow.
+                  deathType="entity"
+                }
+    
+                // Trying to remove the potential name info prevents this from working.  I need a workaround
+                // responsibleEntity=$(echo "${responsible}" | sed -E 's/([^\[]*$)//g' | sed -E 's/((\[$)|(\<.*))//g')
+    
+                // This will only work IF there are [ brackets ], such as a faction name in there, so I need to branch out here as well
+                var responsibleEntity=responsible.replace(/(\[.*$|<.*$)/g,"");
+                // responsibleEntity=$(echo "${responsible}" | sed -E 's/([^\[]*$)//g' | sed 's/\[$//g' | sed 's/<.*//g')
+
+                // Ths needs to work for entities that have no controlling person.. hmm
+                // [2017-10-20 16:29:44] [DEATH] Benevolent327 has been killed by 'Responsible: Benevolent327_1508531362205'; controllable: Ship[Benevolent327_1508531362205](25109)
+    
+                // echo 'Destroyer_Drone_Less_Missiles-V2_5-Compliant_15085rl00[The Rebuilders]' | sed -E 's/([^\[]*$)//g' | sed 's/\[$//g'
+                // Destroyer_Drone_Less_Missiles-V2_5-Compliant_15085rl00
+    
+    
+    
+                // echo "responsibleEntity: ${responsibleEntity}"
+                if (testIfInput(responsibleEntity)){
+                  // responsibleFaction=$(echo "$responsible" | grep -o '[\[].*' | sed 's/[\[\]]//g')
+                  responsibleFaction=toStringIfPossible(responsible.match(/(?<=\[)[^\]]*(?=\].*$)/));
+                  // echo "responsibleFaction: ${responsibleFaction}"
+                  if (testIfInput(responsibleFaction)){
+                    message=`${message} of the faction, '${responsibleFaction}'`;
+                  }
+                  message=`${message}, via the entity, '${responsibleEntity}'`;
+                  if (testIfInput(killer)){
+                    // We know an entity was found and also a person, so set the death type to being killed by a person in a ship
+                    deathType="personInShip";
+                  } else {
+                    // Since there was no killer, but there was a responsible entity, set to entity only
+                    deathType="entity";
+                  }
+    
+                // Here we double check to ensure the deathType is reset if no responsible entity was found
+                } else if (!testIfInput(killer)){
+                  // player died, but no responsible entity nor killer was found!  This should never happen!"
+                  deathType="mystery";
+                }
+              } else {
+                // no responsible found!  This should never happen!"
+                deathType="mystery";
+              }
+    
+            // We have a 'killer' type death, so we need to look for the entity now if not a suicide.
+            
+
+            }
+          }
+          if (killer){
+            var killerObj=new PlayerObj(killer);
+          }
+          if (responsibleEntity){
+            var responsibleEntityObj=new EntityObj(responsibleEntity);
+          }
+          // Cannot create a faction object here since we only have the name to work with.  We have to run an async function to get that FactionObj at the time of emitting
+
+    
+          // Need to fix sun damage
+          // [DEATH] Benevolent327 has been killed by 'Responsible: Sun'; controllable: Sector[21240](8, 8, 8)
+    
+    
+          // todo: When a death is caused by different weapons of the same entity, it will oftentimes spam a bunch of death messages in the logs - this prevents most duplicates from getting through, but really there needs to be a 5 second counter or something applied per name to make it more accurate
+          
+          
+          // For troubleshooting duplicates
+          // "${scriptDir}log.sh" "lastMessage: |${lastMessage}|"
+          // "${scriptDir}log.sh" "message: |${message}|"
+          
+          
+          if (lastMessage == message){
+            // "${scriptDir}log.sh" "Duplicate Death: ${message}"
+            console.debug("### SKIPPING DUPLICATE DEATH MESSAGE ###: " + lastMessage);
+            // echo "##### SKIPPED INFOS ######"
+            // echo "# theDate: ${theDate}  theTime: ${theTime}  deathType: ${deathType}"
+            // echo "# responsibleEntity: ${responsibleEntity}"
+            // echo "# killer: ${killer}  responsibleFaction: ${responsibleFaction}"
+            // echo "#### END SKIPPED INFOS #####"
+    
+          } else {
+            // "${scriptDir}log.sh" "# PROCESSING DEATH TEXT: $@"
+    
+            console.log(message);
+            
+            console.log("##### INFOS ######");
+            // console.log("# Everything: ${b}"
+            console.log(`# theDate: ${theDate}  theTime: ${theTime}  deathType: ${deathType}`);
+            console.log(`# responsibleEntity: ${responsibleEntity}`);
+            console.log(`# killer: ${killer}  responsibleFaction: ${responsibleFaction}`);
+            console.log(`#### END INFOS #####`);
+            console.log(" ");
+            if (deathType == "suicide"){
+              // "${scriptDir}wrapper/melvin_public_chat.sh" "Haw haw, ${person} totally just killed themselves."
+              // runPlayerDeath "${person}" "${deathType}"
+              eventEmitter.emit('playerDeath',personObj,deathType);
+             } else if (deathType == "person"){
+              // TODO:  Fix this
+              // "${scriptDir}wrapper/melvin_public_chat.sh" "Whaaat!  ${killer} just WHACKED ${person}!  :D"
+              console.log(`${killer} killed ${person}.`);
+              // runPlayerDeath "${person}" "${deathType}" "${killer}"
+              eventEmitter.emit('playerDeath',personObj,deathType,killerObj);
+            } else if (deathType == "personInShip"){
+              var ofTheFaction="";
+              if (testIfInput(responsibleFaction)){
+                ofTheFaction=`, of the faction '${responsibleFaction}',`
+              }
+              // TODO:  Fix this
+              // "${scriptDir}wrapper/melvin_public_chat.sh" "${killer}${ofTheFaction} just WHACKED ${person} while piloting the entity, '${responsibleEntity}'!  :D"
+              console.log(`${killer}${ofTheFaction} killed ${person} while piloting the entity, '${responsibleEntity}'.`);
+              // unset ofTheFaction
+              // runPlayerDeath "${person}" "${deathType}" "${killer}" "${responsibleEntity}"
+              eventEmitter.emit('playerDeath',personObj,deathType,responsibleEntityObj);
+            } else if (deathType == "entity"){
+              if (testIfInput(responsibleFaction)){
+                // TODO:  Fix this
+                // "${scriptDir}wrapper/melvin_public_chat.sh" "${person} was PWNED by an entity, '${responsibleEntity}', from the faction, ${responsibleFaction}!  Muwhaha!"
+                console.log(`${person} was killed by an entity, '${responsibleEntity}', from the faction, ${responsibleFaction}.`);
+                //# Run Mod Scripts
+                // "${scriptDir}log.sh" "DEBUGGING PARSER: ${responsibleEntity}"
+                return getFactionObjFromName(responsibleFaction,"",function(err,responsibleFactionObj){
+                  if (err){
+                    console.log("ERROR: Could not get factionObj from responsibleFaction: " + responsibleFaction + " -- Cannot emit event!!",err);
+                  } else {
+                    // runPlayerDeath "${person}" "${deathType}" "${responsibleEntity}" "${responsibleFaction}"
+                    eventEmitter.emit('playerDeath',personObj,deathType,responsibleEntityObj,responsibleFactionObj);
+                  }
+                });
+                
+              } else {
+                // runPlayerDeath "${person}" "${deathType}" "${responsibleEntity}"
+                console.log(`${person} was killed by an entity, '${responsibleEntity}'.`);
+                eventEmitter.emit('playerDeath',personObj,deathType,responsibleEntityObj);
+                // TODO:  Fix this
+                // "${scriptDir}wrapper/melvin_public_chat.sh" "${person} was PWNED by an entity, '${responsibleEntity}'!"
+              }
+            } else if (deathType == "blackhole"){
+              // "${scriptDir}wrapper/melvin_public_chat.sh" "${person} was spaghettified!  :D"
+              console.log(`${person} was killed by a black hole.`);
+              // runPlayerDeath "${person}" "${deathType}" "${responsible}"
+              eventEmitter.emit('playerDeath',personObj,deathType);
+
+            } else if (deathType == "star"){
+              // "${scriptDir}wrapper/melvin_public_chat.sh" "${person} was burned alive by a star!  Praise the sun!"
+              // runPlayerDeath "${person}" "${deathType}" "${responsible}"
+              console.log(`${person} was killed by a star.`);
+              eventEmitter.emit('playerDeath',personObj,deathType);
+            } else if (deathType == "asteroid"){
+              // "${scriptDir}wrapper/melvin_public_chat.sh" "${person} just got ROCKED by an asteroid!"
+              // runPlayerDeath "${person}" "${deathType}" "${responsible}"
+              console.log(`${person} was killed by an asteroid.`);
+              eventEmitter.emit('playerDeath',personObj,deathType);
+            } else if (deathType == "planetSegment"){
+              // "${scriptDir}wrapper/melvin_public_chat.sh" "${person} couldn't handle planet life.  Goodbye world!"
+              // runPlayerDeath "${person}" "${deathType}" "${responsible}"
+              console.log(`${person} was killed by a planet segment.`);
+              eventEmitter.emit('playerDeath',personObj,deathType,responsibleEntityObj); // responsibleEntityObj will be undefined if no EntityObj was given.  //TODO: This needs to be tested.
+            } else if (deathType == "planetCore"){ // This is currently not used.  If functional, this would be for planet cores.
+              // "${scriptDir}wrapper/melvin_public_chat.sh" "${person} just got their skin melted off by molten lava!  D:"
+              // runPlayerDeath "${person}" "${deathType}" "${responsible}"
+              console.log(`${person} was killed by a planet core.`);
+              eventEmitter.emit('playerDeath',personObj,deathType,responsibleEntityObj);
+            } else if (deathType == "shipyarddesign"){
+              // "${scriptDir}wrapper/melvin_public_chat.sh" "${person} just lived the impossible dream!  Death by design!  :DDDDD"
+              // runPlayerDeath "${person}" "${deathType}" "${responsible}"
+              console.log(`${person} was killed by a shipyard design.  How did that happen?!`);
+              eventEmitter.emit('playerDeath',personObj,deathType);
+              // This should never happen, but knowing StarMade it will.  I think if a player suicides before spawning in, this will happen.  So this needs to be fixed.
+              // "${scriptDir}wrapper/melvin_public_chat.sh" "${person} seems to have died from mysterious circumstances.."
+              //# Run Mod Scripts - This will likely be broken and this will need to be fixed.
+              // runPlayerDeath "${person}" "${deathType}" "${responsibleEntity}" "${responsibleFaction}"
+            } else if (testIfInput(responsibleFaction)){
+              // TODO:  Fix this
+              // "${scriptDir}wrapper/melvin_public_chat.sh" "${person} was PWNED by an entity, '${responsibleEntity}', from the faction, ${responsibleFaction}!  Muwhaha!"
+              //# Run Mod Scripts
+              // "${scriptDir}log.sh" "DEBUGGING PARSER: ${responsibleEntity}"
+              return getFactionObjFromName(responsibleFaction,"",function(err,responsibleFactionObj){
+                if (err){
+                  console.log("ERROR: Could not get factionObj from responsibleFaction: " + responsibleFaction + " -- Cannot emit event!!",err);
+                } else {
+                  // runPlayerDeath "${person}" "${deathType}" "${responsibleEntity}" "${responsibleFaction}"
+                  console.log(`${person} was killed ${killer}, in the entity, ${responsibleEntity}, from the faction, ${responsibleFaction}.`);
+                  eventEmitter.emit('playerDeath',personObj,deathType,responsibleEntityObj,responsibleFactionObj);
+                }
+              });
+            } else {
+              // runPlayerDeath "${person}" "${deathType}" "${responsibleEntity}"
+              console.log(`${person} was killed.  Deathtype was: ${deathType} --Responsible entity was: ${responsibleEntity}.`);
+              eventEmitter.emit('playerDeath',personObj,deathType,responsibleEntityObj);
+              // TODO:  Fix this
+              // "${scriptDir}wrapper/melvin_public_chat.sh" "${person} was PWNED by an entity, '${responsibleEntity}'!"
+            }
+          }
+          lastMessage=String(message); // This is needed to filter out any duplicate death messages, such as when a weapon has several outputs and they all killed a player at the same time.  Note we do not want to link to the "message" variable, but rather set a new string based on it.
+          // Here is where I need to run any sort of default death scripts, if desired.
+        }
 
       // ### Player Spawns ###
-      } else if (theArguments[0] == "[SERVER][SPAWN]" ) {
+      } else if (theArguments[0] == "[SERVER][SPAWN]" ){
 
 
           // Event found!: [SERVER][SPAWN] SPAWNING NEW CHARACTER FOR PlS[Benevolent27 ; id(2)(1)f(0)]Arguments: 1
@@ -652,13 +973,11 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
               let mMessage="/server_message_broadcast plain " + "'" + playerName + " has spawned.'";
               global["server"].spawn.stdin.write(mMessage.toString().trim() + "\n");
             }
-            let playerObj = new objectCreator.PlayerObj(playerName);
+            let playerObj = new PlayerObj(playerName);
             playerObj["spawnTime"]=Math.floor((new Date()).getTime() / 1000);
             eventEmitter.emit('playerSpawn',playerObj);
           }
         }
-
-
           // Event found!: [SERVER] Object Ship[Benevolent27_1523388998134](355) didn't have a db entry yet. Creating entry!Arguments: 1
           // theArguments[0]: [SERVER]
           // theArguments[1]: Object
@@ -671,7 +990,6 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           // theArguments[8]: yet.
           // theArguments[9]: Creating
           // theArguments[10]: entry!
-
 
       // ### New Ship or Base Creation (not blueprints) ###
       } else if (theArguments[0].match(/\[BLUEPRINT\].*/)) { // Various Blueprint events
@@ -703,7 +1021,13 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           // theArguments[21]: metaID:
           // theArguments[22]: 100320
 
-          console.log("Some blueprint buy event happened.");
+          console.log("Some blueprint buy event happened."); // This might only be relevant if a server uses credits to buy blueprints?
+
+
+
+
+
+
         } else if (theArguments[0] == "[BLUEPRINT][LOAD]"){ // New ship from load - possibly /spawn_mobs command
           // TODO:  Figure out why this isn't firing off on the first blueprint spawn.  It is ALWAYS the second blueprint spawn and all later spawns for some strange reason.
           console.log("Some blueprint load event happened.");
@@ -732,32 +1056,42 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           console.log("factionNumber:" + factionNumber);
           console.log(" ");
           console.log(" ");
-          
-          let entityObj=new EntityObj(null,shipName);
-          console.dir(entityObj);
 
-          console.log("Creating new coordsObj with: " + coordsArray);
-          let coordsObj=new CoordsObj(coordsArray);
-          console.dir(coordsObj);
-          let sectorObj=new SectorObj(coordsObj.x,coordsObj.y,coordsObj.z);
-          console.dir(sectorObj);
-          // let coordsObj=new CoordsObj(coordsArray[0],coordsArray[1],coordsArray[2]);
 
-          let playerObj;
-          if (spawnType=="player"){
-            playerObj=new PlayerObj(theUser);
-            playerObj.msg("The playerObj was successful: " + shipName);
-            // playerObj.msg("entityObj.loaded:" + entityObj.loaded);
-          }
-          console.dir(playerObj);
 
-          let blueprintObj=new BlueprintObj(bluePrintName);
-          console.dir(blueprintObj);
+          // starNetHelper.getUIDfromName(shipName)
+          return getUIDfromName(shipName,"",function(err,result){
+            if (err){
+              console.log("Error getting entity UID from name!",err);
+            } else {
+              let entityObj=new EntityObj(result);
+              console.dir(entityObj);
+              console.log("Creating new coordsObj with: " + coordsArray);
+              let coordsObj=new CoordsObj(coordsArray);
+              console.dir(coordsObj);
+              let sectorObj=new SectorObj(coordsObj.x,coordsObj.y,coordsObj.z);
+              console.dir(sectorObj);
+              // let coordsObj=new CoordsObj(coordsArray[0],coordsArray[1],coordsArray[2]);
+    
+              let playerObj;
+              if (spawnType=="player"){
+                playerObj=new PlayerObj(theUser);
+                playerObj.msg("The playerObj was successful: " + shipName);
+                // playerObj.msg("entityObj.loaded:" + entityObj.loaded);
+              }
+              console.dir(playerObj);
+    
+              let blueprintObj=new BlueprintObj(bluePrintName);
+              console.dir(blueprintObj);
+    
+              let factionObj=new FactionObj(factionNumber);
+              console.dir(factionObj);
+    
+              eventEmitter.emit('blueprintSpawn',spawnType,playerObj,blueprintObj,entityObj,sectorObj,factionObj); // playerObj will be undefined if the blueprint was spawned by admin or mass spawned
+            }
+          })
 
-          let factionObj=new FactionObj(factionNumber);
-          console.dir(factionObj);
 
-          eventEmitter.emit('blueprintSpawn',spawnType,playerObj,blueprintObj,entityObj,sectorObj,factionObj); // playerObj will be undefined if the blueprint was spawned by admin or mass spawned
 
           // Examples:
           // Filling blueprint and spawning as player
@@ -869,6 +1203,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
 
       }
     }
+    return false; // this is just to make ESLint happy
   }
 
   // For serverlog.0.log
@@ -893,12 +1228,16 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           shipName=shipName.toString().replace(/^spawned new ship: ["]/,'');
           // shipName=shipName.toString().split(":").pop();
           console.log("Temp shipName: " + shipName);
-
-          let entityObj=new EntityObj("",shipName);
-          entityObj.spawnTime=Math.floor((new Date()).getTime() / 1000);
-          console.dir(entityObj); // temp
-
-          eventEmitter.emit('shipSpawn',playerObj,entityObj);
+          return getUIDfromName(shipName,"",function(err,result){
+            if (err){
+              console.log("Error getting entity UID from name!",err);
+            } else {
+              let entityObj=new EntityObj(result);
+              entityObj.spawnTime=Math.floor((new Date()).getTime() / 1000);
+              console.dir(entityObj); // temp
+              eventEmitter.emit('shipSpawn',playerObj,entityObj);
+            }
+          });
         } else {
           // var baseName=arguments[0].match(/spawned new station: "[0-9a-zA-Z _-]*/);
           var baseName=arguments[0].match(/spawned new station: ["][0-9a-zA-Z _-]*/);
@@ -907,13 +1246,20 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
             baseName=baseName.toString().replace(/^spawned new station: ["]/,'');
 
             // baseNameArray=baseName.split()
-            let entityObj=new EntityObj("",baseName);
-            entityObj.spawnTime=Math.floor((new Date()).getTime() / 1000);
-            eventEmitter.emit('baseSpawn',playerObj,entityObj);
+            return getUIDfromName(baseName,"",function(err,result){
+              if (err){
+                console.log("Error getting entity UID from name!",err);
+              } else {
+                let entityObj=new EntityObj(result);
+                entityObj.spawnTime=Math.floor((new Date()).getTime() / 1000);
+                eventEmitter.emit('baseSpawn',playerObj,entityObj);
+              }
+            });
           }
         }
       }
     }
+    return true; // added to make ESLint happy
   }
 
   global["server"].spawn.stdout.on('data', function (data) { // Displays the standard output from the starmade server
@@ -930,6 +1276,18 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
     let dataString=data.toString().trim(); // Clear out any blank lines
     if (dataString){
       if (showStderr == true || showAllEvents == true) {
+        let dataArray=dataString.split("\n");
+        for (let i=0;i<dataArray.length;i++){
+          if (dataArray[i]){ // Clear out any blank lines
+            if (typeof stderrFilter == "object"){
+              if (stderrFilter.test(dataArray[i])){
+                console.log("stderr: " + dataArray[i]);
+              }
+            } else {
+              console.log("stderr: " + dataArray[i]);
+            }
+          }
+        }
         console.log("stderr: " + dataString);
       }
       processDataInput(dataString); // Process the line to see if it matches any events and then trigger the appropriate event
@@ -1018,6 +1376,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
         console.log("Here are the current console commands:");
         console.log(" !stdout [on/off]");
         console.log(" !stderr [on/off]");
+        console.log(" !stderrfilter RegExp");
         console.log(" !serverlog [on/off]");
         console.log(" !enumerateevents [on/off]");
         console.log(" !reloadMods");
@@ -1045,6 +1404,13 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           console.log("Setting Stderr to false!");
           showStderr=false;
         }
+      } else if (theCommand == "stderrfilter" ) {
+        if (testIfInput(theArguments[0])){
+
+        } else {
+          console.log("ERROR:  Please specify a filter to use!  Example: \\[SPAWN\\]");
+        }
+
       } else if (theCommand == "serverlog" ) {
         if (theArguments[0] == "on"){
           console.log("Setting showServerlog to true!");
@@ -1130,13 +1496,6 @@ eventEmitter.on('asyncDone', installDepsSync);
 // ####################
 // ###  FUNCTIONS  #### -- The standard practice for functions is first write in place, then make a multi-purpose function that handles what you need and can be used elsewhere, then bundle it in a require and change over functionality.  This is to keep the main script at a maintainable length and also have high re-usability value for code created.
 // ####################
-
-// function sleep(ms) { // This will only work within async functions.
-//   // Usage: await sleep(ms);
-//   return new Promise((resolve) => setTimeout(resolve, ms));
-// }
-
-
 
 function writeSettings() {
   var settingsFileName=path.basename(settingsFile);
@@ -1300,7 +1659,7 @@ async function getSuperAdminPassword(starMadeInstallPath){ // This will grab the
       console.log("Excellent choice!  I have set a LONG and nearly impossible to crack SuperAdminPassword for you! :D");
       newSuperAdminPassword = getRandomAlphaNumericString(32);
     } else { console.log("Alrighty then.  I'll just use what you provided!") };
-    await sleep(2000);
+    await sleepSync(2000);
     // serverCfgObj["SUPER_ADMIN_PASSWORD"]=keepIniComment(serverCfgObj["SUPER_ADMIN_PASSWORD"],newSuperAdminPassword);
     ini.setVal(serverCfgObj,"SUPER_ADMIN_PASSWORD",newSuperAdminPassword);
     if (superAdminPasswordEnabled == "false") {
@@ -1426,7 +1785,7 @@ async function installDepsSync() {
   console.debug("Using superAdminPassword: " + superAdminPassword); // Temporary, just for testing.  We don't want to print this to the screen normally.
 
   console.log("About to start server..");
-  await sleep(pauseBeforeStartingServer);
+  await sleepSync(pauseBeforeStartingServer);
   // ### Unimportant Async downloads/installs ### -- These should not be required by the server to run, but they may have depended on the first async install or sync installs before they could be run.
   // None right now
 
