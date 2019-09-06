@@ -1474,7 +1474,7 @@ function PlayerObj(name){ // cb/promises/squish compliant // "Player" must be a 
       if (typeof cb == "function"){
         return runSimpleCommand("/giveid " + self.name + " " + inputNumber + " " + number,options,cb);
       }
-      return simplePromisifyIt(self.give,options);
+      return simplePromisifyIt(self.giveId,options);
     }
     self.giveAllItems=function (number,options,cb){ // expects an element name and number of items to give
       if (typeof cb == "function"){
