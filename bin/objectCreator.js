@@ -2123,6 +2123,22 @@ function PlayerObj(name){ // cb/promises/squish compliant // "Player" must be a 
         return simplePromisifyIt(self[valToLookFor],options);
       }
     }
+    self.system=function(options,cb){
+      if (typeof cb=="function"){
+        return self.sector(options,function(err,result){
+          if (err){
+            return cb(err,result);
+          }
+          return result.system(options,function(err,result){
+            if (err){
+              return cb(err,result);
+            }
+            return cb(null,result);
+          });
+        });
+      }
+      return simplePromisifyIt(self.system,options);
+    }
     self.spacialCoords=function(options,cb){ // Returns a player's personal sector, whether online or offline.
       var valToLookFor="spacialCoords";
       if (typeof cb == "function"){
@@ -3310,7 +3326,14 @@ function SectorObj(x,y,z){ // cb/promises/squish compliant
   self.z=theCoordsObj.z;
   // Only if this is valid should we proceed.
   if (typeof self.x == "number" && typeof self.y == "number" && typeof self.z == "number"){
+    // TODO: add a .system method
     self.coords=theCoordsObj;
+    self.system=function(options,cb){
+      if (typeof cb=="function"){
+        return cb(null,convertSectorToSystem(self.coords));
+      }
+      return simplePromisifyIt(self.system,options);
+    }
     self.clearMines=function(options,cb){
       // RETURN: [SERVER, Mines cleared in 2, 2, 2!, 0]
       if (typeof cb == "function"){
@@ -3808,6 +3831,8 @@ function CreatureObj(fullUID){  // Not usable right now since there are no creat
   self.fullUID=fullUID;
 };
 function EntityObj(fullUID,shipName){ // cb/promises/squish compliant
+  // TODO: add a .system method
+
   // TODO:  Make this ONLY ACCEPT fullUID - figure out which events only give an entity name and change it to return a promise that returns an EntityObj instead.
   // takes EITHER the full UID or the ship name.  If a ship name is provided, it will look up the full UID via a StarNet.jar command.
   var self = this; // this is needed to reference the "this" of functions in other contexts, particularly for creating promises via the outside function.  If "this" is used, the promisify function will not work correctly.
@@ -4096,6 +4121,22 @@ function EntityObj(fullUID,shipName){ // cb/promises/squish compliant
       }
       return simplePromisifyIt(self.sector,options);
     };
+    this.system=function(options,cb){
+      if (typeof cb=="function"){
+        return self.sector(options,function(err,result){
+          if (err){
+            return cb(err,result);
+          }
+          return result.system(options,function(err,result){
+            if (err){
+              return cb(err,result);
+            }
+            return cb(null,result);
+          });
+        });
+      }
+      return simplePromisifyIt(self.system,options);
+    }
     this.spacialCoords=function(options,cb){ 
       if (typeof cb == "function"){
         return starNetHelper.getEntityValue(self.fullUID,"Local-Pos",options,function(err,result){
@@ -5339,3 +5380,47 @@ function runSimpleCommand(theCommand,options,cb){  // cb/promises compliant
     return simplePromisifyIt(runSimpleCommand,options,theCommand);
   }
 };
+
+
+function convertSectorToSystem(sectorObj){
+  var sectorArray=sectorObj.toArray;
+  var systemArray=convertSectorCoordsToSystem(sectorArray);
+  return new SystemObj(systemArray);
+}
+
+function convertSectorCoordsToSystem(array){
+  if (Array.isArray(array)){
+    let outputArray=[];
+    for (let i=0;i<array.length;i++){
+      outputArray.push(getSysCoordFromSector(array[i]));
+    }
+    console.log("Sector: " + array +"  System: " + outputArray);
+
+    return outputArray;
+  }
+  throw new Error("ERROR: Invalid input given to convertSectorCoordsToSystem! (Expects an array)");
+}
+
+function getSysCoordFromSector(input) {
+  if (testIfInput(input)){
+      var theInput=toNumIfPossible(input);
+      if (typeof theInput == "number"){
+      if (theInput >= 0 ){
+          // Positive numbers need an offset of 1 because -1 is in -1 system, except where the value is divisible by 16, whereas 1 is in 0 system.
+          // console.log("theInput%16: " + theInput%16);
+          if (theInput%16 == "0"){
+              return Math.floor(theInput/16);
+          } else {
+              // console.log("theInput/16: " + theInput/16);
+              return Math.floor((theInput/16)); // - 1;
+          }
+      } else {
+          return Math.ceil(((theInput * -1) + 1) / 16) * -1;
+      }
+      }
+      throw new Error("Invalid input given to getSysCoordFromSector! (must be a number!)");  
+  }
+  throw new Error("Invalid input given to getSysCoordFromSector! (Cannot be empty)");
+}
+
+
