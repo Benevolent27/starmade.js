@@ -113,14 +113,14 @@ if (valToReturnType == "sector"){
 throw new Error("Invalid option given to LocationObj.toString()!");
 }; 
 LocationObj.prototype.toArray = function(options){ 
-// default is to return an array of objects, but an array of strings is an option with {"type":"string"}
-let valToReturnType=getOption(options,"type","objects").toLowerCase();
-if (valToReturnType == "objects"){
-  return [this.sector , this.spacial];
-} else if (valToReturnType=="string"){
-  return [this.sector.toString() , this.spacial.toString()]; 
-}
-throw new Error("Invalid option given to LocationObj.toArray()!");
+  // default is to return an array of objects, but an array of strings is an option with {"type":"string"}
+  let valToReturnType=getOption(options,"type","objects").toLowerCase();
+  if (valToReturnType == "objects"){
+    return [this.sector , this.spacial];
+  } else if (valToReturnType=="string"){
+    return [this.sector.toString() , this.spacial.toString()]; 
+  }
+  throw new Error("Invalid option given to LocationObj.toArray()!");
 }; 
 MessageObj.prototype.toString = function(){ return this.text };
 PlayerObj.prototype.toString = function(){ return this.name }; // This allows inputs for functions to use a playerObj or string easily.  Example:  playerObj.toString() works the same as playerString.toString(), resulting in a string of the player's name.
@@ -135,9 +135,9 @@ SystemObj.prototype.toString = function(){ return this.coords.toString() };
 //  #######################
 //  ###     TESTING     ###
 //  #######################
-function nameFunction(name, body) {
-  return {[name](...args) { return body(...args) }}[name]
-}
+// function nameFunction(name, body) {
+//   return {[name](...args) { return body(...args) }}[name]
+// }
 
 
 var registeredConstructors={};
@@ -1462,31 +1462,31 @@ function PlayerObj(name){ // cb/promises/squish compliant // "Player" must be a 
       if (typeof cb == "function"){
         return runSimpleCommand("/faction_point_protect_player " + self.name + " " + input,options,cb);
       }
-      return simplePromisifyIt(self.factionPointProtect,options);
+      return simplePromisifyIt(self.factionPointProtect,options,input);
     }
     self.give=function (input,number,options,cb){ // expects an element name and number of items to give
       if (typeof cb == "function"){
         return runSimpleCommand("/give " + self.name + " " + input + " " + number,options,cb);
       }
-      return simplePromisifyIt(self.give,options);
+      return simplePromisifyIt(self.give,options,input,number);
     }
     self.giveId=function (inputNumber,number,options,cb){ // expects an element id and number of items to give
       if (typeof cb == "function"){
         return runSimpleCommand("/giveid " + self.name + " " + inputNumber + " " + number,options,cb);
       }
-      return simplePromisifyIt(self.giveId,options);
+      return simplePromisifyIt(self.giveId,options,inputNumber,number);
     }
     self.giveAllItems=function (number,options,cb){ // expects an element name and number of items to give
       if (typeof cb == "function"){
         return runSimpleCommand("/give_all_items " + self.name + " " + number,options,cb);
       }
-      return simplePromisifyIt(self.giveAllItems,options);
+      return simplePromisifyIt(self.giveAllItems,options,number);
     }
     self.giveCategoryItems=function (category,number,options,cb){ // expects a category such as terrain/ship/station and number of items to give
       if (typeof cb == "function"){
         return runSimpleCommand("/give_category_items " + self.name + " " + number + " " + category,options,cb);
       }
-      return simplePromisifyIt(self.giveCategoryItems,options);
+      return simplePromisifyIt(self.giveCategoryItems,options,category,number);
     }
     self.giveCredits=function (number,options,cb){ // expects a number of credits to give.  If this value is negative, it will subtract credits.
       if (typeof cb == "function"){
