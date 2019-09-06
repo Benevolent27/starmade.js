@@ -1492,7 +1492,7 @@ function PlayerObj(name){ // cb/promises/squish compliant // "Player" must be a 
       if (typeof cb == "function"){
         return runSimpleCommand("/give_credits " + self.name + " " + number,options,cb);
       }
-      return simplePromisifyIt(self.giveCredits,options);
+      return simplePromisifyIt(self.giveCredits,options,number);
     }
     self.giveGrapple=function (options,cb){ // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
       // Unfortunately, with using callback functions, it's just not a good idea to allow more than 1 to be given.  Each command needs to have it's own error handling.
@@ -1676,7 +1676,7 @@ function PlayerObj(name){ // cb/promises/squish compliant // "Player" must be a 
           return cb(new Error("Invalid input given to PlayerObj.joinFaction as theFaction!"),null);
         }
       }
-      return simplePromisifyIt(self.joinFaction,options);
+      return simplePromisifyIt(self.joinFaction,options,theFaction);
     }
 
     self.suspendFromFaction=function (options,cb){ // Temporarily removes the player from their faction
@@ -1718,7 +1718,7 @@ function PlayerObj(name){ // cb/promises/squish compliant // "Player" must be a 
           return cb(new Error("Invalid input given to PlayerObj.joinFaction as theFaction!"),null);
         }
       }
-      return simplePromisifyIt(self.putPlayerIntoEntity,options);
+      return simplePromisifyIt(self.putPlayerIntoEntity,options,entity);
     }
 
     self.tint=function (red,green,blue,alpha,options,cb){ // expects float values to denote percentages
@@ -1894,7 +1894,7 @@ function PlayerObj(name){ // cb/promises/squish compliant // "Player" must be a 
     if (typeof cb == "function"){
       return getPlayerSpawnLocation(self.name,options,cb);
       }
-      return simplePromisifyIt(self.spawnLocation,options,self.name);
+      return simplePromisifyIt(self.spawnLocation,options);
     }
     self.setSpawnLocation=function(location,coordsObj,options,cb){ // Needs sector and spacial coords.  coordsObj is needed if a SectorObj is given as first parameter.
       // This should accept a location Obj, a pair of sectorObj and coordsObj, or any other pair of input that can translate to a CoordsObj
