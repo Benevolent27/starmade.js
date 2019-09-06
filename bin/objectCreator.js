@@ -2129,12 +2129,7 @@ function PlayerObj(name){ // cb/promises/squish compliant // "Player" must be a 
           if (err){
             return cb(err,result);
           }
-          return result.system(options,function(err,result){
-            if (err){
-              return cb(err,result);
-            }
-            return cb(null,result);
-          });
+          return cb(null,result.system);
         });
       }
       return simplePromisifyIt(self.system,options);
@@ -3267,7 +3262,6 @@ function FactionObj(number){  // cb/promises/squish compliant
 };
 function LocationObj(sector,spacial){  // cb/promises/squish compliant
   // This is to store an exact location, including system, sector, and spacial coordinates.
-  // self.system=sectorObj.getSystem();
   var self = this; // this is needed to reference the "this" of functions in other contexts, particularly for creating promises via the outside function.  If "this" is used, the promisify function will not work correctly.
   // if (sectorObj instanceof SectorObj){
   //   self.sector=sectorObj;
@@ -3283,6 +3277,7 @@ function LocationObj(sector,spacial){  // cb/promises/squish compliant
   //   self.spacial=new CoordsObj(coordsObj); // This will throw an error if invalid input
   // }
   self.spacial=new CoordsObj(spacial); // This will throw an error if invalid input
+  self.system=self.sector.system;
 };
 function SectorObj(x,y,z){ // cb/promises/squish compliant
   var self = this; // this is needed to reference the "this" of functions in other contexts, particularly for creating promises via the outside function.  If "this" is used, the promisify function will not work correctly.
@@ -3328,12 +3323,7 @@ function SectorObj(x,y,z){ // cb/promises/squish compliant
   if (typeof self.x == "number" && typeof self.y == "number" && typeof self.z == "number"){
     // TODO: add a .system method
     self.coords=theCoordsObj;
-    self.system=function(options,cb){
-      if (typeof cb=="function"){
-        return cb(null,convertSectorToSystem(self.coords));
-      }
-      return simplePromisifyIt(self.system,options);
-    }
+    self.system=convertSectorToSystem(self.coords);
     self.clearMines=function(options,cb){
       // RETURN: [SERVER, Mines cleared in 2, 2, 2!, 0]
       if (typeof cb == "function"){
@@ -3831,7 +3821,6 @@ function CreatureObj(fullUID){  // Not usable right now since there are no creat
   self.fullUID=fullUID;
 };
 function EntityObj(fullUID,shipName){ // cb/promises/squish compliant
-  // TODO: add a .system method
 
   // TODO:  Make this ONLY ACCEPT fullUID - figure out which events only give an entity name and change it to return a promise that returns an EntityObj instead.
   // takes EITHER the full UID or the ship name.  If a ship name is provided, it will look up the full UID via a StarNet.jar command.
@@ -4127,12 +4116,7 @@ function EntityObj(fullUID,shipName){ // cb/promises/squish compliant
           if (err){
             return cb(err,result);
           }
-          return result.system(options,function(err,result){
-            if (err){
-              return cb(err,result);
-            }
-            return cb(null,result);
-          });
+          return cb(null,result.system);
         });
       }
       return simplePromisifyIt(self.system,options);
