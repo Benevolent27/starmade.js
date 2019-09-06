@@ -277,6 +277,7 @@ function isSquishable(inputObj){
 }
 
 function squish(inputObj,options){ // The purpose of this is to minify an object to be recreated back later
+    // TODO:  Make this recursive so it will support nested objects, such as with MessageObj nesting PlayerObj as sender, etc.
     console.log("Squishing object..");
     // Get the parameters needed to create the function:
 
@@ -1177,7 +1178,7 @@ function BotObj(name){ // cb/promises/squishy compliant
     }
   }
 };
-function MessageObj(senderString,receiverString,receiverTypeString,text){ // cb/promises/squishy compliant
+function MessageObj(senderString,receiverString,receiverTypeString,text){ // cb/promises compliant, not squishy compliant because of nested objects.  Squishy must be recursive first.
   // Takes string values and converts to strings or objects of the correct types
   this.senderString=senderString;
   this.receiverString=receiverString;
@@ -1365,8 +1366,10 @@ function SMNameObj(name){ // cb/promises/squish compliant
 
 
 
-
-
+async function whatever(playerObj){
+  await playerObj.msg("This is the message");
+  console.log("this won't happen till the above finishes.");
+}
 
 function PlayerObj(name){ // cb/promises/squish compliant // "Player" must be a string and can be just the player's nickname or their full UID
   var thePlayer=toStringIfPossible(name); // This allows other PlayerObj to be used as input.
@@ -1425,7 +1428,7 @@ function PlayerObj(name){ // cb/promises/squish compliant // "Player" must be a 
       }
       return simplePromisifyIt(self.godMode,options,input);
     }
-    self.invisibilityMode=function (input,options,cb){ // expects true or false as either boolean or string
+    this.invisibilityMode=function (input,options,cb){ // expects true or false as either boolean or string
       if (typeof cb == "function"){
         if (isTrueOrFalse(input)){
           return runSimpleCommand("/invisibility_mode " + self.name + " " + input,options,cb);
@@ -3814,10 +3817,11 @@ function EntityObj(fullUID,shipName){ // cb/promises/squish compliant
 
   let fullUIDToUse=fullUID;
   if (shipName){
-    fullUIDToUse=starNetHelper.getUIDfromName(shipName);
+    fullUIDToUse=starNetHelper.getUIDfromNameSync(shipName);
   }
 
   if (fullUIDToUse){
+    console.log("Creating a new entity.  fullUID: " + fullUID + " shipName: " + shipName);
     self.UID=stripFullUIDtoUID(fullUIDToUse); // Returns the UID as used with SQL queries, without the "ENTITY_SHIP_" whatever stuff.
     this.fullUID=fullUIDToUse;
 
@@ -4145,6 +4149,7 @@ function EntityObj(fullUID,shipName){ // cb/promises/squish compliant
       return starNetHelper.getEntityValue(self.fullUID,"Orientation",options,cb); // handles promises  
     };
     this.type=function(options,cb){ 
+      // Will return 
       return starNetHelper.getEntityValue(self.fullUID,"type",options,cb); // handles promises 
     };
     // this["objType"]="EntityObj"; // Totally not necessary since we have objHelper.getObjType()

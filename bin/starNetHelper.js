@@ -13,8 +13,14 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   detectSuccess, // Returns true/false if a chmod command was successful or not.  Can be fed with "false" to return "false", to be stacked with other check types.
   detectSuccess2, // Returns true/false if a ban/unban command was successful or not.  Can be fed with "false" to return "false", to be stacked with other check types.
   getUIDfromName,
+  getUIDfromNameSync,
+  getFactionNameFromNumber,
+  getFactionNumberFromName,
+  getFactionObjFromName,
   returnMatchingLinesAsArray
 }
+
+
 
 var path=require('path');
 var binFolder=path.resolve(__dirname,"../bin/");
@@ -22,6 +28,7 @@ var starNet=require(path.join(binFolder,"starNet.js"));
 var {starNetSync,starNetCb}=starNet;
 
 var objHelper=require(path.join(binFolder,"objectHelper.js"));
+var {FactionObj}=objHelper;
 const mySleep=require(path.join(binFolder,"mySleep.js"));
 const sleep = mySleep.softSleep; // Only accurate for 100ms or higher wait times.
 const {sleepPromise}=mySleep; // Less accurate but non-blocking - can only be used in async functions!
@@ -315,7 +322,7 @@ function mapifyShipInfoUIDString(responseStr,options){ // options are optional. 
         let testVal=cleanRegularValue(results[i]);
         if (testVal != "END; Admin command execution ended"){
           // console.log("Setting type to: " + results[i]);
-          returnMap.set("type",testVal);
+          returnMap.set("type",testVal.toLowerCase());
         }
 
       }
@@ -347,8 +354,133 @@ function ShipInfoUidObj(uidOrShipObj,options){ // options are optional and are m
   }
 }
 
+function getFactionObjFromName(name,options,cb){
+  var theName=toStringIfPossible(name);
+  if (typeof theName == "string"){
+    return getFactionNumberFromName(theName,"",function(err,result){
+      if (err){
+        return cb(err,result);
+      } else {
+        return cb(null,new FactionObj(result));
+      }
+    });
+  }
+  return cb(new Error("Invalid input given to getFactionObjFromName as 'name'!"),null);
+}
 
-function getUIDfromName(name,options){ // Runs in sync mode to assist in creating EntityObj from an entity name, since some events only return the entity name, not the UID..  I need to figure out workarounds for this.
+function getFactionNumberFromName(name,options,cb){
+  if (typeof cb=="function"){
+    var theName=toStringIfPossible(name);
+    if (typeof theName == "string"){
+      return starNetVerified("/faction_list",options,function(err,result){
+        if (err){
+          return cb(err,result);
+        }
+        var resultArray=result.split("RETURN: [SERVER,"); // We don't split by \n because the faction description might have return symbols in it.
+        var factionNum;
+        var factionName;
+        for (let i=0;i<resultArray.length;i++){
+          factionNum=toNumIfPossible(resultArray[i].match(/(?<=Faction \[id=)[-]{0,1}[0-9]+/));
+          factionName=toStringIfPossible(resultArray[i].match(/(?<=, name=)[^,]+/));
+          if (theName == factionName){
+            return cb(null,factionNum);
+          }
+        }
+        // No result was found, so return null
+        return cb(null,null);
+      });
+    } else {
+      return cb(new Error("Invalid input given to getFactionNumberFromName as 'name'!"),null);
+    }
+  }
+  return simplePromisifyIt(getFactionNumberFromName,options,name);
+}
+
+function getFactionNameFromNumber(number,options,cb){
+  if (typeof cb=="function"){
+    var theNumber=toNumIfPossible(toStringIfPossible(number));
+    if (typeof theNumber == "number"){
+      return starNetVerified("/faction_list",options,function(err,result){
+        if (err){
+          return cb(err,result);
+        }
+        var resultArray=result.split("RETURN: [SERVER,"); // We don't split by \n because the faction description might have return symbols in it.
+        var factionNum;
+        var factionName;
+        for (let i=0;i<resultArray.length;i++){
+          factionNum=toNumIfPossible(resultArray[i].match(/(?<=Faction \[id=)[-]{0,1}[0-9]+/));
+          factionName=toStringIfPossible(resultArray[i].match(/(?<=, name=)[^,]+/));
+          if (theNumber == factionNum){
+            return cb(null,factionName);
+          }
+        }
+        // No result was found, so return null
+        return cb(null,null);
+      });
+    } else {
+      return cb(new Error("Invalid input given to getFactionNameFromNumber as 'number'!"),null);
+    }
+  }
+  return simplePromisifyIt(getFactionNumberFromName,options,number);
+}
+
+
+function getUIDfromName(name,options,cb){ // Runs in sync mode to assist in creating EntityObj from an entity name, since some events only return the entity name, not the UID..  I need to figure out workarounds for this.
+  // Returns:
+  // If ship not found:  null
+  // If an error is encountered running starnet:  undefined
+  // If invalid input is given, it will throw an error
+  // If ship is found:  The FULL UID of the ship
+  // console.log("Looking up name: " + name); // temp
+  if (typeof cb=="function"){
+    let returnResult;
+    if (typeof name == "string"){
+      console.log("Getting the UID from entity name: " + name);
+      return starNetVerified('/ship_info_name "' + name + '"',options,function(err,result){
+        if (err){
+          console.log("There was an error getting the UID from the entity name!");
+          return cb(err,result);
+        }
+        var theArray=result.trim().split("\n");  // Split results by return lines, so we can check each line
+        var notFound=false;
+        for (let i=0;i<theArray.length;i++){ // Check if it is not found
+          if (theArray[i].match(/.*not found in database, 0\]$/)){
+            console.log("Entity not found in the database!");
+            notFound=true;
+          }
+        }
+        if (notFound){
+          returnResult=null; // The ship was not found, so return null
+        } else if (theArray[0].match(/found in loaded objects, 0\]$/)) { // The ship is loaded
+          console.log("Entity found in loaded objects.. cycling through to get the UID..");
+          for (let i=1;i<theArray.length;i++){ // Cycle through all the values, looking for the UID
+            if (theArray[i].match(/^RETURN: \[SERVER, UID:/)){
+              returnResult=theArray[i].match(/[^:]+, 0\]$/)[0].trim().replace(/, 0\]$/,"");
+            }
+          }
+        } else { // The ship was found but not loaded
+          console.log("Entity not found in loaded objects.. cycling through the databaseentry to get the UID..");
+          for (let i=1;i<theArray.length;i++){ // Cycle through all the values, looking for the UID
+            if (theArray[i].match(/^RETURN: \[SERVER, DatabaseEntry /)){
+              returnResult=theArray[i].match(/uid=[^,]+/)[0].replace(/^uid=/,"");
+            }
+          }
+        }
+        console.log("Returning the result: " + returnResult);
+        return cb(null,returnResult);
+
+      });
+    } else {
+      return cb(new Error("getUIDfromName given invalid input.  Expected a string!"),null);
+    }
+  } else {
+    return simplePromisifyIt(getUIDfromName,options,name);
+  }
+
+}
+
+
+function getUIDfromNameSync(name,options){ // Runs in sync mode to assist in creating EntityObj from an entity name, since some events only return the entity name, not the UID..  I need to figure out workarounds for this.
   // Returns:
   // If ship not found:  null
   // If an error is encountered running starnet:  undefined
