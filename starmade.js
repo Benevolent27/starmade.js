@@ -699,6 +699,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           var responsible=toStringIfPossible(dataInput.match(/(?<=Responsible: )[^']+(?='.*)/));
           // Shipyard:  D_1508536985403 (design)
           var deathType;
+          var responsibleEntity;
           if ( responsible == "Sun"){
             deathType="star"
           } else if (responsible == "Black Hole"){
@@ -715,10 +716,10 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
               killer=killer.toString(); // We use toString here because a player might be named 0, which would create a falsey condition
               if (person == killer){
                 // This probably should be broadened to include suiciding via their own ship
-                message="[${theDate}] [${theTime}]: ${person} killed themselves."
+                message=`[${theDate}] [${theTime}]: ${person} killed themselves.`
                 deathType="suicide"
               } else {
-                var responsibleEntity=toStringIfPossible(dataInput.match(/(?<=controllable: Ship\[)[^\]]*/));
+                responsibleEntity=toStringIfPossible(dataInput.match(/(?<=controllable: Ship\[)[^\]]*/));
                 if (responsibleEntity){
                   // Since we know the killer's name and also the entity, set to having been perpetrated by a person in an entity
                   message=`[${theDate}] [${theTime}]: ${person} was killed by ${killer}, in entity ${responsibleEntity}`
@@ -740,7 +741,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
               // If no killer found by first check, then check for the entity name and person's name via the "responsible entity"
               // Gotta figure out why removing the ] fucks up the responsible faction..
               // echo "No Killer found.. Running secondary check.."
-              killer=toStringIfPossible(responsible.match(/(?<=\<)[^>]*(?=\>.*)/));
+              killer=toStringIfPossible(responsible.match(/(?<=<)[^>]*(?=>.*)/));
               // console.log(`killer: ${killer}`);
               if (person == killer){
                 // This probably should be broadened to include suiciding via their own ship
@@ -759,7 +760,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
                 // responsibleEntity=$(echo "${responsible}" | sed -E 's/([^\[]*$)//g' | sed -E 's/((\[$)|(\<.*))//g')
     
                 // This will only work IF there are [ brackets ], such as a faction name in there, so I need to branch out here as well
-                var responsibleEntity=responsible.replace(/(\[.*$|<.*$)/g,"");
+                responsibleEntity=responsible.replace(/(\[.*$|<.*$)/g,"");
                 // responsibleEntity=$(echo "${responsible}" | sed -E 's/([^\[]*$)//g' | sed 's/\[$//g' | sed 's/<.*//g')
 
                 // Ths needs to work for entities that have no controlling person.. hmm
@@ -1406,7 +1407,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
         }
       } else if (theCommand == "stderrfilter" ) {
         if (testIfInput(theArguments[0])){
-
+          console.log("Finish this..");
         } else {
           console.log("ERROR:  Please specify a filter to use!  Example: \\[SPAWN\\]");
         }
