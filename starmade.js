@@ -99,7 +99,7 @@ const sleepPromise = requireBin("mySleep.js").sleepPromise;
 const patterns          = requireBin("patterns.js"); // Import the patterns that will be used to match to in-game events like deaths and messages.
 var starNet           = requireBin("starNet.js"); // Performs sql queries and gets back a string result if successful
 var starNetHelper       = requireBin("starNetHelper.js"); // needs testing
-// const sqlQuery          = requireBin("sqlQuery.js"); // Will be eliminating this in favor of creating SqlQuery objects.
+const sqlQuery          = requireBin("sqlQuery.js"); // Will be eliminating this in favor of creating SqlQuery objects.
 const ini               = requireBin("iniHelper.js"); // This will replace the current functionality of ini by wrapping it and modifying the ini package so that it works correctly for starmade config files and ini files that use # characters.
 const objectHelper      = requireBin("objectHelper.js"); // This includes assistance handling of custom objects and conversions
 const regExpHelper      = requireBin("regExpHelper.js"); // Contains common patterns, arrays, and pattern functions needed for the wrapper.
@@ -110,7 +110,7 @@ global["objectCreator"]=objectCreator;
 global["installAndRequire"]=installAndRequire;
 global["sleep"]=sleepPromise;
 global["sleepSync"]=sleepSync;
-
+global["sqlQuery"]=sqlQuery.simpleSqlQuery;
 global["ini"]=ini;
 global["objectHelper"]=objectHelper;
 global["regExpHelper"]=regExpHelper;

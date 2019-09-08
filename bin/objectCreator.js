@@ -3061,15 +3061,11 @@ function FactionObj(number){  // cb/promises/squish compliant
 
   this.systemsClaimed=function(options,cb){
     if (typeof cb == "function"){
-      // "SELECT X,Y,Z,TYPE,OWNER_X,OWNER_Y,OWNER_Z,OWNER_UID FROM PUBLIC.SYSTEMS WHERE OWNER_FACTION=" + self.number
       return simpleSqlQuery("SELECT X,Y,Z FROM PUBLIC.SYSTEMS WHERE OWNER_FACTION=" + self.number,options,function(err,results){
-        
         if (err){
           return cb(err,results);
         }
         let returnArray=[];
-        console.log("Results: "); // temp
-        console.dir(results);
         for (let i=0;i<results.length;i++){
           returnArray.push(new SystemObj(results[i].X,results[i].Y,results[i].Z));
         }
