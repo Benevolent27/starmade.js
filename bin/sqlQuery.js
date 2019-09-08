@@ -1,7 +1,8 @@
 module.exports={ // top exporting to allow circular dependencies to work.
   SqlQueryObj, // DO NOT USE THE OBJECT DIRECTLY FROM THIS FILE, USE THE objectCreator.js script for that to avoid unsupported circular dependencies, since that script uses export injection to provide this object.
   mapifyColumnsAndAllData, // This takes an array with columns, and another array with all the data, spitting out an array of maps
-  sqlQuery
+  sqlQuery,
+  simpleSqlQuery
 };
 
 // TODO: Discontinue the SqlQuery object in favor of the sqlQuery function and merge this into the StarNetHelper.js file.
@@ -11,13 +12,15 @@ const path=require('path');
 const binFolder=path.resolve(__dirname);
 const starNet=require(path.resolve(binFolder,"starNet.js"));
 const {starNetSync,starNetCb}=starNet;
-const objHelper=require(path.resolve(binFolder,"objectHelper.js"));
+const objectHelper=require(path.resolve(binFolder,"objectHelper.js"));
 const starNetHelper=require(path.resolve(binFolder,"starNetHelper.js"));
 
 // TODO: Set up the check where if there are no columns returned, the query must have been invalid
 // Set up aliases
-const verifyResponse=starNetHelper["verifyResponse"]; // This checks to make sure there was no error anywhere and that the command executed
-const addNumToErrorObj=objHelper["addNumToErrorObj"];
+const {starNetVerified,verifyResponse}=starNetHelper;
+const {addNumToErrorObj,simplePromisifyIt}=objectHelper;
+// const verifyResponse=starNetHelper["verifyResponse"]; // This checks to make sure there was no error anywhere and that the command executed
+// const addNumToErrorObj=objectHelper["addNumToErrorObj"];
 
 // Set up prototype modifiers
 
@@ -83,6 +86,46 @@ function getSQLquery(query){ // This will preprocess a query so that it should w
     throw new Error("Invalid parameter given as query to getSQLquery function!");
   }
 }
+
+
+function simpleSqlQuery(sqlQuery,options,cb){ // Needs testing // Also the code here can be cleaned up since it's a bit wonky
+  if (typeof cb=="function"){
+    if (typeof sqlQuery == "string" && sqlQuery != ""){
+      var queryToUse=getSQLquery(sqlQuery);
+      return starNetVerified(queryToUse,options,function(err,results){
+        if (err){
+          return cb(err,results);
+        }
+        var tempArray=[]; // Let's clean up the results so it only contains the relevant SQL lines
+        tempArray=results.split("\n");
+        while (tempArray.length > 0 && !(/^RETURN: \[SERVER, SQL#/).test(tempArray[0])){
+          tempArray.shift();
+        }
+        // Trim the bottom
+        while (tempArray.length > 0 && !(/^RETURN: \[SERVER, SQL#/).test(tempArray[tempArray.length-1])){
+          tempArray.pop();
+        }
+        for (let i=0;i<tempArray.length;i++){
+          tempArray[i]=tempArray[i].replace(/(^RETURN: \[SERVER, SQL#[0-9]+: ")|(", 0\]$)/g,"").split('";"');
+        }
+        var theResults=new ReturnObj(tempArray); // Splits the 2 part array into an object
+        if (theResults["columns"]){ // columns should ALWAYS return, even as an empty array
+          if (theResults["columns"].length > 0){
+            return cb(null,objectifyColumnsAndAllData(theResults["columns"],theResults["data"]));
+          } else {
+            return cb(new Error("Invalid SQL query!"),null);
+          }
+        } else { // If the columns field is undefined then, then it means the sql query was invalid.
+          return cb(addNumToErrorObj(new Error("Invalid SQL query!"),1),null);
+        }
+      });
+    } else {
+      return cb(new Error("Invalid input given to sqlQuery as 'sqlQuery'!"),null);
+    }
+  }
+  return simplePromisifyIt(simpleSqlQuery,options,sqlQuery);
+}
+
 
 function sqlQuery(sqlQuery,options,cb){ // Needs testing // Also the code here can be cleaned up since it's a bit wonky
   if (typeof sqlQuery == "string" && sqlQuery != ""){
@@ -181,7 +224,7 @@ function SqlQueryObj(sqlQuery){ // TODO:  Discontinue this object since it relie
           this.objArray2=function(){
             var returnArray=[];
             for (let i=0;i<this.mapArray.length;i++){
-              returnArray.push(objHelper.strMapToObj(this.mapArray[i]));
+              returnArray.push(objectHelper.strMapToObj(this.mapArray[i]));
             }
             return returnArray;
           };
@@ -238,7 +281,7 @@ function mapFromColumnsAndDataSet(columnArray,dataArray){ // this assists the SQ
 function convertMapArrayToObjectArray(theMap){
   var returnArray=[];
   for (let i=0;i<theMap.length;i++){
-    returnArray.push(objHelper.strMapToObj(theMap[i]));
+    returnArray.push(objectHelper.strMapToObj(theMap[i]));
   }
 return returnArray;
 };

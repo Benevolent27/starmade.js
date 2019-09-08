@@ -75,7 +75,7 @@ const stripFullUIDtoUID     = regExpHelper["stripFullUIDtoUID"]; // Function tha
 var sectorProtectionsArray  = regExpHelper.sectorProtections; // This should include all the possible protections a sector can have.
 // const verifyStarNetResponse = starNetHelper.verifyResponse; // This can be used to perform a verification on a StarNet response without consuming the response
 // const starNetVerified       = starNetVerified; // If the response does not verify, this consumes the response and throws an error instead
-const {sqlQuery,SqlQueryObj}=sqlQueryJs;
+const {sqlQuery,SqlQueryObj,simpleSqlQuery}=sqlQueryJs;
 const {verifyStarNetResponse,starNetVerified,starNetVerifiedCB,returnMatchingLinesAsArray,checkForLine,mapifyShipInfoUIDString} = starNetHelper;
 const {copyArray,toNumIfPossible,toStringIfPossible,subArrayFromAnother,findSameFromTwoArrays,isInArray} = objectHelper;
 const {testIfInput,trueOrFalse,isTrueOrFalse,isNum,colorize,getObjType,returnLineMatch,applyFunctionToArray,simplePromisifyIt,toTrueOrFalseIfPossible} = objectHelper;
@@ -3059,6 +3059,26 @@ function FactionObj(number){  // cb/promises/squish compliant
   this.number=toNumIfPossible(number);
   var self=this;
 
+  this.systemsClaimed=function(options,cb){
+    if (typeof cb == "function"){
+      // "SELECT X,Y,Z,TYPE,OWNER_X,OWNER_Y,OWNER_Z,OWNER_UID FROM PUBLIC.SYSTEMS WHERE OWNER_FACTION=" + self.number
+      return simpleSqlQuery("SELECT X,Y,Z FROM PUBLIC.SYSTEMS WHERE OWNER_FACTION=" + self.number,options,function(err,results){
+        
+        if (err){
+          return cb(err,results);
+        }
+        let returnArray=[];
+        console.log("Results: "); // temp
+        console.dir(results);
+        for (let i=0;i<results.length;i++){
+          returnArray.push(new SystemObj(results[i].X,results[i].Y,results[i].Z));
+        }
+        return cb(null,returnArray); // If no results, array will be empty.
+      });
+    }
+    return simplePromisifyIt(self.systemsClaimed,options);
+  }
+
   this.delete=function(options,cb){ // deletes the faction
     if (typeof cb == "function"){
       return runSimpleCommand("/faction_delete " + self.number,options,cb);
@@ -5367,7 +5387,7 @@ function runSimpleCommand(theCommand,options,cb){  // cb/promises compliant
 
 
 function convertSectorToSystem(sectorObj){
-  var sectorArray=sectorObj.toArray;
+  var sectorArray=sectorObj.toArray();
   var systemArray=convertSectorCoordsToSystem(sectorArray);
   return new SystemObj(systemArray);
 }
