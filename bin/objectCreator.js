@@ -4296,8 +4296,108 @@ function EntityObj(fullUID,shipName){ // cb/promises/squish compliant
       // Will return 
       return starNetHelper.getEntityValue(self.fullUID,"type",options,cb); // handles promises 
     };
-    // this["objType"]="EntityObj"; // Totally not necessary since we have objHelper.getObjType()
+    this.typeNumber=function(options,cb){
+      // Returns a number representing the type of entity this is:
+      // 1: ENTITY_SHOP_
+      // 2: ENTITY_SPACESTATION_
+      // 3: ENTITY_FLOATINGROCK_
+      // 4: ENTITY_PLANET_
+      // 5: ENTITY_SHIP_
+      // 6: ENTITY_FLOATINGROCKMANAGED_
+     
+      // Returns undefined if the entity does not have a world file entry yet
+      if (typeof cb == "function"){
+        return simpleSqlQuery(`SELECT TYPE FROM PUBLIC.ENTITIES WHERE UID='${self.UID}';`,options,function(err,result){
+          if (err){
+            return cb(err,result);
+          }
+          if (result.length > 0){
+            return cb(null,Number(result[0]["TYPE"])); // There should only ever be 1 result, if the system is claimed.
+          } else {
+            return cb(null); // If no result, the system is not claimed.
+          }
+        });
+      }
+      return simplePromisifyIt(self.typeNumber,options);
+    }
+    this.touched=function(options,cb){
+      // Returns a true/false, depending on whether a player has interacted with the entity.  Does not count damage.
+      // Returns undefined if the entity does not exist in the world file yet.
+      if (typeof cb == "function"){
+        return simpleSqlQuery(`SELECT TOUCHED FROM PUBLIC.ENTITIES WHERE UID='${self.UID}';`,options,function(err,result){
+          if (err){
+            return cb(err,result);
+          }
+          if (result.length > 0){
+            return cb(null,Boolean(result[0]["TOUCHED"])); // There should only ever be 1 result, if the system is claimed.
+          }
+          return cb(null); // If no result, the entity does not exist in the world file yet or the UID is invalid.
+        });
+      }
+      return simplePromisifyIt(self.typeNumber,options);
+    }
 
+    this.dockedTo=function(options,cb){
+      // Returns an EntityObj of the entity this entity is docked to.  
+      // Returns null if not docked
+      // Returns undefined if not in the world file yet.
+      if (typeof cb == "function"){
+        return simpleSqlQuery(`SELECT DOCKED_TO FROM PUBLIC.ENTITIES WHERE UID='${self.UID}';`,options,function(err,result){
+          if (err){
+            return cb(err,result);
+          }
+          if (result.length > 0){
+            if (result != "-1"){
+              var dockedTo=result[0]["DOCKED_TO"];
+              return simpleSqlQuery(`SELECT UID,TYPE FROM PUBLIC.ENTITIES WHERE ID='${dockedTo}'`,options,function(err,result){
+                if (err){
+                  return cb(err,result);
+                }
+                let entityPrefix=getEntityPrefixFromPublicEntitiesTypeNumber(result[0]["TYPE"]);
+                let fullUID=entityPrefix + result[0]["UID"];
+                return cb(null,new EntityObj(fullUID)); // There should only ever be 1 result, if the system is claimed.
+              });
+              
+            }
+            return cb(null,null); // entity is not docked
+            
+          } else {
+            return cb(null); // If no result, the entity does not exist in the world file yet or the UID is invalid.  This will be undefined.
+          }
+        });
+      }
+      return simplePromisifyIt(self.dockedTo,options);
+    }
+    this.dockedToRoot=function(options,cb){
+      // Returns an EntityObj of the root entity this entity is docked to.  
+      // Returns null if not docked
+      // Returns undefined if not in the world file yet.
+      if (typeof cb == "function"){
+        return simpleSqlQuery(`SELECT DOCKED_ROOT FROM PUBLIC.ENTITIES WHERE UID='${self.UID}';`,options,function(err,result){
+          if (err){
+            return cb(err,result);
+          }
+          if (result.length > 0){
+            if (result != "-1"){
+              var dockedTo=result[0]["DOCKED_ROOT"];
+              return simpleSqlQuery(`SELECT UID,TYPE FROM PUBLIC.ENTITIES WHERE ID='${dockedTo}'`,options,function(err,result){
+                if (err){
+                  return cb(err,result);
+                }
+                let entityPrefix=getEntityPrefixFromPublicEntitiesTypeNumber(result[0]["TYPE"]);
+                let fullUID=entityPrefix + result[0]["UID"];
+                return cb(null,new EntityObj(fullUID)); // There should only ever be 1 result, if the system is claimed.
+              });
+            }
+            return cb(null,null); // entity is not docked
+            
+          } else {
+            return cb(null); // If no result, the entity does not exist in the world file yet or the UID is invalid.  This will be undefined.
+          }
+        });
+      }
+      return simplePromisifyIt(self.dockedTo,options);
+    }
 
 
     self.load=function(options,cb){
@@ -5526,4 +5626,19 @@ function getSysCoordFromSector(input) {
   throw new Error("Invalid input given to getSysCoordFromSector! (Cannot be empty)");
 }
 
-
+function getEntityPrefixFromPublicEntitiesTypeNumber(input){
+  if (input == 1){
+    return "ENTITY_SHOP_";
+  } else if (input == 2){
+    return "ENTITY_SPACESTATION_";
+  } else if (input == 3){
+    return "ENTITY_FLOATINGROCK_";
+  } else if (input == 4){
+    return "ENTITY_PLANET_";
+  } else if (input == 5){
+    return "ENTITY_SHIP_";
+  } else if (input == 6){
+    return "ENTITY_FLOATINGROCKMANAGED_";
+  }
+  throw new Error("Invalid input given to getEntityPrefixFromPublicEntitiesTypeNumber!  (Needs number 1-6)");
+}
