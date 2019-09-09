@@ -2543,6 +2543,58 @@ function SystemObj(x,y,z){ // cb/promises/squish compliant
 
   // Action Methods:
   // load - Uses "/load_system x y z" to load the whole system.
+
+  this.claimEntity=function(options,cb){
+    if (typeof cb == "function"){
+      return simpleSqlQuery(`SELECT OWNER_UID FROM PUBLIC.SYSTEMS WHERE X=${self.x} AND Y=${self.y} AND Z=${self.z};`,options,function(err,result){
+        if (err){
+          return cb(err,result);
+        }
+        if (result.length > 0){
+          return cb(null,new EntityObj(result[0].OWNER_UID)); // There should only ever be 1 result, if the system is claimed.
+        } else {
+          return cb(null,null); // If no result, the system is not claimed.
+        }
+      });
+    }
+    return simplePromisifyIt(self.claimEntity,options);
+  }
+  this.claimSector=function(options,cb){
+    if (typeof cb == "function"){
+      return simpleSqlQuery(`SELECT OWNER_X,OWNER_Y,OWNER_Z FROM PUBLIC.SYSTEMS WHERE X=${self.x} AND Y=${self.y} AND Z=${self.z};`,options,function(err,result){
+        if (err){
+          return cb(err,result);
+        }
+        if (result.length > 0){
+          return cb(null,new SectorObj(result[0]["OWNER_X"],result[0]["OWNER_Y"],result[0]["OWNER_Z"])); // There should only ever be 1 result, if the system is claimed.
+        } else {
+          return cb(null,null); // If no result, the system is not claimed.
+        }
+      });
+    }
+    return simplePromisifyIt(self.claimSector,options);
+  }
+
+  this.claimFaction=function(options,cb){
+    if (typeof cb == "function"){
+      return simpleSqlQuery(`SELECT OWNER_FACTION FROM PUBLIC.SYSTEMS WHERE X=${self.x} AND Y=${self.y} AND Z=${self.z};`,options,function(err,result){
+        if (err){
+          return cb(err,result);
+        }
+        if (result.length > 0){
+          if (result[0] != 0){
+            return cb(null,new FactionObj(result[0]["OWNER_FACTION"])); // There should only ever be 1 result, if the system is claimed.
+          }
+          return cb(null,null);
+          
+        } else {
+          return cb(null,null); // If no result, the system is not claimed.
+        }
+      });
+    }
+    return simplePromisifyIt(self.claimSector,options);
+  }
+
   this.spawnNPCFaction=function(npcName,npcFactionName,npcDescription,initialGrowth,options,cb){ // Normally options would never be given since who cares about making this fast?
     // DOES NOT GIVE AN ERROR IF THE NPC TYPE IS NOT CORRECT - NEED TO DO MY OWN CHECKING HERE TO SEE IF VALID.
     if (typeof cb == "function"){
@@ -3073,6 +3125,36 @@ function FactionObj(number){  // cb/promises/squish compliant
       });
     }
     return simplePromisifyIt(self.systemsClaimed,options);
+  }
+  this.systemClaimEntities=function(options,cb){
+    if (typeof cb == "function"){
+      return simpleSqlQuery("SELECT OWNER_UID FROM PUBLIC.SYSTEMS WHERE OWNER_FACTION=" + self.number,options,function(err,results){
+        if (err){
+          return cb(err,results);
+        }
+        let returnArray=[];
+        for (let i=0;i<results.length;i++){
+          returnArray.push(new EntityObj(results[i].OWNER_UID));
+        }
+        return cb(null,returnArray); // If no results, array will be empty.
+      });
+    }
+    return simplePromisifyIt(self.systemClaimEntities,options);
+  }
+  this.systemClaimSectors=function(options,cb){
+    if (typeof cb == "function"){
+      return simpleSqlQuery("SELECT OWNER_X,OWNER_Y,OWNER_Z FROM PUBLIC.SYSTEMS WHERE OWNER_FACTION=" + self.number,options,function(err,results){
+        if (err){
+          return cb(err,results);
+        }
+        let returnArray=[];
+        for (let i=0;i<results.length;i++){
+          returnArray.push(new SectorObj(results[i]["OWNER_X"],results[i]["OWNER_Y"],results[i]["OWNER_Z"]));
+        }
+        return cb(null,returnArray); // If no results, array will be empty.
+      });
+    }
+    return simplePromisifyIt(self.systemClaimSectors,options);
   }
 
   this.delete=function(options,cb){ // deletes the faction
