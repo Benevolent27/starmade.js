@@ -2592,7 +2592,7 @@ function SystemObj(x,y,z){ // cb/promises/squish compliant
         }
       });
     }
-    return simplePromisifyIt(self.claimSector,options);
+    return simplePromisifyIt(self.claimFaction,options);
   }
 
   this.spawnNPCFaction=function(npcName,npcFactionName,npcDescription,initialGrowth,options,cb){ // Normally options would never be given since who cares about making this fast?
