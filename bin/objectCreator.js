@@ -2543,7 +2543,27 @@ function SystemObj(x,y,z){ // cb/promises/squish compliant
 
   // Action Methods:
   // load - Uses "/load_system x y z" to load the whole system.
-
+  this.typeNumber=function(options,cb){
+    if (typeof cb == "function"){
+      return simpleSqlQuery(`SELECT TYPE FROM PUBLIC.SYSTEMS WHERE X=${self.x} AND Y=${self.y} AND Z=${self.z};`,options,function(err,result){
+        if (err){
+          return cb(err,result);
+        }
+        if (result.length > 0){
+          return cb(null,Number(result[0]["TYPE"])); // There should only ever be 1 result, if the system is claimed.
+          // Returns a number, representing the type of system
+          // 4: Regular Star (any color)
+          // 5: Black Hole
+          // 6: Void
+          // 8: Supernova
+          // 9: Double Star
+        } else {
+          return cb(null,null); // If no result, the system is not claimed.
+        }
+      });
+    }
+    return simplePromisifyIt(self.type,options);
+  }
   this.claimEntity=function(options,cb){
     if (typeof cb == "function"){
       return simpleSqlQuery(`SELECT OWNER_UID FROM PUBLIC.SYSTEMS WHERE X=${self.x} AND Y=${self.y} AND Z=${self.z};`,options,function(err,result){
@@ -2642,6 +2662,7 @@ function SystemObj(x,y,z){ // cb/promises/squish compliant
     }
     return simplePromisifyIt(self.territoryReset,options);
   }
+  
 
 
   
