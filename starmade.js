@@ -162,10 +162,10 @@ var isPidAlive        = miscHelpers.isPidAlive;
 var {isDirectory,getDirectories,isFile,getFiles,log}=miscHelpers;  // Sets up file handling
 
 // Object aliases
-var {BotObj,EntityObj,SectorObj,CoordsObj,FactionObj,MessageObj,BlueprintObj,PlayerObj,SMNameObj,ServerObj}=objectCreator;
+var {BotObj,EntityObj,SectorObj,CoordsObj,FactionObj,MessageObj,BlueprintObj,PlayerObj,SMNameObj,ServerObj,regConstructor}=objectCreator;
 var {repeatString,isInArray,getRandomAlphaNumericString,arrayMinus,toStringIfPossible,testIfInput}=objectHelper;
 var {getUIDfromName,getFactionNumberFromName,getFactionObjFromName}=starNetHelper;
-
+global["regConstructor"]=regConstructor;
 
 
 // #####################

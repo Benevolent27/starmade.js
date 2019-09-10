@@ -93,7 +93,8 @@ function writeSettings() {
 // console.dir(defaultSettings);
 
 // Extenders - These will only be guaranteed available after the "init" event is triggered.
-objectCreator["CommandObj"]=CommandObj;
+// objectCreator["CommandObj"]=CommandObj;
+global.regConstructor(CommandObj);
 global["regCommand"]=regCommand;
 global["commandSettings"]=defaultSettings;
 
