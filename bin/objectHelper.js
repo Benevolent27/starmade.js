@@ -43,12 +43,42 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   arrayMinus,
   applyFunctionToArray,
   simplePromisifyIt,
-  getParamNames
+  getParamNames,
+  listObjectMethods
 };
 
 const util=require('util');
 const path=require('path');
 const binFolder=path.resolve(__dirname,"../bin/");
+
+
+function listObjectMethods(obj) { // This lists the methods/data available on an object.
+  // console.log("Type of input: " + typeof obj);
+  if (typeof obj=="object" || typeof obj=="function"){
+    const propNames = Object.getOwnPropertyNames(obj);
+    const objName=obj.constructor.name;
+    // console.log("Here are the elements for the object (type: " + objName + "):");
+    var params;
+    var outputArray=[];
+    propNames.forEach(function(name) {
+      try {
+        if (typeof obj[name] == "function"){
+          params=getParamNames(obj[name]);
+          params=params.join(",");
+          params="(" + params + ")";
+        } else {
+          params="";
+        }
+      } catch (err){
+        params="()";
+      }
+      outputArray.push(name + params);
+    });
+    return outputArray;
+  } else {
+    throw new Error("Invalid input given to listObjectMethods! (Requires object input)");
+  }
+}
 
 // start of getParamNames
 var STRIP_COMMENTS = /(\/\/.*$)|(\/\*[\s\S]*?\*\/)|(\s*=[^,)]*(('(?:\\'|[^'\r\n])*')|("(?:\\"|[^"\r\n])*"))|(\s*=[^,)]*))/mg;
@@ -56,10 +86,12 @@ var ARGUMENT_NAMES = /([^\s,]+)/g;
 function getParamNames(func) {
     var fnStr = func.toString().replace(STRIP_COMMENTS, '');
     var result = fnStr.slice(fnStr.indexOf('(')+1, fnStr.indexOf(')')).match(ARGUMENT_NAMES);
-    if(result === null){
-       result = [];
+    var returnArray=[];
+    if(result !== null){
+      result=result.toString();
+      returnArray=result.split(",");
     }
-    return result;
+    return returnArray;
     // Source: https://stackoverflow.com/questions/1007981/how-to-get-function-parameter-names-values-dynamically
 }
 

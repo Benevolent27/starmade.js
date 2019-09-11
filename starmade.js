@@ -163,7 +163,7 @@ var {isDirectory,getDirectories,isFile,getFiles,log}=miscHelpers;  // Sets up fi
 
 // Object aliases
 var {BotObj,EntityObj,SectorObj,CoordsObj,FactionObj,MessageObj,BlueprintObj,PlayerObj,SMNameObj,ServerObj,regConstructor}=objectCreator;
-var {repeatString,isInArray,getRandomAlphaNumericString,arrayMinus,toStringIfPossible,testIfInput,simplePromisifyIt}=objectHelper;
+var {repeatString,isInArray,getRandomAlphaNumericString,arrayMinus,toStringIfPossible,testIfInput,simplePromisifyIt,listObjectMethods,getParamNames}=objectHelper;
 var {getUIDfromName,getFactionNumberFromName,getFactionObjFromName}=starNetHelper;
 global["regConstructor"]=regConstructor;
 
@@ -1434,11 +1434,85 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
         console.log(" !reloadMods");
         console.log(" !record (stop)");
         console.log(" !showallevents [on/off]");
+        console.log(" !listObjects");
+        console.log(" !listObjectMethods [ObjectName]");
         console.log(" !settings");
         console.log(" !changesetting [setting] [newvalue]");
       } else if (i(theCommand,"reloadmods")) {
         console.log("Reloading mods..");
         eventEmitter.emit("reloadMods");
+
+      } else if (i(theCommand,"listObjects")) {
+        let keyArray;
+        let keyUpperCase;
+        console.log("Listing objects:");
+        for (let key in objectCreator){
+          if (objectCreator.hasOwnProperty(key)){
+            keyArray=key.split("");
+            keyUpperCase=keyArray[0].toUpperCase();
+            if (keyUpperCase === keyArray[0]){
+              console.log(" - " + key + "(" + getParamNames(objectCreator[key]) + ")");
+            }
+          }
+        }
+        console.log( " ");
+      } else if (i(theCommand,"listObjectMethods")) {
+        // This needs an example object to be created, so it will expect input to create an example object to then test
+        // example:  PlayerObj("Test");
+
+        if (testIfInput(theArguments[0])){
+          var input=theArguments[0].replace(/"/g,"'");
+          var objName=input.match(/^[^(]+/);
+          if (objName){
+            objName=objName.toString();
+            var objArguments=input.match(/(?<=\()[^(^)]+(?=\))/);
+            if (objArguments){
+              objArguments=objArguments.toString();
+              var objArgumentsArray=objArguments.replace(/'/g,"").split(",");
+              // console.log("objArgumentsArray: " + objArgumentsArray);
+              var paramNamesArray=getParamNames(objectCreator[objName]);
+              var paramNames=paramNamesArray.join(",");
+              // console.log("paramNames: " + paramNames);
+              // console.log("typeof paramNames: " + typeof paramNames);
+              // console.log("paramNamesArray:" + paramNamesArray);
+              if (objArgumentsArray.length == paramNamesArray.length){
+                if (objectCreator.hasOwnProperty(objName)){
+                  console.log("Listing the elements for: " + objName + "(" + paramNames + ")");
+                  let valid=false;
+                  try {
+                    var dummyObj=new objectCreator[objName](...objArgumentsArray);
+                    valid=true;
+                  } catch (err){
+                    console.log("ERROR:  Invalid input given to constructor object!  Please provide the correct input.");
+                    console.dir(err);
+                  }
+                  // console.log("Listing methods for: " + theArguments[0]);
+                  if (valid){
+                    var theArray=listObjectMethods(dummyObj);
+                    for (let i=0;i<theArray.length;i++){
+                      console.log(" - " + theArray[i]);
+                    }
+                  }
+                  
+                } else {
+                  console.log("Constructor does not exist!  Please specify a valid object constructor.  Example: !listObjectMethods PlayerObj");
+                }
+              } else {
+                console.log("Please provide a valid amount of arguments to create the dummy object to test.");
+                console.log("The object constructor requires the following values: " + objName + "(" + paramNames + ")");
+              }
+
+            } else {
+              console.log("Please provide arguments to produce a dummy object to test. Example: !listObjectMethods PlayerObj(\"SomePlayer\")");
+            }
+          } else {
+            console.log("Please provide a valid object type.  Example: !listObjectMethods PlayerObj(\"SomePlayer\")");
+          }
+        } else {
+          console.log("Please provide a valid object type.  Example: !listObjectMethods PlayerObj(\"SomePlayer\")");
+        }
+        
+
       } else if (i(theCommand,"record")) {
         if (!theArguments[0] || i(theArguments[0],"start")){
           if (recording){
