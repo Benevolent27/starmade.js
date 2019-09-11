@@ -3939,7 +3939,8 @@ function CreatureObj(fullUID){  // Not usable right now since there are no creat
   self.UID=stripFullUIDtoUID(fullUID);
   self.fullUID=fullUID;
 };
-function EntityObj(fullUID,shipName){ // cb/promises/squish compliant
+function EntityObj(fullUID){ // cb/promises/squish compliant
+  // ,shipName){ need to test this is ok to have deleted. 
 
   // TODO:  Make this ONLY ACCEPT fullUID - figure out which events only give an entity name and change it to return a promise that returns an EntityObj instead.
   // takes EITHER the full UID or the ship name.  If a ship name is provided, it will look up the full UID via a StarNet.jar command.
@@ -3949,12 +3950,12 @@ function EntityObj(fullUID,shipName){ // cb/promises/squish compliant
   // This can be used for ships and stations.  // TODO: There will be PlanetObj for planets and AsteroidObj for asteroids if there are differences in what can or cannot be done to them.
 
   let fullUIDToUse=fullUID;
-  if (shipName){
-    fullUIDToUse=starNetHelper.getUIDfromNameSync(shipName);
-  }
+  // if (shipName){
+  //   fullUIDToUse=starNetHelper.getUIDfromNameSync(shipName);
+  // }
 
   if (fullUIDToUse){
-    console.log("Creating a new entity.  fullUID: " + fullUID + " shipName: " + shipName);
+    // console.log("Creating a new entity.  fullUID: " + fullUID + " shipName: " + shipName);
     self.UID=stripFullUIDtoUID(fullUIDToUse); // Returns the UID as used with SQL queries, without the "ENTITY_SHIP_" whatever stuff.
     this.fullUID=fullUIDToUse;
 
