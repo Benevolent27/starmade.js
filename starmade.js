@@ -163,7 +163,7 @@ var {isDirectory,getDirectories,isFile,getFiles,log}=miscHelpers;  // Sets up fi
 
 // Object aliases
 var {BotObj,EntityObj,SectorObj,CoordsObj,FactionObj,MessageObj,BlueprintObj,PlayerObj,SMNameObj,ServerObj,regConstructor}=objectCreator;
-var {repeatString,isInArray,getRandomAlphaNumericString,arrayMinus,toStringIfPossible,testIfInput}=objectHelper;
+var {repeatString,isInArray,getRandomAlphaNumericString,arrayMinus,toStringIfPossible,testIfInput,simplePromisifyIt}=objectHelper;
 var {getUIDfromName,getFactionNumberFromName,getFactionObjFromName}=starNetHelper;
 global["regConstructor"]=regConstructor;
 
@@ -1266,49 +1266,76 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   global["server"].spawn.stdout.on('data', function (data) { // Displays the standard output from the starmade server
     let dataString=data.toString().trim(); // Clear out any blank lines
     if (dataString){
-      if (showStdout == true || showAllEvents == true) {
-        console.log("stdout: " + dataString);
+      let dataArray=dataString.replace("\r","").split("\n"); // simplify to only new line characters and split to individual lines.
+      for (let i=0;i<dataArray.length;i++){
+        if (dataArray[i]){
+          if (showStdout == true || showAllEvents == true) {
+            if (typeof stdoutFilter == "object"){
+              if (stderrFilter.test(dataArray[i])){
+                console.log("STDOUT: " + dataArray[i]);
+              }
+            } else {
+              console.log("STDOUT: " + dataArray[i]);
+            }
+          }
+          if (recording){ // For the wrapper console command "!recording"
+            recordingArray.push("STDOUT: " + dataArray[i]);
+          }
+          processDataInput(dataArray[i]); // Process the line to see if it matches any events and then trigger the appropriate event
+        }
       }
-      processDataInput(dataString); // Process the line to see if it matches any events and then trigger the appropriate event
     }
   });
 
   global["server"].spawn.stderr.on('data', function (data) { // Displays the error output from the starmade server
     let dataString=data.toString().trim(); // Clear out any blank lines
     if (dataString){
-      if (showStderr == true || showAllEvents == true) {
-        let dataArray=dataString.split("\n");
-        for (let i=0;i<dataArray.length;i++){
-          if (dataArray[i]){ // Clear out any blank lines
+      let dataArray=dataString.replace("\r","").split("\n"); // simplify to only new line characters and split to individual lines.
+      for (let i=0;i<dataArray.length;i++){
+        if (dataArray[i]){
+          if (showStderr == true || showAllEvents == true) {
             if (typeof stderrFilter == "object"){
               if (stderrFilter.test(dataArray[i])){
-                console.log("stderr: " + dataArray[i]);
+                console.log("STDERR: " + dataArray[i]);
               }
             } else {
-              console.log("stderr: " + dataArray[i]);
+              console.log("STDERR: " + dataArray[i]);
             }
           }
+          if (recording){ // For the wrapper console command "!recording"
+            recordingArray.push("STDERR: " + dataArray[i]);
+          }
+          processDataInput(dataArray[i]); // Process the line to see if it matches any events and then trigger the appropriate event
         }
-        console.log("stderr: " + dataString);
       }
-      processDataInput(dataString); // Process the line to see if it matches any events and then trigger the appropriate event
     }
   });
   
   serverTail.on('line', function(data) { // This is unfortunately needed because some events don't appear in the console output.  I do not know if the tail will be 100% accurate, missing nothing.
     // console.log("Processing serverlog.0.log line: " + data.toString().trim());
+    // There needs to be a separate processor for serverlog stuff, since there can be duplicates found in the console and serverlog.0.log file.  This should also be faster once streamlined.
     // let dataString=data.toString().trim().replace(/^\[[^\[]*\] */,''); // This was throwing ESLINTER areas I guess.
     let dataString=data.toString().trim().replace(/^\[[^[]*\] */,''); // This removes the timestamp from the beginning of each line so each line looks the same as a console output line, which has no timestamps.
-    if (dataString){
-      if (showServerlog == true || showAllEvents == true) {
-        console.log("serverlog: " + dataString);
+    if (dataString){ // Do not process empty lines
+      let dataArray=dataString.replace("\r","").split("\n"); // simplify to only new line characters and split to individual lines.
+      for (let i=0;i<dataArray.length;i++){
+        if (dataArray[i]){ // Do not process empty lines
+          if (showServerlog == true || showAllEvents == true) {
+            if (typeof serverlogFilter == "object"){
+              if (serverlogFilter.test(dataArray[i])){
+                console.log("serverlog.0.log: " + dataArray[i]);
+              }
+            } else {
+              console.log("serverlog.0.log: " + dataArray[i]);
+            }
+          }
+          if (recording){ // For the wrapper console command "!recording"
+            recordingArray.push("serverlog.0.log: " + dataArray[i]);
+          }
+          processServerlogDataInput(dataArray[i]); // Process the line to see if it matches any events and then trigger the appropriate event
+        }
       }
-      // There needs to be a separate processor for serverlog stuff, since there can be duplicates found in the console and serverlog.0.log file.  This should also be faster once streamlined.
-      // processDataInput(dataString); // Process the line to see if it matches any events and then trigger the appropriate event.
-      processServerlogDataInput(dataString); // Process the line to see if it matches any events and then trigger the appropriate event.
-      
     }
-
   });
 
   process.on('exit', function() { // This is scoped so that it can terminate the starmade server when the main script ends.
@@ -1361,6 +1388,30 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   // ###    COMMAND LINE WRAPPER START   ###
   // #######################################
   // This will process user input at the console and either direct it to the server process or parse it as a command.
+  function getRecordFileName(){
+    if (miscHelpers.isSeen(recordingFile)){
+      recordingCounter++;
+      recordingFile=path.join(__dirname,recordFileName + recordingCounter + ".log");
+      return getRecordFileName();
+    } else {
+      return path.join(__dirname,recordFileName + recordingCounter + ".log");
+    }
+  }
+  function dumpToRecordFile(options,cb){
+    if (typeof cb=="function"){
+      var stringToWrite=recordingArray.join("\n");
+      recordingArray=[];
+      return fs.writeFile(getRecordFileName(),stringToWrite,cb);
+    }
+    return simplePromisifyIt(dumpToRecordFile,options);
+  }
+
+  var recording=false;
+  var recordingArray=[];
+  var recordFileName="record";
+  var recordingCounter=1;
+  var recordingFile=getRecordFileName();
+  
   process.stdin.on('data', function(text){
     let theText=text.toString().trim();
     if (theText[0] == "!"){
@@ -1373,7 +1424,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
       console.log("Wrapper command detected: " + theCommand)
       console.log("Full: " + theText);
 
-      if (theCommand == "help" ) {
+      if (i(theCommand,"help")) {
         console.log("Here are the current console commands:");
         console.log(" !stdout [on/off]");
         console.log(" !stderr [on/off]");
@@ -1381,38 +1432,65 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
         console.log(" !serverlog [on/off]");
         console.log(" !enumerateevents [on/off]");
         console.log(" !reloadMods");
+        console.log(" !record (stop)");
         console.log(" !showallevents [on/off]");
         console.log(" !settings");
         console.log(" !changesetting [setting] [newvalue]");
-      } else if (theCommand == "reloadmods" ) {
+      } else if (i(theCommand,"reloadmods")) {
         console.log("Reloading mods..");
         eventEmitter.emit("reloadMods");
-      } else if (theCommand == "stdout" ) {
-        if (theArguments[0] == "on"){
+      } else if (i(theCommand,"record")) {
+        if (!theArguments[0] || i(theArguments[0],"start")){
+          if (recording){
+            console.log("Already recording!  Please stop the current recording to start a new one!  To stop recording, type: !record stop");
+          } else {
+            console.log("Starting to record outputs..  To dump to file (" + getRecordFileName() + "), type !record stop");
+            recording=true;
+          }
+        } else if (i(theArguments[0],"stop")){
+          if (recording){
+            console.log("Stopping and saving recording to file..");
+            recording=false;
+            return dumpToRecordFile("",function(err){
+              if (err){
+                console.log("Error writing recording to file: " + recordingFile);
+                console.dir(err);
+              }
+              console.log("SUCCESS:  Finished writing to record file: " + recordingFile);
+            });
+          } else {
+            console.log("No recording is happening!  To start recording server output, please type:  !record");
+          }
+        } else {
+          console.log("Invalid argument given to !record command.")
+        }
+
+      } else if (i(theCommand,"stdout")) {
+        if (i(theArguments[0],"on")){
           console.log("Setting stdout to true!");
           showStdout=true;
-        } else if (theArguments[0] == "off"){
+        } else if (i(theArguments[0],"off")){
           console.log("Setting showStdout to false!");
           showStdout=false;
         } else {
           console.log("Invalid parameter.  Usage:  !stdout on/off")
         }
-      } else if (theCommand == "stderr" ) {
+      } else if (i(theCommand,"stderr")) {
         if (theArguments[0] == "on"){
           console.log("Setting showStderr to true!");
           showStderr=true;
-        } else if (theArguments[0] == "off"){
+        } else if (i(theArguments[0],"off")){
           console.log("Setting Stderr to false!");
           showStderr=false;
         }
-      } else if (theCommand == "stderrfilter" ) {
+      } else if (i(theCommand,"stderrfilter")) {
         if (testIfInput(theArguments[0])){
           console.log("Finish this..");
         } else {
           console.log("ERROR:  Please specify a filter to use!  Example: \\[SPAWN\\]");
         }
 
-      } else if (theCommand == "serverlog" ) {
+      } else if (i(theCommand,"serverlog")) {
         if (theArguments[0] == "on"){
           console.log("Setting showServerlog to true!");
           showServerlog=true;
@@ -1420,7 +1498,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           console.log("Setting showServerlog to false!");
           showServerlog=false;
         }
-      } else if (theCommand == "enumerateevents" ) {
+      } else if (i(theCommand,"enumerateevents")) {
         if (theArguments[0] == "on"){
           console.log("Setting enumerateEventArguments to true!");
           enumerateEventArguments=true;
@@ -1428,15 +1506,15 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           console.log("Setting enumerateEventArguments to false!");
           enumerateEventArguments=false;
         }
-      } else if (theCommand == "showallevents" ) {
+      } else if (i(theCommand,"showallevents")) {
         if (theArguments[0] == "on"){
           console.log("Setting showAllEvents to true!");
           showAllEvents=true;
-        } else if (theArguments[0] == "off"){
+        } else if (i(theArguments[0],"off")){
           console.log("Setting showAllEvents to false!");
           showAllEvents=false;
         }
-      } else if (theCommand == "settings") {
+      } else if (i(theCommand,"settings")) {
         if (!theArguments[0]){
           // const copy = Object.create(Object.getPrototypeOf(settings));
           console.log("\nHere are your current settings:")
@@ -1447,7 +1525,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           });
           console.log("\nIf you would like to change a setting, try !changesetting [SettingName] [NewValue]");
         }
-      } else if (theCommand == "changesetting") {
+      } else if (i(theCommand,"changesetting")) {
         var usageMsg="Usage: !changeSetting [Property] [NewValue]";
         if (theArguments[0]){
           // console.log("Result of checking hasOwnProperty with " + theArguments[0] + ": " + settings.hasOwnProperty(theArguments[0]));
@@ -1473,12 +1551,13 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           console.log(usageMsg);
         }
       }
-    } else {
+    } else if (testIfInput(theText)){
       console.log("Running Command: " + theText);
       global["server"].spawn.stdin.write(theText + "\n");
       // global["server"].spawn.stdin.write(text.toString() + "\n");
       // global["server"].spawn.stdin.end();
-    }
+    } // If blank, don't do anything.
+    return true; // This does nothing except to make ESLint happy.
   });
 
   // This is great to have all the info show on the screen, but how does one turn off a pipe? No idea.  I'll use events instead.
@@ -1728,6 +1807,14 @@ function countActiveLockFilePids(lockFileObject){
     }
   }
   return count;
+}
+
+function i(input,input2){ // I use this to do easy case insensitive matching for commands since javascript is case sensitive 
+  if (typeof input == "string" && typeof input2 == "string"){
+      return input.toLowerCase() === input2.toLowerCase();
+  } else {
+      return false;
+  }
 }
 
 
