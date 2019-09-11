@@ -17,9 +17,7 @@ function distanceToSector(sector,options,cb){
         if (testIfInput(sector)){
             try{
                 var coords=objectThis.coords;
-                console.log("coords2:",coords);
-                console.log("sector: " + sector);
-                return cb(null,distanceBetweenSectors(coords.toString(),sector));
+                return cb(null,distanceBetweenSectors(coords,sector));
             } catch (err){
                 return cb(err,null);
             }
