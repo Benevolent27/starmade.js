@@ -623,7 +623,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
       }
       let theArguments=arguments[0].split(" "); // This is to allow easier parsing of each individual word in the line
       
-      enumerateEventArguments=true; // Temporary
+      // enumerateEventArguments=true; // Temporary
       if (enumerateEventArguments == true){
         for (let i=0;i<theArguments.length;i++){ console.log("theArguments[" + i + "]: " + theArguments[i]); }
       }
@@ -1421,8 +1421,8 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
       let tempArray    = theCommand.split("")
       tempArray.shift();
       theCommand=tempArray.join("");
-      console.log("Wrapper command detected: " + theCommand)
-      console.log("Full: " + theText);
+      // console.log("Wrapper command detected: " + theCommand)
+      // console.log("Full: " + theText);
 
       if (i(theCommand,"help")) {
         console.log("Here are the current console commands:");
@@ -1550,6 +1550,8 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           console.log("ERROR:  Please provide a setting to change!");
           console.log(usageMsg);
         }
+      } else if (testIfInput(theCommand)){
+        console.log("ERROR: '" + theCommand + "' is not a valid command!  For a list of wrapper console commands, type: !help");
       }
     } else if (testIfInput(theText)){
       console.log("Running Command: " + theText);
