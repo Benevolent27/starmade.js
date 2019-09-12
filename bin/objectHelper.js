@@ -96,13 +96,13 @@ function getParamNames(func) {
 }
 
 
-function simplePromisifyIt(cbFunctionToCall,options){ 
+function simplePromisifyIt(cbFunctionToCall,options){
   // This is used to turn callback functions into promises, provided that they follow the convention used by objectCreator.js
   // That convention is functionName(arguments1,arguments2,arguments3,options,cb);
   // The cb function does not need to require any arguments:  functionName(options,cb); is fine.
   // The function should ALWAYS have an 'options' and a 'cb' parameter required.
   // Example of usage: simplePromisifyIt(myCBFunction,options,firstArgument,secondArgument,thirdArgument)
-  
+
   // The function given should run the CB function in node.js style:  cb(err,result);
   // err should be null or an error object, the result can be anything.
   // Example:
@@ -119,7 +119,7 @@ function simplePromisifyIt(cbFunctionToCall,options){
 
   // Takes a callback function with options and arguments specified.
   // Can take additional parameters as extra arguments after the "options" argument.  Example: simplePromisifyIt(self.whatever,options,someVal,anotherVal,AnotherVal)
-  
+
   // As an example, if no extra parameters are needed, such as for the PlayerObj, self.isBanned(options,cb)
   // ie: simplePromisifyIt(self.isBanned,options)
 
@@ -444,7 +444,7 @@ function testIfInput(input){
       }
       return false;
     }
-  } 
+  }
   // This covers strings and other numbers with a general truthy check.  It's also a catchall for any other circumstance I might not have thought of to check above.
   if (input){ // This check is just a catch-all, it should always be true.
     return true;
@@ -494,7 +494,7 @@ function returnLineMatch(input,matchRegExp,replaceRegExp){ // This will parse th
   // input can be an Array OR a blob of text that needs to be separated by new lines
   // matchRegExp is mandatory.  This is the matching line that will be returned.
   // replaceRegExp is optional.  It will replace the value found with nothing.  If more arguments are specified, they are treated as additional replaceRegExp arguments and applied sequentially
-  
+
   var matchRegExpToUse=new RegExp(matchRegExp); // if matchRegExp is not a regExp, then create a new one.
   var replaceRegExpToUse;
   var resultArray=[];
