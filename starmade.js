@@ -202,8 +202,8 @@ global["starMadeServerConfigFile"]=starMadeServerConfigFile;
 const botObj=new BotObj(settings["botName"]);
 console.log("Created bot object:");
 // console.dir(botObj);
-global["bot"]=botObj;
-global["log"]=log;
+global["bot"] = botObj;
+global["log"] = log;
 
 
 
@@ -223,11 +223,11 @@ var starMadeInstallerURL  = "http://files.star-made.org/" + starMadeStarter;
 // Linux: http://files.star-made.org/StarMade-Starter.jar
 // Patterns - This will be to detect things like connections, deaths, etc.  I'm pushing to an array so it's easier to add or remove patterns.
 // console output
-var includePatternRegex   = patterns.includes();
-var excludePatternRegex   = patterns.excludes();
+var includePatternRegex = patterns.includes();
+var excludePatternRegex = patterns.excludes();
 // serverlog.0.log output
-var includePatternServerLogRegex   = patterns.serverLogIncludes();
-var excludePatternServerLogRegex   = patterns.serverLogExcluded();
+var includePatternServerLogRegex = patterns.serverLogIncludes();
+var excludePatternServerLogRegex = patterns.serverLogExcluded();
 
 
 log("starmade.js launched.");
@@ -247,17 +247,17 @@ if (process.argv[2]){
     argumentRoot=argumentsPassed[i].match(/^-[a-zA-Z]*/).toString().toLowerCase();
     console.log("Test result: " + argumentsPassed[i].indexOf("="));
     if (argumentsPassed[i].indexOf("=") == -1){
-      argumentEqual=null;
-      argumentEqualLower=null;
+      argumentEqual      = null;
+      argumentEqualLower = null;
     } else {
-      argumentEqual=argumentsPassed[i].match(/[^=]*$/).toString();
-      argumentEqualLower=argumentEqual.toLowerCase();
+      argumentEqual      = argumentsPassed[i].match(/[^=]*$/).toString();
+      argumentEqualLower = argumentEqual.toLowerCase();
     }
     if (argumentRoot == "-forcestart"){
       if (argumentEqualLower == "true" || !argumentEqualLower){
-        forceStart=true;
+        forceStart = true;
       } else if (argumentEqualLower == "false"){
-        forceStart=false;
+        forceStart = false;
       } else {
         console.log("Invalid setting for forceStart attempted.  Must be 'true' or 'false'!  Ignoring argument!")
       }
@@ -389,7 +389,7 @@ if (fs.existsSync(lockFile) && ignoreLockFile == false){
 // ###    SERVER START   ###
 // #########################
 eventEmitter.on('ready', function() { // This won't fire off yet, it's just being declared so later on in the script it can be started.  I can modify this later if I want to allow more than one instance to be ran at a time.
-  
+
   serverCfg = ini.getFileAsObj(starMadeServerConfigFile); // Import the server.cfg values to an object.  These should be the final values.  Any settings changes to the file should be completed before this is loaded.  Note that this KEEPS comments in the value!
   // Use Ini functions from the iniHelperjs to handle the the ini object.  See bottom of the file for the full list.
   if (serverCfg){
@@ -447,9 +447,9 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
     throw new Error("Server spawn fail.");
   }
 
-  // initialize the objectCreator so it can send text directly to the server through "server". 
+  // initialize the objectCreator so it can send text directly to the server through "server".
   //  IMPORTANT:  THIS MUST BE DONE BEFORE ANY OBJECTS ARE CREATED!
-  
+
   // The following is obsolete since we're using the global object now, which stores the server.
   // console.log("############## INITIALIZING OBJECT CREATOR ###############");
   // objectCreator.init(server,global);
@@ -554,9 +554,9 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
       eventEmitter.emit("init");
     });
 
-    
 
-    
+
+
 
     //  No more variables should be added to the globalObject after this, since all the mods will be initialized NOW.  ie. global["whatever"]=whatever;
 
@@ -568,7 +568,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
     //   }
     // }
     eventEmitter.emit("init"); // This event happens AFTER all the mods are loaded in through require.  Prerequisites should be done by now.
-    
+
 
     //    process.exit();
 
@@ -586,7 +586,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   };
   console.log("Initializing tail of serverlog.0.log");
   miscHelpers.touch(path.join(starMadeInstallFolder,"logs","serverlog.0.log")); // Ensure the file exists before we tail it.
-  
+
   var powershell; // TODO:  See if there is a cleaner workaround than using a powershell instance to force the serverTail to be faster..  It does not handle errors well.  I believe it will crash when log rotation happens.
   if (process.platform == "win32" ){
     console.log("#########   Windows detected, running powershell listener.  #########");
@@ -611,18 +611,18 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   // ###    WRAPPER   ###
   // ####################
 
- 
+
   var lastMessage; // Used for player deaths since the console gets spammed with multiple death messages per player when more than 1 output of a weapon exists, which was responsible for the player's death.
   function processDataInput(dataInput){ // This function is run on every single line that is output by the server console.
     if (testMatch(dataInput)) { // Check to see if the message fits any of the regex patterns
-      
+
       // TODO:  There needs to be a separate processing for the serverlog.0.log file, console, and stdout since there are some duplicates between the console.  This would also be faster.
 
       if (showAllEvents == true) {
         console.log("Event found!: " + dataInput + "Arguments: " + arguments.length);
       }
       let theArguments=arguments[0].split(" "); // This is to allow easier parsing of each individual word in the line
-      
+
       // enumerateEventArguments=true; // Temporary
       if (enumerateEventArguments == true){
         for (let i=0;i<theArguments.length;i++){ console.log("theArguments[" + i + "]: " + theArguments[i]); }
@@ -651,8 +651,8 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
         // [2018-07-15 22:45:58] [DEATH] Danger89 committed suicide
         // [2018-07-15 22:45:58] [DEATH] Danger89 has been killed by 'Killer: Danger89 (0.0/120.0 HP left)'; controllable: PlS[Danger89 [Danger89]*; id(17964)(55)f(0)]
         // [2018-07-16 00:01:30] [DEATH] Eidolon2 has been killed by 'Responsible: Pirate-Tok-Jake_Forager-OT-H-2 85-0[Pirates]'; controllable: Ship[Pirate-Tok-Jake_Forager-OT-H-2 85-0](31790)
-    
-      
+
+
         var person=dataInput.match(/(?<=\[DEATH\] )[^ ]+(?= has been killed by.*)/);
         if (person){
           person=person.toString(); // We use .toString() here because the player might be named "0", which could produce a falsey condition.
@@ -691,10 +691,10 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
 
           var message=`[${theDate}] [${theTime}]: ${person}`
           // There are TWO very different ways that both the entity and player name might show up in a death message
-    
+
           // We gotta see if "responsible" is a "sun" or other sort of entity first before even trying to see if it's a player or ship
           // responsible=$(echo $b | grep -o "'Responsible: .*;" | sed "s/'Responsible: //g" | sed "s/';//g" ) // | sed 's/\[.*//g')
-          
+
           // Updating after weapons 2.0
           var responsible=toStringIfPossible(dataInput.match(/(?<=Responsible: )[^']+(?='.*)/));
           // Shipyard:  D_1508536985403 (design)
@@ -724,7 +724,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
                   // Since we know the killer's name and also the entity, set to having been perpetrated by a person in an entity
                   message=`[${theDate}] [${theTime}]: ${person} was killed by ${killer}, in entity ${responsibleEntity}`
                   deathType="personInShip"
-    
+
                   // Let's look up the responsible faction, if there is one.
                   // responsibleFaction=$(echo "$responsible" | sed -E 's/((^.*\[)|(\]$))//g')
                   var responsibleFaction=toStringIfPossible(responsible.match(/(?<=\[)[^\]]+/));
@@ -755,22 +755,22 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
                   // If no killer was found with the first or second check, then we have to assume an entity will be found, but we'll double check anyhow.
                   deathType="entity"
                 }
-    
+
                 // Trying to remove the potential name info prevents this from working.  I need a workaround
                 // responsibleEntity=$(echo "${responsible}" | sed -E 's/([^\[]*$)//g' | sed -E 's/((\[$)|(\<.*))//g')
-    
+
                 // This will only work IF there are [ brackets ], such as a faction name in there, so I need to branch out here as well
                 responsibleEntity=responsible.replace(/(\[.*$|<.*$)/g,"");
                 // responsibleEntity=$(echo "${responsible}" | sed -E 's/([^\[]*$)//g' | sed 's/\[$//g' | sed 's/<.*//g')
 
                 // Ths needs to work for entities that have no controlling person.. hmm
                 // [2017-10-20 16:29:44] [DEATH] Benevolent327 has been killed by 'Responsible: Benevolent327_1508531362205'; controllable: Ship[Benevolent327_1508531362205](25109)
-    
+
                 // echo 'Destroyer_Drone_Less_Missiles-V2_5-Compliant_15085rl00[The Rebuilders]' | sed -E 's/([^\[]*$)//g' | sed 's/\[$//g'
                 // Destroyer_Drone_Less_Missiles-V2_5-Compliant_15085rl00
-    
-    
-    
+
+
+
                 // echo "responsibleEntity: ${responsibleEntity}"
                 if (testIfInput(responsibleEntity)){
                   // responsibleFaction=$(echo "$responsible" | grep -o '[\[].*' | sed 's/[\[\]]//g')
@@ -787,7 +787,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
                     // Since there was no killer, but there was a responsible entity, set to entity only
                     deathType="entity";
                   }
-    
+
                 // Here we double check to ensure the deathType is reset if no responsible entity was found
                 } else if (!testIfInput(killer)){
                   // player died, but no responsible entity nor killer was found!  This should never happen!"
@@ -797,9 +797,9 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
                 // no responsible found!  This should never happen!"
                 deathType="mystery";
               }
-    
+
             // We have a 'killer' type death, so we need to look for the entity now if not a suicide.
-            
+
 
             }
           }
@@ -811,19 +811,19 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           }
           // Cannot create a faction object here since we only have the name to work with.  We have to run an async function to get that FactionObj at the time of emitting
 
-    
+
           // Need to fix sun damage
           // [DEATH] Benevolent327 has been killed by 'Responsible: Sun'; controllable: Sector[21240](8, 8, 8)
-    
-    
+
+
           // todo: When a death is caused by different weapons of the same entity, it will oftentimes spam a bunch of death messages in the logs - this prevents most duplicates from getting through, but really there needs to be a 5 second counter or something applied per name to make it more accurate
-          
-          
+
+
           // For troubleshooting duplicates
           // "${scriptDir}log.sh" "lastMessage: |${lastMessage}|"
           // "${scriptDir}log.sh" "message: |${message}|"
-          
-          
+
+
           if (lastMessage == message){
             // "${scriptDir}log.sh" "Duplicate Death: ${message}"
             console.debug("### SKIPPING DUPLICATE DEATH MESSAGE ###: " + lastMessage);
@@ -832,12 +832,12 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
             // echo "# responsibleEntity: ${responsibleEntity}"
             // echo "# killer: ${killer}  responsibleFaction: ${responsibleFaction}"
             // echo "#### END SKIPPED INFOS #####"
-    
+
           } else {
             // "${scriptDir}log.sh" "# PROCESSING DEATH TEXT: $@"
-    
+
             console.log(message);
-            
+
             console.log("##### INFOS ######");
             // console.log("# Everything: ${b}"
             console.log(`# theDate: ${theDate}  theTime: ${theTime}  deathType: ${deathType}`);
@@ -881,7 +881,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
                     eventEmitter.emit('playerDeath',personObj,deathType,responsibleEntityObj,responsibleFactionObj);
                   }
                 });
-                
+
               } else {
                 // runPlayerDeath "${person}" "${deathType}" "${responsibleEntity}"
                 console.log(`${person} was killed by an entity, '${responsibleEntity}'.`);
@@ -1043,7 +1043,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
             spawnType="player"
           }
           console.log("spawnType:" + spawnType);
-          
+
           let bluePrintName=dataInput.match(/loaded .*as "/)[0].replace(/^loaded /,"").replace(/ as "$/,"");
           console.log("bluePrintName:" + bluePrintName);
           let shipName=dataInput.match(/".*"/)[0].replace(/"/g,"");
@@ -1073,7 +1073,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
               let sectorObj=new SectorObj(coordsObj.x,coordsObj.y,coordsObj.z);
               console.dir(sectorObj);
               // let coordsObj=new CoordsObj(coordsArray[0],coordsArray[1],coordsArray[2]);
-    
+
               let playerObj;
               if (spawnType=="player"){
                 playerObj=new PlayerObj(theUser);
@@ -1081,13 +1081,13 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
                 // playerObj.msg("entityObj.loaded:" + entityObj.loaded);
               }
               console.dir(playerObj);
-    
+
               let blueprintObj=new BlueprintObj(bluePrintName);
               console.dir(blueprintObj);
-    
+
               let factionObj=new FactionObj(factionNumber);
               console.dir(factionObj);
-    
+
               eventEmitter.emit('blueprintSpawn',spawnType,playerObj,blueprintObj,entityObj,sectorObj,factionObj); // playerObj will be undefined if the blueprint was spawned by admin or mass spawned
             }
           })
@@ -1100,7 +1100,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
 
           // Admin loading:
           // [BLUEPRINT][LOAD] <admin> loaded Isanth Type-Zero B- as "Isanth Type-Zero B-_1561352308449" in (1000, 1000, 1000) as faction 10001
-          
+
           // Using "Mass Spawn Ships" as an admin
           // [BLUEPRINT][LOAD] <system> loaded Isanth Type-Zero Cb as "MOB_Isanth Type-Zero Cb_1561353688999_0" in (1000, 1000, 1000) as faction 0
 
@@ -1310,7 +1310,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
       }
     }
   });
-  
+
   serverTail.on('line', function(data) { // This is unfortunately needed because some events don't appear in the console output.  I do not know if the tail will be 100% accurate, missing nothing.
     // console.log("Processing serverlog.0.log line: " + data.toString().trim());
     // There needs to be a separate processor for serverlog stuff, since there can be duplicates found in the console and serverlog.0.log file.  This should also be faster once streamlined.
@@ -1411,7 +1411,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   var recordFileName="record";
   var recordingCounter=1;
   var recordingFile=getRecordFileName();
-  
+
   process.stdin.on('data', function(text){
     let theText=text.toString().trim();
     if (theText[0] == "!"){
@@ -1434,29 +1434,85 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
         console.log(" !reloadMods");
         console.log(" !record (stop)");
         console.log(" !showallevents [on/off]");
-        console.log(" !listObjects");
-        console.log(" !listObjectMethods [ObjectName]");
+        console.log(" !listObjectConstructors");
+        console.log(" !listObjectConstructorElements [ObjectName(parameters)]");
+        console.log(" !listGlobal");
         console.log(" !settings");
         console.log(" !changesetting [setting] [newvalue]");
       } else if (i(theCommand,"reloadmods")) {
         console.log("Reloading mods..");
         eventEmitter.emit("reloadMods");
+      } else if (i(theCommand,"listGlobal")) {
+        let params;
+        console.log("Enumerating elements from the global object:");
+        var keyArray=[];
+        for (let key in global){
+          if (global.hasOwnProperty(key)){
+            keyArray.push(key);
+          }
+        }
+        keyArray=keyArray.sort(); // Alphabetize the list
+        for (let i=0;i<keyArray.length;i++){
+          if (typeof global[keyArray[i]] == "function"){
+            params=getParamNames(global[keyArray[i]]);
+            if (getParamNames.length > 0){
+                console.log(" (" + typeof global[keyArray[i]] + ") \tglobal." + keyArray[i] + "(" + params + ")");
+            } else {
+              console.log(" (" + typeof global[keyArray[i]] + ") \tglobal." + keyArray[i] + "()");
+            }
+          } else if (typeof global[keyArray[i]] == "object"){
+            if (global[keyArray[i]] instanceof Array){
+              console.log(" (Array) \tglobal." + keyArray[i]);
+            } else if (global[keyArray[i]] instanceof Map){
+              console.log(" (Map " + typeof global[keyArray[i]] + ") \tglobal." + keyArray[i]);
+            } else if (global[keyArray[i]] instanceof Date){
+              console.log(" (Date " + typeof global[keyArray[i]] + ") \tglobal." + keyArray[i]);
+            } else {
+                console.log(" (" + typeof global[keyArray[i]] + ") \tglobal." + keyArray[i]);
+            }
+          } else {
+            console.log(" (" + typeof global[keyArray[i]] + ") \tglobal." + keyArray[i]);
+          }
+        }
 
-      } else if (i(theCommand,"listObjects")) {
+
+        // for (let key in global){
+        //   if (global.hasOwnProperty(key)){
+        //     if (typeof global[key] == "function"){
+        //       params=getParamNames(global[key]);
+        //       if (getParamNames.length > 0){
+        //           console.log(" (" + typeof global[key] + ") \t" + key + "(" + params + ")");
+        //       } else {
+        //         console.log(" (" + typeof global[key] + ") \t" + key + "()");
+        //       }
+        //     } else {
+        //       console.log(" (" + typeof global[key] + ") \t" + key);
+        //     }
+        //   }
+        // }
+        console.log( " ");
+
+      } else if (i(theCommand,"listObjectConstructors")) {
         let keyArray;
         let keyUpperCase;
-        console.log("Listing objects:");
+        console.log("Listing constructor objects:");
+        let outputArray=[];
         for (let key in objectCreator){
           if (objectCreator.hasOwnProperty(key)){
             keyArray=key.split("");
             keyUpperCase=keyArray[0].toUpperCase();
             if (keyUpperCase === keyArray[0]){
-              console.log(" - " + key + "(" + getParamNames(objectCreator[key]) + ")");
+              outputArray.push(key + "(" + getParamNames(objectCreator[key]) + ")");
+              // console.log(" - " + key + "(" + getParamNames(objectCreator[key]) + ")");
             }
           }
         }
+        outputArray=outputArray.sort(); // alphabetize the list
+        for (let i=0;i<outputArray.length;i++){
+          console.log(" - " + outputArray[i]);
+        }
         console.log( " ");
-      } else if (i(theCommand,"listObjectMethods")) {
+      } else if (i(theCommand,"listObjectConstructorElements")) {
         // This needs an example object to be created, so it will expect input to create an example object to then test
         // example:  PlayerObj("Test");
 
@@ -1489,11 +1545,12 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
                   // console.log("Listing methods for: " + theArguments[0]);
                   if (valid){
                     var theArray=listObjectMethods(dummyObj);
+                    theArray=theArray.sort(); // alphabetize the list
                     for (let i=0;i<theArray.length;i++){
                       console.log(" - " + theArray[i]);
                     }
                   }
-                  
+
                 } else {
                   console.log("Constructor does not exist!  Please specify a valid object constructor.  Example: !listObjectMethods PlayerObj");
                 }
@@ -1511,7 +1568,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
         } else {
           console.log("Please provide a valid object type.  Example: !listObjectMethods PlayerObj(\"SomePlayer\")");
         }
-        
+
 
       } else if (i(theCommand,"record")) {
         if (!theArguments[0] || i(theArguments[0],"start")){
@@ -1763,7 +1820,7 @@ function preDownload(httpURL,fileToPlace){ // This function handles the pre-down
 function testMatch(valToCheck) { // This function will be called on EVERY line the wrapper outputs to see if the line matches a known event or not.
   // TODO: It might be better to simply return the match, then forward for processing, rather than running a test and processing the matches against it.
   // So really this should simply be replaced with a "getMatch" function which only returns the line if it matches
-  
+
   // TODO:  There needs to be a separate check AND processing for the serverlog.0.log file, since there are some duplicates between the console.  This would also be faster.
   if (includePatternRegex.test(valToCheck)){
     if (!excludePatternRegex.test(valToCheck)){
@@ -1885,7 +1942,7 @@ function countActiveLockFilePids(lockFileObject){
   return count;
 }
 
-function i(input,input2){ // I use this to do easy case insensitive matching for commands since javascript is case sensitive 
+function i(input,input2){ // I use this to do easy case insensitive matching for commands since javascript is case sensitive
   if (typeof input == "string" && typeof input2 == "string"){
       return input.toLowerCase() === input2.toLowerCase();
   } else {
