@@ -4,11 +4,9 @@ runNpcDeath
 runEntityDeath
 entityOverheat
 
-
 Partial:
-runNewShip
-runNewBase
-
+shipSpawn
+baseSpawn
 
 Needs testing:
 playerConnect
@@ -16,10 +14,10 @@ playerDisconnect
 playerFactionJoin
 playerFactionLeave
 playerDeath
+blueprintSpawn spawnType,playerObj,blueprintObj,entityObj,sectorObj,factionObj); // playerObj will be undefined if the blueprint was spawned by admin or mass spawned
 
 Done:
 playerMessage
 playerSpawn
-blueprintSpawn
 command (provided as a default mod)
 playerSectorChange
