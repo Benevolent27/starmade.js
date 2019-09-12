@@ -1202,7 +1202,104 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
         // fi
 
 
+      } else if (theArguments[0] == "[FACTION]"){ // Player joined a faction
+        // STDERR: [FACTION] Added to members Benevolent27 perm(4) of Faction [id=10004, name=TheFaction, description=Faction name, size: 1; FP: 100] on Server(0)
+        if (theArguments[1] == "Added"){
+          let name=theArguments[5];
+          let factionID=dataInput.match(/(?<=Faction \[id=)[-]{0,1}[0-9]+/);
+          if (factionID !== null){
+            factionID=factionID.toString();
+          }
+          let factionName=dataInput.match(/(?<=name=)[^,]+/);
+          if (factionName !== null){
+            factionName=factionName.toString();
+          }
+          let nameObj=new PlayerObj(name);
+          let factionObj=new FactionObj(factionID);
+          eventEmitter.emit('playerFactionJoin',nameObj,factionObj,factionName);
+        }
+
+      } else if (theArguments[0] == "[FACTIONMANAGER]"){ // Player left a faction
+        // STDERR: [FACTIONMANAGER] removing member: Benevolent27 from Faction [id=10003, name=whatever, description=Faction name, size: 1; FP: -142]; on Server(0)
+        if (theArguments[1] == "removing"){
+          let name=theArguments[4];
+          let factionID=dataInput.match(/(?<=Faction \[id=)[-]{0,1}[0-9]+/);
+          if (factionID !== null){
+            factionID=factionID.toString();
+          }
+          let factionName=dataInput.match(/(?<=name=)[^,]+/);
+          if (factionName !== null){
+            factionName=factionName.toString();
+          }
+          let nameObj=new PlayerObj(name);
+          let factionObj=new FactionObj(factionID);
+          eventEmitter.emit('playerFactionLeave',nameObj,factionObj,factionName);
+        }
+      } else if (theArguments[0] == "[SEND][SERVERMESSAGE]"){ // player connect
+        // STDERR: [SEND][SERVERMESSAGE] [SERVERMSG (type 0): [484, Weedle]] to RegisteredClient: Weedle (5) [Benevolent27]connected: true
+        if (/connected: true$/.test(dataInput)){
+          let playerName=dataInput.match(/(?<=RegisteredClient: )[^ ]+/);
+          if (playerName !== null){
+            playerName=playerName.toString();
+          }
+          let playerSMName=dataInput.match(/[^[]+(?=]connected: true)/);
+          if (playerSMName !== null){
+            playerSMName=playerSMName.toString();
+          }
+          let playerObj=new PlayerObj(playerName);
+          let playerSmNameObj=new SMNameObj(playerSMName);
+          eventEmitter.emit('playerConnect',playerObj,playerSmNameObj);
+        }
+
+      } else if (theArguments[0] == "[SERVER][DISCONNECT]"){ // Player left a faction
+        // Player disconnect
+        // STDERR: STDERR: [SERVER][DISCONNECT] Client 'RegisteredClient: Weedle (8) [Benevolent27]connected: true' HAS BEEN DISCONNECTED . PROBE: false; ProcessorID: 25
+        let playerName=dataInput.match(/(?<=RegisteredClient: )[^ ]+/);
+        if (playerName !== null){
+          playerName=playerName.toString();
+        }
+        let playerSMName=dataInput.match(/[^[]+(?=]connected: true)/);
+        if (playerSMName !== null){
+          playerSMName=playerSMName.toString();
+        }
+        let playerObj=new PlayerObj(playerName);
+        let playerSmNameObj=new SMNameObj(playerSMName);
+        eventEmitter.emit('playerDisconnect',playerObj,playerSmNameObj);
       }
+      // Ship death
+      // STDERR: [SERVER][DESTROY] CORE OVERHEATED COMPLETELY: KILLING ALL SHIP CREW Ship[dyingShip](1184)
+      // STDOUT: [SEGMENTCONTROLLER] ENTITY Ship[dyingShip](1184) HAS BEEN DESTROYED...
+      // STDERR: [SERVER] Core AT 0 HP destroyed for Ship[dyingShip](1184), which is in new power system, is not docked, and has no active reactor (-> death on core destruction)
+      // STDERR: [SERVER] Overheating triggered for Ship[dyingShip](1184)
+      // STDERR: [SERVER] MAIN CORE STARTED DESTRUCTION [ENTITY_SHIP_dyingShip] (666, 666, 666) in 60 seconds - started 1568254505636 caused by PlS[Weedle [Benevolent27]*; id(1015)(9)f(0)]
+      // base death
+      // STDERR: [SERVER][DESTROY] CORE OVERHEATED COMPLETELY: KILLING ALL SHIP CREW SpaceStation[ENTITY_SPACESTATION_overheatedBase(1188)]
+      // STDOUT: [SEGMENTCONTROLLER] ENTITY SpaceStation[ENTITY_SPACESTATION_overheatedBase(1188)] HAS BEEN DESTROYED...
+      // STDERR: [SERVER] Overheating triggered for SpaceStation[ENTITY_SPACESTATION_overheatedBase(1188)]
+      // STDERR: [SERVER] MAIN CORE STARTED DESTRUCTION [ENTITY_SPACESTATION_overheatedBase] (666, 666, 666) in 60 seconds - started 1568255108412 caused by PlS[Weedle [Benevolent27]*; id(1015)(9)f(0)]
+      // STDERR: [ENTITIES] removed object from loaded state SpaceStation[ENTITY_SPACESTATION_overheatedBase(1188)]; 1188
+      // STDERR: [DELETE][Server(0)] Sendable 1188(SpaceStation[ENTITY_SPACESTATION_overheatedBase(1188)]) Physically DELETING DONE and Notified!
+      // STDERR: [SERVER][SEGMENTCONTROLLER] PERMANENTLY DELETING ENTITY: ENTITY_SPACESTATION_overheatedBase.ent
+      // STDERR: [ENTITIES] removed object from loaded state obfuscated.asP@5ba10ef6; 1188
+      // STDERR: [DELETE][Server(0)] Sendable 1188(obfuscated.asP@5ba10ef6) Physically DELETING DONE and Notified!
+
+
+      // Ship OVERHEATED
+      // STDERR: [SERVER] Overheating triggered for Ship[overheatingShip](1186)
+      // STDERR: [SERVER] MAIN CORE STARTED DESTRUCTION [ENTITY_SHIP_overheatingShip] (666, 666, 666) in 60 seconds - started 1568254747519 caused by PlS[Weedle [Benevolent27]*; id(1015)(9)f(0)]
+      // base OVERHEATED
+      // STDERR: [SERVER] Overheating triggered for SpaceStation[ENTITY_SPACESTATION_overheatedBase(1188)]
+      // STDERR: [SERVER] MAIN CORE STARTED DESTRUCTION [ENTITY_SPACESTATION_overheatedBase] (666, 666, 666) in 60 seconds - started 1568255048394 caused by PlS[Weedle [Benevolent27]*; id(1015)(9)f(0)]
+
+      // Ship stopped overheating
+      // STDERR: Server(0) Ship[shipStoppedOverHeating](1187) STOPPED OVERHEATING
+      // Base stopped overheating by placing block on it and then rebooting it when asked:
+      // STDERR: Server(0) SpaceStation[ENTITY_SPACESTATION_stoppedOverHeated(1189)] STOPPED OVERHEATING
+      // STDERR: [SERVER] Overheating triggered for SpaceStation[ENTITY_SPACESTATION_stoppedOverHeated(1189)]
+      // STDERR: [SERVER] MAIN CORE STARTED DESTRUCTION [ENTITY_SPACESTATION_stoppedOverHeated] (666, 666, 666) in 60 seconds - started 1568255234685 caused by
+      // STDERR: Server(0) SpaceStation[ENTITY_SPACESTATION_stoppedOverHeated(1189)] STOPPED OVERHEATING
+
+
     }
     return false; // this is just to make ESLint happy
   }
