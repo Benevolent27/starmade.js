@@ -621,7 +621,7 @@ function ServerObj(serverSettingsObj){ // cb/promises/squish compliant
     if (typeof cb == "function"){
       let textFileToUseToUse=toStringIfPossible(textFileToUse);
       if (typeof textFileToUseToUse == "string"){
-        return runSimpleCommand("/export_sector_bulk " + textFileToUse,options);
+        return runSimpleCommand("/export_sector_bulk " + textFileToUse,options,cb);
       }
       return cb(new Error("Invalid textFileToUse specified for Server.exportSectorBulk"),null);
     } else {
@@ -1503,7 +1503,7 @@ function PlayerObj(name){ // cb/promises/squish compliant // "Player" must be a 
       //   if (number>1){ countTo=theNum; }
       // }
       // for (var i=0;countTo>i;i++){
-      //   result=runSimpleCommand("/give_grapple_item " + self.name,options);
+      //   result=runSimpleCommand("/give_grapple_item " + self.name,options,cb);
       // }
       // return result;
       if (typeof cb == "function"){
@@ -1766,7 +1766,7 @@ function PlayerObj(name){ // cb/promises/squish compliant // "Player" must be a 
       //     if (commandOrCommands.length){ // This is to make sure it isn't an empty array
       //       for (var i=0;i<commandOrCommands.length;i++){
       //         // result=sendDirectToServer("/add_admin_denied_comand " + self.name + " " + commandOrCommands[i]);
-      //         result=runSimpleCommand("/add_admin_denied_comand " + self.name + " " + commandOrCommands[i],options);
+      //         result=runSimpleCommand("/add_admin_denied_comand " + self.name + " " + commandOrCommands[i],options,cb);
       //         if (result===false){ returnVal=false; } // This works as a latch, so that if ANY of the commands fail, it returns false
       //       }
       //       return returnVal; // This will return false if ANY of the inputs failed.
@@ -2173,6 +2173,20 @@ function PlayerObj(name){ // cb/promises/squish compliant // "Player" must be a 
       } else {
         return simplePromisifyIt(self[valToLookFor],options);
       }
+    }
+    this.exists=function(options,cb){
+      if (typeof cb=="function"){
+        return self.personalTestSector(options,function(err,result){ // All players have a personal test sector
+          if (err){
+            return cb(err,result);
+          }
+          if (testIfInput(result)){
+            return cb(null,true);
+          }
+          return cb(null,false);
+        });
+      }
+      return simplePromisifyIt(self.exists,options);
     }
     self.credits=function(options,cb){ // Returns a player's credits held, whether online or offline.
       var valToLookFor="credits";
@@ -2646,19 +2660,19 @@ function SystemObj(x,y,z){ // cb/promises/squish compliant
       // DESCRIPTION: Spawns a faction on a fixed position
       // PARAMETERS: name(String), description(String), preset (npc faction config folder name)(String), Initial Growth(Integer), System X(Integer), System Y(Integer), System Z(Integer)
       // EXAMPLE: /npc_spawn_faction_pos_fixed "My NPC Faction" "My Faction's description" "Outcasts" 10 12 3 22
-      return runSimpleCommand("/npc_spawn_faction_pos_fixed \"" + npcNameToUse + "\" \"" + npcFactionNameToUse + "\" \"" + npcDescriptionToUse + "\" " + initialGrowthToUse + " " + this.coords.toString(),options);
+      return runSimpleCommand("/npc_spawn_faction_pos_fixed \"" + npcNameToUse + "\" \"" + npcFactionNameToUse + "\" \"" + npcDescriptionToUse + "\" " + initialGrowthToUse + " " + this.coords.toString(),options,cb);
     }
     return simplePromisifyIt(self.spawnNPCFaction,options,npcName,npcFactionName,npcDescription,initialGrowth);
   }
   this.territoryMakeUnclaimable=function(options,cb){
     if (typeof cb == "function"){
-      return runSimpleCommand("/territory_make_unclaimable " + this.coords.toString(),options);
+      return runSimpleCommand("/territory_make_unclaimable " + this.coords.toString(),options,cb);
     }
     return simplePromisifyIt(self.territoryMakeUnclaimable,options);
   }
   this.territoryReset=function(options,cb){
     if (typeof cb == "function"){
-      return runSimpleCommand("/territory_reset " + this.coords.toString(),options);
+      return runSimpleCommand("/territory_reset " + this.coords.toString(),options,cb);
     }
     return simplePromisifyIt(self.territoryReset,options);
   }
@@ -2721,9 +2735,15 @@ function BlueprintObj(name){  // cb/promises/squish compliant
   // DESCRIPTION: removes blueprint permanently (warning: cannot be undone)
   // PARAMETERS: blueprintname(String)
   // EXAMPLE: /blueprint_delete my_ship
+  this.exists=function(options,cb){
+    if (typeof cb=="function"){
+      return runSimpleCommand("/blueprint_info '" + self.name + "'",options,cb); // If the Blueprint exists, this should return true, otherwise false.
+    }
+    return simplePromisifyIt(self.exists,options);
+  }
   this.del=function(options,cb){
     if (typeof cb == "function"){
-      return runSimpleCommand("/blueprint_delete \"" + this.name + "\"",options);
+      return runSimpleCommand("/blueprint_delete \"" + this.name + "\"",options,cb);
     } else {
       return simplePromisifyIt(self.del,options);
     }
@@ -3132,6 +3152,135 @@ function FactionObj(number){  // cb/promises/squish compliant
   this.number=toNumIfPossible(number);
   var self=this;
 
+  this.name=function(options,cb){
+    if (typeof cb=="function"){
+      return starNetVerified("/faction_list",options,function(err,result){
+        if (err){
+          return cb(err,result);
+        }
+        var resultArray=result.split("\n");
+        var testReg=new RegExp("RETURN: \\[SERVER, FACTION: Faction \\[id=" + self.number + ",");
+        var theName="";
+        for (let i=0;i<resultArray.length;i++){
+          // RETURN: [SERVER, FACTION: Faction [id=-1003, name=Enemy Fauna Fac 3, 
+          if (testReg.test(resultArray[i])){
+            theName=toStringIfPossible(resultArray[i].match(/(?<=, name=)[^,]+/));
+            break;
+          }
+        }
+        if (typeof theName=="string"){
+          return cb(null,theName);
+        }
+        return cb(null,null); // The faction number was not found.
+      })
+    }
+    return simplePromisifyIt(self.name,options);
+  }
+  this.description=function(options,cb){
+    if (typeof cb=="function"){
+      return starNetVerified("/faction_list",options,function(err,result){
+        if (err){
+          return cb(err,result);
+        }
+        var resultArray=result.split("\n");
+        var testReg=new RegExp("RETURN: \\[SERVER, FACTION: Faction \\[id=" + self.number + ",");
+        var theDescription=null;
+        for (let i=0;i<resultArray.length;i++){
+          if (testReg.test(resultArray[i])){
+            theDescription=toStringIfPossible(resultArray[i].match(/(?<=, description=).*/).toString().replace(/, size: [0-9]+; FP: [0-9]+\].*$/,""));
+            break;
+          }
+        }
+        if (typeof theDescription=="string"){
+          return cb(null,theDescription); // May contain \n characters.  Should be an empty string if no description at all.
+        }
+        return cb(null,null); // The faction number was not found.
+      })
+    }
+    return simplePromisifyIt(self.description,options);
+  }
+
+  this.homeBaseEntity=function(options,cb){
+    // RETURN: [SERVER, FACTION: Faction [id=-9999990, name=Traders, description=The Trading Guild is a collection of large corporations. They work to better themselves primarily through trade and economics.The Trading Guild treats others with neutrality, and they hardly care who or what they sell their products to. Their wealth grants them strength, but they are a relatively peaceful faction., size: 0; FP: 100]; HomeBaseName: Traders Home; HomeBaseUID: ENTITY_SPACESTATION_NPC-HOMEBASE_-322_13_-216; HomeBaseLocation: (-322, 13, -216); Owned: [(-21, 0, -14), (-21, 0, -13), (-22, 0, -13), (-22, 0, -14), (-21, -1, -13), (-22, 1, -14), (-21, -1, -14), (-22, -1, -13), (-20, -1, -14), (-20, 0, -14), (-20, -1, -15), (-22, -1, -14), (-20, -1, -13), (-20, 0, -15), (-21, -1, -15), (-22, 0, -15), (-22, 0, -12), (-23, 0, -13), (-21, 0, -12), (-20, -1, -16), (-22, -1, -12), (-19, -1, -16), (-20, 0, -16), (-21, -1, -16), (-21, 0, -16), (-23, -1, -13), (-23, 0, -12), (-19, 0, -16), (-20, 0, -17), (-21, -1, -17), (-21, 0, -17), (-19, -1, -17), (-21, 0, -11), (-22, -2, -12)], 0]
+    if (typeof cb=="function"){
+      return starNetVerified("/faction_list",options,function(err,result){
+        if (err){
+          return cb(err,result);
+        }
+        var resultArray=result.replace("\n","").split("RETURN: [SERVER, ");
+        var testReg=new RegExp("FACTION: Faction \\[id=" + self.number + ",");
+        var theEntity;
+        for (let i=0;i<resultArray.length;i++){
+          // ; HomeBaseLocation: (-322, 13, -216);
+          if (testReg.test(resultArray[i])){
+            // ; HomeBaseUID: ENTITY_SPACESTATION_MyHomeBase; HomeBaseLocation: (500, 500, 500); Owned: [], 0]
+            theEntity=toStringIfPossible(resultArray[i].match(/(?<=; HomeBaseUID: )[^;]+(?=; HomeBaseLocation: )/));
+            break;
+          }
+        }
+        if (typeof theEntity=="string"){
+          // If no homebase, the coords will be 0 0 0.  It IS possible the person has actually set up a homebase at 0 0 0, so let's check for the UID.. 
+          return cb(null,new EntityObj(theEntity));
+        }
+        return cb(null,null); // There is no homebase
+      })
+    }
+    return simplePromisifyIt(self.homeBaseEntity,options);
+  }
+
+  this.homeBaseSector=function(options,cb){
+    // RETURN: [SERVER, FACTION: Faction [id=-9999990, name=Traders, description=The Trading Guild is a collection of large corporations. They work to better themselves primarily through trade and economics.The Trading Guild treats others with neutrality, and they hardly care who or what they sell their products to. Their wealth grants them strength, but they are a relatively peaceful faction., size: 0; FP: 100]; HomeBaseName: Traders Home; HomeBaseUID: ENTITY_SPACESTATION_NPC-HOMEBASE_-322_13_-216; HomeBaseLocation: (-322, 13, -216); Owned: [(-21, 0, -14), (-21, 0, -13), (-22, 0, -13), (-22, 0, -14), (-21, -1, -13), (-22, 1, -14), (-21, -1, -14), (-22, -1, -13), (-20, -1, -14), (-20, 0, -14), (-20, -1, -15), (-22, -1, -14), (-20, -1, -13), (-20, 0, -15), (-21, -1, -15), (-22, 0, -15), (-22, 0, -12), (-23, 0, -13), (-21, 0, -12), (-20, -1, -16), (-22, -1, -12), (-19, -1, -16), (-20, 0, -16), (-21, -1, -16), (-21, 0, -16), (-23, -1, -13), (-23, 0, -12), (-19, 0, -16), (-20, 0, -17), (-21, -1, -17), (-21, 0, -17), (-19, -1, -17), (-21, 0, -11), (-22, -2, -12)], 0]
+    if (typeof cb=="function"){
+      return starNetVerified("/faction_list",options,function(err,result){
+        if (err){
+          return cb(err,result);
+        }
+        var resultArray=result.replace("\n","").split("RETURN: [SERVER, ");
+        var testReg=new RegExp("FACTION: Faction \\[id=" + self.number + ",");
+        var theCoords="";
+        for (let i=0;i<resultArray.length;i++){
+          // ; HomeBaseLocation: (-322, 13, -216);
+          if (testReg.test(resultArray[i])){
+            theCoords=toStringIfPossible(resultArray[i].match(/(?<=; HomeBaseLocation: \()[-]{0,1}[0-9]+, [-]{0,1}[0-9]+, [-]{0,1}[0-9]+/));
+
+            break;
+          }
+        }
+        if (typeof theCoords=="string"){
+          let theCoordsArray=theCoords.split(", ");
+          // If no homebase, the coords will be 0 0 0.  It IS possible the person has actually set up a homebase at 0 0 0, so let's check for the homebaseEntityObj.. 
+          return self.homeBaseEntity(options,function(err,result){
+            if (err){
+              return cb(err,result);
+            }
+            if (result){
+              return cb(null,new SectorObj(...theCoordsArray)); // A homebase UID existed, so return the sector
+            }
+            return cb(null,null); // No homebase existed, so return null
+          })
+        }
+        return cb(null,null); // The faction number was not found or there were no coordinates for some reason.
+      })
+    }
+    return simplePromisifyIt(self.homeBaseSector,options);
+  }
+
+  this.exists=function(options,cb){
+    if (typeof cb=="function"){
+      return self.name(options,function(err,result){
+        if (err){
+          return cb(err,result);
+        }
+        if (testIfInput(result)){
+          return cb(null,true);
+        }
+        return cb(null,false);
+      });
+    }
+    return simplePromisifyIt(self.exists,options);
+  }
+
+
   this.systemsClaimed=function(options,cb){
     if (typeof cb == "function"){
       return simpleSqlQuery("SELECT X,Y,Z FROM PUBLIC.SYSTEMS WHERE OWNER_FACTION=" + self.number,options,function(err,results){
@@ -3352,6 +3501,7 @@ function FactionObj(number){  // cb/promises/squish compliant
   }
 
 
+
   // TODO: Add Info methods:
   // name - Get the name of the faction, returned as string
   // description - Get the faction description.  This is harder than it sounds since the description gets all fubared in the return value since it can be multiple lines and it also might contain text that is a normal part of a response like { and } characters..  This is tricky.
@@ -3535,7 +3685,7 @@ function SectorObj(x,y,z){ // cb/promises/squish compliant
               if (result){
                 return cb(null,Boolean(false)); // Sector was loaded, so we cannot load the sector
               }
-              return runSimpleCommand("/import_sector " + self.coords.toString() + " " + sectorExport,options);  
+              return runSimpleCommand("/import_sector " + self.coords.toString() + " " + sectorExport,options,cb);
             });
             // This will not return any errors unless the parameters are incorrect.
           } else {
@@ -4261,6 +4411,20 @@ function EntityObj(fullUID){ // cb/promises/squish compliant
     this.name=function(options,cb){ 
       return starNetHelper.getEntityValue(self.fullUID,"Name",options,cb) 
     };
+    this.exists=function(options,cb){
+      if (typeof cb=="function"){
+        return self.name(options,function(err,result){
+          if (err){
+            return cb(err,result);
+          }
+          if (testIfInput(result)){
+            return cb(null,true);
+          }
+          return cb(null,false);
+        });
+      }
+      return simplePromisifyIt(self.exists,options);
+    }
     this.minBB=function(options,cb){
       if (typeof cb == "function"){
         return starNetHelper.getEntityValue(self.fullUID,"MinBB(chunks)",options,function(err,result){

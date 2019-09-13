@@ -1,0 +1,15 @@
+FactionObj:
+.name()
+.description()
+.exists()
+.homeBaseSector()
+.homeBaseEntity()
+
+EntityObj
+.exists()
+
+PlayerObj
+.exists()
+
+BluePrintObj
+.exists()

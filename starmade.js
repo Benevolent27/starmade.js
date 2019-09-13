@@ -163,7 +163,7 @@ var {isDirectory,getDirectories,isFile,getFiles,log}=miscHelpers;  // Sets up fi
 
 // Object aliases
 var {BotObj,EntityObj,SectorObj,CoordsObj,FactionObj,MessageObj,BlueprintObj,PlayerObj,SMNameObj,ServerObj,regConstructor}=objectCreator;
-var {repeatString,isInArray,getRandomAlphaNumericString,arrayMinus,toStringIfPossible,testIfInput,simplePromisifyIt,listObjectMethods,getParamNames}=objectHelper;
+var {repeatString,isInArray,getRandomAlphaNumericString,arrayMinus,toStringIfPossible,toNumIfPossible,testIfInput,simplePromisifyIt,listObjectMethods,getParamNames}=objectHelper;
 var {getUIDfromName,getFactionNumberFromName,getFactionObjFromName}=starNetHelper;
 global["regConstructor"]=regConstructor;
 
@@ -1090,7 +1090,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
 
               eventEmitter.emit('blueprintSpawn',spawnType,playerObj,blueprintObj,entityObj,sectorObj,factionObj); // playerObj will be undefined if the blueprint was spawned by admin or mass spawned
             }
-          })
+          });
 
 
 
@@ -1265,7 +1265,53 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
         let playerObj=new PlayerObj(playerName);
         let playerSmNameObj=new SMNameObj(playerSMName);
         eventEmitter.emit('playerDisconnect',playerObj,playerSmNameObj);
+      } else if (dataInput.match(/^\[SERVER\] MAIN CORE STARTED DESTRUCTION/)){
+      // STDERR: [SERVER] MAIN CORE STARTED DESTRUCTION [ENTITY_SHIP_overheatingShip] (666, 666, 666) in 60 seconds - 
+      // started 1568254747519 caused by PlS[Weedle [Benevolent27]*; id(1015)(9)f(0)]
+      // STDERR: [SERVER] MAIN CORE STARTED DESTRUCTION [ENTITY_SHIP_overheatingShip] (666, 666, 666) in 60 seconds - started 1568254747519 caused by PlS[Weedle [Benevolent27]*; id(1015)(9)f(0)]
+        
+        // Pirates in a ship
+        // STDERR: [SERVER] MAIN CORE STARTED DESTRUCTION [ENTITY_SPACESTATION_stoppedOverHeated] (666, 666, 666) in 60 seconds - started 1568339467031 caused by null
+        let entityUID=toStringIfPossible(dataInput.match(/(?<=^.*DESTRUCTION \[)[^\]]+/));
+        
+        console.log("entityUID: " + entityUID);
+        let theCoords=toStringIfPossible(dataInput.match(/(?<=\] \()[-]{0,1}[0-9]+, [-]{0,1}[0-9]+, [-]{0,1}[0-9]+/));
+        console.log("theCoords: " + theCoords);
+        let theCoordsArray=theCoords.split(", ");
+        console.log("theCoordsArray: " + theCoordsArray);
+        let theSeconds=toNumIfPossible(toStringIfPossible(dataInput.match(/(?<=\) in )[0-9]+/)));
+        console.log("theSeconds: " + theSeconds);
+        let thePlayerString=toStringIfPossible(dataInput.match(/(?<=PlS\[)[^[ ]+/));
+        console.log("thePlayerString: " + thePlayerString);
+        let thePlayerSmName=toStringIfPossible(dataInput.match(/(?<=PlS\[[^\]]+\[)[^\]]+/));
+        console.log("thePlayerSmName: " + thePlayerSmName);
+
+        let entityObj=new EntityObj(entityUID);
+        return entityObj.exists("",function(err,result){
+          if (err){
+            return err;
+          }
+          if (result){
+            let sectorObj=new SectorObj(...theCoordsArray);
+            // theSeconds
+            if (typeof thePlayerString == "string"){
+              var playerObj=new PlayerObj(thePlayerString);
+            }
+            if (typeof thePlayerSmName == "string"){
+              var playerSMNameObj=new SMNameObj(thePlayerSmName);
+            }
+            return eventEmitter.emit('entityOverheat',entityObj,sectorObj,playerObj,playerSMNameObj);
+    
+          } // If the entity does not exist, this must be the duplicate overheat that occurs when an entity is destroyed
+          return false; // This is to make ESLint happy
+        });
+
+
       }
+
+
+
+
       // Ship death
       // STDERR: [SERVER][DESTROY] CORE OVERHEATED COMPLETELY: KILLING ALL SHIP CREW Ship[dyingShip](1184)
       // STDOUT: [SEGMENTCONTROLLER] ENTITY Ship[dyingShip](1184) HAS BEEN DESTROYED...

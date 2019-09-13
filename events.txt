@@ -2,7 +2,6 @@
 runGravityChange
 runNpcDeath
 runEntityDeath
-entityOverheat
 
 Partial:
 shipSpawn
@@ -15,6 +14,7 @@ playerFactionJoin
 playerFactionLeave
 playerDeath
 blueprintSpawn spawnType,playerObj,blueprintObj,entityObj,sectorObj,factionObj); // playerObj will be undefined if the blueprint was spawned by admin or mass spawned
+entityOverheat
 
 Done:
 playerMessage
