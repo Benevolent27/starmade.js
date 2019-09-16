@@ -172,7 +172,7 @@ global["regConstructor"]=regConstructor;
 // ###    SETTINGS   ###
 // #####################
 var lockFile                  = path.join(mainFolder,"server.lck");
-var showStderr                = false; // Normally this would be true but can be turned to false if testing
+var showStderr                = true; // Normally this would be true but can be turned to false if testing
 var stderrFilter;
 var showStdout                = false;
 var stdoutFilter;
@@ -625,7 +625,9 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
 
       // enumerateEventArguments=true; // Temporary
       if (enumerateEventArguments == true){
-        for (let i=0;i<theArguments.length;i++){ console.log("theArguments[" + i + "]: " + theArguments[i]); }
+        for (let i=0;i<theArguments.length;i++){ 
+          console.log("theArguments[" + i + "]: " + theArguments[i]); 
+        }
       }
       // ### Player Messages ###
       if (theArguments[0] == "[CHANNELROUTER]"){ // This is for all messages, including commands.
@@ -865,7 +867,18 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
               console.log(`${killer}${ofTheFaction} killed ${person} while piloting the entity, '${responsibleEntity}'.`);
               // unset ofTheFaction
               // runPlayerDeath "${person}" "${deathType}" "${killer}" "${responsibleEntity}"
-              eventEmitter.emit('playerDeath',personObj,deathType,responsibleEntityObj);
+              if (testIfInput(responsibleFaction)){
+                return getFactionObjFromName(responsibleFaction,"",function(err,responsibleFactionObj){
+                  if (err){
+                    console.log("ERROR: Could not get factionObj from responsibleFaction: " + responsibleFaction + " -- Cannot emit event!!",err);
+                  } else {
+                    // runPlayerDeath "${person}" "${deathType}" "${responsibleEntity}" "${responsibleFaction}"
+                    eventEmitter.emit('playerDeath',personObj,deathType,responsibleEntityObj,responsibleFactionObj,killerObj);
+                  }
+                });
+              } else {
+                eventEmitter.emit('playerDeath',personObj,deathType,responsibleEntityObj,"",killerObj);
+              }
             } else if (deathType == "entity"){
               if (testIfInput(responsibleFaction)){
                 // TODO:  Fix this
@@ -878,14 +891,14 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
                     console.log("ERROR: Could not get factionObj from responsibleFaction: " + responsibleFaction + " -- Cannot emit event!!",err);
                   } else {
                     // runPlayerDeath "${person}" "${deathType}" "${responsibleEntity}" "${responsibleFaction}"
-                    eventEmitter.emit('playerDeath',personObj,deathType,responsibleEntityObj,responsibleFactionObj);
+                    eventEmitter.emit('playerDeath',personObj,deathType,responsibleEntityObj,responsibleFactionObj,killerObj);
                   }
                 });
 
               } else {
                 // runPlayerDeath "${person}" "${deathType}" "${responsibleEntity}"
                 console.log(`${person} was killed by an entity, '${responsibleEntity}'.`);
-                eventEmitter.emit('playerDeath',personObj,deathType,responsibleEntityObj);
+                eventEmitter.emit('playerDeath',personObj,deathType,responsibleEntityObj,"",killerObj);
                 // TODO:  Fix this
                 // "${scriptDir}wrapper/melvin_public_chat.sh" "${person} was PWNED by an entity, '${responsibleEntity}'!"
               }
@@ -935,15 +948,13 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
                 } else {
                   // runPlayerDeath "${person}" "${deathType}" "${responsibleEntity}" "${responsibleFaction}"
                   console.log(`${person} was killed ${killer}, in the entity, ${responsibleEntity}, from the faction, ${responsibleFaction}.`);
-                  eventEmitter.emit('playerDeath',personObj,deathType,responsibleEntityObj,responsibleFactionObj);
+                  eventEmitter.emit('playerDeath',personObj,deathType,responsibleEntityObj,responsibleFactionObj,killerObj);
                 }
               });
             } else {
               // runPlayerDeath "${person}" "${deathType}" "${responsibleEntity}"
               console.log(`${person} was killed.  Deathtype was: ${deathType} --Responsible entity was: ${responsibleEntity}.`);
-              eventEmitter.emit('playerDeath',personObj,deathType,responsibleEntityObj);
-              // TODO:  Fix this
-              // "${scriptDir}wrapper/melvin_public_chat.sh" "${person} was PWNED by an entity, '${responsibleEntity}'!"
+              eventEmitter.emit('playerDeath',personObj,deathType,responsibleEntityObj,"",killerObj);
             }
           }
           lastMessage=String(message); // This is needed to filter out any duplicate death messages, such as when a weapon has several outputs and they all killed a player at the same time.  Note we do not want to link to the "message" variable, but rather set a new string based on it.
@@ -1206,17 +1217,11 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
         // STDERR: [FACTION] Added to members Benevolent27 perm(4) of Faction [id=10004, name=TheFaction, description=Faction name, size: 1; FP: 100] on Server(0)
         if (theArguments[1] == "Added"){
           let name=theArguments[5];
-          let factionID=dataInput.match(/(?<=Faction \[id=)[-]{0,1}[0-9]+/);
-          if (factionID !== null){
-            factionID=factionID.toString();
-          }
-          let factionName=dataInput.match(/(?<=name=)[^,]+/);
-          if (factionName !== null){
-            factionName=factionName.toString();
-          }
+          let factionID=toStringIfPossible(dataInput.match(/(?<=Faction \[id=)[-]{0,1}[0-9]+/));
+          let factionNameString=toStringIfPossible(dataInput.match(/(?<=name=)[^,]+/));
           let nameObj=new PlayerObj(name);
           let factionObj=new FactionObj(factionID);
-          eventEmitter.emit('playerFactionJoin',nameObj,factionObj,factionName);
+          eventEmitter.emit('playerFactionJoin',nameObj,factionObj,factionNameString);
         }
 
       } else if (theArguments[0] == "[FACTIONMANAGER]"){ // Player left a faction
@@ -1301,16 +1306,50 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
               var playerSMNameObj=new SMNameObj(thePlayerSmName);
             }
             return eventEmitter.emit('entityOverheat',entityObj,sectorObj,playerObj,playerSMNameObj);
+            // the playerObj and playerSMNameObj are of the player who caused the overheat to occur
     
           } // If the entity does not exist, this must be the duplicate overheat that occurs when an entity is destroyed
           return false; // This is to make ESLint happy
         });
 
-
+      } else if (theArguments[0] == 'Server(0)'){
+        // STDERR: Server(0) Ship[destroyThisShip](19) STOPPED OVERHEATING
+        console.log("Possible overheat stop..");
+        log("Possible overheat stop: " + dataInput); // temp
+        if ((/STOPPED OVERHEATING$/).test(dataInput)){
+          console.debug("Overheat stop confirmed!");
+          // STDERR: Server(0) Ship[newNameStopped](186) STOPPED OVERHEATING
+          // STDERR: Server(0) SpaceStation[ENTITY_SPACESTATION_oldNameBase(187)] STOPPED OVERHEATING
+          let theType=toStringIfPossible(dataInput.match(/(?<=Server\(0\) )[^[]*/));
+          console.debug("theType: " + theType);
+          
+          if (theType == "Ship"){
+            var theName=toStringIfPossible(dataInput.match(/(?<=^Server\(0\) Ship\[)[^\]]+/));
+            console.debug("theName: " + theName);
+            return getUIDfromName(theName,"",function(err,theUID){
+              if (err){
+                console.log("There was an error!",err);
+                return err;
+              }
+              console.log("ship theUID: " + theUID);
+              if (testIfInput(theUID)){
+                let theEntityObj=new EntityObj(theUID);
+                return eventEmitter.emit("entityOverheatStopped",theEntityObj);
+              }
+              return false;
+            })
+          } else if (theType == "SpaceStation"){
+            let theUID=toStringIfPossible(dataInput.match(/(?<=Server\(0\) SpaceStation\[)[^(]+/));
+            console.log("spacestation theUID: " + theUID);
+            if (testIfInput(theUID)){
+              let theEntityObj=new EntityObj(theUID)
+              return eventEmitter.emit("entityOverheatStopped",theEntityObj);
+            }
+          } else {
+            console.log("Invalid entity type detected for overheat: " + theType);
+          }
+        }
       }
-
-
-
 
       // Ship death
       // STDERR: [SERVER][DESTROY] CORE OVERHEATED COMPLETELY: KILLING ALL SHIP CREW Ship[dyingShip](1184)
@@ -1344,6 +1383,9 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
       // STDERR: [SERVER] Overheating triggered for SpaceStation[ENTITY_SPACESTATION_stoppedOverHeated(1189)]
       // STDERR: [SERVER] MAIN CORE STARTED DESTRUCTION [ENTITY_SPACESTATION_stoppedOverHeated] (666, 666, 666) in 60 seconds - started 1568255234685 caused by
       // STDERR: Server(0) SpaceStation[ENTITY_SPACESTATION_stoppedOverHeated(1189)] STOPPED OVERHEATING
+
+
+
 
 
     }

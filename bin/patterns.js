@@ -53,7 +53,6 @@ function included(){ // Include Patterns
   includePatterns.push("^Sector\\["); // # This handles NPC creature deaths via black hole or star damage
   includePatterns.push("^Planet[(]"); // # This handles NPC creature death via planet
   includePatterns.push("^ManagedAsteroid[(]"); // This handles NPC creature deaths via asteroids that have been modified in some way
-
   includePatterns.push("^\\[BLUEPRINT\\]"); // Blueprint spawns, including admin spawns.  They can be separated.  I believe this is in BOTH the serverlog.0.log AND the console output.  Console output should be preferred.
 
 
@@ -63,6 +62,10 @@ function included(){ // Include Patterns
   includePatterns.push("^\\[SERVER\\] Planet[(]"); // Sector movement while attache to a planet
   includePatterns.push("^\\[SERVER\\] ManagedAsteroid[(]"); // Sector movement while attached to an asteroid
 
+  includePatterns.push("^Server[(]0[)] .*STOPPED OVERHEATING$"); // Entity stopped overheating
+  // overheat stopped: STDERR: Server(0) Ship[destroyThisShip](19) STOPPED OVERHEATING
+  // false positive: STDERR: Server(0); Faction [id=-2001, name=Neutral Fauna Fac 1, description=A Neutral Fanua Faction, size: 0; FP: 100] ON RULE CHANGED: []
+  
   // serverlog.0.log - TODO: Futher testing is needed to ensure these are not included in the console output.
   // includePatterns.push("^\\[DEATH\\]");
   // includePatterns.push("^\\[SPAWN\\]"); // This is for the serverlog.0.log, which shows when a player spawns in a ship -- this information is not found in the console output or elsewhere.
