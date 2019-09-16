@@ -65,13 +65,13 @@ function included(){ // Include Patterns
   includePatterns.push("^Server[(]0[)] .*STOPPED OVERHEATING$"); // Entity stopped overheating
   // overheat stopped: STDERR: Server(0) Ship[destroyThisShip](19) STOPPED OVERHEATING
   // false positive: STDERR: Server(0); Faction [id=-2001, name=Neutral Fauna Fac 1, description=A Neutral Fanua Faction, size: 0; FP: 100] ON RULE CHANGED: []
-  
+  includePatterns.push("^\\[FACTION\\]"); // Faction joins
+  includePatterns.push("^\\[FACTIONMANAGER\\]"); // Faction leaves
+
   // serverlog.0.log - TODO: Futher testing is needed to ensure these are not included in the console output.
   // includePatterns.push("^\\[DEATH\\]");
   // includePatterns.push("^\\[SPAWN\\]"); // This is for the serverlog.0.log, which shows when a player spawns in a ship -- this information is not found in the console output or elsewhere.
   // includePatterns.push("^\\[SEGMENTCONTROLLER\\] ENTITY");
-  // includePatterns.push("^\\[FACTION\\]");
-  // includePatterns.push("^\\[FACTIONMANAGER\\]");
   // includePatterns.push("^\\[SHUTDOWN\\]");  // When the server shuts down naturally
 
 
