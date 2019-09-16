@@ -27,8 +27,22 @@ var binFolder=path.resolve(__dirname,"../bin/");
 var starNet=require(path.join(binFolder,"starNet.js"));
 var {starNetSync,starNetCb}=starNet;
 
+var objectCreator=require(path.join(binFolder,"objectCreator.js"));
+var {
+  BlueprintObj,
+  CoordsObj,
+  EntityObj,
+  FactionObj,
+  IPObj,
+  LocationObj,
+  MessageObj,
+  PlayerObj,
+  SectorObj,
+  ServerObj,
+  SMNameObj,
+  SystemObj
+}=objectCreator;
 var objHelper=require(path.join(binFolder,"objectHelper.js"));
-var {FactionObj}=objHelper;
 const mySleep=require(path.join(binFolder,"mySleep.js"));
 const sleep = mySleep.softSleep; // Only accurate for 100ms or higher wait times.
 const {sleepPromise}=mySleep; // Less accurate but non-blocking - can only be used in async functions!
