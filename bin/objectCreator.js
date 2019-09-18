@@ -3279,8 +3279,6 @@ function FactionObj(number){  // cb/promises/squish compliant
     }
     return simplePromisifyIt(self.exists,options);
   }
-
-
   this.systemsClaimed=function(options,cb){
     if (typeof cb == "function"){
       return simpleSqlQuery("SELECT X,Y,Z FROM PUBLIC.SYSTEMS WHERE OWNER_FACTION=" + self.number,options,function(err,results){

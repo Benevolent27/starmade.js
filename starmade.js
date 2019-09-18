@@ -966,17 +966,17 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
         // STDERR: [SERVER] MAIN CORE STARTED DESTRUCTION [ENTITY_SPACESTATION_stoppedOverHeated] (666, 666, 666) in 60 seconds - started 1568339467031 caused by null
         let entityUID=toStringIfPossible(dataInput.match(/(?<=^.*DESTRUCTION \[)[^\]]+/));
         
-        console.log("entityUID: " + entityUID);
+        console.debug("entityUID: " + entityUID);
         let theCoords=toStringIfPossible(dataInput.match(/(?<=\] \()[-]{0,1}[0-9]+, [-]{0,1}[0-9]+, [-]{0,1}[0-9]+/));
-        console.log("theCoords: " + theCoords);
+        console.debug("theCoords: " + theCoords);
         let theCoordsArray=theCoords.split(", ");
-        console.log("theCoordsArray: " + theCoordsArray);
+        console.debug("theCoordsArray: " + theCoordsArray);
         let theSeconds=toNumIfPossible(toStringIfPossible(dataInput.match(/(?<=\) in )[0-9]+/)));
-        console.log("theSeconds: " + theSeconds);
+        console.debug("theSeconds: " + theSeconds);
         let thePlayerString=toStringIfPossible(dataInput.match(/(?<=PlS\[)[^[ ]+/));
-        console.log("thePlayerString: " + thePlayerString);
+        console.debug("thePlayerString: " + thePlayerString);
         let thePlayerSmName=toStringIfPossible(dataInput.match(/(?<=PlS\[[^\]]+\[)[^\]]+/));
-        console.log("thePlayerSmName: " + thePlayerSmName);
+        console.debug("thePlayerSmName: " + thePlayerSmName);
 
         let entityObj=new EntityObj(entityUID);
         return entityObj.exists("",function(err,result){

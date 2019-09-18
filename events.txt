@@ -1,7 +1,7 @@
 
-runGravityChange
-runNpcDeath
-runEntityDeath
+gravityChange
+npcDeath
+entityDeath
 
 Partial:
 shipSpawn
