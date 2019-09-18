@@ -15,6 +15,7 @@ temp*
 !mods/exampleMods/*
 !mods/exampleMods/*/*
 /mods/testMod
+/mods/diversify
 /logs/*
 /bin/test.js
 *.log
