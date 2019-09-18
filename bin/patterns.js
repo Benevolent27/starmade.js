@@ -43,6 +43,7 @@ function included(){ // Include Patterns
   includePatterns.push("^\\[PLAYER\\]\\[DEATH\\]");
   includePatterns.push("^\\[SERVER\\] PlS\\[");
   includePatterns.push("^\\[SERVER\\]\\[PLAYERMESSAGE\\]");
+  includePatterns.push("^\\[SEND\\]\\[SERVERMESSAGE\\]"); // Used for player connect event  [SEND][SERVERMESSAGE]
   includePatterns.push("^\\[CHANNELROUTER\\]"); // These are messages sent from players
   includePatterns.push("^\\[SERVER\\] Object Ship\\[");
   includePatterns.push("^\\[CHARACTER\\]\\[GRAVITY\\] # This is the main gravity change");

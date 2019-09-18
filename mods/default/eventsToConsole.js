@@ -6,8 +6,8 @@ async function playerMsg(messageObj) { // Handle messages sent from players
     // 'playerMessage',new MessageObj(sender,receiver,receiverType,message),global);
     console.log("Message (type: " + messageObj.type +") DETECTED from " + toStringIfPossible(messageObj.sender) + " to " + toStringIfPossible(await messageObj.receiver) + ": " + messageObj.text);
 };
-event.on('playerSpawn', function(playerObj) {
-    console.log(`playerSpawn event--playerObj: ${toStringIfPossible(playerObj)}`);
+event.on('playerSpawn', function(playerObj, SMNameObj) {
+    console.log(`playerSpawn event--playerObj: ${toStringIfPossible(playerObj)}  SMNameObj: ${toStringIfPossible(SMNameObj)}`);
 });
 event.on('shipSpawn', function(playerObj,entityObj) {
     console.log(`shipSpawn event--playerObj: ${toStringIfPossible(playerObj)}  entityObj: ${toStringIfPossible(entityObj)}`);

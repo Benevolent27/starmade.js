@@ -628,7 +628,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
       // enumerateEventArguments=true; // Temporary
       if (enumerateEventArguments == true){
         for (let i=0;i<theArguments.length;i++){ 
-          console.log("theArguments[" + i + "]: " + theArguments[i]); 
+          console.log("stderr--theArguments[" + i + "]: " + theArguments[i]); 
         }
       }
       // ### Player Messages ###
@@ -928,7 +928,8 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
         }
       } else if (theArguments[0] == "[SEND][SERVERMESSAGE]"){ // player connect
         // STDERR: [SEND][SERVERMESSAGE] [SERVERMSG (type 0): [484, Weedle]] to RegisteredClient: Weedle (5) [Benevolent27]connected: true
-        if (/connected: true$/.test(dataInput)){
+        console.debug("Possible player connection: " + dataInput);
+        if ((/connected: true$/).test(dataInput)){
           let playerName=dataInput.match(/(?<=RegisteredClient: )[^ ]+/);
           if (playerName !== null){
             playerName=playerName.toString();
