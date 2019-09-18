@@ -8,13 +8,13 @@ shipSpawn
 baseSpawn
 
 Needs testing:
-playerConnect
-playerDisconnect
 playerDeath
 blueprintSpawn spawnType,playerObj,blueprintObj,entityObj,sectorObj,factionObj); // playerObj will be undefined if the blueprint was spawned by admin or mass spawned
 
 
 Done:
+playerConnect
+playerDisconnect
 playerFactionJoin
 playerFactionLeave
 entityOverheat
