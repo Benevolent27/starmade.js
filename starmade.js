@@ -2185,6 +2185,7 @@ exitHook(() => { // This will handle sigint and sigterm exits.
       console.log("ERROR:  Could not kill powershell instance!");
     }
   }
+  // TODO: Kill any serverpids and remove each PID no longer alive.  We can also remove the main PID, since we know it must be exiting.  Then re-write the lock file.
 });
 
 // This doesn't handle sigterm or sigint exit codes.
