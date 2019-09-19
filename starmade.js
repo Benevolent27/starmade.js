@@ -285,92 +285,109 @@ if (process.argv[2]){
 // ########################
 if (fs.existsSync(lockFile) && ignoreLockFile == false){
   //todo if the lock file exists, we need to grab the PID from the file and see if the server is running.  If not, then we can safely remove the lock file, otherwise end with an error.
-  console.log("Existing Lock file found! Parsing to determine if server is still running..");
+  console.log("Existing Lock file found!");
   var response;
-  var lockFileContents=fs.readFileSync(lockFile).toString(); // Added .toString() to make ESLinter happy since it was saying this was a string when using JSON.parse on it.
-  var lockFileObject=JSON.parse(lockFileContents);
-  // Checking the main starmade.js process PID - We check this first because we run a treekill on it which will normally also bring down the individual server PID and prevent it from auto-restarting the server on abnormal exit
-  if (lockFileObject.hasOwnProperty("mainPID")){
-    if (lockFileObject["mainPID"]){
-      // console.log("Main PID found: " + lockFileObject["mainPID"]);
-      if (isPidAlive(lockFileObject["mainPID"])){
-        console.log("Existing starmade.js process found running on PID, '" + lockFileObject["mainPID"] + "'.");
-        if (forceStart==true){
-          console.log("forceKill flag set!  Auto-killing PID!");
-          response= "yes";
-        } else {
-          response=prompt("If you want to kill it, type 'yes': ").toLowerCase();
-        }
-        if (response=="yes"){
-          console.log("TREE KILLING WITH EXTREME BURNINATION!");
-          treeKill(lockFileObject["mainPID"], 'SIGTERM');
-          // We should initiate a loop giving up to 5 minutes for it to shut down before sending a sig-kill.
-          miscHelpers.waitAndThenKill(300000,lockFileObject["mainPID"]);
-          sleepSync(1000); // Give the sigKILL time to complete if it was necessary.
-        } else {
-          console.log("Alrighty, I'll just let it run then.");
-        }
-      } else {
-        console.log("Prior starmade.js script not running. Cool.");
+  var lockFileContents=fs.readFileSync(lockFile,'utf8').toString(); // Added .toString() to make ESLinter happy since it was saying this was a string when using JSON.parse on it.
+  if (typeof lockFileContents == "string"){
+    let lockFileContentsTest=lockFileContents.replace(/[\n\r\t ]+/g,"").trim(); // Ignore any return characters, tabs, or spaces
+    if (lockFileContentsTest.length > 0){
+      console.log("Parsing lock file to determine if server or dependent processes are still running..");
+      try {
+        var lockFileObject=JSON.parse(lockFileContents);
+      } catch (err){
+        console.log(`ERROR:  Could not parse lock file (${lockFile})!  Is the file invalid?  If the file is NOT in json format, it cannot be parsed.  Please edit the file and fix it, or otherwise delete the file to start the server!`);
+        throw err;
       }
-    }
-  }
-  console.log("");
-  // Checking the array of potential server that are running.
-  if (lockFileObject.hasOwnProperty("serverSpawnPIDs")){
-    var serverPIDS=lockFileObject["serverSpawnPIDs"];
-      if (serverPIDS){
-        for (let i=0;i<serverPIDS.length;i++){
-          if (isPidAlive(serverPIDS[i])){
-            console.log("Running StarMade Server found on PID: " + serverPIDS[i]);
+      // Checking the main starmade.js process PID - We check this first because we run a treekill on it which will normally also bring down the individual server PID and prevent it from auto-restarting the server on abnormal exit
+      if (lockFileObject.hasOwnProperty("mainPID")){
+        if (lockFileObject["mainPID"]){
+          // console.log("Main PID found: " + lockFileObject["mainPID"]);
+          if (isPidAlive(lockFileObject["mainPID"])){
+            console.log("Existing starmade.js process found running on PID, '" + lockFileObject["mainPID"] + "'.");
             if (forceStart==true){
               console.log("forceKill flag set!  Auto-killing PID!");
               response= "yes";
             } else {
               response=prompt("If you want to kill it, type 'yes': ").toLowerCase();
             }
-            if (response == "yes"){
-              console.log("KILLING IT WITH FIRE! (SIGTERM)")
-              process.kill(serverPIDS[i],'SIGTERM');
-              miscHelpers.waitAndThenKill(300,serverPIDS[i]);
-              sleepSync(1000); // Giving the SIGKILL time to complete.
+            if (response=="yes"){
+              console.log("TREE KILLING WITH EXTREME BURNINATION!");
+              treeKill(lockFileObject["mainPID"], 'SIGTERM');
               // We should initiate a loop giving up to 5 minutes for it to shut down before sending a sig-kill.
+              miscHelpers.waitAndThenKill(300000,lockFileObject["mainPID"]);
+              sleepSync(1000); // Give the sigKILL time to complete if it was necessary.
             } else {
-              console.log("Alrighty then, I'll just let it keep running.")
+              console.log("Alrighty, I'll just let it run then.");
             }
           } else {
-            console.log("Verified that server PID, '" + serverPIDS[i] + "' was not running!");
+            console.log("Prior starmade.js script not running. Cool.");
           }
         }
       }
-  }
-  if (countActiveLockFilePids(lockFileObject) > 0){ // This should always be 0 after a -forceStart
-    console.log("\nDANGER WILL ROBINSON!  There are still " + countActiveLockFilePids(lockFileObject) + " processes still running!");
-    console.log("We cannot continue while an existing server might still be running!  Exiting!");
-    console.log("NOTE: If you are 100% SURE that these the PIDs from the lock file are NOT from another starmade.js script or StarMade servers, you can restart this script with '-ignorelockfile' to ignore the old lock file and create a new one.");
-    console.log("NOTE2: If you want to start this script auto-killing any old PID's, you can use the -forceStart argument.");
-    process.exit(1);
-  } else {
-    // None of the processes from the lock file are still running, so we can just delete the lock file and continue.
-    if (fs.existsSync(lockFile)){
-      try {
-        console.log("Deleting old lock file..");
-        fs.unlinkSync(lockFile);
-      } catch (err){
-        // Every now and then it is POSSIBLE that the first check will show it existing, but when trying to delete it, it won't exist.  So we can just run another check to be 100% sure that this is a bonafide error.
-        if (fs.existsSync(lockFile)) {
-          console.error("ERROR: Could not delete old lock file!  Please ensure this script has access to delete files from it's own folder!");
-          if (err){
-            console.error("Error info: " + err);
+      console.log("");
+      // Checking the array of potential server that are running.
+      if (lockFileObject.hasOwnProperty("serverSpawnPIDs")){
+        if (lockFileObject.hasOwnProperty("serverSpawnPIDs")){
+          var serverPIDS=lockFileObject["serverSpawnPIDs"];
+          for (let i=0;i<serverPIDS.length;i++){
+            if (isPidAlive(serverPIDS[i])){
+              console.log("Running StarMade Server found on PID: " + serverPIDS[i]);
+              if (forceStart==true){
+                console.log("forceKill flag set!  Auto-killing PID!");
+                response= "yes";
+              } else {
+                response=prompt("If you want to kill it, type 'yes': ").toLowerCase();
+              }
+              if (response == "yes"){
+                console.log("KILLING IT WITH FIRE! (SIGTERM)")
+                process.kill(serverPIDS[i],'SIGTERM');
+                miscHelpers.waitAndThenKill(300,serverPIDS[i]);
+                sleepSync(1000); // Giving the SIGKILL time to complete.
+                // We should initiate a loop giving up to 5 minutes for it to shut down before sending a sig-kill.
+              } else {
+                console.log("Alrighty then, I'll just let it keep running.")
+              }
+            } else {
+              console.log("Verified that server PID, '" + serverPIDS[i] + "' was not running!");
+            }
           }
-          throw err;
         }
+      } else {
+        console.log("No server PID's found.  Continuing..");
       }
-      console.log("Blamo!");
+      if (countActiveLockFilePids(lockFileObject) > 0){ // This should always be 0 after a -forceStart
+        console.log("\nDANGER WILL ROBINSON!  There are still " + countActiveLockFilePids(lockFileObject) + " processes still running!");
+        console.log("We cannot continue while an existing server might still be running!  Exiting!");
+        console.log("NOTE: If you are 100% SURE that these the PIDs from the lock file are NOT from another starmade.js script or StarMade servers, you can restart this script with '-ignorelockfile' to ignore the old lock file and create a new one.");
+        console.log("NOTE2: If you want to start this script auto-killing any old PID's, you can use the -forceStart argument.");
+        process.exit(1);
+      } else {
+        // None of the processes from the lock file are still running, so we can just delete the lock file and continue.
+        if (fs.existsSync(lockFile)){
+          try {
+            console.log("Deleting old lock file..");
+            fs.unlinkSync(lockFile);
+          } catch (err){
+            // Every now and then it is POSSIBLE that the first check will show it existing, but when trying to delete it, it won't exist.  So we can just run another check to be 100% sure that this is a bonafide error.
+            if (fs.existsSync(lockFile)) {
+              console.error("ERROR: Could not delete old lock file!  Please ensure this script has access to delete files from it's own folder!");
+              if (err){
+                console.error("Error info: " + err);
+              }
+              throw err;
+            }
+          }
+          console.log("Blamo!");
+        } else {
+          console.log("server.lck went poof on it's own!  Wonderful! Continuing..");
+        }
+        sleepSync(200); // Temp
+      }
     } else {
-      console.log("server.lck went poof on it's own!  Wonderful! Continuing..");
+      console.log("Lock file was empty. Prior starmade.js script does not appear to be running.  Continuing..");
     }
-    sleepSync(200); // Temp
+  } else {
+    console.log("Lock file was empty. Prior starmade.js script does not appear to be running.  Continuing..");
   }
 } else if (fs.existsSync(lockFile)){
   console.log("Ignored existing lock file!");
