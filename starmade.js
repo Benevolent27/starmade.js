@@ -1,8 +1,5 @@
 // @ts-check
 
-// TODO:  Create separate patterns for stderr, stdout, and tailing serverlog.0.txt
-// TODO:  Finish the blueprint loading scripting and finalize how I want it to export.  I am thinking a custom object could be used, a modified entity object, or just a regular entity object (though this would not be very efficient since it wouldn't utilize some of the data available).
-
 // Design fundamentals:
 
 // SIMPLICITY IN USE
@@ -1232,7 +1229,11 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
 
                   // Let's look up the responsible faction, if there is one.
                   // responsibleFaction=$(echo "$responsible" | sed -E 's/((^.*\[)|(\]$))//g')
-                  var responsibleFaction=toStringIfPossible(responsible.match(/(?<=\[)[^\]]+/));
+                  var responsibleFactionTest=toStringIfPossible(responsible);
+                  var responsibleFaction;
+                  if (typeof responsibleFactionTest=="string"){
+                    responsibleFaction=responsibleFactionTest.match(/(?<=\[)[^\]]+/);
+                  }
                   if (testIfInput(responsibleFaction)){
                     message=`${message}, of the faction, '${responsibleFaction}'`
                   }
