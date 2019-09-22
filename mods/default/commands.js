@@ -112,7 +112,6 @@ function init (){
     // name,category,adminOnly,displayInHelp,playersArray
     global.regCommand("changeHelpWidth","HiddenHelpers",true,false);
     global.regCommand("togglehide","HiddenHelpers",true,false);
-
     global.regCommand("helpCommandPrefix","HiddenHelpers",true,false);
     global.regCommand("helpCommandSpacer","HiddenHelpers",true,false);
     global.regCommand("helpCommandSuffix","HiddenHelpers",true,false);

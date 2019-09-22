@@ -1248,6 +1248,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
               // Gotta figure out why removing the ] fucks up the responsible faction..
               // echo "No Killer found.. Running secondary check.."
               killer=toStringIfPossible(responsible.match(/(?<=<)[^>]*(?=>.*)/));
+              console.log("Secondary killer string: " + killer);
               // console.log(`killer: ${killer}`);
               if (person == killer){
                 // This probably should be broadened to include suiciding via their own ship
@@ -1349,8 +1350,10 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
             console.log(`# theDate: ${theDate}  theTime: ${theTime}  deathType: ${deathType}`);
             console.log(`# responsibleEntity: ${responsibleEntity}`);
             console.log(`# killer: ${killer}  responsibleFaction: ${responsibleFaction}`);
+            console.log("dataInput: " + dataInput);
             console.log(`#### END INFOS #####`);
             console.log(" ");
+            // personObj,deathType,responsibleEntityObj,responsibleFactionObj,killerObj
             if (deathType == "suicide"){
               // "${scriptDir}wrapper/melvin_public_chat.sh" "Haw haw, ${person} totally just killed themselves."
               // runPlayerDeath "${person}" "${deathType}"
@@ -1360,7 +1363,7 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
               // "${scriptDir}wrapper/melvin_public_chat.sh" "Whaaat!  ${killer} just WHACKED ${person}!  :D"
               console.debug(`${killer} killed ${person}.`);
               // runPlayerDeath "${person}" "${deathType}" "${killer}"
-              eventEmitter.emit('playerDeath',personObj,deathType,killerObj);
+              eventEmitter.emit('playerDeath',personObj,deathType,"","",killerObj);
             } else if (deathType == "personInShip"){
               var ofTheFaction="";
               if (testIfInput(responsibleFaction)){
