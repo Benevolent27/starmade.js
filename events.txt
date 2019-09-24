@@ -28,3 +28,225 @@ playerSectorChange
 
 
 
+Console lines:
+
+playerDeath
+
+--Unique:
+serverlog.0.log: [DEATH] Weedle has been killed by 'Responsible: Floating Rock <can be harvested>'; controllable: ManagedAsteroid(16)sec[13](!)
+serverlog.0.log: [DEATH] Weedle has been killed by 'Responsible: dockedEntity[SomeRandomFaction]'; controllable: Ship[dockedEntity](298)
+serverlog.0.log: [DEATH] Weedle has been killed by 'Responsible: dockedEntity'; controllable: Ship[dockedEntity](298)
+serverlog.0.log: [DEATH] Weedle has been killed by 'Responsible: TurretArm[SomeRandomFaction]'; controllable: Ship[TurretArm](22)
+ ---(after ship was renamed) serverlog.0.log: [DEATH] Weedle has been killed by 'Responsible: TurretArmRenamed[SomeRandomFaction]'; controllable: Ship[TurretArmRenamed](19)
+serverlog.0.log: [DEATH] Weedle has been killed by 'Responsible: TurretArm'; controllable: Ship[TurretArm](22)
+serverlog.0.log: [DEATH] Weedle has been killed by 'Killer: Benevolent27 (120.0/120.0 HP left)'; controllable: ManagedAsteroid(20)sec[13](!)
+serverlog.0.log: [DEATH] Weedle has been killed by 'Killer: Benevolent27 (120.0/120.0 HP left)'; controllable: Ship[dockedEntity](15)
+serverlog.0.log: [DEATH] Weedle has been killed by 'Killer: Benevolent27 (120.0/120.0 HP left)'; controllable: Ship[TurretArm](301)
+
+---Itemized:
+factioned ManagedAsteroid-logic fired
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Responsible: Floating Rock <can be harvested>'; controllable: ManagedAsteroid(16)sec[13](!)
+unfactioned ManagedAsteroid-logic fired
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Responsible: Floating Rock <can be harvested>'; controllable: ManagedAsteroid(16)sec[13](!)
+
+factioned ManagedAsteroid unfactioned attached entity-logic fired
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Responsible: dockedEntity[SomeRandomFaction]'; controllable: Ship[dockedEntity](298)
+factioned ManagedAsteroid factioned attached entity-logic fired
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Responsible: dockedEntity[SomeRandomFaction]'; controllable: Ship[dockedEntity](298)
+unfactioned ManagedAsteroid unfactioned attached entity-logic fired
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Responsible: dockedEntity'; controllable: Ship[dockedEntity](298)
+unfactioned ManagedAsteroid factioned attached entity-logic fired
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Responsible: dockedEntity[SomeRandomFaction]'; controllable: Ship[dockedEntity](298)
+
+factioned ManagedAsteroid unfactioned turret entity-logic fired
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Responsible: TurretArm[SomeRandomFaction]'; controllable: Ship[TurretArm](22)
+factioned ManagedAsteroid factioned turret entity-logic fired
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Responsible: TurretArm[SomeRandomFaction]'; controllable: Ship[TurretArm](22)
+unfactioned ManagedAsteroid unfactioned turret entity-logic fired
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Responsible: TurretArm'; controllable: Ship[TurretArm](22)
+unfactioned ManagedAsteroid factioned turret entity-logic fired
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Responsible: TurretArm[SomeRandomFaction]'; controllable: Ship[TurretArm](22)
+
+Player in factioned ManagedAsteroid-logic fired
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Killer: Benevolent27 (120.0/120.0 HP left)'; controllable: ManagedAsteroid(16)sec[13](!)
+player in unfactioned ManagedAsteroid-logic fired
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Killer: Benevolent27 (120.0/120.0 HP left)'; controllable: ManagedAsteroid(16)sec[13](!)
+
+Player in factioned ManagedAsteroid unfactioned attached entity-logic firing
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Killer: Benevolent27 (120.0/120.0 HP left)'; controllable: Ship[dockedEntity](15)
+Player in factioned ManagedAsteroid unfactioned attached entity-Manual Fired
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Killer: Benevolent27 (120.0/120.0 HP left)'; controllable: Ship[dockedEntity](15)
+Player in factioned ManagedAsteroid factioned attached entity-logic firing
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Killer: Benevolent27 (120.0/120.0 HP left)'; controllable: Ship[dockedEntity](15)
+Player in factioned ManagedAsteroid factioned attached entity-Manual Fired
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Killer: Benevolent27 (120.0/120.0 HP left)'; controllable: Ship[dockedEntity](15)
+
+Player in unfactioned ManagedAsteroid unfactioned attached entity-logic firing
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Killer: Benevolent27 (120.0/120.0 HP left)'; controllable: Ship[dockedEntity](15)
+Player in unfactioned ManagedAsteroid unfactioned attached entity-Manual Fired
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Killer: Benevolent27 (120.0/120.0 HP left)'; controllable: Ship[dockedEntity](15)
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Killer: Benevolent27 (120.0/120.0 HP left)'; controllable: Ship[dockedEntity](298)
+Player in unfactioned ManagedAsteroid factioned attached entity-logic firing
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Killer: Benevolent27 (120.0/120.0 HP left)'; controllable: Ship[dockedEntity](15)
+Player in unfactioned ManagedAsteroid factioned attached entity-Manual Fired
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Killer: Benevolent27 (120.0/120.0 HP left)'; controllable: Ship[dockedEntity](15)
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Killer: Benevolent27 (120.0/120.0 HP left)'; controllable: Ship[dockedEntity](298)
+
+Player in factioned ManagedAsteroid unfactioned turret entity-logic firing
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Responsible: TurretArm[SomeRandomFaction]'; controllable: Ship[TurretArm](301)
+Player in factioned ManagedAsteroid unfactioned turret entity-Manual Fired
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Killer: Benevolent27 (120.0/120.0 HP left)'; controllable: Ship[TurretArm](301)
+Player in factioned ManagedAsteroid factioned turret entity-logic firing
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Responsible: TurretArm[SomeRandomFaction]'; controllable: Ship[TurretArm](301)
+Player in factioned ManagedAsteroid factioned turret entity-Manual Fired
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Killer: Benevolent27 (120.0/120.0 HP left)'; controllable: Ship[TurretArm](301)
+
+Player in unfactioned ManagedAsteroid unfactioned turret entity-logic firing
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Responsible: TurretArm'; controllable: Ship[TurretArm](301)
+Player in unfactioned ManagedAsteroid unfactioned turret entity-Manual Fired
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Killer: Benevolent27 (120.0/120.0 HP left)'; controllable: Ship[TurretArm](301)
+Player in unfactioned ManagedAsteroid factioned turret entity-logic firing
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Responsible: TurretArm[SomeRandomFaction]'; controllable: Ship[TurretArm](301)
+Player in unfactioned ManagedAsteroid factioned turret entity-Manual Fired
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Killer: Benevolent27 (120.0/120.0 HP left)'; controllable: Ship[TurretArm](301)
+
+ai in factioned ManagedAsteroid factioned attached entity-logic fired
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Responsible: dockedEntity[SomeRandomFaction]'; controllable: Ship[dockedEntity](15)
+ai in factioned ManagedAsteroid factioned attached entity-any
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Responsible: dockedEntity[SomeRandomFaction]'; controllable: Ship[dockedEntity](15)
+ai in factioned ManagedAsteroid unfactioned attached entity-logic fired
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Responsible: dockedEntity[SomeRandomFaction]'; controllable: Ship[dockedEntity](15)
+ai in factioned ManagedAsteroid unfactioned attached entity-any
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Responsible: dockedEntity[SomeRandomFaction]'; controllable: Ship[dockedEntity](15)
+
+ai in unfactioned ManagedAsteroid unfactioned attached entity-logic fired
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Responsible: dockedEntity'; controllable: Ship[dockedEntity](15)
+ai in unfactioned ManagedAsteroid unfactioned attached entity-any
+  (could not entice ai to retaliate)
+ai in unfactioned ManagedAsteroid factioned attached entity-logic fired
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Responsible: dockedEntity[SomeRandomFaction]'; controllable: Ship[dockedEntity](15)
+ai in unfactioned ManagedAsteroid factioned attached entity-any
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Responsible: dockedEntity[SomeRandomFaction]'; controllable: Ship[dockedEntity](15)
+
+
+ai in factioned ManagedAsteroid unfactioned turret-logic fired
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Responsible: TurretArm[SomeRandomFaction]'; controllable: Ship[TurretArm](22)
+ai in factioned ManagedAsteroid unfactionedturret-ai any
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Responsible: TurretArm[SomeRandomFaction]'; controllable: Ship[TurretArm](22)
+ai in factioned ManagedAsteroid unfactionedturret-ai select target
+    (would not shoot)
+ai in factioned ManagedAsteroid unfactioned turret-ai Remote Control
+    (Could not control)
+
+ai in factioned ManagedAsteroid factioned turret-logic fired
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Responsible: TurretArm[SomeRandomFaction]'; controllable: Ship[TurretArm](22)
+ai in factioned ManagedAsteroid factioned-ai any
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Responsible: TurretArm[SomeRandomFaction]'; controllable: Ship[TurretArm](22)
+ai in factioned ManagedAsteroid factioned-ai select target
+    (would not shoot)
+ai in factioned ManagedAsteroid factioned turret-ai Remote Control
+    (Could not control)
+
+ai in unfactioned ManagedAsteroid unfactioned turret-logic fired
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Responsible: TurretArm'; controllable: Ship[TurretArm](22)
+ai in unfactioned ManagedAsteroid unfactioned turret-ai any
+    (could not entice ai to retaliate)
+ai in unfactioned ManagedAsteroid unfactioned turret-ai select target
+    (would not shoot)
+ai in unfactioned ManagedAsteroid unfactioned turret-ai Remote Control
+    (Could not control)
+
+ai in unfactioned ManagedAsteroid factioned turret-logic fired
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Responsible: TurretArm[SomeRandomFaction]'; controllable: Ship[TurretArm](22)
+ai in unfactioned ManagedAsteroid factioned turret-ai any
+    serverlog.0.log: [DEATH] Weedle has been killed by 'Responsible: TurretArm[SomeRandomFaction]'; controllable: Ship[TurretArm](22)
+ai in unfactioned ManagedAsteroid factioned turret-ai select target
+    (would not shoot)
+ai in unfactioned ManagedAsteroid factioned turret-ai Remote Control
+    (Could not control)
+
+
+
+
+
+
+Just a copy of unedited:
+factioned ManagedAsteroid-logic fired
+unfactioned ManagedAsteroid-logic fired
+factioned ManagedAsteroid unfactioned attached entity-logic fired
+factioned ManagedAsteroid factioned attached entity-logic fired
+unfactioned ManagedAsteroid unfactioned attached entity-logic fired
+unfactioned ManagedAsteroid factioned attached entity-logic fired
+factioned ManagedAsteroid unfactioned turret entity-logic fired
+factioned ManagedAsteroid factioned turret entity-logic fired
+unfactioned ManagedAsteroid unfactioned turret entity-logic fired
+unfactioned ManagedAsteroid factioned turret entity-logic fired
+
+Player in factioned ManagedAsteroid-logic fired
+Player in factioned ManagedAsteroid-manual fired (not possible)
+player in unfactioned ManagedAsteroid-logic fired
+Player in unfactioned ManagedAsteroid-manual fired (not possible)
+Player in factioned ManagedAsteroid unfactioned attached entity-logic firing
+Player in factioned ManagedAsteroid unfactioned attached entity-Manual Fired
+Player in factioned ManagedAsteroid factioned attached entity-logic firing
+Player in factioned ManagedAsteroid factioned attached entity-Manual Fired
+Player in unfactioned ManagedAsteroid unfactioned attached entity-logic firing
+Player in unfactioned ManagedAsteroid unfactioned attached entity-Manual Fired
+Player in unfactioned ManagedAsteroid factioned attached entity-logic firing
+Player in unfactioned ManagedAsteroid factioned attached entity-Manual Fired
+Player in factioned ManagedAsteroid unfactioned turret entity-logic firing
+Player in factioned ManagedAsteroid unfactioned turret entity-Manual Fired
+Player in factioned ManagedAsteroid factioned turret entity-logic firing
+Player in factioned ManagedAsteroid factioned turret entity-Manual Fired
+Player in unfactioned ManagedAsteroid unfactioned turret entity-logic firing
+Player in unfactioned ManagedAsteroid unfactioned turret entity-Manual Fired
+Player in unfactioned ManagedAsteroid factioned turret entity-logic firing
+Player in unfactioned ManagedAsteroid factioned turret entity-Manual Fired
+
+ai in factioned ManagedAsteroid (not possible right now)
+ai in unfactioned ManagedAsteroid (not possible right now)
+ai in factioned ManagedAsteroid factioned attached entity-any
+ai in factioned ManagedAsteroid unfactioned attached entity-any
+ai in factioned ManagedAsteroid factioned attached entity-select target (not possible right now)
+ai in factioned ManagedAsteroid unfactioned attached entity-select target (not possible right now)
+ai in unfactioned ManagedAsteroid attached entity (logic fired)
+ai in unfactioned ManagedAsteroid attached entity-any
+ai in unfactioned ManagedAsteroid attached entity-select target
+ai in factioned ManagedAsteroid turret-logic fired
+ai in factioned ManagedAsteroid turret-ai any
+ai in factioned ManagedAsteroid turret-ai select target
+ai in factioned ManagedAsteroid turret-ai Remote Control
+ai in unfactioned ManagedAsteroid turret-logic fired
+ai in unfactioned ManagedAsteroid turret-ai any
+ai in unfactioned ManagedAsteroid turret-ai select target
+ai in unfactioned ManagedAsteroid turret-ai Remote Control
+
+
+
+Player in factioned planetSegment
+player in unfactioned planetSegment
+factioned planetSegment
+unfactioned planetSegment
+factioned planetSegment turret-ai any
+factioned planetSegment turret-ai select target
+unfactioned planetSegment turret-ai any
+unfactioned planetSegment turret-ai select target
+
+Player in factioned ship
+player in unfactioned ship
+factioned ship
+unfactioned ship
+factioned ship turret
+unfactioned ship turret
+
+Player in factioned station
+player in unfactioned shistationp
+factioned station
+unfactioned station
+factioned station turret
+unfactioned station turret
+
+
+
+
+

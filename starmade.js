@@ -1208,6 +1208,12 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           } else if (responsible == "Black Hole"){
             deathType="blackhole"
           } else if (responsible == "Floating Rock <can be harvested>"){
+            // TODO:  Fix manned asteroid kills.
+            // This was a kill while a player was controlling an asteroid with a weapon on it
+            // Example (09-21-19):  [DEATH] Weedle has been killed by 'Killer: Benevolent27 (120.0/120.0 HP left)'; controllable: ManagedAsteroid(355)sec[284](!)
+            
+            // Regular example:  Working
+            // Example of factioned asteroid, unmanned:  serverlog.0.log: [DEATH] Weedle has been killed by 'Responsible: Floating Rock <can be harvested>'; controllable: ManagedAsteroid(16)sec[13](!)
             deathType="asteroid"
           } else if (responsible == "PlanetSegment(Planet);"){
             deathType="planetSegment"
