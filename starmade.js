@@ -238,24 +238,32 @@ if (process.argv[2]){
   var argumentsPassed=process.argv.slice(2);
   var argumentRoot;
   var argumentEqual;
-  var argumentEqualLower;
+  var argumentEqualLowerCase;
   for (let i=0;i<argumentsPassed.length;i++){
     // Set up each argument to grab before = and after =, so arguments can be given specific values.
     argumentRoot=toStringIfPossible(argumentsPassed[i].match(/^-[a-zA-Z]*/));
     if (typeof argumentRoot=="string"){
       argumentRoot=argumentRoot.toLowerCase();
-      console.log("Test result: " + argumentsPassed[i].indexOf("="));
+      // console.log("Test result: " + argumentsPassed[i].indexOf("="));
       if (argumentsPassed[i].indexOf("=") == -1){
         argumentEqual      = null;
-        argumentEqualLower = null;
+        argumentEqualLowerCase = null;
       } else {
         argumentEqual      = argumentsPassed[i].match(/[^=]*$/).toString();
-        argumentEqualLower = argumentEqual.toLowerCase();
+        argumentEqualLowerCase = argumentEqual.toLowerCase();
       }
-      if (argumentRoot == "-forcestart"){
-        if (argumentEqualLower == "true" || !argumentEqualLower){
+      if (argumentRoot == "-help"){
+        console.log("");
+        console.log("The following command line arguments are currently supported:");
+        console.log("-forcestart");
+        console.log("-ignorelockfile");
+        console.log("-debug");
+        log("Command line help given.");
+        process.exit();
+      } else if  (argumentRoot == "-forcestart"){
+        if (argumentEqualLowerCase == "true" || !argumentEqualLowerCase){
           forceStart = true;
-        } else if (argumentEqualLower == "false"){
+        } else if (argumentEqualLowerCase == "false"){
           forceStart = false;
         } else {
           console.log("Invalid setting for forceStart attempted.  Must be 'true' or 'false'!  Ignoring argument!")
@@ -270,8 +278,13 @@ if (process.argv[2]){
         console.log("Turning debug messages on!");
         debug=true;
       } else {
-        console.error("Error:  Unrecognized argument, '" + argumentsPassed[i] + "'!  Ignoring!")
+        console.error("Error:  Unrecognized argument, '" + argumentsPassed[i] + "'!  Ignoring it and moving on!");
+        log("StartupError:  Unrecognized argument, '" + argumentsPassed[i] + "'!  Ignoring it and moving on!")
       }
+    } else {
+      log("StartupError:  Invalid argument, '" + argumentsPassed[i] + "'!  Arguments must be preceded by a '-' character!  Aborting startup!");
+      let theErr=new Error("Invalid argument given.  All arguments should be preceded by a '-' character!  Argument given: " + argumentsPassed[i]);
+      throw theErr;
     }
   }
 }
@@ -1193,20 +1206,18 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           var theTime=theHour + ":" + theMinute + ":" + theSeconds;
 
           var message=`[${theDate}] [${theTime}]: ${person}`
-          // There are TWO very different ways that both the entity and player name might show up in a death message
-
-          // We gotta see if "responsible" is a "sun" or other sort of entity first before even trying to see if it's a player or ship
-          // responsible=$(echo $b | grep -o "'Responsible: .*;" | sed "s/'Responsible: //g" | sed "s/';//g" ) // | sed 's/\[.*//g')
-
           // Updating after weapons 2.0
           var responsible=toStringIfPossible(dataInput.match(/(?<=Responsible: )[^']+(?='.*)/));
+          var controllable=toStringIfPossible(dataInput.match(/(?<=; controllable: ).*$/));
+          // var killer=toStringIfPossible(dataInput.match(/(?<='Killer: )[^(]*(?= \()/));
+
           // Shipyard:  D_1508536985403 (design)
           var deathType;
           var responsibleEntity;
-          if ( responsible == "Sun"){
-            deathType="star"
+          if (responsible == "Sun"){
+            deathType="star";
           } else if (responsible == "Black Hole"){
-            deathType="blackhole"
+            deathType="blackhole";
           } else if (responsible == "Floating Rock <can be harvested>"){
             // TODO:  Fix manned asteroid kills.
             // This was a kill while a player was controlling an asteroid with a weapon on it
@@ -1214,11 +1225,13 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
             
             // Regular example:  Working
             // Example of factioned asteroid, unmanned:  serverlog.0.log: [DEATH] Weedle has been killed by 'Responsible: Floating Rock <can be harvested>'; controllable: ManagedAsteroid(16)sec[13](!)
-            deathType="asteroid"
+            deathType="asteroid";
           } else if (responsible == "PlanetSegment(Planet);"){
-            deathType="planetSegment"
-          }else if ((/\(design\)/).test(responsible)){
-            deathType="shipyarddesign"
+            deathType="planetSegment";
+          } else if ((/\(design\)/).test(responsible)){
+            deathType="shipyarddesign";
+          } else if ((/Mine#[0-9]+/).test(responsible)){
+            deathType="mine";
           } else {
             var killer=toStringIfPossible(dataInput.match(/(?<='Killer: )[^(]*(?= \()/));
             if (typeof killer == "string"){ // will be null if no killer
@@ -1227,6 +1240,9 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
                 message=`[${theDate}] [${theTime}]: ${person} killed themselves.`
                 deathType="suicide"
               } else {
+                // If there was a killer, let's see what type the controllable was
+                var responsibleType=toStringIfPossible(dataInput.match(/(?<=controllable: )[^^(]*/));
+
                 responsibleEntity=toStringIfPossible(dataInput.match(/(?<=controllable: Ship\[)[^\]]*/));
                 if (responsibleEntity){
                   // Since we know the killer's name and also the entity, set to having been perpetrated by a person in an entity
@@ -1249,10 +1265,6 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
                 }
               }
             } else {
-              // killer=$(echo "$b" | grep -o "'Killer: [^(]*" | sed "s/^'Killer:[ ]*//g" | sed 's/ $//g')
-              // If no killer found by first check, then check for the entity name and person's name via the "responsible entity"
-              // Gotta figure out why removing the ] fucks up the responsible faction..
-              // echo "No Killer found.. Running secondary check.."
               killer=toStringIfPossible(responsible.match(/(?<=<)[^>]*(?=>.*)/));
               console.log("Secondary killer string: " + killer);
               // console.log(`killer: ${killer}`);
@@ -1269,22 +1281,8 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
                   deathType="entity"
                 }
 
-                // Trying to remove the potential name info prevents this from working.  I need a workaround
-                // responsibleEntity=$(echo "${responsible}" | sed -E 's/([^\[]*$)//g' | sed -E 's/((\[$)|(\<.*))//g')
-
                 // This will only work IF there are [ brackets ], such as a faction name in there, so I need to branch out here as well
                 responsibleEntity=responsible.replace(/(\[.*$|<.*$)/g,"");
-                // responsibleEntity=$(echo "${responsible}" | sed -E 's/([^\[]*$)//g' | sed 's/\[$//g' | sed 's/<.*//g')
-
-                // Ths needs to work for entities that have no controlling person.. hmm
-                // [2017-10-20 16:29:44] [DEATH] Benevolent327 has been killed by 'Responsible: Benevolent327_1508531362205'; controllable: Ship[Benevolent327_1508531362205](25109)
-
-                // echo 'Destroyer_Drone_Less_Missiles-V2_5-Compliant_15085rl00[The Rebuilders]' | sed -E 's/([^\[]*$)//g' | sed 's/\[$//g'
-                // Destroyer_Drone_Less_Missiles-V2_5-Compliant_15085rl00
-
-
-
-                // echo "responsibleEntity: ${responsibleEntity}"
                 if (testIfInput(responsibleEntity)){
                   // responsibleFaction=$(echo "$responsible" | grep -o '[\[].*' | sed 's/[\[\]]//g')
                   responsibleFaction=toStringIfPossible(responsible.match(/(?<=\[)[^\]]*(?=\].*$)/));
@@ -1324,31 +1322,9 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           }
           // Cannot create a faction object here since we only have the name to work with.  We have to run an async function to get that FactionObj at the time of emitting
 
-
-          // Need to fix sun damage
-          // [DEATH] Benevolent327 has been killed by 'Responsible: Sun'; controllable: Sector[21240](8, 8, 8)
-
-
-          // todo: When a death is caused by different weapons of the same entity, it will oftentimes spam a bunch of death messages in the logs - this prevents most duplicates from getting through, but really there needs to be a 5 second counter or something applied per name to make it more accurate
-
-
-          // For troubleshooting duplicates
-          // "${scriptDir}log.sh" "lastMessage: |${lastMessage}|"
-          // "${scriptDir}log.sh" "message: |${message}|"
-
-
           if (lastMessage == String(message)){
-            // "${scriptDir}log.sh" "Duplicate Death: ${message}"
             console.debug("### SKIPPING DUPLICATE DEATH MESSAGE ###: " + lastMessage);
-            // echo "##### SKIPPED INFOS ######"
-            // echo "# theDate: ${theDate}  theTime: ${theTime}  deathType: ${deathType}"
-            // echo "# responsibleEntity: ${responsibleEntity}"
-            // echo "# killer: ${killer}  responsibleFaction: ${responsibleFaction}"
-            // echo "#### END SKIPPED INFOS #####"
-
           } else {
-            // "${scriptDir}log.sh" "# PROCESSING DEATH TEXT: $@"
-
             console.log(message);
             lastMessage=String(message); // This is needed to filter out any duplicate death messages, such as when a weapon has several outputs and they all killed a player at the same time.  Note we do not want to link to the "message" variable, but rather set a new string based on it.
             console.log("##### INFOS ######");
@@ -1359,33 +1335,22 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
             console.log("dataInput: " + dataInput);
             console.log(`#### END INFOS #####`);
             console.log(" ");
-            // personObj,deathType,responsibleEntityObj,responsibleFactionObj,killerObj
             if (deathType == "suicide"){
-              // "${scriptDir}wrapper/melvin_public_chat.sh" "Haw haw, ${person} totally just killed themselves."
-              // runPlayerDeath "${person}" "${deathType}"
               eventEmitter.emit('playerDeath',personObj,deathType);
              } else if (deathType == "person"){
-              // TODO:  Fix this
-              // "${scriptDir}wrapper/melvin_public_chat.sh" "Whaaat!  ${killer} just WHACKED ${person}!  :D"
               console.debug(`${killer} killed ${person}.`);
-              // runPlayerDeath "${person}" "${deathType}" "${killer}"
               eventEmitter.emit('playerDeath',personObj,deathType,"","",killerObj);
             } else if (deathType == "personInShip"){
               var ofTheFaction="";
               if (testIfInput(responsibleFaction)){
                 ofTheFaction=`, of the faction '${responsibleFaction}',`
               }
-              // TODO:  Fix this
-              // "${scriptDir}wrapper/melvin_public_chat.sh" "${killer}${ofTheFaction} just WHACKED ${person} while piloting the entity, '${responsibleEntity}'!  :D"
               console.log(`${killer}${ofTheFaction} killed ${person} while piloting the entity, '${responsibleEntity}'.`);
-              // unset ofTheFaction
-              // runPlayerDeath "${person}" "${deathType}" "${killer}" "${responsibleEntity}"
               if (testIfInput(responsibleFaction)){
                 return getFactionObjFromName(responsibleFaction,"",function(err,responsibleFactionObj){
                   if (err){
                     console.log("ERROR: Could not get factionObj from responsibleFaction: " + responsibleFaction + " -- Cannot emit event!!",err);
                   } else {
-                    // runPlayerDeath "${person}" "${deathType}" "${responsibleEntity}" "${responsibleFaction}"
                     eventEmitter.emit('playerDeath',personObj,deathType,responsibleEntityObj,responsibleFactionObj,killerObj);
                   }
                 });
@@ -1394,78 +1359,48 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
               }
             } else if (deathType == "entity"){
               if (testIfInput(responsibleFaction)){
-                // TODO:  Fix this
-                // "${scriptDir}wrapper/melvin_public_chat.sh" "${person} was PWNED by an entity, '${responsibleEntity}', from the faction, ${responsibleFaction}!  Muwhaha!"
                 console.log(`${person} was killed by an entity, '${responsibleEntity}', from the faction, ${responsibleFaction}.`);
-                //# Run Mod Scripts
-                // "${scriptDir}log.sh" "DEBUGGING PARSER: ${responsibleEntity}"
                 return getFactionObjFromName(responsibleFaction,"",function(err,responsibleFactionObj){
                   if (err){
                     console.log("ERROR: Could not get factionObj from responsibleFaction: " + responsibleFaction + " -- Cannot emit event!!",err);
                   } else {
-                    // runPlayerDeath "${person}" "${deathType}" "${responsibleEntity}" "${responsibleFaction}"
                     eventEmitter.emit('playerDeath',personObj,deathType,responsibleEntityObj,responsibleFactionObj,killerObj);
                   }
                 });
 
               } else {
-                // runPlayerDeath "${person}" "${deathType}" "${responsibleEntity}"
                 console.log(`${person} was killed by an entity, '${responsibleEntity}'.`);
                 eventEmitter.emit('playerDeath',personObj,deathType,responsibleEntityObj,"",killerObj);
-                // TODO:  Fix this
-                // "${scriptDir}wrapper/melvin_public_chat.sh" "${person} was PWNED by an entity, '${responsibleEntity}'!"
               }
             } else if (deathType == "blackhole"){
-              // "${scriptDir}wrapper/melvin_public_chat.sh" "${person} was spaghettified!  :D"
               console.log(`${person} was killed by a black hole.`);
-              // runPlayerDeath "${person}" "${deathType}" "${responsible}"
               eventEmitter.emit('playerDeath',personObj,deathType);
 
             } else if (deathType == "star"){
-              // "${scriptDir}wrapper/melvin_public_chat.sh" "${person} was burned alive by a star!  Praise the sun!"
-              // runPlayerDeath "${person}" "${deathType}" "${responsible}"
               console.log(`${person} was killed by a star.`);
               eventEmitter.emit('playerDeath',personObj,deathType);
             } else if (deathType == "asteroid"){
-              // "${scriptDir}wrapper/melvin_public_chat.sh" "${person} just got ROCKED by an asteroid!"
-              // runPlayerDeath "${person}" "${deathType}" "${responsible}"
               console.log(`${person} was killed by an asteroid.`);
               eventEmitter.emit('playerDeath',personObj,deathType);
             } else if (deathType == "planetSegment"){
-              // "${scriptDir}wrapper/melvin_public_chat.sh" "${person} couldn't handle planet life.  Goodbye world!"
-              // runPlayerDeath "${person}" "${deathType}" "${responsible}"
               console.log(`${person} was killed by a planet segment.`);
               eventEmitter.emit('playerDeath',personObj,deathType,responsibleEntityObj); // responsibleEntityObj will be undefined if no EntityObj was given.  //TODO: This needs to be tested.
             } else if (deathType == "planetCore"){ // This is currently not used.  If functional, this would be for planet cores.
-              // "${scriptDir}wrapper/melvin_public_chat.sh" "${person} just got their skin melted off by molten lava!  D:"
-              // runPlayerDeath "${person}" "${deathType}" "${responsible}"
               console.log(`${person} was killed by a planet core.`);
               eventEmitter.emit('playerDeath',personObj,deathType,responsibleEntityObj);
             } else if (deathType == "shipyarddesign"){
-              // "${scriptDir}wrapper/melvin_public_chat.sh" "${person} just lived the impossible dream!  Death by design!  :DDDDD"
-              // runPlayerDeath "${person}" "${deathType}" "${responsible}"
               console.log(`${person} was killed by a shipyard design.  How did that happen?!`);
               eventEmitter.emit('playerDeath',personObj,deathType);
-              // This should never happen, but knowing StarMade it will.  I think if a player suicides before spawning in, this will happen.  So this needs to be fixed.
-              // "${scriptDir}wrapper/melvin_public_chat.sh" "${person} seems to have died from mysterious circumstances.."
-              //# Run Mod Scripts - This will likely be broken and this will need to be fixed.
-              // runPlayerDeath "${person}" "${deathType}" "${responsibleEntity}" "${responsibleFaction}"
             } else if (testIfInput(responsibleFaction)){
-              // TODO:  Fix this
-              // "${scriptDir}wrapper/melvin_public_chat.sh" "${person} was PWNED by an entity, '${responsibleEntity}', from the faction, ${responsibleFaction}!  Muwhaha!"
-              //# Run Mod Scripts
-              // "${scriptDir}log.sh" "DEBUGGING PARSER: ${responsibleEntity}"
               return getFactionObjFromName(responsibleFaction,"",function(err,responsibleFactionObj){
                 if (err){
                   console.log("ERROR: Could not get factionObj from responsibleFaction: " + responsibleFaction + " -- Cannot emit event!!",err);
                 } else {
-                  // runPlayerDeath "${person}" "${deathType}" "${responsibleEntity}" "${responsibleFaction}"
                   console.log(`${person} was killed ${killer}, in the entity, ${responsibleEntity}, from the faction, ${responsibleFaction}.`);
                   eventEmitter.emit('playerDeath',personObj,deathType,responsibleEntityObj,responsibleFactionObj,killerObj);
                 }
               });
             } else {
-              // runPlayerDeath "${person}" "${deathType}" "${responsibleEntity}"
               console.log(`${person} was killed.  Deathtype was: ${deathType} --Responsible entity was: ${responsibleEntity}.`);
               eventEmitter.emit('playerDeath',personObj,deathType,responsibleEntityObj,"",killerObj);
             }
