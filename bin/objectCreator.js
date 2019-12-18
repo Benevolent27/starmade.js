@@ -2,6 +2,8 @@
 // This script assists with creating all custom object types used by the wrapper.
 
 // TODO: Look into how a mod might extend the object types here, for use with squish/unsquish
+// TODO: Make "MineObj"
+// TODO: Make "FleetObj"
 
 // Some reading:
 // Callback standard used:  http://fredkschott.com/post/2014/03/understanding-error-first-callbacks-in-node-js/
@@ -61,6 +63,7 @@ const ini                  = requireBin("iniHelper.js");
 var setSettings            = requireBin("setSettings.js"); // This will confirm the settings.json file is created and the install folder is set up.
 const installAndRequire    = requireBin("installAndRequire.js");
 const sleep                = requireBin("mySleep.js").softSleep;
+const sleepPromise         = requireBin("mySleep.js").sleepPromise;
 
 
 // NPM installable requires
@@ -412,6 +415,7 @@ function ServerObj(serverSettingsObj){ // cb/promises/squish compliant
   this.serverSettingsObj=serverSettingsObj;
   this.starMadeInstallFolder=path.join(serverSettingsObj["starMadeFolder"],"StarMade");
   this.starMadeJar=path.join(self.starMadeInstallFolder,"StarMade.jar");
+  this.buildBranch=serverSettingsObj["buildBranch"].toLowerCase().trim(); // Should be normal/dev/pre
   var baseJavaArgs=["-Xms" + serverSettingsObj["javaMin"], "-Xmx" + serverSettingsObj["javaMax"],"-jar"]; // These run on any OS.  TODO: Add support for JVM arguments
   if (serverSettingsObj.hasOwnProperty("addionalJavaArgs")){
     baseJavaArgs=serverSettingsObj.addionalJavaArgs.concat(baseJavaArgs);
@@ -425,7 +429,7 @@ function ServerObj(serverSettingsObj){ // cb/promises/squish compliant
   }
   console.log("Set spawnArgs: " + self.spawnArgs);
 
-  // Todo:  add start(), stop(), kill(), forceKill(), isResponsive(), etc.
+  // Todo:  add stop(), kill(), forceKill(), isResponsive(), etc.
   // This might be useful for spawning:  this.spawn=spawn("java",this.javaArgs,{"cwd": this.settings["starMadeInstallFolder"]});
 
   this.cfgFile=path.join(self.starMadeInstallFolder,"server.cfg");
@@ -433,8 +437,131 @@ function ServerObj(serverSettingsObj){ // cb/promises/squish compliant
     return ini.getFileAsObj(self.cfgFile); // This generates a new ini file object each time it's ran
   }; 
   
-  // this.spawn=spawn;
-  this.spawn=spawn("java",self.spawnArgs,{"cwd": self.starMadeInstallFolder}); // Spawn the server
+  // this.spawn=spawn("java",self.spawnArgs,{"cwd": self.starMadeInstallFolder}); // TEMP for testing
+  this.start=function(options,cb){
+    if (typeof cb == "function"){
+      // First check to see if the process already exists or not.
+      if (this.spawn){
+        if (this.spawn.hasOwnProperty("connected")){
+          if (this.spawn.connected == true){
+            console.log("ERROR: Cannot start server.  It is already started!");
+          }
+        }
+      }
+      this.spawn=spawn("java",self.spawnArgs,{"cwd": self.starMadeInstallFolder}); // Spawn the server
+      this.spawnStatus="started";
+      // this.spawn.on('close',function(code){ // This has to do with whether it's STDIO is closed or not, this normally fires after the exit.
+      //   console.log("###### SPAWN STATUS SET TO:  closed");
+      //   self.spawnStatus="closed";
+      //   self.spawnStatusCode=code;
+      // });
+      this.spawn.on('disconnect',function(){
+        console.log("###### SPAWN STATUS SET TO:  disconnect");
+        self.spawnStatus="disconnected";
+        if (self.hasOwnProperty("spawnStatusCode")){
+          Reflect.deleteProperty(self,"spawnStatusCode");
+        }
+      });
+      this.spawn.on('error',function(){
+        console.log("###### SPAWN STATUS SET TO:  error");
+        self.spawnStatus="errored";
+        if (self.hasOwnProperty("spawnStatusCode")){
+          Reflect.deleteProperty(self,"spawnStatusCode");
+        }
+      });
+      this.spawn.on('exit',function(){
+        console.log("###### SPAWN STATUS SET TO:  exited");
+        self.spawnStatus="exited";
+        if (self.hasOwnProperty("spawnStatusCode")){
+          Reflect.deleteProperty(self,"spawnStatusCode");
+        }
+      });
+
+
+      // return this.spawn;
+      return cb(null,this.spawn);
+    } else {
+      return simplePromisifyIt(self.start,options);
+    }
+  }    
+
+  this.stop=function(duration,message,options,cb){
+    if (typeof cb == "function"){
+      console.log(`Stop function ran with duration: ${duration}  and message: ${message}`);
+      self.spawnStatus="stopping";
+      var theDuration=10;
+      if (isNum(duration)){
+        theDuration=toNum(duration);
+      }
+      if (typeof toStringIfPossible(message) == "string"){
+        if (message.length > 0){
+          var theMessage='"' + toStringIfPossible(message).trim().replace('"',"").replace("'","") + '"';
+        }
+      }
+      if (theDuration > 1){
+        if (typeof theMessage == "string"){
+          return runSimpleCommand("/start_countdown " + theDuration + " " + theMessage,options,async function(err,result){
+            if (err){
+              console.log("Shutdown command failed with an error when attempting to start a countdown!");
+              return cb(err,null);
+            }
+            if (result){
+              await sleepPromise(theDuration * 1000);
+              return runSimpleCommand("/shutdown 1",options,cb); 
+            } else {
+              console.error("Shutdown command failed due to connection error!");
+              return cb(new Error("Shutdown command failed due to connection error!"),null);
+            }
+          });
+        } else {
+          console.log("No message given, so using default shutdown message..");
+          return runSimpleCommand("/start_countdown " + theDuration + '" Server shutting down in.."',options,async function(err,result){
+            if (err){
+              console.log("Shutdown command failed with an error when attempting to start a countdown!");
+              return cb(err,null);
+            }
+            if (result){
+              await sleepPromise(theDuration * 1000);
+              return runSimpleCommand("/shutdown 1",options,cb); 
+            } else {
+              console.error("Shutdown command failed due to connection error!");
+              return cb(new Error("Shutdown command failed due to connection error!"),null);
+            }
+          });
+        }
+      } else {
+        console.log("Using failsafe shutdown option..");
+        return runSimpleCommand("/shutdown 1",options,cb);
+      }
+    } else {
+      return simplePromisifyIt(self.stop,options,duration,message);
+    }
+  }
+
+  this.kill=function(options,cb){
+    if (typeof cb == "function"){
+      self.spawnStatus="killing";
+      try{
+        return cb(null,self.spawn.kill()); // Sends SIGTERM
+      } catch (err) {
+        return cb(err,null);
+      }
+    } else {
+      return simplePromisifyIt(self.kill,options);
+    }
+  }
+  this.forcekill=function(options,cb){
+    if (typeof cb == "function"){
+      self.spawnStatus="forceKilling";
+      try{
+        return cb(null,self.spawn.kill('SIGKILL'));
+      } catch (err) {
+        return cb(err,null);
+      }
+    } else {
+      return simplePromisifyIt(self.kill,options);
+    }
+  }
 
   // TODO:
   // add isInServerList()  using: getServerListArray()

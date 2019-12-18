@@ -225,8 +225,7 @@ var excludePatternRegex = patterns.excludes();
 // serverlog.0.log output
 var includePatternServerLogRegex = patterns.serverLogIncludes();
 var excludePatternServerLogRegex = patterns.serverLogExcluded();
-
-
+var updateStartup; // If undefined, no update is ran.  Two options are available, to update and then start the server, or to update and then exit.
 log("starmade.js launched.");
 
 
@@ -258,8 +257,37 @@ if (process.argv[2]){
         console.log("-forcestart");
         console.log("-ignorelockfile");
         console.log("-debug");
+        console.log("-update");
+        console.log("-updateFirst");
+        console.log("-branch=[DEV/PRE/NORMAL]"); // normal/dev/pre
         log("Command line help given.");
         process.exit();
+      } else if ((/-branch=.*/).test(argumentRoot)){
+        if ((/-branch=.+/).test(argumentRoot)){
+          let argumentRootSplit=argumentRoot.split("=");
+          if (argumentRootSplit.length==2){
+            let theBranch=argumentRootSplit[1].toLowerCase().trim();
+            if (theBranch == "normal" || theBranch == "dev" || theBranch == "pre"){
+              settings["buildBranch"]=argumentRootSplit[1];
+            } else {
+              let theErr=new Error("Invalid Starmade branch type given, '" + argumentRootSplit[1] +"'!  You must specify either 'Normal', 'DEV', or 'PRE', without the quotes!")
+              throw theErr;
+            }
+          } else {
+            let theErr=new Error("Too many equals values given! When using the -branch argument, you MUST specify only ONE of the following: DEV, PRE, or NORMAL.  Example node starmade.js -branch=DEV");
+            throw theErr;
+          }
+        } else {
+          let theErr=new Error("When using the -branch argument, you MUST specify either DEV, PRE, or NORMAL!  Example: node starmade.js -branch=DEV");
+          throw theErr;
+        }
+
+      } else if  (argumentRoot == "-update"){
+        updateStartup="updateOnly";
+        console.log("Set startup to update.");
+      } else if  (argumentRoot == "-updateFirst"){
+        updateStartup="updateFirst";
+        console.log("Set startup to update.");
       } else if  (argumentRoot == "-forcestart"){
         if (argumentEqualLowerCase == "true" || !argumentEqualLowerCase){
           forceStart = true;
@@ -449,25 +477,22 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
   // Taken from https://stackoverflow.com/questions/10232192/exec-display-stdout-live
   // Running the starmade server process
   try { // This is to catch an error if spawn cannot start the java process
-    // console.debug("Starting server with arguments: " + javaArgs,2000);
-
-    //  // var server;
-    //  // if (os == "win32"){
-    //  //   server = spawn("java", ["-Xms" + settings["javaMin"], "-Xmx" + settings["javaMax"],"-Xincgc","-Xshare:off","-jar", starMadeJar,"-server", "-port:" + settings["port"]], {"cwd": starMadeInstallFolder});
-    //  // } else {
-    //  //   server = spawn("java", ["-Xms" + settings["javaMin"], "-Xmx" + settings["javaMax"],"-jar", starMadeJar,"-server", "-port:" + settings["port"]], {"cwd": starMadeInstallFolder});
-    //  // }
-    // console.log("starMadeInstallFolder: " + starMadeInstallFolder); // temp
-    // global["serverSpawn"] = spawn("java",javaArgs,{"cwd": starMadeInstallFolder});
-    // // global["serverSpawn"]=server;
-    // var server=global["serverSpawn"];
-    // global["server"]=new ServerObj(global["serverSpawn"]);
     console.log("############## Loading Mods ###############");
     loadMods();
 
     console.log("############## Starting Server ###############");
-    global["server"]=new ServerObj(settings); // This object starts the server.
-    // global["serverSpawn"]=global["server"].spawn; // temporary, we should reference the server object in the future, to be clear of the source.
+    global["server"]=new ServerObj(settings); // This is the main server object.
+
+    // Add in some code here to process the -update command lines, to check if the existing branch is the latest, etc.
+
+    global["server"].start("",function(err,result){
+      if (err){
+        console.error("Could not start server!");
+        throw err;
+      }
+      console.log("Server spawned!");
+      global["serverSpawn"]=global["server"].spawn; // temporary, we should reference the server object in the future, to be clear of the source.
+    }); // This starts the server.
 
   } catch (err) { // This does NOT handle errors returned by the spawn process.  This only handles errors actually spawning the process in the first place, such as if we type "javaBlah" instead of "java".  Cannot run "javaBlah" since it doesn't exist.
     console.error("ERROR: Could not spawn server!")
@@ -1517,20 +1542,11 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
     serverTail.unwatch();
 
     // exitNow(code); // This is temporary, we don't necessarily want to kill the wrapper when the process dies.  For example, maybe we want to respawn it?  Ya know?!
-    process.exit(); // This is necessary for now because something is holding up the natural exit of the script
+    
+    // process.exit(); // This is necessary for now because something is holding up the natural exit of the script
 
   });
-  global["server"].spawn.on('error', function (code) {
-    // This runs is the java process could not start for some reason.
-    console.error("ERROR:  Could not launch server process!")
-    if (code.hasOwnProperty("message")){
-        console.log('Error Message: ' + code.message.toString());
-    }
-    console.log('Error: ' + code.toString()); // This should provide details of the error starting the server
-    // process.exitCode=code; // There does not seem to be a code provided to an error Object, so the exit code cannot be created
-    // TODO:  Set error codes for launch fails.  This will require parsing the error thrown.
-    throw new Error("Server launch fail!"); // This should kill the server and dump the text to the console.
-  });
+
 
 
 
@@ -1576,6 +1592,15 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
 
       if (i(theCommand,"help")) {
         console.log("Here are the current console commands:");
+        console.log(  "-- Server Commands --")
+        console.log(" !status");
+        console.log(" !start");
+        console.log(" !stop");
+        console.log(" !kill");
+        console.log(" !forcekill");
+        console.log(" ");
+        console.log(" -- Wrapper Commands --");
+        console.log(" !quit"); // Quits the wrapper, closing any sub-processes.
         console.log(" !stdout [on/off]");
         console.log(" !stderr [on/off]");
         console.log(" !stderrfilter RegExp");
@@ -1671,10 +1696,10 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
           var input=theArguments[0].replace(/"/g,"'");
           var objName=input.match(/^[^(]+/);
           if (objName){
-            objName=objName.toString();
+            objName=toStringIfPossible(objName);
             var objArguments=input.match(/(?<=\()[^(^)]+(?=\))/);
             if (objArguments){
-              objArguments=objArguments.toString();
+              objArguments=toStringIfPossible(objArguments);
               var objArgumentsArray=objArguments.replace(/'/g,"").split(",");
               // console.log("objArgumentsArray: " + objArgumentsArray);
               var paramNamesArray=getParamNames(objectCreator[objName]);
@@ -1719,7 +1744,44 @@ eventEmitter.on('ready', function() { // This won't fire off yet, it's just bein
         } else {
           console.log("Please provide a valid object type.  Example: !listObjectMethods PlayerObj(\"SomePlayer\")");
         }
-
+      } else if (i(theCommand,"quit")) {
+          console.log("Exiting wrapper..");
+          process.exit();
+      } else if (i(theCommand,"status")) {
+        if (global["server"].spawn){
+          console.log("Server status: " + global["server"].spawnStatus)          
+        } else {
+          console.log("Server does not appear to be running!");
+        }
+      } else if (i(theCommand,"start")) {
+          console.log("Starting server..");
+          global["server"].start();
+      } else if (i(theCommand,"stop")) {
+        if (global["server"].spawn){
+          console.log("Initiating server shutdown..");
+          let theTime=theArguments.shift();
+          let theArgumentsToUse=theArguments.join(" ");
+          return global["server"].stop(theTime,theArgumentsToUse);
+        } else {
+          console.error("ERROR: Cannot stop server. Server does not appear to be running!");
+          return false;
+        }
+      } else if (i(theCommand,"kill")) {
+        if (global["server"].spawn){
+          console.log("Initiating server kill (SIGTERM)..");
+          return global["server"].kill();
+        } else {
+          console.error("ERROR: Cannot kill server! Server does not appear to be running!");
+          return false;
+        }
+      } else if (i(theCommand,"forcekill")) {
+        if (global["server"].spawn){
+          console.log("Initiating server kill (SIGKILL)..");
+          return global["server"].forcekill();
+        } else {
+          console.error("ERROR: Cannot kill server! Server does not appear to be running!");
+          return false;
+        }
 
       } else if (i(theCommand,"record")) {
         if (!theArguments[0] || i(theArguments[0],"start")){
