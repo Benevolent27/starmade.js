@@ -218,6 +218,33 @@ module.exports = function() {
       }
       changeMadeToSettings=true;
     }
+
+    function isValidBuildType(type){
+      if (typeof type == "string"){
+        var input=type.toLowerCase().trim();
+        if (input.length > 0){
+          if (input == "normal" || input == "dev" || input =="pre"){
+            return true;
+          }
+          return false;
+        } else {
+          return true;
+        }
+      }
+      return false;
+    }
+    if (!settings.hasOwnProperty('buildBranch')) {
+      if (settingsLoadedCheck == true) { console.log("No Build branch currently specified in your settings file?!  Let's fix that!"); }
+      console.log("What build of StarMade would you like to your server? NORMAL/PRE/DEV");
+      console.log("Normally, you'd use 'NORMAL', unless doing debugging for Schema or testing features of an up-coming release.");
+      console.log("WARNING:  If specifying PRE or DEV, you may not be able to downgrade your world and blueprints back down to normal!");
+      
+      while (!isValidBuildType(settings["buildBranch"]=prompt("(Default='NORMAL'):  "))){ console.log("Please specifiy either 'NORMAL', 'DEV', or 'PRE', without the quotes.  Specifying nothing will default to 'NORMAL'.  MkayThx!"); }
+      if (settings["buildBranch"] == ""){ settings["buildBranch"]="normal"; } // If nothing was entered, set the default.
+      console.log("Using build branch: '" + settings["buildBranch"] + "'");
+      changeMadeToSettings=true;
+    }
+
     if (!settings.hasOwnProperty('botName')) {
       if (settingsLoadedCheck == true) { console.log("Your bot name has not been set up yet!"); }
       console.log("\nWhat shall we call your bot?  Please use only alphanumeric characters!");
@@ -233,6 +260,19 @@ module.exports = function() {
     }
     // botName
 
+    // These are default settings that normally a player would not set up when running the wrapper, but can be changed later in the config if desired
+    if (!settings.hasOwnProperty('autoStart')) {
+      settings["autoStart"]=true;
+      changeMadeToSettings=true;
+    }
+    if (!settings.hasOwnProperty('autoRestart')) { // This auto-restarts the server if it shuts down when it shouldn't be shut down, such as on a crash or if a bug crash happens which appears like a normal shutdown but cannot be.  This would also trigger if an admin uses the /shutdown command rather than wrapper controls to shut down the server.
+      settings["autoRestart"]=true;
+      changeMadeToSettings=true;
+    }
+    if (!settings.hasOwnProperty('autoExit')) { // This makes the wrapper shut down on a normal exit of the game.
+      settings["autoExit"]=false; // This is false by default because some shutdowns which appear to be normal are, in fact, caused by bug crashes that initiate a normal looking shutdown.
+      changeMadeToSettings=true;
+    }
 
     function complete(commands) {
       // console.log("commands: " + commands);
