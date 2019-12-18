@@ -98,9 +98,9 @@ function getParamNames(func) {
 
 function simplePromisifyIt(cbFunctionToCall,options){
   // This is used to turn callback functions into promises, provided that they follow the convention used by objectCreator.js
-  // That convention is functionName(arguments1,arguments2,arguments3,options,cb);
+  // The callback function provided should be structured as follows: functionName(arguments1,arguments2,arguments3,options,cb);
   // The cb function does not need to require any arguments:  functionName(options,cb); is fine.
-  // The function should ALWAYS have an 'options' and a 'cb' parameter required.
+  // However, simplePromisifyIt MUST always be given an 'options' and a 'cb' parameter.
   // Example of usage: simplePromisifyIt(myCBFunction,options,firstArgument,secondArgument,thirdArgument)
 
   // The function given should run the CB function in node.js style:  cb(err,result);
