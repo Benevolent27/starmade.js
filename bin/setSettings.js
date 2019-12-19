@@ -17,13 +17,21 @@ if (require.main.filename == __filename){
 const fs = require('fs');
 const path = require('path');
 
-module.exports = function() {
+module.exports = function(theSettingsFilePath) {
   var mainFolder = path.dirname(require.main.filename);
   var binFolder  = path.join(mainFolder,"bin");
   var installAndRequire = require(path.join(binFolder, "installAndRequire.js")); // This is used to install missing NPM modules and then require them without messing up the require cache.
   var objectHelper = require(path.join(binFolder, "objectHelper.js"));
+  var miscHelpers = require(path.join(binFolder, "miscHelpers.js"));
   var {isAlphaNumeric,testIfInput,toNumIfPossible}=objectHelper; // Aliases
-  var settingsFile=path.join(mainFolder, "/settings.json");
+  var {ensureFolderExists}=miscHelpers;
+  var settingsFilePath;
+  if (typeof theSettingsFilePath == "undefined"){
+    settingsFilePath=path.join(mainFolder, "/settings.json");
+  } else {
+    settingsFilePath=theSettingsFilePath;
+  }
+  
 
   // console.log("Loading dependencies..");
   const prompt = installAndRequire("prompt-sync",'^4.1.7')({"sigint":true}); // https://www.npmjs.com/package/prompt-sync - This creates sync prompts and can have auto-complete capabilties.  The sigint true part makes it so pressing CTRL + C sends the normal SIGINT to the parent javascript process
@@ -126,10 +134,10 @@ module.exports = function() {
     var changeMadeToSettings=false;
     var settingsLoadedCheck=false;
     try {
-      settings = require(settingsFile);
+      settings = require(settingsFilePath);
       settingsLoadedCheck=true;
     } catch (ex) {
-      console.log("Wrapper does not appear to be set up yet.  Running setup routine! :D");
+      console.log("Server does not appear to be set up yet.  Running setup routine! :D");
       // console.log("Temp - Current Dir: " + mainDirName);
     }
 
@@ -320,7 +328,10 @@ module.exports = function() {
         // var settingsFileStream=fs.createWriteStream(settingsFile);
         // settingsFileStream.write(JSON.stringify(settings, null, 4));
         // settingsFileStream.end();
-        fs.writeFileSync(settingsFile,JSON.stringify(settings, null, 4));
+        
+        // Create the directory structure to the settings file path if it does not exist
+        ensureFolderExists(path.basename(settingsFilePath));
+        fs.writeFileSync(settingsFilePath,JSON.stringify(settings, null, 4));
         console.log("I just popped out a new 'settings.json' file!  Yippee!")
       } catch (err) {
         console.error("ERROR: Could not write to settings.json file! AAHH!  I kinda need write access to this folder, ya know?");
