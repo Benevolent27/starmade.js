@@ -8,6 +8,7 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   deleteFile,
   touch,
   isDirectory,
+  existsAndIsDirectory,
   getDirectories,
   isFile, // Will throw an error if it does not exist.
   getFiles,
@@ -87,6 +88,16 @@ function existsAndIsFile(pathToFile){ // This returns false if the path is to a 
   }
   return false;
 }
+
+function existsAndIsDirectory(pathToDirectory){ // This returns false if the path is to a directory
+  if (isSeen(pathToDirectory)){
+    if (isDirectory(pathToDirectory)){
+      return true;
+    }
+  }
+  return false;
+}
+
 
 function isSeen(thePath){ // This checks to see if a file/folder/symlink/whatever can simply be seen.
   try {
@@ -329,5 +340,4 @@ function log (logMsg){ // Writes to a log file with the current date into the /l
   } else {
     console.error("ERROR:  Invalid input given to log function!  Expects a string!");
   }
-
 }
