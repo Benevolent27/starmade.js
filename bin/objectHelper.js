@@ -14,6 +14,7 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   addNumToErrorObj, // This adds an errno element to an error object equal to the number specified.
   copyArray, // This copies an array rather than linking a value to the same array.
   copyObj,
+  mergeObjs, // Usage: mergeObjs(obj1,obj2)  Obj1 is the object used as the basis, with any existing elements overwritten by elements from obj2.  A new object is returned.
   isAlphaNumeric,
   isArrayAllEqualTo, // Compares all values in an array to a single value.  This is used to process arrays of true/false values, where each value indicates a success or failure of an individual operation.
   isInArray, // Checks an array for a value.  Usage:  isInArray(inputArray,ValueToCompare)
@@ -223,13 +224,24 @@ function repeatString(inputStr,repeatCount){ // This repeats a string a number o
 }
 
 function copyObj(obj) { // This will create a new object from an existing one, rather than linking to the original.  From:  https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/forEach
-  const copy = Object.create(Object.getPrototypeOf(obj)); // Ignore the ESLint warnings, it really doesn't know what it's talking about.  I looked into it, it's suggesting to use functions of Reflect that don't exist.
+  const copy = Object.create(Reflect.getPrototypeOf(obj)); // Ignore the ESLint warnings, it really doesn't know what it's talking about.  I looked into it, it's suggesting to use functions of Reflect that don't exist.
   const propNames = Object.getOwnPropertyNames(obj);
   propNames.forEach(function(name) {
-    const desc = Object.getOwnPropertyDescriptor(obj, name);
-    Object.defineProperty(copy, name, desc);
+    const desc = Reflect.getOwnPropertyDescriptor(obj, name);
+    Reflect.defineProperty(copy, name, desc);
   });
   return copy;
+}
+
+function mergeObjs(obj1,obj2) { // This will create a new object by merging 2 objects
+  // the base object used is obj1.  Any values in obj2 will overwrite existing ones in obj1.
+  var outputObj=copyObj(obj1);
+  const propNames = Object.getOwnPropertyNames(obj2);
+  propNames.forEach(function(name) {
+    const desc = Reflect.getOwnPropertyDescriptor(obj2, name);
+    Reflect.defineProperty(outputObj, name, desc);
+  });
+  return outputObj;
 }
 
 function mapToJson(map) {
