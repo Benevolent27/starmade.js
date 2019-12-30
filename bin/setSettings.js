@@ -17,26 +17,21 @@ if (require.main.filename == __filename){
 const fs = require('fs');
 const path = require('path');
 
-module.exports = function(theSettingsFilePath) {
+module.exports = function(serverSettingsObj) { // If no serverSettingsObj provided, this will return a new one.
+  // I'm simplifying this to do no file reads or writes, but to simply act on a server settings object to complete it or create a new one, then return the completed object
+  
   var mainFolder = path.dirname(require.main.filename);
   var binFolder  = path.join(mainFolder,"bin");
   var installAndRequire = require(path.join(binFolder, "installAndRequire.js")); // This is used to install missing NPM modules and then require them without messing up the require cache.
   var objectHelper = require(path.join(binFolder, "objectHelper.js"));
   var miscHelpers = require(path.join(binFolder, "miscHelpers.js"));
-  var {isAlphaNumeric,testIfInput,toNumIfPossible}=objectHelper; // Aliases
+  var {isAlphaNumeric,testIfInput,toNumIfPossible,mergeObjs}=objectHelper; // Aliases
   var {ensureFolderExists}=miscHelpers;
-  var settingsFilePath;
-  if (typeof theSettingsFilePath == "undefined"){
-    settingsFilePath=path.join(mainFolder, "/settings.json");
-  } else {
-    settingsFilePath=theSettingsFilePath;
-  }
-  
-
   // console.log("Loading dependencies..");
   const prompt = installAndRequire("prompt-sync",'^4.1.7')({"sigint":true}); // https://www.npmjs.com/package/prompt-sync - This creates sync prompts and can have auto-complete capabilties.  The sigint true part makes it so pressing CTRL + C sends the normal SIGINT to the parent javascript process
   const isInvalidPath = installAndRequire("is-invalid-path",'^1.0.2'); // https://www.npmjs.com/package/is-invalid-path -- Not using the "is-valid-path" because my force require scripting won't work with it since it uses a non-standard path to it's scripts
   const mkdirp = installAndRequire("mkdirp",'^0.5.1'); // https://www.npmjs.com/package/mkdirp - Great for sync or async folder creation, creating all folders necessary up to the end folder
+
 
   function isValidCommandOperator(testString){
     // Command operators cannot be / characters, alphanumeric, blank, and must be 1 character
@@ -128,18 +123,25 @@ module.exports = function(theSettingsFilePath) {
     return false;
   }
 
-  function loadSettings() {
-    // this.loadSettings = function () {  // This is an alternative way to do it so "loadSettings();" would be how the function would be called from the main script.. but it's really not necessary.  I'm only leaving this here for future reference.
-    var settings={};
-    var changeMadeToSettings=false;
+  function loadSettings(serverSettingsObj) {
+    var settings={ // these are the default settings to use if not otherwise specified
+      showStderr:true, // Normally this would be true but can be turned to false if testing
+      stderrFilter:null,
+      showStdout:false,
+      stdoutFilter:null,
+      showServerlog:true,
+      serverlogFilter:null,
+      showAllEvents:false,
+      enumerateEventArguments:false
+    };
     var settingsLoadedCheck=false;
-    try {
-      settings = require(settingsFilePath);
+    if (typeof serverSettingsObj == "object"){
+      settings=mergeObjs(settings,serverSettingsObj);
       settingsLoadedCheck=true;
-    } catch (ex) {
-      console.log("Server does not appear to be set up yet.  Running setup routine! :D");
-      // console.log("Temp - Current Dir: " + mainDirName);
     }
+
+    // this.loadSettings = function () {  // This is an alternative way to do it so "loadSettings();" would be how the function would be called from the main script.. but it's really not necessary.  I'm only leaving this here for future reference.
+    var changeMadeToSettings=false;
 
     // IF there was a settings.json file imported, ensure that all values are set, asking for any that do not exist.
     if (!settings.hasOwnProperty('javaMin')) {
@@ -212,9 +214,8 @@ module.exports = function(theSettingsFilePath) {
           process.exit(130);
         }
         try {
-          settings["starMadeFolder"]=mkdirp.sync(settings["starMadeFolder"]);
-          if (!settings["starMadeFolder"]) {
-            throw new Error("Folder could not be created!");
+          if (ensureFolderExists(settings["starMadeFolder"]) != true) {
+            throw new Error("Folder could not be created: " + settings["starMadeFolder"]);
           }
           console.log("Successfully created directory: " + settings["starMadeFolder"]);
         } catch (err) {
@@ -319,35 +320,12 @@ module.exports = function(theSettingsFilePath) {
       }
       changeMadeToSettings=true;
     }
-    // Only write to the file IF new settings were set, otherwise leave it alone.
     if (changeMadeToSettings==true) {
-      console.log("");
-      try {
-        console.log("Writing data to settings.json file:");
-        console.log(JSON.stringify(settings, null, 4));
-        // var settingsFileStream=fs.createWriteStream(settingsFile);
-        // settingsFileStream.write(JSON.stringify(settings, null, 4));
-        // settingsFileStream.end();
-        
-        // Create the directory structure to the settings file path if it does not exist
-        ensureFolderExists(path.basename(settingsFilePath));
-        fs.writeFileSync(settingsFilePath,JSON.stringify(settings, null, 4));
-        console.log("I just popped out a new 'settings.json' file!  Yippee!")
-      } catch (err) {
-        console.error("ERROR: Could not write to settings.json file! AAHH!  I kinda need write access to this folder, ya know?");
-        if (err) {
-          console.error("Error message: " + err);
-        }
-        process.exit(32);
-      }
-    } else {
-      console.log("Settings file loaded!")
+      console.log("Finished settings setup!");
     }
-    // console.log("Settings: " + JSON.stringify(settings));
-    console.log("Returning settings var..");
     return settings;
   }
-  return loadSettings();
+  return loadSettings(serverSettingsObj);
 
   //  Below is an example of how to ask the questions in an asyncronous way, but we're going to use syncronous since we want to ensure all of these values are set before we do anything anyhow.  If we ever need to have things going off in the background while people are being asked questions, I'll switch to the async method.
 
