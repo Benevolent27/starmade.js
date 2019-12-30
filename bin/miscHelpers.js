@@ -15,7 +15,11 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   isSeen,
   existsAndIsFile, // Returns false if the path exists but is not a file, ie. it is a directory.
   isFileInFolderCaseInsensitive, // Only performs an insensitive search on the file, not directory path.
-  areCoordsBetween // TODO: Test to ensure this works correctly
+  areCoordsBetween, // TODO: Test to ensure this works correctly
+  getJSONFileSync,
+  getJSONFile,
+  writeJSONFileSync,
+  writeJSONFile
 };
 
 
@@ -33,7 +37,7 @@ const objectHelper      = requireBin("objectHelper.js");
 ensureFolderExists(logFolder); // Let's just do this once the helper being loaded.
 
 // Set up aliases
-const {getOption,trueOrFalse}       = objectHelper;
+const {getOption,trueOrFalse,simplePromisifyIt}       = objectHelper;
 
 // TESTING BEGIN
 if (__filename == require.main.filename){ // Only run the arguments IF this script is being run by itself and NOT as a require.
@@ -57,6 +61,52 @@ if (__filename == require.main.filename){ // Only run the arguments IF this scri
     console.log("Example:  node miscHelpers.js downloadToString");
   }
 }
+
+
+function getJSONFileSync(pathToJSONFile){
+  var output=fs.readFileSync(pathToJSONFile,'utf8');
+  output=output.toString().replace(/[\n\r\t ]+/g,"").trim();
+  return JSON.parse(output);
+}
+function getJSONFile(pathToJSONFile,options,cb){
+  if (typeof cb=="function"){
+    return fs.readFile(pathToJSONFile,"utf8",function (err,result){
+      if (err){
+        return cb(err,result);
+      }
+      try {
+        var output=result.toString().replace(/[\n\r\t ]+/g,"").trim();
+        output=JSON.parse(result);
+      } catch (error) {
+        return cb(error,null);
+      }
+      return cb(null,output);
+    });
+  }
+  return simplePromisifyIt(getJSONFile,options,pathToJSONFile);
+}
+
+function writeJSONFileSync(pathToJSONFile,data,options){ // options are passed to fs.writeFileSync
+  try {
+    fs.writeFileSync(pathToJSONFile,JSON.stringify(data, null, 4),options);
+  } catch (error){
+    throw error;
+  }
+  return true;
+}
+function writeJSONFile(pathToJSONFile,data,options,cb){ // options are passed to fs.writeFile
+  if (typeof cb=="function"){
+    return fs.writeFile(pathToJSONFile,data,options,function (err,result){
+      if (err){
+        return cb(err,result);
+      }
+      return cb(null,true);
+    });
+  }
+  return simplePromisifyIt(writeJSONFile,options,pathToJSONFile,data);
+}
+
+
 function isPidAliveTest(){
   console.log("Is this process alive? " + isPidAlive(process.pid));
 }
@@ -120,9 +170,9 @@ function ensureFolderExists (folderPath){ // Returns true if the folder exists o
         throw theError;
       } else { return true; } // it might be a symlink, but I don't know how to check if it's symlinked to a file or folder, so let's just assume it is fine.
   } catch (err) {
-    console.log("Folder not found, creating: " + folderPath);
+    console.log("Folder not found, creating: " + resolvedFolderPath);
     try {
-      makeDir.sync(folderPath); // This will create the folder and any inbetween needed, but requires the make-dir module.
+      makeDir.sync(resolvedFolderPath); // This will create the folder and any inbetween needed, but requires the make-dir module.
       return true;
     } catch (error) {
       console.error("ERROR: Unable to create folder: " + folderPath);
@@ -191,7 +241,7 @@ function waitAndThenKill(mSeconds,thePID,options){ // options are optional.  Thi
   var intervalVar=1000;
   var sigType="SIGKILL";
   if (mSeconds && thePID){
-    if (options){
+    if (typeof options == "object"){
       if (options.hasOwnProperty("interval")){
         intervalVar=options["interval"];
       }
