@@ -18,6 +18,7 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   isAlphaNumeric,
   isArrayAllEqualTo, // Compares all values in an array to a single value.  This is used to process arrays of true/false values, where each value indicates a success or failure of an individual operation.
   isInArray, // Checks an array for a value.  Usage:  isInArray(inputArray,ValueToCompare)
+  addUniqueToArray, // Only adds to an array if the value isn't already in it.
   subArrayFromAnother, // Subtracts any values that exist in one array from another.
   findSameFromTwoArrays,  // Finds whatever values exist in both arrays
   getOption, // Processes options given to objects {"whatever":true}.  getOption(input,elementToLookFor,whatToUseIfNotFound)
@@ -51,7 +52,6 @@ module.exports={ // Always put module.exports at the top so circular dependencie
 const util=require('util');
 const path=require('path');
 const binFolder=path.resolve(__dirname,"../bin/");
-
 
 function listObjectMethods(obj) { // This lists the methods/data available on an object.
   // console.log("Type of input: " + typeof obj);
@@ -373,8 +373,18 @@ function findSameFromTwoArrays(arrayOne,arrayTwo){ // This compares two arrays, 
   return outputArray;
 }
 
+function addUniqueToArray(theArray,val){ // Adds a value to an array only if it isn't already in it
+  if (Array.isArray(theArray)){
+    if (!isInArray(theArray,val)){
+      theArray.push(val);
+    }
+    return theArray;
+  }
+  throw new Error("Input given was not an array!  Please provide an array!");
+}
+
 function isInArray(inputArray,valueToCompare){ // Returns true if the value is found in any part of an array
-  if (getObjType(inputArray) == "Array"){
+  if (Array.isArray(inputArray)){
     for (let i=0;i<inputArray.length;i++){
       if (inputArray[i] == valueToCompare){
         return true;
