@@ -17,6 +17,7 @@ const miscHelpers = require(path.join(binFolder,"miscHelpers.js"));
 
 function spawnStarMadeInstallTo(pathToInstall,installerExec){  // This always requires the installerJar path because this will be offloaded to a require later.
   // This needs to be able to use a Jar file or .exe file, depending on the OS.
+  // TODO:  We need to add pre/dev options here.
   try {
     var starMadeInstallFolder=getSMInstallPath(pathToInstall);
   } catch (err) {
