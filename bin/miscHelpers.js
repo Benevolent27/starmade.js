@@ -19,12 +19,15 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   getJSONFileSync,
   getJSONFile,
   writeJSONFileSync,
-  writeJSONFile
+  writeJSONFile,
+  getSimpleDate,
+  getSimpleTime,
+  convertSectorCoordsToSystem,
+  getEntityPrefixFromPublicEntitiesTypeNumber
 };
 
 
 const path              = require('path');
-const http              = require('http');
 const fs                = require('fs');
 var mainFolder          = path.dirname(require.main.filename); // This is where the starmade.js is.  I use this method instead of __filename because starmade.js might load itself or be started from another script
 const binFolder         = path.resolve(__dirname,"../bin/");
@@ -37,29 +40,80 @@ const objectHelper      = requireBin("objectHelper.js");
 ensureFolderExists(logFolder); // Let's just do this once the helper being loaded.
 
 // Set up aliases
-const {getOption,trueOrFalse,simplePromisifyIt}       = objectHelper;
+const {getOption,trueOrFalse,simplePromisifyIt,testIfInput,toNumIfPossible,toArrayIfPossible}       = objectHelper;
 
 // TESTING BEGIN
 if (__filename == require.main.filename){ // Only run the arguments IF this script is being run by itself and NOT as a require.
-  var testSuit={ // This is used to match a command line argument to an element to then run a specific test function
-    isPidAlive:isPidAliveTest
-  }
-  var clArgs=process.argv.slice(2);
+  console.log("This script cannot be ran by itself!  Exiting..");
+  process.exit();
+  // var testSuit={ // This is used to match a command line argument to an element to then run a specific test function
+  //   isPidAlive:isPidAliveTest
+  // }
+  // var clArgs=process.argv.slice(2);
 
-  if (testSuit.hasOwnProperty(clArgs[0])){
-    console.log("Running test suit: " + clArgs[0]);
-    testSuit[clArgs[0]](clArgs[1]);
-  } else {
-    if (clArgs[0]){ console.log("Test suit does not exist: " + clArgs[0]) }
-    console.log("Available tests:");
-    for (let key in testSuit){
-      if (testSuit.hasOwnProperty(key)){
-        console.log("- " + key);
-      }
-    }
-    console.log("\nTo run an individual test, include it as the first argument.");
-    console.log("Example:  node miscHelpers.js downloadToString");
+  // if (testSuit.hasOwnProperty(clArgs[0])){
+  //   console.log("Running test suit: " + clArgs[0]);
+  //   testSuit[clArgs[0]](clArgs[1]);
+  // } else {
+  //   if (clArgs[0]){ console.log("Test suit does not exist: " + clArgs[0]) }
+  //   console.log("Available tests:");
+  //   for (let key in testSuit){
+  //     if (testSuit.hasOwnProperty(key)){
+  //       console.log("- " + key);
+  //     }
+  //   }
+  //   console.log("\nTo run an individual test, include it as the first argument.");
+  //   console.log("Example:  node miscHelpers.js downloadToString");
+  // }
+}
+
+function getEntityPrefixFromPublicEntitiesTypeNumber(input){
+  if (input == 1){
+    return "ENTITY_SHOP_";
+  } else if (input == 2){
+    return "ENTITY_SPACESTATION_";
+  } else if (input == 3){
+    return "ENTITY_FLOATINGROCK_";
+  } else if (input == 4){
+    return "ENTITY_PLANET_";
+  } else if (input == 5){
+    return "ENTITY_SHIP_";
+  } else if (input == 6){
+    return "ENTITY_FLOATINGROCKMANAGED_";
   }
+  throw new Error("Invalid input given to getEntityPrefixFromPublicEntitiesTypeNumber!  (Needs number 1-6)");
+}
+
+function convertSectorCoordsToSystem(array){
+  if (Array.isArray(array)){
+    let outputArray=[];
+    for (let i=0;i<array.length;i++){
+      outputArray.push(getSysCoordFromSector(array[i]));
+    }
+    return outputArray;
+  }
+  throw new Error("Invalid input given to convertSectorCoordsToSystem! (Expects an array)");
+}
+function getSysCoordFromSector(input) {
+  if (testIfInput(input)){
+      var theInput=toNumIfPossible(input);
+      if (typeof theInput == "number"){
+      if (theInput >= 0 ){
+          // Positive numbers need an offset of 1 because -1 is in -1 system, except where the value is divisible by 16, whereas 1 is in 0 system.
+          // console.log("theInput%16: " + theInput%16);
+          if (theInput%16 == "0"){
+              return Math.floor(theInput/16);
+          } else {
+              // console.log("theInput/16: " + theInput/16);
+              return Math.floor(theInput/16); // - 1;
+          }
+      } else {
+          return Math.ceil(((theInput * -1) + 1) / 16) * -1;
+      }
+      }
+      throw new Error("Invalid input given to getSysCoordFromSector! (must be a number!)");  
+  }
+  throw new Error("Invalid input given to getSysCoordFromSector! (Cannot be empty)");
 }
 
 
@@ -87,8 +141,14 @@ function getJSONFile(pathToJSONFile,options,cb){
 }
 
 function writeJSONFileSync(pathToJSONFile,data,options){ // options are passed to fs.writeFileSync
+  var theData;
   try {
-    fs.writeFileSync(pathToJSONFile,JSON.stringify(data, null, 4),options);
+    if (typeof data == "string"){ // If a string is input, we want to parse it back to an object so we can stringify it in a uniform manner
+      theData=JSON.parse(data);
+    } else {
+      theData=data;
+    }
+    fs.writeFileSync(pathToJSONFile,JSON.stringify(theData, null, 4),options);
   } catch (error){
     throw error;
   }
@@ -106,28 +166,29 @@ function writeJSONFile(pathToJSONFile,data,options,cb){ // options are passed to
   return simplePromisifyIt(writeJSONFile,options,pathToJSONFile,data);
 }
 
-
-function isPidAliveTest(){
-  console.log("Is this process alive? " + isPidAlive(process.pid));
-}
-// TESTING END
-
 // The FUNCTIONS
 
-function areCoordsBetween(compare,first,second){ // Takes CoordsObj as input for all values
+function areCoordsBetween(compare,first,second){ // Takes CoordsObj or SectorObj as input for all values
   // example areCoordsBetween(new CoordsObj(1,1,1),new CoordsObj(0,0,0),new CoordsObj(2,2,2));  // Returns true
-  var cX=compare.x;
-  var cY=compare.y;
-  var cZ=compare.z;
+  var compareToUse=toArrayIfPossible(compare);
+  var firstToUse=toArrayIfPossible(first);
+  var secondToUse=toArrayIfPossible(second);
+  try {
+    var cX=compareToUse[0];
+    var cY=compareToUse[1];
+    var cZ=compareToUse[2];
 
-  var sX=Math.min(first.x,second.x);
-  var sY=Math.min(first.y,second.y);
-  var sZ=Math.min(first.z,second.z);
+    var sX=Math.min(firstToUse[0],secondToUse[0]);
+    var sY=Math.min(firstToUse[1],secondToUse[1]);
+    var sZ=Math.min(firstToUse[2],secondToUse[2]);
 
-  var bX=Math.max(first.x,second.x);
-  var bY=Math.max(first.y,second.y);
-  var bZ=Math.max(first.z,second.z);
-  return cX >= sX && cX <= bX && cY >= sY && cY <= bY && cZ >= sZ && cZ <= bZ;
+    var bX=Math.max(firstToUse[0],secondToUse[0]);
+    var bY=Math.max(firstToUse[1],secondToUse[1]);
+    var bZ=Math.max(firstToUse[2],secondToUse[2]);
+    return cX >= sX && cX <= bX && cY >= sY && cY <= bY && cZ >= sZ && cZ <= bZ;
+  } catch (err){
+    throw new Error("Invalid input given to areCoordsBetween!  Please provide arrays or objects that have a .toArray() object prototype such as a SectorObj, CoordsObj, or LocationObj!");
+  }
 }
 
 function existsAndIsFile(pathToFile){ // This returns false if the path is to a directory
