@@ -1,3 +1,4 @@
+// TODO: 1/6/2020 - Cut the fat out of this and merge this into starNet.js
 module.exports={ // Always put module.exports at the top so circular dependencies work correctly.
   mapifyShipInfoUIDString,
   getCoordsAndReturnNumArray,
@@ -19,36 +20,24 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   getFactionObjFromName,
   returnMatchingLinesAsArray
 }
-
-
+if (__filename == require.main.filename){
+  console.log("This script cannot be ran by itself!  Exiting..");
+  process.exit();
+}
 
 var path=require('path');
 var binFolder=path.resolve(__dirname,"../bin/");
 var starNet=require(path.join(binFolder,"starNet.js"));
 var {starNetSync,starNetCb}=starNet;
-
-var objectCreator=require(path.join(binFolder,"objectCreator.js"));
-var {
-  BlueprintObj,
-  CoordsObj,
-  EntityObj,
-  FactionObj,
-  IPObj,
-  LocationObj,
-  MessageObj,
-  PlayerObj,
-  SectorObj,
-  ServerObj,
-  SMNameObj,
-  SystemObj
-}=objectCreator;
-var objHelper=require(path.join(binFolder,"objectHelper.js"));
-const mySleep=require(path.join(binFolder,"mySleep.js"));
+const mainFolder=path.dirname(require.main.filename); // This should be where the starmade.js is, unless this script is ran by itself.
+const mainBinFolder=path.join(mainFolder,"bin");
+var objectHelper=require(path.join(mainBinFolder,"objectHelper.js"));
+const mySleep=require(path.join(mainBinFolder,"mySleep.js"));
 const sleep = mySleep.softSleep; // Only accurate for 100ms or higher wait times.
 const {sleepPromise}=mySleep; // Less accurate but non-blocking - can only be used in async functions!
 
 // Aliases
-var {getObjType,getOption,simplePromisifyIt,toStringIfPossible,toNumIfPossible}=objHelper;
+var {getObjType,getOption,simplePromisifyIt,toStringIfPossible,toNumIfPossible}=objectHelper;
 
 // The goal of this import is to provide all the functions needed for object methods
 // Done:
@@ -81,90 +70,92 @@ var nameMap={ // This is for mapping LOADED values to DatabaseEntry values, sinc
   "Local-Pos":"pos"
 }
 
-// Command line running
-if (require.main.filename == __filename){ // This is so it only runs based on arguments IF being ran by itself and not being required into another script.  This is for testing purposes.
-  var theArguments=process.argv.slice(2);
-  if (theArguments[0] == "-debug"){
-    console.debug=console.log;
-    theArguments.shift();
-  }
-  if (theArguments[0]){
-    var theResult;
-    console.log("theArguments[0]: " + theArguments[0]);
-    console.log("theArguments[1]: " + theArguments[1]);
-    if (theArguments[0]){
-      console.log("Using: " + theArguments[0]);
-      theResult=getUIDfromName(theArguments[0]); // This is to test getting the UID from a ship name
-      console.log("Result: " + theResult);
-    } else {
-      if (theArguments[2]){
-        theResult=starNetSync("/ship_info_uid " + theArguments[0] + " " + new Error("Thanks")); // This is to create malformed requests for testing purposes.
-      } else {
-        theResult=starNetSync("/ship_info_uid " + theArguments[0]);
-      }
-      // ENTITY_SHIP_Hello_There
-      if (theResult){
-        // console.log("Result found: ");
-        // console.dir(theResult);
+// Command line running - disabled till I can build the serverObj as a testbed.
+// if (require.main.filename == __filename){ // This is so it only runs based on arguments IF being ran by itself and not being required into another script.  This is for testing purposes.
+//   var theArguments=process.argv.slice(2);
+//   // var serverObj={};
+//   // TODO:  Put code in here to build a serverObj to use as a testbed.
+//   if (theArguments[0] == "-debug"){
+//     console.debug=console.log;
+//     theArguments.shift();
+//   }
+//   if (theArguments[0]){
+//     var theResult;
+//     console.log("theArguments[0]: " + theArguments[0]);
+//     console.log("theArguments[1]: " + theArguments[1]);
+//     if (theArguments[0]){
+//       console.log("Using: " + theArguments[0]);
+//       theResult=getUIDfromName(serverObj,theArguments[0]); // This is to test getting the UID from a ship name
+//       console.log("Result: " + theResult);
+//     } else {
+//       if (theArguments[2]){
+//         theResult=starNetSync(serverObj,"/ship_info_uid " + theArguments[0] + " " + new Error("Thanks")); // This is to create malformed requests for testing purposes.
+//       } else {
+//         theResult=starNetSync(serverObj,"/ship_info_uid " + theArguments[0]);
+//       }
+//       // ENTITY_SHIP_Hello_There
+//       if (theResult){
+//         // console.log("Result found: ");
+//         // console.dir(theResult);
 
-        console.debug("Starting Mapify on results..");
-        var theMap=mapifyShipInfoUIDString(theResult);
-        if (theMap){
-          console.log("\nMap output: ")
-          // console.dir(theMap);
-          for (let key of theMap.keys()){
-            // console.log("Key length: " + key.length);
-            let tabCount1=key.length > 10?"":"\t";
-            let valueLen=theMap.get(key).toString().length;
-            // console.log("Key value length: " + valueLen);
-            let valueMult=3 - Math.floor(valueLen / 9);
-            if (valueLen<4){
-              valueMult++;
-            }
-            let tabCount2="\t".repeat(valueMult);
-            let theType=typeof theMap.get(key);
-            if (theType=="object"){
-              if (Array.isArray(theMap.get(key))){
-                theType="array";
-              }
-            }
-            console.log("Key: " + key + tabCount1 + "\tVal: " + theMap.get(key) + tabCount2 + "\ttypeof: " + theType);
-          }
-          if (theMap.has("DatabaseEntry")){
-            console.log("\n\nDatabaseEntry Values: ");
-            // console.dir(theMap.get("DatabaseEntry"));
-            // console.log("\nKey types of values:");
-            for (let key of theMap.get("DatabaseEntry").keys()){
-              let tabCount1=key.length > 10?"":"\t";
+//         console.debug("Starting Mapify on results..");
+//         var theMap=mapifyShipInfoUIDString(theResult);
+//         if (theMap){
+//           console.log("\nMap output: ")
+//           // console.dir(theMap);
+//           for (let key of theMap.keys()){
+//             // console.log("Key length: " + key.length);
+//             let tabCount1=key.length > 10?"":"\t";
+//             let valueLen=theMap.get(key).toString().length;
+//             // console.log("Key value length: " + valueLen);
+//             let valueMult=3 - Math.floor(valueLen / 9);
+//             if (valueLen<4){
+//               valueMult++;
+//             }
+//             let tabCount2="\t".repeat(valueMult);
+//             let theType=typeof theMap.get(key);
+//             if (theType=="object"){
+//               if (Array.isArray(theMap.get(key))){
+//                 theType="array";
+//               }
+//             }
+//             console.log("Key: " + key + tabCount1 + "\tVal: " + theMap.get(key) + tabCount2 + "\ttypeof: " + theType);
+//           }
+//           if (theMap.has("DatabaseEntry")){
+//             console.log("\n\nDatabaseEntry Values: ");
+//             // console.dir(theMap.get("DatabaseEntry"));
+//             // console.log("\nKey types of values:");
+//             for (let key of theMap.get("DatabaseEntry").keys()){
+//               let tabCount1=key.length > 10?"":"\t";
 
-              let theVal=theMap.get("DatabaseEntry").get(key);
-              let theType=typeof theMap.get("DatabaseEntry").get(key);
-              if (theType == "object"){
-                if (Array.isArray(theMap.get("DatabaseEntry").get(key))){
-                  theType="array";
-                }
-              }
-              console.log("Key: " + key + tabCount1 + " \tType: " + theType + "\t Value: " + theMap.get("DatabaseEntry").get(key));
-              if (theType=="array"){
-                theVal.forEach(function(val){
-                  let tabCount2="";
-                  if (val.toString().length < 4){
-                    tabCount2="\t";
-                  }
-                  console.log("\tSubvalue: " + val + tabCount2 + " \tType: " + typeof val);
-                });
-              }
-            }
-          } else {
-            console.log("No DatabaseEntry found.");
-          }
-        }
-      }
-    }
-  } else {
-    console.log("No test value given!");
-  }
-}
+//               let theVal=theMap.get("DatabaseEntry").get(key);
+//               let theType=typeof theMap.get("DatabaseEntry").get(key);
+//               if (theType == "object"){
+//                 if (Array.isArray(theMap.get("DatabaseEntry").get(key))){
+//                   theType="array";
+//                 }
+//               }
+//               console.log("Key: " + key + tabCount1 + " \tType: " + theType + "\t Value: " + theMap.get("DatabaseEntry").get(key));
+//               if (theType=="array"){
+//                 theVal.forEach(function(val){
+//                   let tabCount2="";
+//                   if (val.toString().length < 4){
+//                     tabCount2="\t";
+//                   }
+//                   console.log("\tSubvalue: " + val + tabCount2 + " \tType: " + typeof val);
+//                 });
+//               }
+//             }
+//           } else {
+//             console.log("No DatabaseEntry found.");
+//           }
+//         }
+//       }
+//     }
+//   } else {
+//     console.log("No test value given!");
+//   }
+// }
 
 function mapifyDatabaseEntry(databaseEntryStr){ // This will always return a map.  Options, such as returning an object should only be done when assembling and returning values
   // Takes a string, which is the line containing a "DatabaseEntry" set of data and returns a map
@@ -185,9 +176,9 @@ function mapifyDatabaseEntry(databaseEntryStr){ // This will always return a map
         if (key == "sectorPos" || key == "pos" || key == "minPos" || key == "maxPos"){
           tempMap.set(key,getCoordsAndReturnNumArray(tempMap.get(key)));
         } else if (key == "type" || key == "seed" || key == "faction" || key == "creatorID"){
-          tempMap.set(key,objHelper.toNumIfPossible(tempMap.get(key)));
+          tempMap.set(key,objectHelper.toNumIfPossible(tempMap.get(key)));
         } else if (key == "touched"){
-          tempMap.set(key,objHelper.toBoolean(tempMap.get(key)));
+          tempMap.set(key,objectHelper.toBoolean(tempMap.get(key)));
         }
       }
       return tempMap;
@@ -239,7 +230,7 @@ function getCoordsAndReturnNumArray(inputStr,numsExpected){ // If no
     if (tempStr){ // tempStr will be null if no match was found.
       returnArray=tempStr.toString().split(", "); // match returns an object, so we set it to a string first, then split it for the desired array.
       for (let i=0;i<returnArray.length;i++){ // Convert all strings and any E values to decimal before we return the array
-        returnArray[i]=objHelper.toNumIfPossible(returnArray[i]);
+        returnArray[i]=objectHelper.toNumIfPossible(returnArray[i]);
       }
       return returnArray;
     } else {
@@ -287,7 +278,7 @@ function mapifyShipInfoUIDString(responseStr,options){ // options are optional. 
     for (let i=0;i<results.length;i++){
       console.debug("Working on result: " + results[i]);
       if (/^RETURN: \[SERVER, Loaded: [a-zA-Z]+/.test(results[i])){ // This is treated specially because it's the only value that should be a boolean
-        let loadedVal=objHelper.toBoolean(cleanRegularValue(results[i]).replace(/^Loaded: /,"").toString());
+        let loadedVal=objectHelper.toBoolean(cleanRegularValue(results[i]).replace(/^Loaded: /,"").toString());
         returnMap.set("loaded",loadedVal);
         if (loadedVal == true){
           returnMap.set("exists",true);
@@ -307,7 +298,7 @@ function mapifyShipInfoUIDString(responseStr,options){ // options are optional. 
 
       } else if (/^RETURN: \[SERVER, DatabaseEntry \[/.test(results[i])){  // This is only for the DatabaseEntry line, which needs to be treated specially to produce a DatabaseEntry map
         if (returnType == "object"){
-          returnMap.set("DatabaseEntry", objHelper.strMapToObj(mapifyDatabaseEntry(results[i]))); // Coerce into an object if return value is set to an object
+          returnMap.set("DatabaseEntry", objectHelper.strMapToObj(mapifyDatabaseEntry(results[i]))); // Coerce into an object if return value is set to an object
         } else {
           returnMap.set("DatabaseEntry", mapifyDatabaseEntry(results[i]));
         }
@@ -342,7 +333,7 @@ function mapifyShipInfoUIDString(responseStr,options){ // options are optional. 
       }
     }
     if (returnType == "object"){
-      return objHelper.strMapToObj(returnMap); // Coerce into an object
+      return objectHelper.strMapToObj(returnMap); // Coerce into an object
     } else {
       return returnMap; // Returns undefined if no value was present.
     }
@@ -351,7 +342,7 @@ function mapifyShipInfoUIDString(responseStr,options){ // options are optional. 
   }
 }
 
-function ShipInfoUidObj(uidOrShipObj,options){ // options are optional and are merely passed to mapifyEntityInfoUIDString
+function ShipInfoUidObj(serverObj,uidOrShipObj,options){ // options are optional and are merely passed to mapifyEntityInfoUIDString
   var uidToUse;
   if (typeof uidOrShipObj == "object"){
     if (uidOrShipObj.hasOwnProperty("uid")){ // This grabs the UID of a ship object that might be fed to this function
@@ -361,32 +352,35 @@ function ShipInfoUidObj(uidOrShipObj,options){ // options are optional and are m
     uidToUse=uidOrShipObj;
   }
   if (uidToUse){
-    var starNetResult=starNetSync("/ship_info_uid " + uidToUse,options)
+    var starNetResult=starNetSync(serverObj,"/ship_info_uid " + uidToUse,options)
     return mapifyShipInfoUIDString(starNetResult,options);
   } else {
     throw new Error("ERROR: Invalid parameters given to 'ShipInfoUIDObj'!");
   }
 }
 
-function getFactionObjFromName(name,options,cb){
-  var theName=toStringIfPossible(name);
-  if (typeof theName == "string"){
-    return getFactionNumberFromName(theName,"",function(err,result){
-      if (err){
-        return cb(err,result);
-      } else {
-        return cb(null,new FactionObj(result));
-      }
-    });
+function getFactionObjFromName(serverObj,name,options,cb){
+  if (typeof cb == "function"){
+    var theName=toStringIfPossible(name);
+    if (typeof theName == "string"){
+      return getFactionNumberFromName(serverObj,theName,"",function(err,result){
+        if (err){
+          return cb(err,result);
+        } else {
+          return cb(null,new serverObj.objects.FactionObj(result));
+        }
+      });
+    }
+    return cb(new Error("Invalid input given to getFactionObjFromName as 'name'!"),null);
   }
-  return cb(new Error("Invalid input given to getFactionObjFromName as 'name'!"),null);
+  return simplePromisifyIt(getFactionObjFromName,options,serverObj,name);
 }
 
-function getFactionNumberFromName(name,options,cb){
+function getFactionNumberFromName(serverObj,name,options,cb){
   if (typeof cb=="function"){
     var theName=toStringIfPossible(name);
     if (typeof theName == "string"){
-      return starNetVerified("/faction_list",options,function(err,result){
+      return starNetVerified(serverObj,"/faction_list",options,function(err,result){
         if (err){
           return cb(err,result);
         }
@@ -410,11 +404,11 @@ function getFactionNumberFromName(name,options,cb){
   return simplePromisifyIt(getFactionNumberFromName,options,name);
 }
 
-function getFactionNameFromNumber(number,options,cb){
+function getFactionNameFromNumber(serverObj,number,options,cb){
   if (typeof cb=="function"){
     var theNumber=toNumIfPossible(toStringIfPossible(number));
     if (typeof theNumber == "number"){
-      return starNetVerified("/faction_list",options,function(err,result){
+      return starNetVerified(serverObj,"/faction_list",options,function(err,result){
         if (err){
           return cb(err,result);
         }
@@ -435,11 +429,11 @@ function getFactionNameFromNumber(number,options,cb){
       return cb(new Error("Invalid input given to getFactionNameFromNumber as 'number'!"),null);
     }
   }
-  return simplePromisifyIt(getFactionNumberFromName,options,number);
+  return simplePromisifyIt(getFactionNumberFromName,options,serverObj,number);
 }
 
 
-function getUIDfromName(name,options,cb){ // Runs in sync mode to assist in creating EntityObj from an entity name, since some events only return the entity name, not the UID..  I need to figure out workarounds for this.
+function getUIDfromName(serverObj,name,options,cb){ // Runs in sync mode to assist in creating EntityObj from an entity name, since some events only return the entity name, not the UID..  I need to figure out workarounds for this.
   // Returns:
   // If ship not found:  null
   // If an error is encountered running starnet:  undefined
@@ -450,7 +444,7 @@ function getUIDfromName(name,options,cb){ // Runs in sync mode to assist in crea
     let returnResult;
     if (typeof name == "string"){
       console.log("Getting the UID from entity name: " + name);
-      return starNetVerified('/ship_info_name "' + name + '"',options,function(err,result){
+      return starNetVerified(serverObj,'/ship_info_name "' + name + '"',options,function(err,result){
         if (err){
           console.log("There was an error getting the UID from the entity name!");
           return cb(err,result);
@@ -488,13 +482,13 @@ function getUIDfromName(name,options,cb){ // Runs in sync mode to assist in crea
       return cb(new Error("getUIDfromName given invalid input.  Expected a string!"),null);
     }
   } else {
-    return simplePromisifyIt(getUIDfromName,options,name);
+    return simplePromisifyIt(getUIDfromName,options,serverObj,name);
   }
 
 }
 
 
-function getUIDfromNameSync(name,options){ // Runs in sync mode to assist in creating EntityObj from an entity name, since some events only return the entity name, not the UID..  I need to figure out workarounds for this.
+function getUIDfromNameSync(serverObj,name,options){ // Runs in sync mode to assist in creating EntityObj from an entity name, since some events only return the entity name, not the UID..  I need to figure out workarounds for this.
   // Returns:
   // If ship not found:  null
   // If an error is encountered running starnet:  undefined
@@ -503,7 +497,7 @@ function getUIDfromNameSync(name,options){ // Runs in sync mode to assist in cre
   // console.log("Looking up name: " + name); // temp
   let returnResult;
   if (typeof name == "string"){
-    const results=starNetSync('/ship_info_name "' + name + '"',options);
+    const results=starNetSync(serverObj,'/ship_info_name "' + name + '"',options);
     // console.log("Results:"); //temp
     // console.dir(results); // temp
   
@@ -582,7 +576,7 @@ function getUIDfromNameSync(name,options){ // Runs in sync mode to assist in cre
 }
 
 // TODO: Create a "getEntityValueUsingEntityName" function which will parse the /ship_info_name results -- Note that the results returned are much different so a whole set of supporting functions needs to be created
-function getEntityValue(uidOrShipObj,valueString,options,cb){ 
+function getEntityValue(serverObj,uidOrShipObj,valueString,options,cb){ 
   // valueString can be one of the following:
 
 
@@ -608,7 +602,7 @@ function getEntityValue(uidOrShipObj,valueString,options,cb){
       return cb(new Error("Invalid input given to getEntityValue as valueString!"),null);
     }
 
-    return starNetVerified("/ship_info_uid \"" + uidToUse + "\"",options,function(err,result){
+    return starNetVerified(serverObj,"/ship_info_uid \"" + uidToUse + "\"",options,function(err,result){
       if (err){
         return cb(err,result);
       }
@@ -622,7 +616,7 @@ function getEntityValue(uidOrShipObj,valueString,options,cb){
         if (valueString == "faction"){
           returnVal=resultMap.get("DatabaseEntry").get("faction"); // This is a special exception since it can only be found here.
         } else if (valueString == "DatabaseEntry" && returnType == "object"){
-          returnVal=objHelper.strMapToObj(returnVal); // A special exception needs to be made for DatabaseEntry, because we will either return it in it's native form as a map, or turn it into an object if directed to do so.
+          returnVal=objectHelper.strMapToObj(returnVal); // A special exception needs to be made for DatabaseEntry, because we will either return it in it's native form as a map, or turn it into an object if directed to do so.
         } else {
           returnVal=resultMap.get(valueString);
         }
@@ -662,11 +656,11 @@ function getEntityValue(uidOrShipObj,valueString,options,cb){
           }
           if (tryAgain==true){
             console.debug("Value only available when sector is loaded.  Loading sector, " + theSectorString + ", and trying again.." + new Date());
-            return starNetVerified("/load_sector_range " + theSectorString + " " + theSectorString,options,function(err,result2){
+            return starNetVerified(serverObj,"/load_sector_range " + theSectorString + " " + theSectorString,options,function(err,result2){
               if (err){
                 return cb(err,result2);
               }
-              return getEntityValue(uidToUse,valueString,options,cb); // Try again till successful.  This will cause an infinite loop while the sector is unloaded, but will not run again if the command fails.
+              return getEntityValue(serverObj,uidToUse,valueString,options,cb); // Try again till successful.  This will cause an infinite loop while the sector is unloaded, but will not run again if the command fails.
               // If the entity loads and no value is present, 'undefined' will be returned.  This is intended.
               // The reason we try loading the sector is for futureproofing.
             });
@@ -685,7 +679,7 @@ function getEntityValue(uidOrShipObj,valueString,options,cb){
 }
 
 
-function getEntityValueSync(uidOrShipObj,valueString,options){ // Options are optional.  Allows setting the return type for DataBaseEntry to an object
+function getEntityValueSync(serverObj,uidOrShipObj,valueString,options){ // Options are optional.  Allows setting the return type for DataBaseEntry to an object
   // The goal of this is to find a value without creating a full map of everything, stopping once the value is found, so it is as efficient as possible.
   // The secondary goal is to make it so this can pull values from the DatabaseEntry if loaded info is not available, without having to load the sector.
   // The tertiary goal is to load a sector prior to trying to pull the value if the ship is currently not loaded.
@@ -706,7 +700,7 @@ function getEntityValueSync(uidOrShipObj,valueString,options){ // Options are op
   }
 
   if (typeof uidToUse == "string" && typeof valueString == "string"){
-    const results=starNetSync("/ship_info_uid \"" + uidToUse + "\"",options);
+    const results=starNetSync(serverObj,"/ship_info_uid \"" + uidToUse + "\"",options);
     // console.log("Results found: " + results);
     var resultMap=mapifyShipInfoUIDString(results);
     // console.log("\nMapify result:");
@@ -721,7 +715,7 @@ function getEntityValueSync(uidOrShipObj,valueString,options){ // Options are op
         returnVal=resultMap.get(valueString);
         // A special exception needs to be made for DatabaseEntry, because we will either return it in it's native form as a map, or turn it into an object if directed to do so.
         if (valueString == "DatabaseEntry" && returnType == "object"){
-          returnVal=objHelper.strMapToObj(returnVal);
+          returnVal=objectHelper.strMapToObj(returnVal);
         }
       }
       // If no value existed, this will be returned as undefined.
@@ -759,8 +753,8 @@ function getEntityValueSync(uidOrShipObj,valueString,options){ // Options are op
         }
         if (tryAgain==true){
           // console.debug("Value only available when sector is loaded.  Loading sector, " + theSectorString + ", and trying again.." + new Date());
-          starNetSync("/load_sector_range " + theSectorString + " " + theSectorString,options);
-          returnVal=getEntityValueSync(uidToUse,valueString); // Try again till successful.  This will cause an infinite loop while the sector is unloaded, but will not run again if the command fails.
+          starNetSync(serverObj,"/load_sector_range " + theSectorString + " " + theSectorString,options);
+          returnVal=getEntityValueSync(serverObj,uidToUse,valueString); // Try again till successful.  This will cause an infinite loop while the sector is unloaded, but will not run again if the command fails.
           // If the entity loads and no value is present, 'undefined' will be returned.  This is intended.
           // The reason we try loading the sector is for futureproofing.
         }
@@ -863,7 +857,7 @@ function verifyResponse(input){ // input should be a full starNet.js response st
 }
 
 
-function starNetVerifiedCB(string,options,cb){ // Takes a string command.  Options are optional
+function starNetVerifiedCB(serverObj,string,options,cb){ // Takes a string command.  Options are optional
   var optionsToUse={ }; // I'm creating the options object here, because it's changed and reused for retries
   if (typeof options == "object"){
     optionsToUse=options;
@@ -879,7 +873,7 @@ function starNetVerifiedCB(string,options,cb){ // Takes a string command.  Optio
   // console.log("Using options:"); // temp
   // console.dir(optionsToUse);
   if (typeof string == "string"){
-    return starNetCb(string,optionsToUse,function (err,result){ // replaced "await" with "return"
+    return starNetCb(serverObj,string,optionsToUse,function (err,result){ // replaced "await" with "return"
       if (err){
         // There will not be an error returned unless StarNet.jar terminates abornally or could not be run.
         // We are throwing an error because the wrapper cannot do anything without StarNet.jar operating correctly.
@@ -903,7 +897,7 @@ function starNetVerifiedCB(string,options,cb){ // Takes a string command.  Optio
           sleepPromise(optionsToUse.retryOnConnectionProblemMs);
           optionsToUse.starNetVerifiedCBTryCount++;
 
-          return starNetVerifiedCB(string,optionsToUse,cb); // Try again
+          return starNetVerifiedCB(serverObj,string,optionsToUse,cb); // Try again
         } else { // function is either not set to retry, or it's used up all the time/retry counts.
           var theErrorText="Error when sending starNet.jar command: " + string;
           var theError=new Error(theErrorText);
@@ -920,18 +914,18 @@ function starNetVerifiedCB(string,options,cb){ // Takes a string command.  Optio
 };
 
 
-function starNetVerified(string,options,cb){ // Takes a string command.  Options are optional.  If no cb is given, will run as Sync.
+function starNetVerified(serverObj,string,options,cb){ // Takes a string command.  Options are optional.  If no cb is given, will run as Sync.
   // Options right now include displaying the result on screen by giving "{debug:true}" as an option
   // This should probably not be used on longer sort of responses because it has to parse through every line
 
   // Be careful using this, since it will crash the scripting if the error isn't handled.
   if (typeof cb == "function"){
-    return starNetVerifiedCB(string,options,cb);
+    return starNetVerifiedCB(serverObj,string,options,cb);
   } else {
-    return simplePromisifyIt(starNetVerified,options,string);
+    return simplePromisifyIt(starNetVerified,options,serverObj,string);
 }
 
-function starNetVerifiedSync(string,options){ // This runs syncronously.  It should NEVER be used, since it WILL hold up the main thread.
+function starNetVerifiedSync(serverObj,string,options){ // This runs syncronously.  It should NEVER be used, since it WILL hold up the main thread.
       
     // If retry is enabled, this will still throw an error if a different kind of problem occurs, such as a buffer overflow (which is a response that is too long for StarNet.jar to handle)
     var retryOnConnectionProblem=getOption(options,"retryOnConnectionProblem",false); // by default we do not want the sync version to retry, since this holds up the main thread while it is retrying.
@@ -948,7 +942,7 @@ function starNetVerifiedSync(string,options){ // This runs syncronously.  It sho
       var timeToRetryTill=new Date().getTime() + maxTimeToRetry; // The time right now in ms
       var timeStamp;
       while (keepGoing){ // Loop forever till a return value is given or error thrown.
-        starNetResult=starNetSync(string,options);
+        starNetResult=starNetSync(serverObj,string,options);
         if (verifyResponse(starNetResult)){
           keepGoing=false; // This is just to make ESLint happy.. returning a value would break the while loop..
           return starNetResult;

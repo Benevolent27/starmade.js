@@ -12,8 +12,11 @@ const path=require('path');
 const binFolder=path.resolve(__dirname);
 const starNet=require(path.resolve(binFolder,"starNet.js"));
 const {starNetSync,starNetCb}=starNet;
-const objectHelper=require(path.resolve(binFolder,"objectHelper.js"));
 const starNetHelper=require(path.resolve(binFolder,"starNetHelper.js"));
+
+const mainFolder=path.dirname(require.main.filename); // This should be where the starmade.js is, unless this script is ran by itself.
+const mainBinFolder=path.join(mainFolder,"bin");
+const objectHelper=require(path.join(mainBinFolder,"objectHelper.js"));
 
 // TODO: Set up the check where if there are no columns returned, the query must have been invalid
 // Set up aliases
@@ -26,51 +29,32 @@ const {addNumToErrorObj,simplePromisifyIt}=objectHelper;
 
 
 // Command line arguments
-// This can either return the full sqlQuery object OR an individual part of it.
-// Note:  the ["whatever"] convention does not work here due to how arguments are processed.
-// Example:  node sqlQuery.js "SELECT * FROM PUBLIC.ENTITIES WHERE X=2;" mapArray
-// Example2:  node sqlQuery.js "SELECT * FROM PUBLIC.ENTITIES WHERE X=2;" columns
-// if (__filename == require.main.filename){ // Only run starnet with command line arguments if this script is running as itself
-//   var clArguments=process.argv.slice(2);
-//   if (clArguments){
-//     var theQuery=clArguments[0];
-//     console.log("Running with query: " + theQuery);
-//     var theResults=new SqlQueryObj(theQuery);
-//     if (clArguments[1]){
-//       console.log("Returning value of '" + clArguments[1] + "':");
-//       let tempStr="theResults." + clArguments[1];
-//       console.dir(eval(tempStr));
-//     } else {
-//       console.log("Results:");
-//       console.dir(theResults);
-//     }
-//   }
-// }
-
-// switching to using the sqlQuery function instead.
 if (__filename == require.main.filename){ // Only run starnet with command line arguments if this script is running as itself
-  var clArguments=process.argv.slice(2);
-  if (clArguments){
-    var theQuery=clArguments[0];
-    console.log("Running with query: " + theQuery);
-    sqlQuery(theQuery,"",function(err,result){
-      if (err){
-        console.error("Error performing SQLQuery: ");
-        console.dir(err);
-        return false;
-      }
-      if (clArguments[1]){
-        console.log("Returning value of '" + clArguments[1] + "':");
-        let section=clArguments[1];
-        console.dir(result[section]);
-        return true;
-      } else {
-        console.log("Results:");
-        console.dir(result);
-        return true;
-      }
-    });
-  }
+  console.log("This script cannot be ran by itself right now.  Exiting..");
+  process.exit();
+  // This cannot work right now because there is no way for starNet.js to use starNet.jar from the main path.
+  // var clArguments=process.argv.slice(2);
+  // if (clArguments){
+  //   var theQuery=clArguments[0];
+  //   console.log("Running with query: " + theQuery);
+  //   sqlQuery(theQuery,"",function(err,result){
+  //     if (err){
+  //       console.error("Error performing SQLQuery: ");
+  //       console.dir(err);
+  //       return false;
+  //     }
+  //     if (clArguments[1]){
+  //       console.log("Returning value of '" + clArguments[1] + "':");
+  //       let section=clArguments[1];
+  //       console.dir(result[section]);
+  //       return true;
+  //     } else {
+  //       console.log("Results:");
+  //       console.dir(result);
+  //       return true;
+  //     }
+  //   });
+  // }
 }
 
 function getSQLquery(query){ // This will preprocess a query so that it should work with starNet.js to run correctly.
@@ -88,11 +72,11 @@ function getSQLquery(query){ // This will preprocess a query so that it should w
 }
 
 
-function simpleSqlQuery(sqlQuery,options,cb){ // Needs testing // Also the code here can be cleaned up since it's a bit wonky
+function simpleSqlQuery(serverObj,sqlQuery,options,cb){ // Needs testing // Also the code here can be cleaned up since it's a bit wonky
   if (typeof cb=="function"){
     if (typeof sqlQuery == "string" && sqlQuery != ""){
       var queryToUse=getSQLquery(sqlQuery);
-      return starNetVerified(queryToUse,options,function(err,results){
+      return starNetVerified(serverObj,queryToUse,options,function(err,results){
         if (err){
           return cb(err,results);
         }
@@ -127,10 +111,10 @@ function simpleSqlQuery(sqlQuery,options,cb){ // Needs testing // Also the code 
 }
 
 
-function sqlQuery(sqlQuery,options,cb){ // Needs testing // Also the code here can be cleaned up since it's a bit wonky
+function sqlQuery(serverObj,sqlQuery,options,cb){ // Needs testing // Also the code here can be cleaned up since it's a bit wonky
   if (typeof sqlQuery == "string" && sqlQuery != ""){
     var queryToUse=getSQLquery(sqlQuery);
-    return starNetCb(queryToUse,options,function(err,resultsStr){
+    return starNetCb(serverObj,queryToUse,options,function(err,resultsStr){
       var returnObj={};
       if (err){
         console.error("StarNet ERROR when performing sqlQuery on query: " + queryToUse);
@@ -189,12 +173,12 @@ function sqlQuery(sqlQuery,options,cb){ // Needs testing // Also the code here c
   }
 }
 
-function SqlQueryObj(sqlQuery){ // TODO:  Discontinue this object since it relies on Sync methods in preference to the sqlQuery function.
+function SqlQueryObj(serverObj,sqlQuery){ // TODO:  Discontinue this object since it relies on Sync methods in preference to the sqlQuery function.
   this.query=sqlQuery;
   this.time=Date.now();
   // console.log("Running sql query: " + sqlQuery);
   this.mapArray=[]; // This is modified later in the script, but declared here in case there is an error.
-  var resultsStr=starNetSync(getSQLquery(sqlQuery));
+  var resultsStr=starNetSync(serverObj,getSQLquery(sqlQuery));
   if (verifyResponse(resultsStr) == false){
     // There was an error of some kind
     this.error=addNumToErrorObj(new Error("StarNet command failed!"),2);

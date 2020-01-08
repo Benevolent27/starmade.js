@@ -24,35 +24,40 @@
 
 // First, let's just talk about general structure.  When we have commands, we need to
 // register them.  There is an "init" event for this.
-global.event.on("init", init);
+
+var server=global.getServer(__dirname); // Gets the serverObj for the server this mod is running on.  Returns null if no server found.
+
+if (server !== null){ // Only set up your events IF a serverObj was returned.
+    server.event.on("init", init);
+    server.event.on("command",command); // Only registered commands will trigger a "command" event.
+    server.event.on("command",asyncCommand);
+}
 function init(){ // This is where we register commands and do other prep.  This happens after all other mods are loaded in.
-    global.regCommand("reg1","Promises Tutorial",false,true); // This is function provided by one of the default mods, the "Commands" mod.  This provides the !help command and manages how commands function.
+    server.regCommand("reg1","Promises Tutorial",false,true); // This is function provided by one of the default mods, the "Commands" mod.  This provides the !help command and manages how commands function.
     // The above registers a command, "reg1".  The player can type !reg1 in-game to run it.
     // The category is set to "Promises Tutorial".
     // It is NOT admin-only (false), so any player can run it.
     // It SHOULD appear in the "!help" command's list of commands. (true)
 
     // Ok, so let's register the rest of our commands for the tutorial..
-    global.regCommand("reg2","Promises Tutorial",false,true); 
-    global.regCommand("reg3","Promises Tutorial",false,true);
+    server.regCommand("reg2","Promises Tutorial",false,true); 
+    server.regCommand("reg3","Promises Tutorial",false,true);
     // You know.. We don't actually need to set the last two values..
     // If not specified, the default behavior is to NOT be admin-only and to appear in the !help list. 
-    global.regCommand("reg4","Promises Tutorial"); // Ah, that's nice.
-    global.regCommand("async1","Promises Tutorial"); 
-    global.regCommand("async2","Promises Tutorial");
-    global.regCommand("async3","Promises Tutorial");
-    global.regCommand("async4","Promises Tutorial");
-    global.regCommand("async5","Promises Tutorial");
-    global.regCommand("async6","Promises Tutorial");
-    global.regCommand("async7","Promises Tutorial");
+    server.regCommand("reg4","Promises Tutorial"); // Ah, that's nice.
+    server.regCommand("async1","Promises Tutorial"); 
+    server.regCommand("async2","Promises Tutorial");
+    server.regCommand("async3","Promises Tutorial");
+    server.regCommand("async4","Promises Tutorial");
+    server.regCommand("async5","Promises Tutorial");
+    server.regCommand("async6","Promises Tutorial");
+    server.regCommand("async7","Promises Tutorial");
 
     // You should start up your server and connect to it.  In-game, type "!help".
     // You'll see the "Promises Tutorial" section, with these commands listed under it.
 
 };
-
 // We need to listen for the 'command' event to now do something when a player types the command.
-global.event.on("command",command); // Only registered commands will trigger a "command" event.
 function command (player,command,args,messageObj) { // command events are given a PlayerObj, the command in lowercase (as a string), any words after the command as an array, and the original MessageObj if we need to look at it (such as to see what kind of channel the command was said in)
     // As we go through each command, I'd recommend you type them in-game to see what happens.
     
@@ -123,11 +128,9 @@ function command (player,command,args,messageObj) { // command events are given 
         )))));
     }
 };
-
 // Async functions give us the ability to use "await".  This can simplify our code quite a bit.
 // There really isn't any reason that I can see NOT to use an async function for events.  I recommend,
 // you always use async functions for your event handling.
-global.event.on("command",asyncCommand);
 async function asyncCommand (player,command,args,messageObj) {
     if (command == "async1"){
         // await causes the scripting to wait until the command finishes, without blocking the main thread.

@@ -247,6 +247,21 @@ factioned station turret
 unfactioned station turret
 
 
+Planets:
+unfactioned planet
+serverlog.0.log: [DEATH] Weedle has been killed by 'Responsible: PlanetSegment(Planet);'; controllable: Planet(250)[s192]Planet  (Radius 100m) [10,000,000 HP]
+player in unfactioned planet
+serverlog.0.log: [DEATH] Weedle has been killed by 'Killer: Benevolent27 (120.0/120.0 HP left)'; controllable: Planet(250)[s192]Planet  (Radius 100m) [10,000,000 HP]
+
+factioned planet
+serverlog.0.log: [DEATH] Weedle has been killed by 'Responsible: PlanetSegment(Planet);[SomeRandomFaction]'; controllable: Planet(250)[s192]Planet  (Radius 100m) [10,000,000 HP]
+player in factioned planet
+serverlog.0.log: [DEATH] Weedle has been killed by 'Killer: Benevolent27 (120.0/120.0 HP left)'; controllable: Planet(250)[s192]Planet  (Radius 100m) [10,000,000 HP]
+
+
+mines:
+serverlog.0.log: [DEATH] Weedle has been killed by 'Responsible: Mine#1'; controllable: Mine [id=1, sectorPos=(15, 10, -29), mineType=MINE_TYPE_CANNON, active=true(4)]
+serverlog.0.log: [DEATH] Weedle has been killed by 'Responsible: Mine#2'; controllable: Mine [id=2, sectorPos=(700, 700, 700), mineType=MINE_TYPE_CANNON, active=true(3)]
 
 
 

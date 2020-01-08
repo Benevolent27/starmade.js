@@ -1,16 +1,23 @@
 // The purpose of this mod is to extend existing objects with more methods.
 // The extensions are only available on init or later events, such as playerMessage, playerDeath, etc.
 
-const path=require('path');
-const fs=require('fs');
 // Pull the needed objects from the global variable.
-var {event,objectHelper,objectCreator,miscHelpers}=global;
-var {isInArray,testIfInput,getOption,addOption,isArray,toNumIfPossible,simplePromisifyIt}=objectHelper;
-var {isFile,isSeen,log}=miscHelpers;
+var {objectHelper}=global;
+var {testIfInput,getOption,addOption,toNumIfPossible,simplePromisifyIt}=objectHelper;
 
-var {SectorObj,CoordsObj}=objectCreator;
 
-SectorObj.prototype.distanceToSector=distanceToSector;
+var SectorObj={};
+var CoordsObj={};
+var serverPath=global.getServerPath(__dirname);
+global.event.on('start',function(forServerPath){
+    if (forServerPath == serverPath){ // Only extend the object for THIS server, not others.
+        var serverObj=global.getServerObj(__dirname);
+        SectorObj=serverObj.objects.SectorObj;
+        CoordsObj=serverObj.objects.CoordsObj
+        SectorObj.prototype.distanceToSector=distanceToSector; // Add a new method to the SectorObj
+        serverObj.distanceBetweenSectors=distanceBetweenSectors; // Add a helper to this server
+    }
+});
 function distanceToSector(sector,options,cb){
     var objectThis=getOption(options,"this",this); // Contrary to ESLint, this does actually work.  This gets the object's root context or pulls it from the options.
     if (typeof cb=="function"){
@@ -27,23 +34,19 @@ function distanceToSector(sector,options,cb){
     }
     return simplePromisifyIt(distanceToSector,addOption(options,"this",objectThis),sector); // It's necessary to pass the "this" context to the promise through the options, since there is no other way to do it.
 }
-// CommandObj.prototype.toString = function(){ return this.name };
-
-global.mathHelpers={};
-global.mathHelpers["distanceBetweenSectors"]=distanceBetweenSectors;
 
 function distanceBetweenSectors(sector1,sector2){
     var firstSector=(new CoordsObj(sector1)).toArray();
     var secondSector=(new CoordsObj(sector2)).toArray();
 
     var differencesArray=coordinateDifferences(firstSector,secondSector);
-    var result1=simplePythagorean(differencesArray[0],differencesArray[1]);
-    return simplePythagorean(result1,differencesArray[2]);
+    var result1=simplePythagorean(differencesArray[0],differencesArray[1]); // look at the triangle from one side and solve for C
+    return simplePythagorean(result1,differencesArray[2]); // Look at the triangle from another angle and solve for C, this is the distance between the two points on a 3d plane
 }
-function simplePythagorean(a,b){ // Returns c
+function simplePythagorean(a,b){ // Returns c.  "Based on A squared + B squared = C Squared" forumla
     return Math.sqrt(Math.pow(a,2)+Math.pow(b,2));
 }
-function coordinateDifferences(array1,array2){ // Expects arrays with 3 numbers.  This gets the distances on each axis
+function coordinateDifferences(array1,array2){ // Expects arrays with 3 numbers.  This gets the distances on each axis from each point, essentially drawing a triangle and getting the lengths of each side.
     var outputArray=[];
     for (let i=0;i<array1.length;i++){
         if (array1[i]>array2[i]){
