@@ -43,7 +43,6 @@
 const http   = require('http');
 const fs     = require('fs');
 global["events"]=require('events');
-const spawn  = require('child_process').spawn;
 const path   = require('path'); // This is needed to build file and directory paths that will work in windows or linux or macosx.  For example, The / character is used in linu, but windows uses \ characters.  Windows also uses hard drive characters, wherease linux has mount points.  For example, in linux a path looks like "/path/to/somewhere", but in windows it looks like "c:\path\to\somewhere".  The path module takes care of this for us to build the path correctly.
 // const stream   = require('stream'); // For creating streams.  Not used right now but may be later.
 
@@ -56,13 +55,7 @@ global["mainFolder"]=mainFolder;
 global["binFolder"]=binFolder;
 global["modsFolder"]=modsFolder;
 var operations      = 0;
-var serversRunning  = 0; // This is to count the server's running to manage the exit function and kill them when this main script dies.
 
-
-// var lockFileObj = { // This will be used for the lock file, so if another instance of the script runs, it can parse the file and check PIDs, making decisions on what to do.
-//   "mainPID": process.pid,
-//   "serverSpawnPIDs": []
-// }
 console.debug=function (vals,sleepTime) { // for only displaying text when the -debug flag is set.  sleepTime is optional.
   if (debug==true){
     console.log(vals);
@@ -83,7 +76,7 @@ const requireBin        = miscHelpers["requireBin"]; // Simplifies requiring scr
 global["miscHelpers"]=miscHelpers;
 global["requireBin"]=requireBin;
 
-console.log("Loading Objects..");
+var   objectCreator = requireBin("objectCreator.js"); // These are ONLY wrapper objects, NOT server objects, which is very limited.  Right now it might only include an object for the StarMade server list.
 const installAndRequire = requireBin("installAndRequire.js"); // This is used to install missing NPM modules and then require them without messing up the require cache with modules not found (which blocks requiring them till an app restart).
 const sleepSync             = requireBin("mySleep.js").softSleep; // Only accurate for 100ms or higher wait times.
 const sleepPromise = requireBin("mySleep.js").sleepPromise;
@@ -138,7 +131,7 @@ function eventOnce(eventName,theFunction){
   addEventsToRemoveOnModReload(eventName,theFunction);
   return eventEmitter.once(eventName,theFunction);
 }
-global["event"]=event;
+global["event"]=event; // This is a modified event handler that records when mods use it.  This allows unsetting the listeners later and re-initializing mods by deleting their caches and re-requiring them.
 function addEventsToRemoveOnModReload(eventName,eventFunction){
   var theObj={};
   theObj[eventName]=eventFunction;
@@ -158,26 +151,25 @@ var {repeatString,isInArray,getRandomAlphaNumericString,arrayMinus,copyArray,toS
 
 var dummySettings={
   // These settings will over-ride any settings for individual servers
-  showStderr:undefined, // If no true or false value set, the server specific setting will be used
-  stderrFilter:undefined,
-  showStdout:undefined,
-  stdoutFilter:undefined,
-  showServerlog:undefined,
-  serverlogFilter:undefined,
-  showAllEvents:undefined,
-  enumerateEventArguments:undefined,
+  showStderr:null, // If no true or false value set, the server specific setting will be used
+  stderrFilter:null,
+  showStdout:null,
+  stdoutFilter:null,
+  showServerlog:null,
+  serverlogFilter:null,
+  showAllEvents:null,
+  enumerateEventArguments:null,
   lockPIDs:[1234], // These should be specificically the wrapper process itself or subprocesses of the wrapper, not including servers
   "autoExit": false, // This makes the wrapper shut down when all servers have been shut down intentionally
   servers:{
     "c:\\coding\\starmade.js\\starmade":{
       // These settings are server specific, they should not contain anything that isn't writable to a json file
-      self:this,
       showStderr:true, // Normally this would be true but can be turned to false if testing
-      stderrFilter:undefined,
+      stderrFilter:null,
       showStdout:false,
-      stdoutFilter:undefined,
+      stdoutFilter:null,
       showServerlog:true,
-      serverlogFilter:undefined,
+      serverlogFilter:null,
       showAllEvents:false,
       enumerateEventArguments:false,
       lockPIDs:[1234,2345,5678], //  These should be specific to the server instance
@@ -463,13 +455,6 @@ eventEmitter.on('ready', function() {
   }
 });
 
-// initialize the objectCreator so it can send text directly to the server through "server".
-//  IMPORTANT:  THIS MUST BE DONE BEFORE ANY OBJECTS ARE CREATED!
-
-// The following is obsolete since we're using the global object now, which stores the server.
-// console.log("############## INITIALIZING OBJECT CREATOR ###############");
-// objectCreator.init(server,global);
-
 // ###################
 // #### MODLOADER ####
 // ###################
@@ -487,13 +472,13 @@ function loadServerMods(){ // done: 01-07-20
           console.log("Mod Folder found: " + modFolders[i] + " Looking for scripts..");
           fileList=getFiles(modFolders[i]);
           // console.dir(fileList);
-          for (var i=0;i<fileList.length;i++){
-            if (fileList[i].match(/.\.js$/)) {
-              console.log("Loading JS file: " + fileList[i]);
+          for (var c=0;c<fileList.length;c++){
+            if (fileList[c].match(/.\.js$/)) {
+              console.log("Loading JS file: " + fileList[c]);
               try{
-                global["serverMods"][serverFoldersArray[e]][fileList[i]]=require(fileList[i]);
+                global["serverMods"][serverFoldersArray[e]][fileList[c]]=require(fileList[c]);
               } catch (err){
-                console.log("Error loading mod: " + fileList[i],err);
+                console.log("Error loading mod: " + fileList[c],err);
                 throw err;
               }
             }
@@ -526,7 +511,7 @@ function unloadServerMods(inputPath){  // This cycles through the list of modfil
       }
     }
     newKeys=Object.keys(global["serverMods"][serverModFoldersArray[i]]);
-    if (newKeys.length = 0){
+    if (newKeys.length == 0){
       Reflect.deleteProperty(global["serverMods"],serverModFoldersArray[i]); // Delete the entry for this server
     }
   }
@@ -560,7 +545,7 @@ function testStarMadeDirValue (installDir) {
 
 function reloadServerMods(){ // This function is meant to reload ALL mods.  Specificity is not possible right now.
   console.log("Removing any event listeners registered by mods..");
-  unloadServerModListeners(); // I do not think it is possible to specify only removing listeners for a specific mod..
+  unloadGlobalEventListeners(); // I do not think it is possible to specify only removing listeners for a specific mod..
   // console.log("Removing any registered Constructors for mods..");
   // objectCreator.deregAllConstructors(); // This is more for the to-be-created reloadWrapperMods() function
   console.log("Deleting the require cache's for mods..");
@@ -570,7 +555,7 @@ function reloadServerMods(){ // This function is meant to reload ALL mods.  Spec
   console.log("Done reloading mods!");
 }
 
-function unloadServerModListeners(inputPath){ // Presently there is no way to remove the listener of a specific mod.  I need to see if this is possible.
+function unloadGlobalEventListeners(inputPath){ // Presently there is no way to remove the listener of a specific mod.  I need to see if this is possible.
   for (let i=0;i<eventListenersToRemoveOnReload.length;i++){
     // eventListenersToRemoveOnReload[i] // This is an object with the event name and function
     for(var key in eventListenersToRemoveOnReload[i]) { // This should only run once.
@@ -580,7 +565,7 @@ function unloadServerModListeners(inputPath){ // Presently there is no way to re
       }
     }
   }
-  eventListenersToRemoveOnReload=[]; // There should no longer be any events registered by mods.
+  eventListenersToRemoveOnReload=[]; // There should no longer be any event listeners registered.
 }
 
 
@@ -857,39 +842,39 @@ process.stdin.on('data', function(text){
         console.log("Invalid argument given to !record command.")
       }
 
-    } else if (i(theCommand,"stdout")) {
-      if (i(theArguments[0],"on")){
-        console.log("Setting stdout to true!");
-        showStdout=true;
-      } else if (i(theArguments[0],"off")){
-        console.log("Setting showStdout to false!");
-        showStdout=false;
-      } else {
-        console.log("Invalid parameter.  Usage:  !stdout on/off")
-      }
-    } else if (i(theCommand,"stderr")) {
-      if (theArguments[0] == "on"){
-        console.log("Setting showStderr to true!");
-        showStderr=true;
-      } else if (i(theArguments[0],"off")){
-        console.log("Setting Stderr to false!");
-        showStderr=false;
-      }
-    } else if (i(theCommand,"stderrfilter")) {
-      if (testIfInput(theArguments[0])){
-        console.log("Finish this..");
-      } else {
-        console.log("ERROR:  Please specify a filter to use!  Example: \\[SPAWN\\]");
-      }
+    // } else if (i(theCommand,"stdout")) {
+    //   if (i(theArguments[0],"on")){
+    //     console.log("Setting stdout to true!");
+    //     showStdout=true;
+    //   } else if (i(theArguments[0],"off")){
+    //     console.log("Setting showStdout to false!");
+    //     showStdout=false;
+    //   } else {
+    //     console.log("Invalid parameter.  Usage:  !stdout on/off")
+    //   }
+    // } else if (i(theCommand,"stderr")) {
+    //   if (theArguments[0] == "on"){
+    //     console.log("Setting showStderr to true!");
+    //     showStderr=true;
+    //   } else if (i(theArguments[0],"off")){
+    //     console.log("Setting Stderr to false!");
+    //     showStderr=false;
+    //   }
+    // } else if (i(theCommand,"stderrfilter")) {
+    //   if (testIfInput(theArguments[0])){
+    //     console.log("Finish this..");
+    //   } else {
+    //     console.log("ERROR:  Please specify a filter to use!  Example: \\[SPAWN\\]");
+    //   }
 
-    } else if (i(theCommand,"serverlog")) {
-      if (theArguments[0] == "on"){
-        console.log("Setting showServerlog to true!");
-        showServerlog=true;
-      } else if (theArguments[0] == "off"){
-        console.log("Setting showServerlog to false!");
-        showServerlog=false;
-      }
+    // } else if (i(theCommand,"serverlog")) {
+    //   if (theArguments[0] == "on"){
+    //     console.log("Setting showServerlog to true!");
+    //     showServerlog=true;
+    //   } else if (theArguments[0] == "off"){
+    //     console.log("Setting showServerlog to false!");
+    //     showServerlog=false;
+    //   }
 
     } else if (i(theCommand,"debug")) {
       if (theArguments[0] == "on"){
@@ -903,22 +888,24 @@ process.stdin.on('data', function(text){
       }
 
 
-    } else if (i(theCommand,"enumerateevents")) {
-      if (theArguments[0] == "on"){
-        console.log("Setting enumerateEventArguments to true!");
-        enumerateEventArguments=true;
-      } else if (theArguments[0] == "off"){
-        console.log("Setting enumerateEventArguments to false!");
-        enumerateEventArguments=false;
-      }
-    } else if (i(theCommand,"showallevents")) {
-      if (theArguments[0] == "on"){
-        console.log("Setting showAllEvents to true!");
-        showAllEvents=true;
-      } else if (i(theArguments[0],"off")){
-        console.log("Setting showAllEvents to false!");
-        showAllEvents=false;
-      }
+    // } else if (i(theCommand,"enumerateevents")) {
+    //   if (theArguments[0] == "on"){
+    //     console.log("Setting enumerateEventArguments to true!");
+    //     enumerateEventArguments=true;
+    //   } else if (theArguments[0] == "off"){
+    //     console.log("Setting enumerateEventArguments to false!");
+    //     enumerateEventArguments=false;
+    //   }
+    // } else if (i(theCommand,"showallevents")) {
+    //   if (theArguments[0] == "on"){
+    //     console.log("Setting showAllEvents to true!");
+    //     showAllEvents=true;
+    //   } else if (i(theArguments[0],"off")){
+    //     console.log("Setting showAllEvents to false!");
+    //     showAllEvents=false;
+    //   }
+
+
     // Settings will be specific to server, so these next few commands are now defunct
     // } else if (i(theCommand,"settings")) {
     //   if (!theArguments[0]){
@@ -965,15 +952,18 @@ process.stdin.on('data', function(text){
     //   global["server"].spawn.stdin.write(theText + "\n");
     console.log("Sending text is disabled till the console system is built.");
     // TODO: Build the console system.
-    } else {
-      console.error("ERROR: Server does not appear to be running.  Cannot send text to console!");
-    }
+    // } else {
+    //   console.error("ERROR: Server does not appear to be running.  Cannot send text to console!");
+    // }
     
     // global["server"].spawn.stdin.write(text.toString() + "\n");
     // global["server"].spawn.stdin.end();
   } // If blank, don't do anything.
+  
   return true; // This does nothing except to make ESLint happy.
+
 });
+
 
 // This is great to have all the info show on the screen, but how does one turn off a pipe? No idea.  I'll use events instead.
 // global["server"].spawn.stdout.pipe(process.stdout);

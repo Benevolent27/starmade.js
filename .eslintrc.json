@@ -227,7 +227,7 @@
         "quote-props": "off",
         "quotes": "off",
         "radix": [ "warn", "as-needed" ],
-        "require-await": "error",
+        "require-await": "warn",
         "require-jsdoc": "off",
         "rest-spread-spacing": "error",
         "semi": "off",
