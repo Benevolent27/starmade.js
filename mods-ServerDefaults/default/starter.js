@@ -1,5 +1,6 @@
 // This script is responsible for starting the server and firing off the event signifying the serverObj has been created.
 
+
 var serverObjJs=require("serverObj.js");
 var {ServerObj}=serverObjJs;
 var serverPath=global.getServerPath(__dirname);
