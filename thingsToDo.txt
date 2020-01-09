@@ -11,7 +11,7 @@ move the event replacer and mod reloader scripting to the ServerObj
 
 Come up with a coherent way for each server to output text to a console.. Perhaps: console=global.server[pathToInstall].console;  This would then only display the text when the user is on the console for the server.
 
-
+01-09-20:  Design a "commands" system that allows wrapper commands that work on all screens, and then commands that only work on certain consoles, such as an individual server console.
 
 
 
