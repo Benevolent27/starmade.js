@@ -287,7 +287,7 @@ function CustomConsole(consoleName,options){
     global["consoles"]={};
   }
   if (global["consoles"].hasOwnProperty(consoleName)){ // If a console with this name has already been created, don't recreate it, just return the existing console object for it.
-    return global["consoles"][consoleName];
+    return global["consoles"][consoleName].console;
   }
   const pass = new PassThrough();
   pass.on('data', (chunk) => {
@@ -304,7 +304,10 @@ function CustomConsole(consoleName,options){
     }
   });
   var outputConsole=new Console(pass);
-  global["consoles"][consoleName]=outputConsole;
+  global["consoles"][consoleName]={
+    "console":outputConsole,
+    "passthrough":pass // This is needed in case we want to pipe a program's output to this console or to attach other readers, such as for logging.  We can pipe or use pass.write("whatever")
+  }
   return outputConsole;
 }
 
