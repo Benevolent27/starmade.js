@@ -84,6 +84,7 @@ const ini               = requireBin("iniHelper.js"); // This will replace the c
 const objectHelper      = requireBin("objectHelper.js"); // This includes assistance handling of custom objects and conversions
 const regExpHelper      = requireBin("regExpHelper.js"); // Contains common patterns, arrays, and pattern functions needed for the wrapper.
 // const smInstallHelpers = requireBin("smInstallHelpers.js");
+global["objectCreator"]=objectCreator;
 global["installAndRequire"]=installAndRequire;
 global["sleep"]=sleepPromise;
 global["sleepSync"]=sleepSync;
@@ -141,7 +142,7 @@ function addEventsToRemoveOnModReload(eventName,eventFunction){
 // Object aliases
 var {isPidAlive,isDirectory,getDirectories,isFile,getFiles,log,existsAndIsFile,existsAndIsDirectory,trueOrFalse,getJSONFileSync,getJSONFile,writeJSONFileSync,writeJSONFile}=miscHelpers;  // Sets up file handling
 var {repeatString,isInArray,getRandomAlphaNumericString,arrayMinus,copyArray,toStringIfPossible,toNumIfPossible,testIfInput,simplePromisifyIt,listObjectMethods,getParamNames}=objectHelper;
-
+var {CustomConsole}=objectCreator;
 
 // #####################
 // ###    SETTINGS   ###
@@ -262,6 +263,10 @@ function dumpToRecordFile(options,cb){
   return simplePromisifyIt(dumpToRecordFile,options);
 }
 
+// Custom console code
+global["consoles"]={};
+global["currentConsole"]="main";
+var mainConsole=new CustomConsole("main",{invincible:true}); // This is a console that only displays if the "main" console is currently selected.  It is "invincible", so it will not be unloaded if the unloadListeners event happens.
 
 log("starmade.js launched.");
 
@@ -610,21 +615,23 @@ process.stdin.on('data', function(text){
 
     if (i(theCommand,"help")) {
       console.log("Here are the current console commands:");
-      console.log(  "-- Server Commands --")
-      console.log(" !status");
-      console.log(" !start");
-      console.log(" !stop");
-      console.log(" !kill");
-      console.log(" !forcekill");
-      console.log(" ");
+      // console.log(  "-- Server Commands --")
+      // console.log(" !status");
+      // console.log(" !start");
+      // console.log(" !stop");
+      // console.log(" !kill");
+      // console.log(" !forcekill");
+      // console.log(" ");
       console.log(" -- Wrapper Commands --");
       console.log(" !quit"); // Quits the wrapper, closing any sub-processes.
-      console.log(" !stdout [on/off]");
-      console.log(" !stderr [on/off]");
-      console.log(" !stderrfilter RegExp");
-      console.log(" !serverlog [on/off]");
+      console.log(" !consoles");
+      console.log(" !console [console #]");
+      // console.log(" !stdout [on/off]");
+      // console.log(" !stderr [on/off]");
+      // console.log(" !stderrfilter RegExp");
+      // console.log(" !serverlog [on/off]");
       console.log(" !debug [on/off]"); // Displays debug messages
-      console.log(" !enumerateevents [on/off]");
+      // console.log(" !enumerateevents [on/off]");
       console.log(" !reloadMods");
       console.log(" !record (stop)");
       console.log(" !showallevents [on/off]");
@@ -633,6 +640,47 @@ process.stdin.on('data', function(text){
       console.log(" !listGlobal");
       console.log(" !settings");
       console.log(" !changesetting [setting] [newvalue]");
+    } else if (i(theCommand,"consoles")){
+      let consoleKeys=Object.keys(global["consoles"]);
+      if (consoleKeys.length > 0){
+        console.log("");
+        console.log("Consoles available:");
+        for (let i=0;i<consoleKeys.length;i++){
+          console.log("  " + i + ": " + consoleKeys[i]);
+        }
+        console.log("");
+        console.log("To switch to another console, type: !console [#]");
+        console.log("Example:  !console 0");
+      } else {
+        console.log("Well that's funny, there do not appear to be any consoles available!");
+      }
+    } else if (i(theCommand,"console")){
+      let consoleKeys=Object.keys(global["consoles"]);
+      let theConsoleNum=toNumIfPossible(theArguments[0]);
+      if (typeof theConsoleNum == "number"){
+        if (consoleKeys.length < 1){
+          console.log("Well that's funny, there do not appear to be any consoles available!");
+        } else {
+          let theChoice=null;
+          for (let i=0;i<consoleKeys.length;i++){
+            if (i==theConsoleNum){
+              theChoice=consoleKeys[i];
+            }
+          }
+          if (theChoice === null){
+            console.log("ERROR: That console number did not appear to exist!  Cannot switch to it!");
+            console.log("To see a list of consoles available, type: !consoles");
+          } else {
+            console.log("Switched to console number " + theConsoleNum + ", '" + theChoice + "'.");
+            global["currentConsole"]=theChoice;
+          }
+        }
+      } else {
+        console.log("ERROR:  Please provide the number of console you wish to switch to!");
+        console.log("You can type '!consoles' for a list of available consoles.");
+      }
+
+
     } else if (i(theCommand,"reloadmods")) {
       console.log("Reloading mods..");
       eventEmitter.emit("reloadMods");
