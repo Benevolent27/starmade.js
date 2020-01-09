@@ -12,7 +12,7 @@ module.exports={ // Always put module.exports at the top so circular dependencie
 // Requires
 const fs                   = require('fs');
 const path                 = require('path');
-const EventEmitter = require('events');
+const EventEmitter         = require('events');
 class Event extends EventEmitter {};
 const prompt               = global["prompt"]; // This creates sync prompts and can have auto-complete capabilties.
 // const events               = require('events');
@@ -22,6 +22,7 @@ const spawn                = require('child_process').spawn;
 const miscHelpers          = require(path.join(binFolder,"miscHelpers.js"));
 const {requireBin}         = miscHelpers;
 
+const objectCreator        = requireBin("objectCreator.js"); // This is imported for the CustomConsole object
 const objectHelper         = requireBin("objectHelper.js");
 const regExpHelper         = requireBin("regExpHelper.js");
 const ini                  = requireBin("iniHelper.js");
@@ -30,6 +31,7 @@ const sleep                = requireBin("mySleep.js").softSleep;
 const sleepSync            = global["sleepSync"];
 const sleepPromise         = requireBin("mySleep.js").sleepPromise;
 
+// TODO:  Below needs to be fixed, because they require a serverObj to initialize correctly
 const modBinFolder         = path.join(__dirname,"bin");
 var setSettings            = require(path.join(modBinFolder,"setSettings.js")); // This will confirm the settings.json file is created and the install folder is set up.
 const sqlQueryJs           = require(path.join(modBinFolder,"sqlQuery.js"));
@@ -54,7 +56,7 @@ const {copyArray,toNumIfPossible,toStringIfPossible,subArrayFromAnother,findSame
 const {testIfInput,trueOrFalse,isTrueOrFalse,isNum,colorize,getObjType,returnLineMatch,applyFunctionToArray,simplePromisifyIt,toTrueOrFalseIfPossible} = objectHelper;
 const {isTrue,isFalse,getOption,addOption,getParamNames,getRandomAlphaNumericString,arrayMinus,addUniqueToArray}=objectHelper;
 const {areCoordsBetween,isPidAlive,ensureFolderExists,log,existsAndIsDirectory,existsAndIsFile,isSeen,writeJSONFileSync}=miscHelpers;
-
+const {CustomConsole}=objectCreator;
 
 async function getSuperAdminPassword(starMadeInstallPath){ // This will grab the superadmin password, setting it up and enabling it if not already.
     // TODO: Offload this to a require
@@ -145,6 +147,8 @@ function ServerObj(starMadeFolder,options){ // starMadeFolder is optional.  If g
       }
       self.settings.starMadeFolder=self.starMadeFolder; // Whether this is a new or existing server, we can use the starMadeFolder as the root install folder
     }
+    this.serverName=path.basename(self.starMadeFolder);
+    this.console=new CustomConsole(self.serverName); // This is to output text only when the user has switched to the console for this server.  It's a fully operational Console object.
     // Paths
     this.settings=setSettings(self.settings); // Complete any missing settings.  If a starMadeFolder argument was given, this will be used as the install path.  This includes the starmade folder, min and max java settings, etc.
     this.starMadeFolder=self.settings["starMadeFolder"];
