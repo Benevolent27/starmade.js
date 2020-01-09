@@ -2,8 +2,8 @@
 // It's pretty accurate for durations of 100ms or higher.
 // returns true if it thinks it was accurate, false if not, with about a 15ms variance.
 module.exports={
-  "sleep":mySleep,
-  "softSleep":softSleep,
+  "sleep":mySleep, // Syncronous sleep, works by spawning this script as an outside process and waits till the time it's given.  More accurate than the promise base sleep, but needs values at least 100ms or greater.
+  "softSleep":softSleep, // same as mySleep, but doesn't throw errors on invalid input.
   "sleepPromise":sleep // Only works in async functions, but is non-blocking
 }
 
@@ -28,7 +28,7 @@ async function sleepNow(sleepTill){
   process.stdout.write(Date.now().toString());
   return true;
 }
-function sleep(ms) { // This will only work within async functions.
+function sleep(ms) { // Returns a promise.  Ideal usage is within async functions.  Example: await Sleep(300)
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
