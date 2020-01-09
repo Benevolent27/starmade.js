@@ -9,6 +9,7 @@ StarNet.jar
 StarMade-Starter.jar
 temp*
 */old/*
+/old/*
 *.old
 !mods-ServerDefaults/default/*
 !mods-ServerDefaults/default/*/*
