@@ -107,52 +107,54 @@ if (global.hasOwnProperty("console")){ // allows the global.debug and other modi
 var console=global.console;
 }
 
+// Set up prototypes
+BlueprintObj.prototype.toString = function(){ return this.name };
+BotObj.prototype.toString = function(){ return this.name };
+ChannelObj.prototype.toString = function(){ return this.name };
+CoordsObj.prototype.toString = function(){ return this.x.toString() + " " + this.y.toString() + " " + this.z.toString() };
+CoordsObj.prototype.toArray=function(){ return [this.x, this.y, this.z]; }
+CreatureObj.prototype.toString=function(){ return this.fullUID.toString() };
+EntityObj.prototype.toString = function(){ return this.fullUID.toString() };
+FactionObj.prototype.toString = function(){ return toStringIfPossible(this.number) };
+IPObj.prototype.toString = function(){ return this.address };
+IPObj.prototype.toArray = function(){ return this.address.split(".") };
+LocationObj.prototype.toString = function(options){ 
+    // default is to return the sector.toString(), spacial can be given instead by specifying options as {"type":"spacial"}
+    let valToReturnType=getOption(options,"type","sector").toLowerCase();
+    if (valToReturnType == "sector"){
+        return this.sector.toString();
+    } else if (valToReturnType=="spacial"){
+        return this.spacial.toString();
+    }
+    throw new Error("Invalid option given to LocationObj.toString()!");
+}; 
+LocationObj.prototype.toArray = function(options){ 
+    // default is to return an array of objects, but an array of strings is an option with {"type":"string"}
+    let valToReturnType=getOption(options,"type","objects").toLowerCase();
+    if (valToReturnType == "objects"){
+        return [this.sector , this.spacial];
+    } else if (valToReturnType=="string"){
+        return [this.sector.toString() , this.spacial.toString()]; 
+    }
+    throw new Error("Invalid option given to LocationObj.toArray()!");
+}; 
+MessageObj.prototype.toString = function(){ return this.text };
+PlayerObj.prototype.toString = function(){ return this.name }; // This allows inputs for functions to use a playerObj or string easily.  Example:  playerObj.toString() works the same as playerString.toString(), resulting in a string of the player's name.
+SectorObj.prototype.toString = function(){ return this.coords.toString() };
+SectorObj.prototype.toArray=function(){ return this.coords.toArray() };
+SMNameObj.prototype.toString = function(){ return this.name };
+SystemObj.prototype.toString = function(){ return this.coords.toString() }; 
+
 // ###############
 // #### START ####
 // ###############
-var registeredConstructors={};
-var myServerPath=global.getServerPath(__dirname);
-global.event.on("start",function(serverPath){ // This event only happens AFTER the server has been started
+var myServerPath=global.getServerPath(__dirname); // This gets the install path for this server.
+global.event.on("start",function(serverPath){ // This event only happens AFTER the serverObj has been created
     if (serverPath === myServerPath){
         var server=global.getServer(__dirname); // Get the server object
         if (server !== null){ // Only do stuff IF there is a server object, otherwise do nothing.
         // Set up prototypes for constructors, such as replacing .toString() functionality with a default value.  Prototypes will not appear as a regular key.
-        BlueprintObj.prototype.toString = function(){ return this.name };
-        BotObj.prototype.toString = function(){ return this.name };
-        ChannelObj.prototype.toString = function(){ return this.name };
-        CoordsObj.prototype.toString = function(){ return this.x.toString() + " " + this.y.toString() + " " + this.z.toString() };
-        CoordsObj.prototype.toArray=function(){ return [this.x, this.y, this.z]; }
-        CreatureObj.prototype.toString=function(){ return this.fullUID.toString() };
-        EntityObj.prototype.toString = function(){ return this.fullUID.toString() };
-        FactionObj.prototype.toString = function(){ return toStringIfPossible(this.number) };
-        IPObj.prototype.toString = function(){ return this.address };
-        IPObj.prototype.toArray = function(){ return this.address.split(".") };
-        LocationObj.prototype.toString = function(options){ 
-            // default is to return the sector.toString(), spacial can be given instead by specifying options as {"type":"spacial"}
-        let valToReturnType=getOption(options,"type","sector").toLowerCase();
-        if (valToReturnType == "sector"){
-            return this.sector.toString();
-        } else if (valToReturnType=="spacial"){
-            return this.spacial.toString();
-        }
-        throw new Error("Invalid option given to LocationObj.toString()!");
-        }; 
-        LocationObj.prototype.toArray = function(options){ 
-            // default is to return an array of objects, but an array of strings is an option with {"type":"string"}
-            let valToReturnType=getOption(options,"type","objects").toLowerCase();
-            if (valToReturnType == "objects"){
-            return [this.sector , this.spacial];
-            } else if (valToReturnType=="string"){
-            return [this.sector.toString() , this.spacial.toString()]; 
-            }
-            throw new Error("Invalid option given to LocationObj.toArray()!");
-        }; 
-        MessageObj.prototype.toString = function(){ return this.text };
-        PlayerObj.prototype.toString = function(){ return this.name }; // This allows inputs for functions to use a playerObj or string easily.  Example:  playerObj.toString() works the same as playerString.toString(), resulting in a string of the player's name.
-        SectorObj.prototype.toString = function(){ return this.coords.toString() };
-        SectorObj.prototype.toArray=function(){ return this.coords.toArray() };
-        SMNameObj.prototype.toString = function(){ return this.name };
-        SystemObj.prototype.toString = function(){ return this.coords.toString() }; 
+
         
         // Register the constructors
         server.regConstructor(SquishedObj);
