@@ -1,3 +1,4 @@
+/* eslint-disable prefer-reflect */
 
 // This script assists with creating all custom object types used by the wrapper.
 
@@ -11,6 +12,7 @@
 module.exports={ // Always put module.exports at the top so circular dependencies work correctly.
   // init, // This is needed so objects can send text directly to the server
   RemoteServerObj,
+  CustomConsole,
   regConstructor, // Allows outside scripts to register new functions for use with squish/unsquish
   deregAllConstructors, // Deregisters constructors registered by mods
   deregConstructor, // Deregisters a specific constructor added by a mod
@@ -21,6 +23,8 @@ module.exports={ // Always put module.exports at the top so circular dependencie
 
 // Requires
 const path                 = require('path');
+const {PassThrough}      = require('stream'); // For custom console
+const {Console}            =require('console'); // For custom console
 const mainFolder           = path.dirname(require.main.filename); // This should be where the starmade.js is, unless this script is ran by itself for testing purposes.
 const binFolder            = path.resolve(__dirname,"../bin/");
 const http                 = require('http');
@@ -264,6 +268,44 @@ function SquishedObj(inputObj,objType,objCreationArray){ // Change this to take 
     } else {
         throw new Error("Invalid input given to SquishedObj!");
     }
+}
+
+function CustomConsole(consoleName,options){
+  if (typeof consoleName != "string" || consoleName == ""){
+    throw new Error("Invalid input given to CustomConsole!  Requires a string!");
+  }
+  var invincible=false;
+  if (typeof options == "object"){
+    if (options.hasOwnProperty("invincible")){
+      if (options.invincible == true){
+        invincible=true;
+      }
+    }
+  }
+
+  if (!global.hasOwnProperty("consoles")){
+    global["consoles"]={};
+  }
+  if (global["consoles"].hasOwnProperty(consoleName)){ // If a console with this name has already been created, don't recreate it, just return the existing console object for it.
+    return global["consoles"][consoleName];
+  }
+  const pass = new PassThrough();
+  pass.on('data', (chunk) => {
+      if (global.consoleSelected == consoleName){
+          process.stdout.write(chunk.toString());
+      }
+  });
+  global.event.on("unloadListeners",function(){ // This will require the customConsole obj be recreated to be usable.
+    if (!invincible){
+      if (global["consoles"].hasOwnProperty(consoleName)){
+        delete global["consoles"][consoleName];
+      }
+      pass.destroy();
+    }
+  });
+  var outputConsole=new Console(pass);
+  global["consoles"][consoleName]=outputConsole;
+  return outputConsole;
 }
 
 function RemoteServerObj(ip,domain,port){ // TODO:  Is this really needed?
