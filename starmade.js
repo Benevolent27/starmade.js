@@ -267,8 +267,15 @@ function dumpToRecordFile(options,cb){
 global["consoles"]={};
 global["currentConsole"]="main";
 var mainConsole=new CustomConsole("main",{invincible:true}); // This is a console that only displays if the "main" console is currently selected.  It is "invincible", so it will not be unloaded if the unloadListeners event happens.
+global["mainConsole"]=mainConsole; // This is for wrapper mods, not for server mods.
 
 log("starmade.js launched.");
+
+// ######################
+// ### Random Helpers ###
+// ######################
+global["cls"]=process.stdout.write("\u001b[2J\u001b[0;0H"); // Clears the screen and sets the cursor to the top.  Not sure how this will behave on a remote console or other OS's, but works on windows 10 cmd line.  Lots of options at the Source: https://stackoverflow.com/questions/9006988/node-js-on-windows-how-to-clear-console
+
 
 
 // ##############################
@@ -671,6 +678,7 @@ process.stdin.on('data', function(text){
             console.log("ERROR: That console number did not appear to exist!  Cannot switch to it!");
             console.log("To see a list of consoles available, type: !consoles");
           } else {
+            console.clear(); // Some say this doesn't work in windows.  There is a global.cls option which I may need to switch to.
             console.log("Switched to console number " + theConsoleNum + ", '" + theChoice + "'.");
             global["currentConsole"]=theChoice;
           }
