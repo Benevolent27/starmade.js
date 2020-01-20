@@ -4,6 +4,7 @@ StarNet.jar
 /.tags*
 /.vs
 /starmade/*
+node_modules
 /node_modules/*
 *.bak*
 StarMade-Starter.jar
@@ -25,3 +26,4 @@ temp*
 /bin/old
 /bin/old/*
 *.log
+
