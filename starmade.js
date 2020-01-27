@@ -117,7 +117,11 @@ global['_']=_;
 
 // ### Set up submodules and aliases from requires.
 
+// This is more in line with the node.js documentation.  TODO: Only use one method of setting up events.
+const EventEmitter         = require('events');
+class Event extends EventEmitter {};
 
+// I do not know why I'm using "EventEmitter()" below.. It seems to work.. but I should probably use above
 // The eventEmitter records listeners as they are registered so these can have their caches can be deleted when mods are unloaded and reloaded.
 var eventEmitter      = new global["events"].EventEmitter(); // This is for custom events
 var eventListenersToRemoveOnReload=[];
@@ -133,7 +137,7 @@ function eventOnce(eventName,theFunction){
   return eventEmitter.once(eventName,theFunction);
 }
 global["event"]=event; // This is a modified event handler that records when mods use it.  This allows unsetting the listeners later and re-initializing mods by deleting their caches and re-requiring them.
-function addEventsToRemoveOnModReload(eventName,eventFunction){
+function addEventsToRemoveOnModReload(eventName,eventFunction){ // TODO: Change this so it organizes things based on install, so event listeners can be reloaded for specific installs.
   var theObj={};
   theObj[eventName]=eventFunction;
   eventListenersToRemoveOnReload.push(theObj);
@@ -214,6 +218,8 @@ global["getSettings"]=getSettings; // This will ensure the settings.json file ex
 global["servers"]={};
 global["getServerObj"]=getServerObj; // This is used by mods to get the serverObj that they are a part of
 global["getServerPath"]=getServerPath;
+global["getInstallObj"]=getInstallObj; // This object contains the path to the install folder, serverObj (after it is registered), and other info.  See function for more info.
+global["regServer"]=regServer;
 var starNetJarURL             = "http://files.star-made.org/StarNet.jar";
 var starNetJar                = path.join(binFolder,"StarNet.jar");
 
@@ -455,30 +461,90 @@ eventEmitter.on('ready', function() {
   // The mods should handle setting up the rest of the settings, installing, and starting
   if (Object.keys(global["settings"].servers).length < 1){
     console.log("No server has been set up before!  Let's set one up!");
+    setupNewServer();
+  }
 
+  // TODO:  Set up the event listeners for each server.
+  global["installObjects"]={}; // I'm using install objects instead of inititializing these on the serverObj because that created a chicken and the egg problem with initializing mods
+  // global["installObjects"]={
+  //   "/some/path/here":{
+  //     event:new EventEmitter(),
+  //     path:"/some/path/here",
+  //     serverObj:theServerObj
+  //   }   
+  // };
+  var serverKeys=Object.keys(global["settings"].servers);
+  for (let i=0;i<serverKeys.length;i++){ // For each server, create an event lister
+    global["installObjects"][serverKeys[i]]={
+      "path":serverKeys[i],
+      "event":getNewModifiedEvent(serverKeys[i]), // Each install gets it's own modified event listener, that allows deregistering each listener prior to reloading mods.
+      "settings":global["settings"].servers[serverKeys[i]] // This is redundant, to make it easier to pull the info.
+    };
   }
 
   try { // This is to catch an error if spawn cannot start the java process
     console.log("############## Loading Mods ###############");
-    loadServerMods(); //  This loads in the mods.  They are responsible for setting up extra settings, installation, and starting the server.
-  } catch (err) { // This does NOT handle errors returned by the spawn process.  This only handles errors actually spawning the process in the first place, such as if we type "javaBlah" instead of "java".  Cannot run "javaBlah" since it doesn't exist.
+    loadServerMods(); //  This loads in the mods.  It will update global["installObjects"] for each server, adding a "modRequires" element with each file and the associated require.   This is used when reloading the mods to be able to delete the cache and then re-require each file.
+    // Each mod is responsible for setting up extra settings, installation, and starting the server.
+  } catch (err) { // This handles any error that is thrown by mods when they are being loaded.
     console.error("Error when loading mods!");
     throw err;
   }
+  // Now that all mods are loaded, let's throw the init event at them.  This is needed because some mods may need other mods to be loaded before they finish initialitizing themselves.
+  emitToAllInstalls("init");
+  // On init, there is a default mod that will create a serverObj and emit "start" on it's own event emitter, providing the serverObj.  This is so other mods can then initialize with the serverObj.
 });
+
+function getNewModifiedEvent(theInstallPath){ // Change this to provide the install path, so mods can be reloaded for individual installs
+  var newEvent=new Event();
+  var modifiedEvent=objectHelper.copyObj(newEvent);
+  modifiedEvent["on"]=function(eventName,theFunction){
+    addEventsToRemoveOnModReload(eventName,theFunction);
+    return newEvent.on(eventName,theFunction);
+  }
+  modifiedEvent["once"]=function (eventName,theFunction){
+    addEventsToRemoveOnModReload(eventName,theFunction);
+    return newEvent.once(eventName,theFunction);
+  }
+  return modifiedEvent;
+}
+
+function emitToAllInstalls(event){ // Instead of emitting on the global event emitter, this will emit to each individual server.  This is to make it so that mods do not need to listen to the global event emitter.
+  var installsArray=Object.keys(global["installObjects"]);
+  for (let i=0;i<installsArray.length;i++){
+    if (global["installObjects"][installsArray[i]].hasOwnProperty("event")){
+      global["installObjects"][installsArray[i]].event.emit(...arguments); // This will pass all arguments, including the event.
+    }
+  }
+}
 
 // ###################
 // #### MODLOADER ####
 // ###################
 global["serverMods"]={};
 function loadServerMods(){ // done: 01-07-20
+  // outputs an object that looks like this:
+  // {
+  //   "/path/to/install":{
+  //     "/path/to/install/mods/someModFolder/someScript.js":theRequireObject,
+  //     "/path/to/install/mods/someModFolder/anotherScript.js":theRequireObject,
+  //     "/path/to/install/mods/someModFolder/etc.js":theRequireObject
+  //   },
+  //   "/path/to/another/install":{
+  //     "/path/to/another/install/mods/someModFolder/someScript.js":theRequireObject,
+  //     "/path/to/another/install/mods/someModFolder/anotherScript.js":theRequireObject,
+  //     "/path/to/another/install/mods/someModFolder/etc.js":theRequireObject
+  //   }
+  // }
   var serverFoldersArray=Object.keys(global["settings"].servers);
   for (let e=0;e<serverFoldersArray.length;e++){
     let modsFolder=path.join(serverFoldersArray[e],"mods");
     if (existsAndIsDirectory(modsFolder)){
       var modFolders=getDirectories(modsFolder);
       if (modFolders.length>0){
-        global["serverMods"][serverFoldersArray[e]]={};
+        // global["serverMods"][serverFoldersArray[e]]={}; // Switching to using a temporary variable
+        // returnObj[serverFoldersArray[e]]={};
+        global["installObjects"][serverFoldersArray[e]]["modRequires"]={};
         var fileList=[];
         for (var i = 0;i < modFolders.length;i++) {
           console.log("Mod Folder found: " + modFolders[i] + " Looking for scripts..");
@@ -488,7 +554,11 @@ function loadServerMods(){ // done: 01-07-20
             if (fileList[c].match(/.\.js$/)) {
               console.log("Loading JS file: " + fileList[c]);
               try{
-                global["serverMods"][serverFoldersArray[e]][fileList[c]]=require(fileList[c]);
+                // global["serverMods"][serverFoldersArray[e]][fileList[c]]=require(fileList[c]);
+                // let theRequire=require(fileList[c]);
+                // returnObj[serverFoldersArray[e]][fileList[c]]=require(fileList[c]);
+                // For each installObj, add an element which contains all the requires.  This is to delete their cache's later and reload them.  It could also be used just to inspect what files are loaded currently.
+                global["installObjects"][serverFoldersArray[e]]["modRequires"][fileList[c]]=require(fileList[c]);
               } catch (err){
                 console.log("Error loading mod: " + fileList[c],err);
                 throw err;
@@ -496,13 +566,17 @@ function loadServerMods(){ // done: 01-07-20
             }
           }
         }
+
       } else {
         console.log("Cannot load any mods. Mods folder contained no mods.  Server Path: " + serverFoldersArray[e]);
       }
+
     } else {
       console.log("Cannot load any mods. No 'mods' folder found.  Server Path: " + serverFoldersArray[e]);
     }
   }
+  // global["serverMods"]=returnObj;
+  return true;
 }
 function unloadServerMods(inputPath){  // This cycles through the list of modfiles and deletes their cache
   // if 'inputPath' is specified, it will ONLY unload that specific path.
@@ -1109,6 +1183,13 @@ eventEmitter.on('asyncDone', installDepsSync);
 //   return simplePromisifyIt(writeInstallTrackerFile,options);
 // }
 
+function regServer(installPath,serverObj){
+  if (global["installObjects"].hasOwnProperty(installPath)){
+    global["installObjects"][installPath].serverObj=serverObj;
+  }
+  return new Error("No install for that path exists!");
+}
+
 function getServerPath(pathToMod){
   var pathArray=pathToMod.split(path.sep);
   pathArray.pop();
@@ -1116,14 +1197,27 @@ function getServerPath(pathToMod){
   var starMadeDir=pathArray.join(path.sep);
   return starMadeDir;
 }
-function getServerObj(pathToMod){ 
+function getInstallObj(pathToMod){
+  // This is used for a mod to grab the installObj of the server it is a part of.
+  // Usage:  global.getInstallObj(__dirname);
+  // Returns an object that contains event, path, modRequires, and serverObj (if it has been initialized).
+  // If the install has not been registered to the global variable, it will return null
+  var serverPath=getServerPath(pathToMod);
+  if (global["installObjects"].hasOwnProperty(serverPath)){
+    return global["installObjects"][serverPath];
+  }
+  return null;
+}
+function getServerObj(pathToMod){  // This is redundant since the serverObj is available on the installObj
   // This is used for a mod to grab the serverObj of the server it is a part of.
   // Usage:  global.getServer(__dirname);
   // Returns the object to the server for which the mod is a part of.  
   // If the server has not been registered to the global variable, it will return null
   var starMadeDir=getServerPath(pathToMod);
-  if (global["servers"].hasOwnProperty(starMadeDir)){
-    return global["servers"][starMadeDir];
+  if (global["installObjects"].hasOwnProperty(starMadeDir)){
+    if (global["installObjects"][starMadeDir].hasOwnProperty("serverObj")){
+      return global["installObjects"][starMadeDir].serverObj;
+    }
   }
   return null;
 }
@@ -1252,6 +1346,7 @@ function i(input,input2){ // I use this to do easy case insensitive matching for
 exitHook(() => { // This will handle sigint and sigterm exits, errors, and everything.
   // Cleanup that needs to be done on the global scope should be done here.
   console.log("Global Exit event running using exitHook require..");
+  writeSettings(); // Always make sure the settings get written before exit, so any changes are recorded.
 });
 
 // ##############################
