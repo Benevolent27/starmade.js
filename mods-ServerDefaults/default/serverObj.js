@@ -36,7 +36,6 @@ const modBinFolder         = path.join(__dirname,"bin");
 var setSettings            = require(path.join(modBinFolder,"setSettings.js")); // This will confirm the settings.json file is created and the install folder is set up.
 const sqlQueryJs           = require(path.join(modBinFolder,"sqlQuery.js"));
 const starNet              = require(path.join(modBinFolder,"starNet.js"));
-const starNetHelper        = require(path.join(modBinFolder,"starNetHelper.js"));
 const smInstallHelpers     = require(path.join(modBinFolder,"smInstallHelpers.js"));
 
 // NPM installable requires
@@ -48,14 +47,14 @@ const fsExtra       = installAndRequire("fs-extra","^8.1.0");
 // Aliases for requires - These are set up for readability
 const stripFullUIDtoUID     = regExpHelper["stripFullUIDtoUID"]; // Function that removes text like ENTITY_SHIP_ and ENTITY_PLANET_ from the beginning of a full UID so it can be used to perform SQL queries on UID
 var sectorProtectionsArray  = regExpHelper.sectorProtections; // This should include all the possible protections a sector can have.
-// const verifyStarNetResponse = starNetHelper.verifyResponse; // This can be used to perform a verification on a StarNet response without consuming the response
+// const verifyStarNetResponse = starNet.verifyResponse; // This can be used to perform a verification on a StarNet response without consuming the response
 // const starNetVerified       = starNetVerified; // If the response does not verify, this consumes the response and throws an error instead
 const {sqlQuery,SqlQueryObj,simpleSqlQuery}=sqlQueryJs;
-const {starNetVerified,returnMatchingLinesAsArray} = starNetHelper;
+const {starNetVerified,returnMatchingLinesAsArray} = starNet;
 const {copyArray,toNumIfPossible,toStringIfPossible,subArrayFromAnother,findSameFromTwoArrays,isInArray} = objectHelper;
 const {testIfInput,trueOrFalse,isTrueOrFalse,isNum,colorize,getObjType,returnLineMatch,applyFunctionToArray,simplePromisifyIt,toTrueOrFalseIfPossible} = objectHelper;
 const {isTrue,isFalse,getOption,addOption,getParamNames,getRandomAlphaNumericString,arrayMinus,addUniqueToArray}=objectHelper;
-const {areCoordsBetween,isPidAlive,ensureFolderExists,log,existsAndIsDirectory,existsAndIsFile,isSeen,writeJSONFileSync}=miscHelpers;
+const {areCoordsBetween,isPidAlive,ensureFolderExists,log,existsAndIsDirectory,existsAndIsFile,isSeen,writeJSONFileSync,getSimpleDate,getSimpleTime}=miscHelpers;
 const {CustomConsole}=objectCreator;
 
 async function getSuperAdminPassword(starMadeInstallPath){ // This will grab the superadmin password, setting it up and enabling it if not already.
@@ -208,7 +207,8 @@ function ServerObj(starMadeFolder,options){ // starMadeFolder is optional.  If g
       return deregged; // Returns true if something was removed, false if not.
     }
   
-    this.event=new Event();
+    // this.event=new Event();  // This has been changed to being created in starmade.js so that the event listeners can be registered there and unregistered when mods are reloaded.
+    this.event=global.installObjects[self.starMadeFolder].event;
     global.settings.servers[self.starMadeFolder]=self.settings; // Only update the settings to the global settings file IF the serverObj wasn't already set up.
     // Before we go any further, we should check to see if there are any previous PIDs associated with this server and kill them if necessary.
     if (self.settings.hasOwnProperty("lockPIDs")){
