@@ -20,6 +20,8 @@ temp*
 /mods-ServerDefaults/diversify
 !mods-Wrapper/default/*
 !mods-Wrapper/default/*/*
+/mods-ServerDefaults/default/bin/old
+/mods-ServerDefaults/default/bin/old/*
 /logs/*
 /bin/test.js
 /bin/*.old
