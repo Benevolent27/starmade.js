@@ -38,12 +38,13 @@ global.event.on('start',function(forServerPath){ // The serverObj has been creat
         // Extenders - These will only be guaranteed available after the "init" event is triggered.
         // objectCreator["CommandObj"]=CommandObj;
         serverObj.regConstructor(CommandObj);
-        serverObj["regCommand"]=regCommand;
+        serverObj["regCommand"]=regCommand; // Extend the serverObj
         serverObj["commandSettings"]=defaultSettings;
         event.on("reloadMods", removeCommands);
         // event.on("init", init);
         event.on('command', command);
         event.on('playerMessage', message);
+        event.emit('commandStart',regCommand); // This signals that other mods can register their commands since the serverObj should have the needed methods.
 
         // Register the commands associated with this object
         serverObj.regCommand("changeHelpWidth","HiddenHelpers",true,false);
