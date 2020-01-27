@@ -1,4 +1,5 @@
 
+// TODO:  Refactor this to initialize the bin scripts correctly
 
 // #########################
 // ####  SERVER OBJECTS ####
@@ -70,32 +71,23 @@ const sleepSync            = global["sleepSync"];
 const sleepPromise         = requireBin("mySleep.js").sleepPromise;
 
 const modBinFolder         = path.join(__dirname,"bin");
-const starNet              = require(path.join(modBinFolder,"starNet.js"));
-const {starNetCb}=starNet;
-const starNetHelper        = require(path.join(modBinFolder,"starNetHelper.js"));
-
-const patterns             = require(path.join(modBinFolder,"patterns.js")); // Import the patterns that will be used to match to in-game events like deaths and messages.
-var includePatternRegex = patterns.includes();
-var excludePatternRegex = patterns.excludes();
-var includePatternServerLogRegex = patterns.serverLogIncludes();
-var excludePatternServerLogRegex = patterns.serverLogExcluded();
-
-
+// TODO: Fix below, since these require being loaded with a server object.
+const starNetJs              = require(path.join(modBinFolder,"starNet.js"));
+var starNet                = {}; // This gets changed later on once it is initialized.
 
 // NPM installable requires
 const treeKill      = installAndRequire('tree-kill','^1.2.1'); // https://www.npmjs.com/package/tree-kill To kill the server and any sub-processes
 const isInvalidPath = installAndRequire("is-invalid-path",'^1.0.2'); // https://www.npmjs.com/package/is-invalid-path -- Not using the "is-valid-path" because my force require scripting won't work with it since it uses a non-standard path to it's scripts
 const exitHook      = installAndRequire('exit-hook','2.2.0'); // https://github.com/sindresorhus/exit-hook Handles normal shutdowns, sigterm, sigint, and a "message=shutdown" event.  Good for ensuring the server gets shutdown.
 const fsExtra       = installAndRequire("fs-extra","^8.1.0");
-var lockFile   = path.join(mainFolder,"server.lck");
 
 // Aliases for requires - These are set up for readability
 const stripFullUIDtoUID     = regExpHelper["stripFullUIDtoUID"]; // Function that removes text like ENTITY_SHIP_ and ENTITY_PLANET_ from the beginning of a full UID so it can be used to perform SQL queries on UID
 var sectorProtectionsArray  = regExpHelper.sectorProtections; // This should include all the possible protections a sector can have.
-// const verifyStarNetResponse = starNetHelper.verifyResponse; // This can be used to perform a verification on a StarNet response without consuming the response
+// const verifyStarNetResponse = starNet.verifyResponse; // This can be used to perform a verification on a StarNet response without consuming the response
 // const starNetVerified       = starNetVerified; // If the response does not verify, this consumes the response and throws an error instead
 const {sqlQuery,SqlQueryObj,simpleSqlQuery}=sqlQueryJs;
-const {verifyStarNetResponse,starNetVerified,starNetVerifiedCB,returnMatchingLinesAsArray,checkForLine,mapifyShipInfoUIDString} = starNetHelper;
+const {verifyStarNetResponse,starNetVerified,starNetVerifiedCB,returnMatchingLinesAsArray,checkForLine,mapifyShipInfoUIDString} = starNet;
 const {copyArray,toNumIfPossible,toStringIfPossible,subArrayFromAnother,findSameFromTwoArrays,isInArray} = objectHelper;
 const {testIfInput,trueOrFalse,isTrueOrFalse,isNum,colorize,getObjType,returnLineMatch,applyFunctionToArray,simplePromisifyIt,toTrueOrFalseIfPossible} = objectHelper;
 const {isTrue,isFalse,getOption,addOption,getParamNames,getRandomAlphaNumericString,arrayMinus,addUniqueToArray}=objectHelper;
@@ -148,13 +140,15 @@ SystemObj.prototype.toString = function(){ return this.coords.toString() };
 // ###############
 // #### START ####
 // ###############
+var server={};
 var myServerPath=global.getServerPath(__dirname); // This gets the install path for this server.
 global.event.on("start",function(serverPath){ // This event only happens AFTER the serverObj has been created
     if (serverPath === myServerPath){
-        var server=global.getServer(__dirname); // Get the server object
+        server=global.getServer(__dirname); // Get the server object
         if (server !== null){ // Only do stuff IF there is a server object, otherwise do nothing.
         // Set up prototypes for constructors, such as replacing .toString() functionality with a default value.  Prototypes will not appear as a regular key.
 
+        starNet=starNetJs(server); // Initializes starNet to use the server object.
         
         // Register the constructors
         server.regConstructor(SquishedObj);
@@ -406,20 +400,20 @@ function BotObj(name){ // cb/promises/squishy compliant
 
     this.msg=function(player,msgString,options,cb){ // This expects a player object OR a string with a player's name, then the message to send, either as a string or an object that can be converted to a string with .toString()
         if (typeof cb == "function"){
-        var theMessage=toStringIfPossible(msgString); // This allows certain objects that can be converted to strings to be used, such as matches or other objects
-        if (typeof theMessage == "string"){
-            try {
-            var thePlayer=new PlayerObj(player); // This creates a new playerObj with the playername string or PlayerObj
-            } catch (err){
-            console.log("ERROR:  Invalid input given to BotObj as 'player'!");
-            return cb(err,null);
+            var theMessage=toStringIfPossible(msgString); // This allows certain objects that can be converted to strings to be used, such as matches or other objects
+            if (typeof theMessage == "string"){
+                try {
+                    var thePlayer=new PlayerObj(player); // This creates a new playerObj with the playername string or PlayerObj
+                } catch (err){
+                    console.log("ERROR:  Invalid input given to BotObj as 'player'!");
+                    return cb(err,null);
+                }
+                return thePlayer.msg("[" + this.name + "]: " + theMessage,options,cb); // Any options PlayerObj.msg can take will be forwarded to it.
+            } else {
+                return cb(new Error("Error with BotObj.msg command.  Invalid input given to message player with!"),null); // Could not send message, so both error and false.
             }
-            return thePlayer.msg("[" + this.name + "]: " + theMessage,options,cb); // Any options PlayerObj.msg can take will be forwarded to it.
         } else {
-            return cb(new Error("Error with BotObj.msg command.  Invalid input given to message player with!"),null); // Could not send message, so both error and false.
-        }
-        } else {
-        return simplePromisifyIt(self.msg,options,player,msgString);
+            return simplePromisifyIt(self.msg,options,player,msgString);
         }
     }
     this.serverMsg=function(msgString,options,cb){ // This expects the message to send either as a string or an object that can be converted to a string
@@ -2876,7 +2870,7 @@ function SectorObj(x,y,z){ // cb/promises/squish compliant
                 return cb(err,result);
             }
             let theReg=/^RETURN: \[SERVER, LOADED SECTOR INFO:.*/;
-            return cb(null,starNetHelper.checkForLine(result,theReg));
+            return cb(null,starNet.checkForLine(result,theReg));
             });
         }
         return simplePromisifyIt(self.isLoaded,options);
@@ -3334,7 +3328,7 @@ function EntityObj(fullUID){ // cb/promises/squish compliant
 
     let fullUIDToUse=fullUID;
     // if (shipName){
-    //   fullUIDToUse=starNetHelper.getUIDfromNameSync(shipName);
+    //   fullUIDToUse=starNet.getUIDfromNameSync(shipName);
     // }
 
     if (fullUIDToUse){
@@ -3343,6 +3337,213 @@ function EntityObj(fullUID){ // cb/promises/squish compliant
         this.fullUID=fullUIDToUse;
 
         // Needs testing below:
+        // /entity_get_inventory ENTITY_SHIP_theShip 16 17 16
+        // /entity_get_inventory ENTITY_SPACESTATION_testBase 16 17 16
+        
+        // Success Example (has multi-block in slot 1):
+        // [ADMIN COMMAND] [SUCCESS] Listing entity SpaceStation[ENTITY_SPACESTATION_testBase(271)][(16, 17, 16)] inventory START
+        // [INVENTORY] SpaceStation[ENTITY_SPACESTATION_testBase(271)][(16, 17, 16)]:  SLOT: 0; MULTI: false; TYPE: 1; META: -1; COUNT: 100
+        // [INVENTORY] SpaceStation[ENTITY_SPACESTATION_testBase(271)][(16, 17, 16)]:  SLOT: 1; MULTI: true; TYPE: -32768; META: -1; COUNT: 50
+        // [INVENTORY] SpaceStation[ENTITY_SPACESTATION_testBase(271)][(16, 17, 16)]: - SLOT: 0; MULTI: false; TYPE: 413; META: -1; COUNT: 10
+        // [INVENTORY] SpaceStation[ENTITY_SPACESTATION_testBase(271)][(16, 17, 16)]: - SLOT: 1; MULTI: false; TYPE: 411; META: -1; COUNT: 10
+        // [INVENTORY] SpaceStation[ENTITY_SPACESTATION_testBase(271)][(16, 17, 16)]: - SLOT: 2; MULTI: false; TYPE: 412; META: -1; COUNT: 10
+        // [INVENTORY] SpaceStation[ENTITY_SPACESTATION_testBase(271)][(16, 17, 16)]: - SLOT: 3; MULTI: false; TYPE: 979; META: -1; COUNT: 10
+        // [INVENTORY] SpaceStation[ENTITY_SPACESTATION_testBase(271)][(16, 17, 16)]: - SLOT: 4; MULTI: false; TYPE: 980; META: -1; COUNT: 10
+        // [INVENTORY] SpaceStation[ENTITY_SPACESTATION_testBase(271)][(16, 17, 16)]:  SLOT: 2; MULTI: false; TYPE: 598; META: -1; COUNT: 10
+
+        // Error Examples:
+        // [ADMIN COMMAND] [ERROR] No inventory found at (16, 17, 17). (hold RShift to check block coordinates of looked at block)
+        // [ADMIN COMMAND] [ERROR] No Entity found for UID 'ENTITY_SPACESTATION_testBase2'
+
+        self.getStorage=function(relativeX,relativeY,relativeZ,options,cb){ 
+            // Takes the relative coordinates of a storage on the entity and returns an array of itemObjects
+            // Note:  Can accept a coordsObj as the first parameter, but will require the relativeY and relativeZ to be blanked out.
+            // var exampleItemObj={
+            //     "multi":true,       // If this is true, it indicates it is part of a multi-block item; will otherwise be false.
+            //     "slot":0,           // items part of a multi-block will all have the same slot
+            //     "subSlot":0,        // Only items part of a multi-block will have a subSlot number
+            //     "type":1,
+            //     "count":100,
+            //     "meta":-1
+            // }
+            var x="";
+            var y="";
+            var z="";
+            if (typeof cb=="function"){
+                if (Array.isArray(relativeX)){
+                    if (relativeX.length==3){
+                        try {
+                            x=toNumIfPossible(relativeX[0]);
+                            y=toNumIfPossible(relativeX[1]);
+                            z=toNumIfPossible(relativeX[2]);
+                        } catch (err){
+                            return cb(new Error("Invalid array input given to EntityObj.getStorage()!  Expects x,y,z OR a CoordsObj!"),null);
+                        }
+                    } else {
+                        return cb(new Error("Invalid array input given to EntityObj.getStorage()!  Array should have 3 numbers!  Example: [1,2,3]"),null);
+                    }
+                } else if (typeof relativeX=="object"){
+                    try {
+                        x=toNumIfPossible(relativeX.x);
+                        y=toNumIfPossible(relativeX.y);
+                        z=toNumIfPossible(relativeX.z);
+                    } catch (err){
+                        return cb(new Error("Invalid object input given to EntityObj.getStorage()!  Expects x,y,z OR a CoordsObj!"),null);
+                    }
+                } else {
+                    x=toNumIfPossible(relativeX);
+                    y=toNumIfPossible(relativeY);
+                    z=toNumIfPossible(relativeZ);
+                }
+                if (typeof x == "number" && typeof y == "number" && typeof z == "number"){
+                    return starNetVerified(`/entity_get_inventory "${self.fullUID}" ${x} ${y} ${z}`,options,function(err,resultString){
+                        if (err){
+                            return cb(err,null); // This indicates a connection error of some kind
+                        }
+                        let resultArray=resultString.replace("\r","").split("\n");
+                        var slot=Number();
+                        var returnArray=[];  // This will be returned with an array of itemObjects
+                        var itemObj={};
+                        for (let i=0;i<resultArray.length;i++){
+                            if ((/^\[ADMIN COMMAND\] \[ERROR\] No inventory found.*/).test(resultArray[i])){
+                                return cb(false,"noInventoryFound");
+                            } else if ((/^\[ADMIN COMMAND\] \[ERROR\] No Entity found.*/).test(resultArray[i])){
+                                return cb(false,"noEntityFound");
+                            } 
+                            if ((/\^[INVENTORY].*/).test(resultArray[i])){
+                                if ((/; MULTI: true;/).test(resultArray[i])){ // Is it a multi-block?
+                                    slot=toNumIfPossible(resultArray[i].match(/(?<= {2}SLOT: )[^;]+/)); // Set the slot for the next line.
+                                    // Skip adding to the array. We are interested in the blocks that are actually within the multi-block, not the multi-block itself.
+                                } else {
+                                    itemObj={}; // Reset the itemObj
+                                    // We will be adding an entry to the array here, but may or may not be adding subSlot data
+                                    if ((/: - SLOT: [0-9]+;/).test(resultArray[i])){ // Are are looking at a multi-slot item?
+                                        itemObj.multi=true; // Indicate it is part of a multi-block
+                                        itemObj.slot=slot;  // Use the slot number previously set
+                                        itemObj.subSlot=toNumIfPossible(resultArray[i].match(/(?<= - SLOT: )[^;]+/));
+                                    } else { // For multi-slot items, multi will remain true till we reach an item that is not a multi slot
+                                        itemObj.multi=false;
+                                        itemObj.slot=toNumIfPossible(resultArray[i].match(/(?<= {2}SLOT: )[^;]+/));
+                                    }
+                                    itemObj.type=toNumIfPossible(resultArray[i].match(/(?<=; TYPE: )[^;]+/));
+                                    itemObj.count=toNumIfPossible(resultArray[i].match(/(?<=; COUNT: )[0-9]+/));
+                                    itemObj.meta=toNumIfPossible(resultArray[i].match(/(?<=; META: )[^;]+/));
+                                    returnArray.push(itemObj);
+                                }
+                            }
+                        }
+                        return cb(null,returnArray);
+                    });
+                } else {
+                    return cb(new Error("Invalid input given to EntityObj.getStorage() for x,y, or z!"),null);
+                }
+            }
+            return simplePromisifyIt(self.getStorage,options,relativeX,relativeY,relativeZ);
+        }
+        self.getStorageItemIDCount=function(relativeX,relativeY,relativeZ,itemID,options,cb){
+            // Returns the number of an item in a storage.  Will count up all items, including separated ones.
+            if (typeof cb=="function"){
+                if (typeof itemID == "number"){
+                    return self.getStorage(relativeX,relativeY,relativeZ,options,function(err,resultArray){
+                        if (err){
+                            return cb(err,null);
+                        } else if (err == false){
+                            return cb(false,resultArray);
+                        }
+                        var resultNum=0;
+                        for (let i=0;i<resultArray.length;i++){
+                            if (resultArray[i].hasOwnProperty("type")){
+                                if (resultArray[i].type == itemID){
+                                    if (resultArray[i].hasOwnProperty("count")){
+                                        resultNum+=resultArray[i].count; // There can be more than one if the blocks were split, so add them up.
+                                    }
+                                }
+                            }
+                        }
+                        return cb(null,resultNum);
+                    });
+                } else {
+                    return cb(new Error("Invalid input given to EntityObj.getStorageItemIDCount() as itemID!  Expects a number!"),null);
+                }
+            } else {
+                return simplePromisifyIt(self.getStorageItemIDCount,options,relativeX,relativeY,relativeZ,itemID);
+            }
+        };
+
+        // /give_uid_storage_id ENTITY_SHIP_theShip 16 17 16 1 100
+        // /give_uid_storage_id ENTITY_SPACESTATION_testBase 16 17 16 1 100
+        
+        // Success example:
+        // [ADMIN COMMAND] [SUCCESS] Put 100 of Ship Core(1) into Ship[theShip](16); inventory Inventory: (Type3; Param 68720590864; SlotCount: 3); slot 2
+        
+        // Error examples:
+        // [ADMIN COMMAND] [ERROR] Can't put amount of that ID into inventory
+        // [ADMIN COMMAND] [ERROR] No inventory found at (16, 17, 17). (hold RShift to check block coordinates of looked at block)
+        // [ADMIN COMMAND] [ERROR] No Entity found for UID 'ENTITY_SPACESTATION_testBase2'
+        self.giveStorageItemID=function(relativeX,relativeY,relativeZ,itemIDToGive,numberToGive,options,cb){ 
+            // Takes the relative coordinates of a storage on the entity and places a number of an itemID into it.
+            // Note:  Can accept a coordsObj or array as the first parameter, but will require the relativeY and relativeZ to be blanked out.
+            if (typeof cb=="function"){
+                var x="";
+                var y="";
+                var z="";
+                var itemID=toNumIfPossible(itemIDToGive);
+                var number=toNumIfPossible(numberToGive);
+                if (Array.isArray(relativeX)){
+                    if (relativeX.length==3){
+                        try {
+                            x=toNumIfPossible(relativeX[0]);
+                            y=toNumIfPossible(relativeX[1]);
+                            z=toNumIfPossible(relativeX[2]);
+                        } catch (err){
+                            return cb(new Error("Invalid array input given to EntityObj.giveStorageItemID()!  Expects x,y,z OR a CoordsObj!"),null);
+                        }
+                    } else {
+                        return cb(new Error("Invalid array input given to EntityObj.giveStorageItemID()!  Array should have 3 numbers!  Example: [1,2,3]"),null);
+                    }
+                } else if (typeof relativeX=="object"){
+                    try {
+                        x=toNumIfPossible(relativeX.x);
+                        y=toNumIfPossible(relativeX.y);
+                        z=toNumIfPossible(relativeX.z);
+                    } catch (err){
+                        return cb(new Error("Invalid object input given to EntityObj.giveStorageItemID()!  Expects x,y,z OR a CoordsObj!"),null);
+                    }
+                } else {
+                    x=toNumIfPossible(relativeX);
+                    y=toNumIfPossible(relativeY);
+                    z=toNumIfPossible(relativeZ);
+                }
+                if (typeof x == "number" && typeof y == "number" && typeof z == "number" && typeof itemID == "number" && typeof number == "number"){
+                    return starNetVerified(`/give_uid_storage_id "${self.fullUID}" ${x} ${y} ${z} ${itemID} ${number}`,options,function(err,resultString){
+                        if (err){
+                            return cb(err,null); // This indicates a connection error of some kind
+                        }
+                        let resultArray=resultString.replace("\r","").split("\n");
+                        for (let i=0;i<resultArray.length;i++){
+                            if ((/^\[ADMIN COMMAND\] \[ERROR\] No inventory found.*/).test(resultArray[i])){
+                                return cb(false,"noInventoryFound");
+                            } else if ((/^\[ADMIN COMMAND\] \[ERROR\] No Entity found.*/).test(resultArray[i])){
+                                return cb(false,"noEntityFound");
+                            } else if ((/^\[ADMIN COMMAND\] \[ERROR\] Can't put amount of that ID into inventory.*/).test(resultArray[i])){
+                                return cb(false,"storageFull");
+                            }
+                            // [ADMIN COMMAND] [SUCCESS] Put 100 of Ship Core(1) into Ship[theShip](16); inventory Inventory: (Type3; Param 68720590864; SlotCount: 3); slot 2
+
+                            // [ADMIN COMMAND] [ERROR] Can't put amount of that ID into inventory
+                            // [ADMIN COMMAND] [ERROR] No inventory found at (16, 17, 17). (hold RShift to check block coordinates of looked at block)
+                            // [ADMIN COMMAND] [ERROR] No Entity found for UID 'ENTITY_SPACESTATION_testBase2'
+                        }
+                        return cb(null,true); // No errors were found, so it must have been successful
+                    });
+                } else {
+                    return cb(new Error("Invalid input given to EntityObj.giveStorageItemID() for x,y, or z!"),null);
+                }
+            }
+            return simplePromisifyIt(self.giveStorageItemID,options,relativeX,relativeY,relativeZ,itemID,number);
+        }
+
+
         self.decay=function(options,cb){ // decays the ship
         console.debug("Decaying UID: " + self.fullUID);
         return runSimpleCommand("/decay_uid " + self.fullUID,options,cb); // handles promises
@@ -3475,7 +3676,7 @@ function EntityObj(fullUID){ // cb/promises/squish compliant
                 // Success: RETURN: [SERVER, [ADMIN COMMAND] [SUCCESS] changed sector for Benevolent27 to (1000, 1000, 1000), 0]
                 // Fail: RETURN: [SERVER, [ADMIN COMMAND] [ERROR] player not found for your client Benevolent27, 0]
                 var theReg=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] \\[SUCCESS\\]");
-                if (starNetHelper.checkForLine(result,theReg)){ // The command succeeded.
+                if (starNet.checkForLine(result,theReg)){ // The command succeeded.
                     return cb(null,Boolean(true));
                 } else { // The command failed.  Player either offline or does not exist for some reason.
                     return cb(null,Boolean(false));
@@ -3517,7 +3718,7 @@ function EntityObj(fullUID){ // cb/promises/squish compliant
                         // Success: RETURN: [SERVER, [ADMIN COMMAND] teleported Benevolent27 to , 0]
                         // Fail: RETURN: [SERVER, [ADMIN COMMAND] [ERROR] player not found for your client, 0]
                         var theReg=new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] teleported");
-                        if (starNetHelper.checkForLine(result,theReg)){ // The command succeeded.
+                        if (starNet.checkForLine(result,theReg)){ // The command succeeded.
                             return cb(null,Boolean(true));
                         } else { // The command failed.  Player either offline or does not exist for some reason.
                             return cb(null,Boolean(false));
@@ -3531,7 +3732,7 @@ function EntityObj(fullUID){ // cb/promises/squish compliant
         }
 
         this.dataMap=function(options,cb){ 
-        // return new starNetHelper.ShipInfoUidObj(self.fullUID);
+        // return new starNet.ShipInfoUidObj(self.fullUID);
         if (typeof cb=="function"){
             return starNetVerified(server,"/ship_info_uid \"" + self.fullUID +"\"",options,function(err,result){
             if (err){
@@ -3543,7 +3744,7 @@ function EntityObj(fullUID){ // cb/promises/squish compliant
         return simplePromisifyIt(self.dataMap,options);
         }; // TODO:  This seems broken
         this.dataObj=function(options,cb){ 
-        // return new starNetHelper.ShipInfoUidObj(self.fullUID,{"objType":"object"})
+        // return new starNet.ShipInfoUidObj(self.fullUID,{"objType":"object"})
         if (typeof cb=="function"){
             return starNetVerified(server,"/ship_info_uid \"" + self.fullUID + "\"",options,function(err,result){
             if (err){
@@ -3557,12 +3758,12 @@ function EntityObj(fullUID){ // cb/promises/squish compliant
 
 
         this.isLoaded=function(options,cb){ 
-        return starNetHelper.getEntityValue(self.fullUID,"loaded",options,cb); // handles promises
+        return starNet.getEntityValue(self.fullUID,"loaded",options,cb); // handles promises
         };
         this.faction=function(options,cb){ 
-        // faction.number is WILDLY INACCURATE RIGHT NOW - WAITING ON FIX FROM SCHEMA - WILL NEED TO BE FIXED IN starNetHelper.js
+        // faction.number is WILDLY INACCURATE RIGHT NOW - WAITING ON FIX FROM SCHEMA - WILL NEED TO BE FIXED IN starNet.js
         if (typeof cb=="function"){
-            return starNetHelper.getEntityValue(self.fullUID,"faction",options,function(err,result){
+            return starNet.getEntityValue(self.fullUID,"faction",options,function(err,result){
             if (err){
                 return cb(err,result);
             }
@@ -3576,32 +3777,32 @@ function EntityObj(fullUID){ // cb/promises/squish compliant
         return simplePromisifyIt(self.faction,options);
         };
 
-        this.mass=function(options,cb){ return starNetHelper.getEntityValue(self.fullUID,"Mass",options,cb) };
+        this.mass=function(options,cb){ return starNet.getEntityValue(self.fullUID,"Mass",options,cb) };
         this["attached"]=function(options,cb){ 
         // TODO: Change this to return an array of objects that are attached.  Players I think normally?  Are NPC's also possible though?  Needs testing.
-        return starNetHelper.getEntityValue(self.fullUID,"Attached",options,cb); // handles promises
+        return starNet.getEntityValue(self.fullUID,"Attached",options,cb); // handles promises
         };
         
         this["dockedUIDs"]=function(options,cb){ 
         // TODO: Change this to "docked", which will return an array of EntityObjs
         // Note:  Currently nothing seems to be returned in this field anymore.
-        return starNetHelper.getEntityValue(self.fullUID,"DockedUIDs",options,cb); // handles promises
+        return starNet.getEntityValue(self.fullUID,"DockedUIDs",options,cb); // handles promises
         };
         this.blocks=function(options,cb){ 
-        return starNetHelper.getEntityValue(self.fullUID,"Blocks",options,cb); // handles promises
+        return starNet.getEntityValue(self.fullUID,"Blocks",options,cb); // handles promises
         }; 
         
         this.lastModified=function(options,cb){ 
         // TODO: See what sorts of values might appear for lastModified and have it return the correct types of objects rather than a string value
-        return starNetHelper.getEntityValue(self.fullUID,"LastModified",options,cb); // handles promises 
+        return starNet.getEntityValue(self.fullUID,"LastModified",options,cb); // handles promises 
         };
         this.creator=function(options,cb){ 
         // TODO: See what sorts of values might appear for creator and have it return the correct types of objects rather than a string value
-        return starNetHelper.getEntityValue(self.fullUID,"Creator",options,cb); // handles promises 
+        return starNet.getEntityValue(self.fullUID,"Creator",options,cb); // handles promises 
         };
         this.sector=function(options,cb){
         if (typeof cb == "function"){
-            return starNetHelper.getEntityValue(self.fullUID,"Sector",options,function(err,result){
+            return starNet.getEntityValue(self.fullUID,"Sector",options,function(err,result){
             if (err){
                 return cb(err,result);
             } else if (result){
@@ -3626,7 +3827,7 @@ function EntityObj(fullUID){ // cb/promises/squish compliant
         }
         this.spacialCoords=function(options,cb){ 
         if (typeof cb == "function"){
-            return starNetHelper.getEntityValue(self.fullUID,"Local-Pos",options,function(err,result){
+            return starNet.getEntityValue(self.fullUID,"Local-Pos",options,function(err,result){
             if (err){
                 return cb(err,result);
             } else if (result){
@@ -3642,7 +3843,7 @@ function EntityObj(fullUID){ // cb/promises/squish compliant
 
 
         this.name=function(options,cb){ 
-        return starNetHelper.getEntityValue(self.fullUID,"Name",options,cb) 
+        return starNet.getEntityValue(self.fullUID,"Name",options,cb) 
         };
         this.exists=function(options,cb){
         if (typeof cb=="function"){
@@ -3660,7 +3861,7 @@ function EntityObj(fullUID){ // cb/promises/squish compliant
         }
         this.minBB=function(options,cb){
         if (typeof cb == "function"){
-            return starNetHelper.getEntityValue(self.fullUID,"MinBB(chunks)",options,function(err,result){
+            return starNet.getEntityValue(self.fullUID,"MinBB(chunks)",options,function(err,result){
             if (err){
                 return cb(err,result);
             } else if (result){
@@ -3674,7 +3875,7 @@ function EntityObj(fullUID){ // cb/promises/squish compliant
         };       
         this.maxBB=function(options,cb){ 
         if (typeof cb == "function"){
-            return starNetHelper.getEntityValue(self.fullUID,"MaxBB(chunks)",options,function(err,result){
+            return starNet.getEntityValue(self.fullUID,"MaxBB(chunks)",options,function(err,result){
             if (err){
                 return cb(err,result);
             } else if (result){
@@ -3688,11 +3889,11 @@ function EntityObj(fullUID){ // cb/promises/squish compliant
         };       
         // TODO: Create an OrientationObj. Till then though, just return an array of values.
         this.orientation=function(options,cb){ 
-        return starNetHelper.getEntityValue(self.fullUID,"Orientation",options,cb); // handles promises  
+        return starNet.getEntityValue(self.fullUID,"Orientation",options,cb); // handles promises  
         };
         this.type=function(options,cb){ 
         // Will return 
-        return starNetHelper.getEntityValue(self.fullUID,"type",options,cb); // handles promises 
+        return starNet.getEntityValue(self.fullUID,"type",options,cb); // handles promises 
         };
         this.typeNumber=function(options,cb){
         // Returns a number representing the type of entity this is:
@@ -3846,42 +4047,6 @@ function EntityObj(fullUID){ // cb/promises/squish compliant
     }
 };
 
-
-// Array generators
-function getServerListArray(options,cb){ // This must be provided with a callback function that has standard error first handling.  Example:  cb(err,response)
-    // Does not have any options currently, but is here for consistency
-    var fileURL="http://files-origin.star-made.org/serverlist"  // This is where the server list is currently.
-    var rawData="";
-    try {
-        return http.get(fileURL, function(response) {
-            // console.log("Status Code: " + response.statusCode);
-            // When the file is downloaded with the "http.get" method, it returns an object from which you can get the HTTP status code.
-            // 200 means it was successfully downloaded, anything else is a failure.  Such as 404.
-            var error=null;
-            var returnArray=[];
-            if (response.statusCode != 200){
-                error=new Error("Response from HTTP server: " + response.statusMessage);
-            }
-            response.on('data', function(chunk){ rawData+=chunk });
-            response.on('end', function() {
-                if (rawData != ""){
-                returnArray=rawData.trim().split("\n"); // Trim to remove any extra \n at the end so the last values won't be undefined.
-                returnArray.forEach(function(val,index){
-                    returnArray[index]=returnArray[index].split(",");
-                });
-                returnArray.forEach(function(val,index){
-                    returnArray[index]=new RemoteServerObj(...returnArray[index]);
-                });
-                }
-                return cb(error,returnArray)
-            });
-        });
-    } catch (err){ 
-        return cb(err,rawData) 
-    }
-};
-
-
 // Support Functions
 
 function ipWhitelist(ipAddress,minutes,options,cb){ // minutes are optional.  A perm ban is applied if none provided. options are optional
@@ -3896,7 +4061,7 @@ if (ipAddress){
             console.error("ERROR when attempting to whitelist IP, '" + ipToUse + "'!  Could not send command via StarNet.jar!");
             return cb(err,result);
         }
-        return cb(null,starNetHelper.detectSuccess2(result));
+        return cb(null,starNet.detectSuccess2(result));
         });
     } else { // invalid minutes given
         return cb(new Error("Invalid minutes specified for ipWhitelist!"),null);
@@ -3909,7 +4074,7 @@ if (ipAddress){
         console.error("ERROR whitelisting ip: " + ipAddress);
         return cb(err,result);
         }
-        return cb(null,starNetHelper.detectSuccess2(result));
+        return cb(null,starNet.detectSuccess2(result));
     });
     }
 } else {
@@ -3930,7 +4095,7 @@ if (ipAddress){
             console.error("ERROR when attempting to ban IP, '" + ipToUse + "'!  Could not send command via StarNet.jar!");
             return cb(err,result);
         }
-        return cb(null,starNetHelper.detectSuccess2(result));
+        return cb(null,starNet.detectSuccess2(result));
         });
     } else { // invalid minutes given
         return cb(new Error("Invalid minutes specified for ipBan!"),null);
@@ -3943,7 +4108,7 @@ if (ipAddress){
         console.error("ERROR banning ip: " + ipAddress);
         return cb(err,result);
         }
-        return cb(null,starNetHelper.detectSuccess2(result));
+        return cb(null,starNet.detectSuccess2(result));
     });
     }
 } else {
@@ -3959,7 +4124,7 @@ if (ipAddress){
         console.error();
         return cb(err,result);
     }
-    return cb(null,starNetHelper.detectSuccess2(result));
+    return cb(null,starNet.detectSuccess2(result));
     }); // This will return false if the ip is not found in the blacklist
 } else {
     return cb(new Error("No ipAddress given to function, 'ipUnBan'!"),null);
@@ -4035,7 +4200,7 @@ if (typeof theChmodString == "string"){
         if (err){
         return cb(err,result);
         }
-        return cb(null,starNetHelper.detectSuccess(result)); // returns true/false based on success message
+        return cb(null,starNet.detectSuccess(result)); // returns true/false based on success message
     });
     } else {
     return cb(new Error("Invalid input given to sectorSetChmod() for coordsObj!!"),null);  // Redundant
@@ -4763,7 +4928,7 @@ if (typeof cb == "function"){
         if (err){
         // console.log("Returning an error: " + err);
         return cb(err,msgResult);
-        } else if (starNetHelper.checkForLine(msgResult,msgTestFail) || starNetHelper.checkForLine(msgResult,msgTestFail2)){ // The player was offline, did not exist, or other parameters were incorrect.
+        } else if (starNet.checkForLine(msgResult,msgTestFail) || starNet.checkForLine(msgResult,msgTestFail2)){ // The player was offline, did not exist, or other parameters were incorrect.
         console.debug("Command connection succeeded, but command failed. Returning a false value.");
         console.debug("msgResult: " + msgResult);
         return cb(err,Boolean(false)); // err will be null
