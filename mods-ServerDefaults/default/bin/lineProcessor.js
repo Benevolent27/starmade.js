@@ -26,8 +26,8 @@ var excludePatternRegex = patterns.excludes();
 var includePatternServerLogRegex = patterns.serverLogIncludes();
 var excludePatternServerLogRegex = patterns.serverLogExcluded();
 
-const starNetHelper=require(path.join(modBinFolder,"starNetHelper.js"));
-var {getUIDfromName,getFactionNumberFromName,getFactionObjFromName}=starNetHelper;
+const starNet=require(path.join(modBinFolder,"starNet.js"));
+var {getUIDfromName,getFactionNumberFromName,getFactionObjFromName}=starNet;
 
 
 const mainFolder = path.dirname(require.main.filename); // This should be where the starmade.js is, unless this script is ran by itself for testing purposes.
@@ -185,7 +185,7 @@ if (testMatch(dataInput)) { // Check to see if the message fits any of the regex
 
 
 
-        // starNetHelper.getUIDfromName(shipName)
+        // starNet.getUIDfromName(shipName)
         return getUIDfromName(shipName,"",function(err,result){
         if (err){
             console.log("Error getting entity UID from name!",err);
