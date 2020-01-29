@@ -1,0 +1,38 @@
+{
+    // These settings will over-ride any settings for individual servers
+    showStderr:null, // If no true or false value set, the server specific setting will be used
+    stderrFilter:null,
+    showStdout:null,
+    stdoutFilter:null,
+    showServerlog:null,
+    serverlogFilter:null,
+    showAllEvents:null,
+    enumerateEventArguments:null,
+    lockPIDs:[1234], // These should be specificically the wrapper process itself or subprocesses of the wrapper, not including servers
+    "autoExit": false, // This makes the wrapper shut down when all servers have been shut down intentionally
+    servers:{
+      "c:\\coding\\starmade.js\\starmade":{
+        // These settings are server specific, they should not contain anything that isn't writable to a json file
+        showStderr:true, // Normally this would be true but can be turned to false if testing
+        stderrFilter:null,
+        showStdout:false,
+        stdoutFilter:null,
+        showServerlog:true,
+        serverlogFilter:null,
+        showAllEvents:false,
+        enumerateEventArguments:false,
+        lockPIDs:[1234,2345,5678], //  These should be specific to the server instance
+        "javaMin": "512m",
+        "javaMax": "4096m",
+        "port": "5252",
+        "commandOperator": "!",
+        "starMadeFolder": "c:\\coding\\starmade.js\\starmade",
+        "starMadeInstallFolder":"c:\\coding\\starmade.js\\starmade\\StarMade",
+        "botName": "Melvin",
+        "smTermsAgreedTo": "yes",
+        "buildBranch": "normal", // This can be "normal","dev", or "pre"
+        "autoStart": true, // This starts this server on wrapper start
+        "autoRestart": true // This restarts the server when it fails due to a crash.  Handles soft-crashes too.
+      }
+    }
+}

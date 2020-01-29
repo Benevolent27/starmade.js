@@ -296,9 +296,14 @@ function CustomConsole(consoleName,options){
     });
   }
   var outputConsole=new Console(pass);
+  outputConsole.debug=function () { // Replaces console.debug because normally in node.js there is no reason to use console.debug; it is the same as console.log.  This comes from browsers, which shows debug messages in a different color, but node does not.
+    if (global["debug"]==true){
+      console.log(arguments);
+    }
+  }
   global["consoles"][consoleName]={
     "console":outputConsole,
-    "passthrough":pass // This is needed in case we want to pipe a program's output to this console or to attach other readers, such as for logging.  We can pipe or use pass.write("whatever")
+    "passthrough":pass // This is needed in case we want to pipe a program's output to this console or to attach other readers, such as for logging.  We can pipe or use pass.write("whatever").  Normally this would not be used though.
   }
   return outputConsole;
 }

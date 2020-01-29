@@ -1,33 +1,30 @@
 // The purpose of this default mod is to assist with reloading other mods (including itself)
 
-// Pull the needed objects from the global variable.
-var {event}=global;
-
-var serverPath=global.getServerPath(__dirname);
-event.on('start',function(forServerPath){
-    if (forServerPath == serverPath){
-        var serverObj=global.getServerObj(__dirname);
-        var serverEvent=serverObj.event;
-        serverObj.regCommand("reloadMods","HiddenHelpers",true,false);
-        serverObj.regCommand("listeners","HiddenHelpers",true,false);
-    }
-    serverEvent.on('command', function (player,command,args,messageObj) { // Normally we would not use the messageObj, but it's here if for some reason we want the command to operate differently depending on channel sent to
+var installObj = global.getInstallObj(__dirname);
+var settings = installObj.settings;
+var event = installObj.event;
+var installPath=installObj.path;
+event.on('commandStart',function(serverObj){
+    serverObj.regCommand("reloadMods","HiddenHelpers",true,false);
+    serverObj.regCommand("listeners","HiddenHelpers",true,false);
+    event.on('command', function (player,command,args,messageObj) { // Normally we would not use the messageObj, but it's here if for some reason we want the command to operate differently depending on channel sent to
         if (command == "reloadmods"){
             player.botMsg("Reloading all mods!  This might take a few seconds.");
-            serverEvent.emit("reloadMods");
-        } else if (command == "listeners"){
+            event.emit("reloadMods");
+            // I need to send a global command to remove the event listeners, this will not suffice.
+        } else if (command == "listeners"){ // TODO: Change this so it looks at all event listeners and then lists each.
             console.log("command:");
-            console.dir(serverEvent.listeners('command'));
+            console.dir(event.listeners('command'));
             console.log("playerSpawn:");
-            console.dir(serverEvent.listeners('playerSpawn'));
+            console.dir(event.listeners('playerSpawn'));
             console.log("shipSpawn:");
-            console.dir(serverEvent.listeners('shipSpawn'));
+            console.dir(event.listeners('shipSpawn'));
             console.log("baseSpawn:");
-            console.dir(serverEvent.listeners('baseSpawn'));
+            console.dir(event.listeners('baseSpawn'));
             console.log("blueprintSpawn:");
-            console.dir(serverEvent.listeners('blueprintSpawn'));
+            console.dir(event.listeners('blueprintSpawn'));
             console.log("reloadMods:");
-            console.dir(serverEvent.listeners('reloadMods'));
+            console.dir(event.listeners('reloadMods'));
         }
     });
 });
