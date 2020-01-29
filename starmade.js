@@ -123,21 +123,18 @@ class Event extends EventEmitter {};
 
 // I do not know why I'm using "EventEmitter()" below.. It seems to work.. but I should probably use above
 // The eventEmitter records listeners as they are registered so these can have their caches can be deleted when mods are unloaded and reloaded.
-var eventEmitter      = new global["events"].EventEmitter(); // This is for custom events
-var eventListenersToRemoveOnReload=[];
-var event=objectHelper.copyObj(eventEmitter);
-event["on"]=eventOn;
-function eventOn(eventName,theFunction){
-  addEventsToRemoveOnModReload(eventName,theFunction);
-  return eventEmitter.on(eventName,theFunction);
+var globalEventUnmodified  = new Event(); // This is for custom global events
+global["event"]=objectHelper.copyObj(globalEventUnmodified);  // This is a modified event handler that records when event listeners are set.  This allows unsetting the listeners which were added by mods later and then re-initializing the mods by also deleting their require caches and re-requiring them.
+global["event"]["on"]=function (eventName,theFunction){
+  addEventListenerToRemoveOnModReload(eventName,theFunction);
+  return globalEventUnmodified.on(eventName,theFunction);
 }
-event["once"]=eventOnce;
-function eventOnce(eventName,theFunction){
-  addEventsToRemoveOnModReload(eventName,theFunction);
-  return eventEmitter.once(eventName,theFunction);
+global["event"]["once"]=function (eventName,theFunction){
+  addEventListenerToRemoveOnModReload(eventName,theFunction);
+  return globalEventUnmodified.once(eventName,theFunction);
 }
-global["event"]=event; // This is a modified event handler that records when mods use it.  This allows unsetting the listeners later and re-initializing mods by deleting their caches and re-requiring them.
-function addEventsToRemoveOnModReload(eventName,eventFunction){ // TODO: Change this so it organizes things based on install, so event listeners can be reloaded for specific installs.
+var eventListenersToRemoveOnReload=[]; // When a global call to reload mods happens, this array will be cycled through to remove the listeners one by one.
+function addEventListenerToRemoveOnModReload(eventName,eventFunction){ // TODO: Change this so it organizes things based on install, so event listeners can be reloaded for specific installs.
   var theObj={};
   theObj[eventName]=eventFunction;
   eventListenersToRemoveOnReload.push(theObj);
@@ -151,8 +148,6 @@ var {CustomConsole}=objectCreator;
 // #####################
 // ###    SETTINGS   ###
 // #####################
-
-// settings.json
 
 var dummySettings={
   // These settings will over-ride any settings for individual servers
@@ -192,12 +187,9 @@ var dummySettings={
     }
   }
 }
-var dummyServers={ // These are the server objects.  We are using the install directories as unique identifiers
-  "c:\\coding\\starmade.js\\starmade":"serverObj"
-}
 
 var settingsFilePath = path.join(mainFolder, "settings.json");
-var settings={ // These values will be overwritten by any existing settings.json file
+global["settings"] = getSettings({ // These values will be overwritten by any existing settings.json file
   showStderr:null, // If no true or false value set, the server specific setting will be used
   stderrFilter:null,
   showStdout:null,
@@ -206,20 +198,18 @@ var settings={ // These values will be overwritten by any existing settings.json
   serverlogFilter:null,
   showAllEvents:null,
   enumerateEventArguments:null,
-  lockPIDs:[], // These should be specificically the wrapper process itself or subprocesses of the wrapper, not including servers
-  "autoExit": false, // This makes the wrapper shut down when all servers have been shut down intentionally
+  lockPIDs:[], // These should be specificically the wrapper process itself or subprocesses of the wrapper, NOT including servers or any subprocesses of server mods.
+  "autoExit": false, // This makes the wrapper shut down when all servers have been shut down
   servers:{}
-}
-settings = getSettings(); // This will grab the settings from the settings.json file if it exists, creating a new one from the above settings if not.
+}); // This will grab the settings from the settings.json file if it exists, creating a new one if not, and returns the default values.
 global["settingsFilePath"]=settingsFilePath;
-global["settings"]=settings;
 global["writeSettings"]=writeSettings; // This will write the main settings.json file
-global["getSettings"]=getSettings; // This will ensure the settings.json file exists, returning the settings object.
+global["getSettings"]=getSettings; // This is used to get the settings.json file as it is currently written to the hard drive.
 global["servers"]={};
 global["getServerObj"]=getServerObj; // This is used by mods to get the serverObj that they are a part of
 global["getServerPath"]=getServerPath;
 global["getInstallObj"]=getInstallObj; // This object contains the path to the install folder, serverObj (after it is registered), and other info.  See function for more info.
-global["regServer"]=regServer;
+global["regServer"]=regInstall;
 var starNetJarURL             = "http://files.star-made.org/StarNet.jar";
 var starNetJar                = path.join(binFolder,"StarNet.jar");
 
@@ -456,7 +446,7 @@ function setupNewServer(){
 
 }
 
-eventEmitter.on('ready', function() {
+globalEventUnmodified.on('ready', function() {
   // Check to see if any server has been set up yet in settings, if not, get the install path before loading the mods.
   // The mods should handle setting up the rest of the settings, installing, and starting
   if (Object.keys(global["settings"].servers).length < 1){
@@ -499,11 +489,11 @@ function getNewModifiedEvent(theInstallPath){ // Change this to provide the inst
   var newEvent=new Event();
   var modifiedEvent=objectHelper.copyObj(newEvent);
   modifiedEvent["on"]=function(eventName,theFunction){
-    addEventsToRemoveOnModReload(eventName,theFunction);
+    addEventListenerToRemoveOnModReload(eventName,theFunction);
     return newEvent.on(eventName,theFunction);
   }
   modifiedEvent["once"]=function (eventName,theFunction){
-    addEventsToRemoveOnModReload(eventName,theFunction);
+    addEventListenerToRemoveOnModReload(eventName,theFunction);
     return newEvent.once(eventName,theFunction);
   }
   return modifiedEvent;
@@ -583,7 +573,7 @@ function unloadServerMods(inputPath){  // This cycles through the list of modfil
   if (typeof inputPath != "string" && typeof inputPath != "undefined"){
     throw new Error("Invalid input given to function, 'unloadServerMods'! Expected nothing or a path string! Typeof inputPath: " + typeof inputPath);
   }
-  eventEmitter.emit("removeListeners"); // This is for mods that want to use their own event handler for some reason.
+  globalEventUnmodified.emit("removeListeners"); // This is for mods that want to use their own event handler for some reason.
   var serverModFoldersArray=Object.keys(global["serverMods"]);
   var loadedModsArray=[];
   var newKeys=[];
@@ -647,7 +637,7 @@ function unloadGlobalEventListeners(inputPath){ // Presently there is no way to 
     for(var key in eventListenersToRemoveOnReload[i]) { // This should only run once.
       if (eventListenersToRemoveOnReload[i].hasOwnProperty(key)){ // Only run on non-prototype keys
         console.log("Removing listener: " + key);
-        eventEmitter.removeListener(key,eventListenersToRemoveOnReload[i][key]);
+        globalEventUnmodified.removeListener(key,eventListenersToRemoveOnReload[i][key]);
       }
     }
   }
@@ -657,16 +647,16 @@ function unloadGlobalEventListeners(inputPath){ // Presently there is no way to 
 
 
 // To allow loading, unloading, and reloading of mods, a mod should probably emit an event to trigger the event here, rather than run it within it's own process.
-eventEmitter.on("loadMods", function(){
+globalEventUnmodified.on("loadMods", function(){
   loadServerMods();
-  eventEmitter.emit("init");
+  globalEventUnmodified.emit("init");
 });
-eventEmitter.on("unloadMods", function(){
+globalEventUnmodified.on("unloadMods", function(){
   unloadServerMods();
 });
-eventEmitter.on("reloadMods", function(){
+globalEventUnmodified.on("reloadMods", function(){
   reloadServerMods();
-  eventEmitter.emit("init");
+  globalEventUnmodified.emit("init");
 });
 
 
@@ -674,7 +664,7 @@ eventEmitter.on("reloadMods", function(){
 
 
 
-eventEmitter.emit("init"); // This event happens AFTER all the mods are loaded in through require.  Prerequisites should be done by now.
+globalEventUnmodified.emit("init"); // This event happens AFTER all the mods are loaded in through require.  Prerequisites should be done by now.
 
 // #######################################
 // ###    COMMAND LINE WRAPPER START   ###
@@ -765,7 +755,7 @@ process.stdin.on('data', function(text){
 
     } else if (i(theCommand,"reloadmods")) {
       console.log("Reloading mods..");
-      eventEmitter.emit("reloadMods");
+      globalEventUnmodified.emit("reloadMods");
     } else if (i(theCommand,"listGlobal")) {
       let params;
       console.log("Enumerating elements from the global object:");
@@ -1105,7 +1095,7 @@ process.stdin.on('data', function(text){
 // #####################
 // ###   EMITTERS   ####
 // #####################
-eventEmitter.on('asyncDone', installDepsSync);
+globalEventUnmodified.on('asyncDone', installDepsSync);
 
 // ####################
 // ###  FUNCTIONS  #### -- The standard practice for functions is first write in place, then make a multi-purpose function that handles what you need and can be used elsewhere, then bundle it in a require and change over functionality.  This is to keep the main script at a maintainable length and also have high re-usability value for code created.
@@ -1183,14 +1173,25 @@ eventEmitter.on('asyncDone', installDepsSync);
 //   return simplePromisifyIt(writeInstallTrackerFile,options);
 // }
 
-function regServer(installPath,serverObj){
-  if (global["installObjects"].hasOwnProperty(installPath)){
-    global["installObjects"][installPath].serverObj=serverObj;
+function regInstall(installPath,serverObj){
+  if (typeof installPath == "string"){
+    if (global["installObjects"].hasOwnProperty(installPath)){
+      if (typeof serverObj == "object"){
+        global["installObjects"][installPath].serverObj=serverObj;
+      } else {
+        throw new Error("Invalid input given for 'serverObj' parameter invalid!  Requires a server object!  Usage: regInstall(installPath,serverObj)");
+      }
+    } else {
+      throw new Error("No install for the path exists!  Path given: " + installPath);
+    }
+  } else if (typeof installPath == "undefined" || typeof installPath == "undefined"){
+    throw new Error("No input given for 'installPath' or 'serverObj' parameter!  Usage: regInstall(installPath,serverObj)");
+  } else {
+    throw new Error("Invalid input given for 'installPath' parameter! Should be a string!  Usage: regInstall(installPathString,serverObj)");
   }
-  return new Error("No install for that path exists!");
 }
 
-function getServerPath(pathToMod){
+function getServerPath(pathToMod){ // mods will be in /installPath/mods/nameOfMod/, so all this does is remove /mods/nameOfMod/ from the path
   var pathArray=pathToMod.split(path.sep);
   pathArray.pop();
   pathArray.pop();
@@ -1228,7 +1229,7 @@ function writeSettings() {
     // var settingsFileStream=fs.createWriteStream(settingsFilePath); // Why use a stream?
     // settingsFileStream.write(JSON.stringify(settings, null, 4));
     // settingsFileStream.end();
-    writeJSONFileSync(settingsFilePath,settings);
+    writeJSONFileSync(settingsFilePath,global["settings"]);
     console.log("Updated '" + settingsFileName + "' file.");
     log("Updated '" + settingsFileName + "' file.");
   } catch (err) {
@@ -1237,15 +1238,23 @@ function writeSettings() {
     throw err;
   }
 }
-function getSettings(){ // Be careful with this, as this can really screw up the settings file if a save didn't occur after changes!
+function getSettings(defaultSettings){ // This grabs the settings from the settings.json file. defaultSettings is optional if the file has already been written and should be complete.
+  var outputSettings={};
   if (existsAndIsFile(settingsFilePath)){
     var theSettings = getJSONFileSync(settingsFilePath);
-  } else {
+    if (typeof defaultSettings == "object"){
+      outputSettings=Object.assign({},defaultSettings,theSettings); // Combine the settings from the file with the default settings, in case a part was deleted for some reason.  This will prefer the settings from the file for existing elements.
+    } else {
+      outputSettings=theSettings;
+    }
+  } else if (typeof defaultSettings == "object") {
     console.log("No settings.json file existed, creating a new one!");
-    writeJSONFileSync(settingsFilePath,settings);  // settings.json file has not been created, so let's create it.  This assumes the defaults have already been set at the top of this script.
-    return settings; // This assumes default settings had been set up by this script.
+    writeJSONFileSync(settingsFilePath,defaultSettings);  // settings.json file has not been created, so let's create it.  This assumes the defaults have already been set at the top of this script.
+    return defaultSettings; // This assumes default settings had been set up by this script.
+  } else {
+    throw new Error("No settings.json file existed and no default settings given!  Cannot load settings!");
   }
-  return theSettings;
+  return outputSettings;
 }
 
 
@@ -1266,7 +1275,7 @@ function asyncOperation(val){ // This controls when the start operation occurs. 
       operations--;
     } else {
       console.log("Async operations finished.");
-      eventEmitter.emit('asyncDone');
+      globalEventUnmodified.emit('asyncDone');
     }
   }
 }
@@ -1375,5 +1384,5 @@ async function installDepsSync() {
   console.log("About to start server..");
   // ### Unimportant Async downloads/installs ### -- These should not be required by the server to run, but they may have depended on the first async install or sync installs before they could be run.
   // None right now
-  eventEmitter.emit('ready'); // Signal ready to load the mods.  Mods are responsible for starting the server.
+  globalEventUnmodified.emit('ready'); // Signal ready to load the mods.  Mods are responsible for starting the server.
 }
