@@ -274,15 +274,7 @@ function CustomConsole(consoleName,options){
   if (typeof consoleName != "string" || consoleName == ""){
     throw new Error("Invalid input given to CustomConsole!  Requires a string!");
   }
-  var invincible=false;
-  if (typeof options == "object"){
-    if (options.hasOwnProperty("invincible")){
-      if (options.invincible == true){
-        invincible=true;
-      }
-    }
-  }
-
+  var invincible=Boolean(getOption(options,"invincible",false)); // converts a string to boolean
   if (!global.hasOwnProperty("consoles")){
     global["consoles"]={};
   }
@@ -295,14 +287,14 @@ function CustomConsole(consoleName,options){
           process.stdout.write(chunk.toString());
       }
   });
-  global.event.on("unloadListeners",function(){ // This will require the customConsole obj be recreated to be usable.
-    if (!invincible){
+  if (!invincible){ // Only listen for the unload if it is not invincible
+    global.event.on("unloadListeners",function(){ // This will require the customConsole obj be recreated to be usable.
       if (global["consoles"].hasOwnProperty(consoleName)){
         delete global["consoles"][consoleName];
       }
       pass.destroy();
-    }
-  });
+    });
+  }
   var outputConsole=new Console(pass);
   global["consoles"][consoleName]={
     "console":outputConsole,
