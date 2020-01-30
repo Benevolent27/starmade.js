@@ -11,19 +11,17 @@ module.exports = { // Always put module.exports at the top so circular dependenc
 // Requires
 const fs = require('fs');
 const path = require('path');
-const EventEmitter = require('events');
-class Event extends EventEmitter {};
+// const EventEmitter = require('events');
+// class Event extends EventEmitter {};
 const prompt = global["prompt"]; // This creates sync prompts and can have auto-complete capabilties.
 // const events               = require('events');
 const mainFolder = path.dirname(require.main.filename); // This should be where the starmade.js is, unless this script is ran by itself for testing purposes.
 const binFolder = path.join(mainFolder, "bin");
 const spawn = require('child_process').spawn;
 const miscHelpers = require(path.join(binFolder, "miscHelpers.js"));
-const {
-  requireBin
-} = miscHelpers;
+const {requireBin} = miscHelpers;
 
-const objectCreator = requireBin("objectCreator.js"); // This is imported for the CustomConsole object
+// const objectCreator = requireBin("objectCreator.js"); // This is imported for the CustomConsole object
 const objectHelper = requireBin("objectHelper.js");
 const regExpHelper = requireBin("regExpHelper.js");
 const ini = requireBin("iniHelper.js");
@@ -105,9 +103,10 @@ const {
   getSimpleDate,
   getSimpleTime
 } = miscHelpers;
-const {
-  CustomConsole
-} = objectCreator;
+// const {CustomConsole} = objectCreator; // This is now created by starmade.js and placed on the installObj
+
+var installObj=global.getInstallObj(__dirname);
+
 
 async function getSuperAdminPassword(starMadeInstallPath) { // This will grab the superadmin password, setting it up and enabling it if not already.
   // TODO: Offload this to a require
@@ -203,7 +202,8 @@ function ServerObj(theInstallFolder, options) { // theInstallFolder is optional.
     self.settings.installFolder = self.installFolder; // Whether this is a new or existing server, we can use the starMadeFolder as the root install folder
   }
   this.serverName = path.basename(self.installFolder);
-  this.console = new CustomConsole(self.serverName); // This is to output text only when the user has switched to the console for this server.  It's a fully operational Console object.
+  // this.console = new CustomConsole(self.serverName); // This is to output text only when the user has switched to the console for this server.  It's a fully operational Console object.
+  this.console = installObj.console; // redundant
   // Paths
   this.settings = setSettings(self.settings); // Complete any missing settings.  If a starMadeFolder argument was given, this will be used as the install path.  This includes the starmade folder, min and max java settings, etc.
   this.starMadeFolder = self.settings["starMadeFolder"];
@@ -255,7 +255,7 @@ function ServerObj(theInstallFolder, options) { // theInstallFolder is optional.
   this.deregAllConstructors = function () {
     var deregged = false;
     const objectKeys = Object.keys(self.objects);
-    for (let i = 0; i < objectKeys.length; i++) {
+    for (let i = 0;i < objectKeys.length;i++) {
       if (self.deregConstructor(objectKeys[i])) { // If at least 1 constructor is deregistered, this will return true.
         deregged = true;
       }
@@ -271,7 +271,7 @@ function ServerObj(theInstallFolder, options) { // theInstallFolder is optional.
     var lockPIDs = [];
     if (self.settings.lockPIDs.length > 0 && ignoreLockFile == false) {
       lockPIDs = copyArray(self.settings.lockPIDs);
-      for (let i = 0; i < lockPIDs.length; i++) {
+      for (let i = 0;i < lockPIDs.length;i++) {
         if (isPidAlive(lockPIDs[i])) {
           console.log("Existing server process found running on PID, '" + lockPIDs[i] + "'!");
           if (forceStart == true) {
@@ -316,7 +316,7 @@ function ServerObj(theInstallFolder, options) { // theInstallFolder is optional.
     self.settings.lockPIDs = [];
   }
   this.lockPIDS = self.settings.lockPIDs;
-  global.writeSettings(); // Write the settings to the hard drive
+  global.writeSettings(); // Write the global settings.json to the hard drive
   this.addLockPID = function (PID) { // Only adds the PID if it wasn't already in the array.  Always returns true whether it added the PID or not
     var thePID = toNumIfPossible(PID);
     if (typeof thePID == "number") {
@@ -324,6 +324,7 @@ function ServerObj(theInstallFolder, options) { // theInstallFolder is optional.
         self.lockPIDs = [];
       }
       self.lockPIDs = addUniqueToArray(self.lockPIDs, thePID);
+      global.writeSettings();
       return true;
     }
     throw new Error("Non-Number input given to addLockPID!  Please provide a number!");
@@ -335,6 +336,7 @@ function ServerObj(theInstallFolder, options) { // theInstallFolder is optional.
         self.lockPIDs = [];
       }
       self.lockPIDs = arrayMinus(self.lockPIDs, thePID);
+      global.writeSettings();
       return true;
     }
     throw new Error("Non-Number input given to removeLockPID!  Please provide a number!");
@@ -346,36 +348,33 @@ function ServerObj(theInstallFolder, options) { // theInstallFolder is optional.
   this.starMadeInstallFolder = path.join(self.installFolder, "StarMade");
   ensureFolderExists(self.starMadeInstallFolder);
   this.logsFolder = path.join(self.installFolder, "logs");
-  ensureFolderExists(self.logsFolder);
-  var logFileName = getSimpleDate() + ".log";
-  var logFilePath = path.join(self.logsFolder, logFileName);
-  var logStream = fs.createWriteStream(logFilePath, {
-    flags: 'a'
-  }); // We create a stream here so the handle will not be opened a million times.  This will automatically close when the program ends, and does not need to be ended.
-  process.on('exit', function () {
-    logStream.end();
-  });
-  this.log = function (logMsg) { // Writes to a log file with the current date into the /log subfolder
-    // ensureFolderExists(logFolder);  // This shouldn't be necessary since the folder is created if it doesn't exist at the beginning of this script
-    if (typeof logMsg == "string") {
-      let lineWrite = getSimpleTime() + " - " + logMsg;
-      // First check to ensure the correct date will be used.
-      let logFileNameTemp = getSimpleDate() + ".log";
-      if (logFileNameTemp != logFileName) { // The date must have changed
-        logFileName = logFileNameTemp; // Set up the filenames correctly, end the old log stream, and create a new one.
-        logFilePath = path.join(self.logsFolder, logFileName);
-        logStream.end();
-        logStream = fs.createWriteStream(logFilePath, {
-          "flags": 'a'
-        });
-      }
-      // touch(logFilePath);
-      logStream.write(lineWrite + "\n");
-    } else {
-      var errorMsg = "Invalid input given to serverObj.log function!  Expects a string!  Server: " + self.installFolder;
-      throw new Error(errorMsg);
-    }
-  }
+  // ensureFolderExists(self.logsFolder);
+  // var logFileName = getSimpleDate() + ".log";
+  // var logFilePath = path.join(self.logsFolder, logFileName);
+  // var logStream = fs.createWriteStream(logFilePath, {flags: 'a'}); // We create a stream here so the handle will not be opened a million times.  This will automatically close when the program ends, and does not need to be ended.
+  // process.on('exit', function () {
+  //   logStream.end();
+  // });
+  // this.log = function (logMsg) { // Writes to a log file with the current date into the /log subfolder
+  //   // ensureFolderExists(logFolder);  // This shouldn't be necessary since the folder is created if it doesn't exist at the beginning of this script
+  //   if (typeof logMsg == "string") {
+  //     let lineWrite = getSimpleTime() + " - " + logMsg;
+  //     // First check to ensure the correct date will be used.
+  //     let logFileNameTemp = getSimpleDate() + ".log";
+  //     if (logFileNameTemp != logFileName) { // The date must have changed
+  //       logFileName = logFileNameTemp; // Set up the filenames correctly, end the old log stream, and create a new one.
+  //       logFilePath = path.join(self.logsFolder, logFileName);
+  //       logStream.end();
+  //       logStream = fs.createWriteStream(logFilePath, {"flags": 'a'});
+  //     }
+  //     // touch(logFilePath);
+  //     logStream.write(lineWrite + "\n");
+  //   } else {
+  //     var errorMsg = "Invalid input given to serverObj.log function!  Expects a string!  Server: " + self.installFolder;
+  //     throw new Error(errorMsg);
+  //   }
+  // }
+  this.log=installObj["log"]; // redundant
   this.starMadeLogFolder = path.join(self.starMadeInstallFolder, "logs"); // This is added because we have to parse the serverlog.0.log file for ship spawns
   var serverLogFile = path.join(self.starMadeLogFolder, "serverlog.0.log");
   this.starMadeJar = path.join(self.starMadeInstallFolder, "StarMade.jar");
@@ -521,9 +520,7 @@ function ServerObj(theInstallFolder, options) { // theInstallFolder is optional.
           }
         }
       }
-      self.spawn = spawn("java", self.spawnArgs, {
-        "cwd": self.starMadeInstallFolder
-      }); // Spawn the server
+      self.spawn = spawn("java", self.spawnArgs, {"cwd": self.starMadeInstallFolder}); // Spawn the server
       self.spawnStatus = "started";
       // global["servers"][self.installFolder]=self.spawn; // Old method, plus no need to add the spawn, since this adds it to the ServerObj
       self.addLockPID(self.spawn.pid);
@@ -600,7 +597,7 @@ function ServerObj(theInstallFolder, options) { // theInstallFolder is optional.
         let dataString = data.toString().trim(); // Clear out any blank lines
         if (dataString != "") {
           let dataArray = dataString.replace("\r", "").split("\n"); // simplify to only new line characters and split to individual lines.
-          for (let i = 0; i < dataArray.length; i++) {
+          for (let i = 0;i < dataArray.length;i++) {
             if (dataArray[i] != "") {
               if (self.settings.showStdout == true || self.settings.showAllEvents == true) {
                 if (typeof self.settings.stdoutFilter == "object") {
@@ -624,7 +621,7 @@ function ServerObj(theInstallFolder, options) { // theInstallFolder is optional.
         let dataString = data.toString().trim(); // Clear out any blank lines
         if (dataString != "") {
           let dataArray = dataString.replace("\r", "").split("\n"); // simplify to only new line characters and split to individual lines.
-          for (let i = 0; i < dataArray.length; i++) {
+          for (let i = 0;i < dataArray.length;i++) {
             if (dataArray[i]) {
               if (self.settings.showStderr == true || self.settings.showAllEvents == true) {
                 if (typeof self.settings.stderrFilter == "object") {
@@ -651,7 +648,7 @@ function ServerObj(theInstallFolder, options) { // theInstallFolder is optional.
         let dataString = data.toString().trim().replace(/^\[[^[]*\] */, ''); // This removes the timestamp from the beginning of each line so each line looks the same as a console output line, which has no timestamps.
         if (dataString) { // Do not process empty lines
           let dataArray = dataString.replace("\r", "").split("\n"); // simplify to only new line characters and split to individual lines.
-          for (let i = 0; i < dataArray.length; i++) {
+          for (let i = 0;i < dataArray.length;i++) {
             if (dataArray[i]) { // Do not process empty lines
               if (self.settings.showServerlog == true || self.settings.showAllEvents == true) {
                 if (typeof self.settings.serverlogFilter == "object") {
@@ -688,7 +685,8 @@ function ServerObj(theInstallFolder, options) { // theInstallFolder is optional.
       }
       if (typeof toStringIfPossible(message) == "string") {
         if (message.length > 0) {
-          var theMessage = '"' + toStringIfPossible(message).trim().replace('"', "").replace("'", "") + '"';
+          var theMessage = '"' + toStringIfPossible(message).trim().replace('"', "").
+replace("'", "") + '"';
         }
       }
       if (theDuration > 1) {
@@ -1191,7 +1189,7 @@ function ServerObj(theInstallFolder, options) { // theInstallFolder is optional.
         let theReg = new RegExp("^RETURN: \\[SERVER, FACTION: Faction \\[id=[-]{0,1}[0-9]+.*");
         var theArray = results.trim().split("\n");
         var theLine;
-        for (let i = 0; i < theArray.length; i++) {
+        for (let i = 0;i < theArray.length;i++) {
           if (theReg.test(theArray[i])) {
             theLine = theArray[i].match(/^RETURN: \[SERVER, FACTION: Faction \[id=[-]{0,1}[0-9]+/);
             if (theLine) {
@@ -1219,7 +1217,7 @@ function ServerObj(theInstallFolder, options) { // theInstallFolder is optional.
         let theReg = new RegExp("^RETURN: \\[SERVER, \\[CATALOG\\] INDEX.*");
         var theArray = results.trim().split("\n");
         var theLine;
-        for (let i = 0; i < theArray.length; i++) {
+        for (let i = 0;i < theArray.length;i++) {
           if (theReg.test(theArray[i])) {
             theLine = theArray[i].replace(/^RETURN: \[SERVER, \[CATALOG\] INDEX [0-9]+: /, "");
             theLine = theLine.replace(/, 0\]$/, "");
@@ -1395,7 +1393,7 @@ function ServerObj(theInstallFolder, options) { // theInstallFolder is optional.
           var shipCoords;
           var line;
           var tempArray = [];
-          for (let i = 0; i < resultsArray.length; i++) {
+          for (let i = 0;i < resultsArray.length;i++) {
             line = resultsArray[i].replace(/^RETURN: \[SERVER, FOUND: /, "");
             shipName = line.replace(/ ->.*$/, "");
             shipCoords = line.replace(/^.* -> \(/, "").replace(/\), 0\]$/, "").split(", ");
