@@ -36,15 +36,12 @@ var installObj = global.getInstallObj(__dirname);
 var settings = installObj.settings;
 var event = installObj.event;
 var serverObj = {}; // This will be set after the "start" is given.
-event.on("start", function (theServerObj) {
-  serverObj = theServerObj;
-});
-
 
 CommandObj.prototype.toString = function () {
   return this.name
 };
-event.on('start', function (serverObj) { // The serverObj has been created.
+event.on('start', function (theServerObj) { // The serverObj has been created.
+    serverObj=theServerObj;
     if (!serverObj.hasOwnProperty("commands")) { // Set up the global commands variable if it does not exist.
       serverObj.commands = {};
     }
