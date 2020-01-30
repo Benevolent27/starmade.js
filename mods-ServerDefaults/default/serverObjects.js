@@ -35,13 +35,19 @@ module.exports = { // Always put module.exports at the top so circular dependenc
   SystemObj,
   decodeChmodNum,
   isPlayerOnline,
-  getPlayerList,
-  getAdminsList,
   getProtectionsDifferentialString,
   getChmodArrayFromNum,
   squish,
   unSquish,
-  isSquishable
+  isSquishable,
+  getPlayerList,
+  getWhitelistedNameList,
+  getWhitelistedAccountsList,
+  getWhitelistedIPList,
+  getAdminsList,
+  getBannedAccountsList,
+  getBannedNameList,
+  getBannedIPList
 }
 
 // Requires
@@ -4601,9 +4607,7 @@ function returnEntityUIDList(coords, beginFilter, options, cb) {
     throw new Error("Invalid input given to returnEntityUIDList as Coords!");
   }
 };
-
 // applyFunctionToArray(theArray,function(input){ return new PlayerObj(input) })
-
 function splitHelper1(result, matchReg, regExpToRem, regExpToRem2, functionToRunOnEachValue) {
   // takes input from banlist or whitelist, producing an array, running a function on each one.
   // example:  splitHelper1(result,matchReg,regExpToRem,regExpToRem2,makePlayerObj){
@@ -4618,7 +4622,6 @@ function splitHelper1(result, matchReg, regExpToRem, regExpToRem2, functionToRun
   }
   return outputArray;
 }
-
 function splitHelper1CB(command, options, matchReg, regExpToRem, regExpToRem2, functionToRunOnEachValue, cb) {
   // takes input from banlist or whitelist, producing an array, running a function on each one.
   return starNetVerifiedCB(serverObj, command, options, function (err, result) {
@@ -4629,7 +4632,6 @@ function splitHelper1CB(command, options, matchReg, regExpToRem, regExpToRem2, f
     }
   });
 }
-
 function compareToObjectArrayToString(inputArray, whatToLookFor, options) {
   // Used when checking if a player or entity is in a list, such as for bans/whitelists.  Can be used to check an array of entities returned from a sector to see if a certain entity is there.
   // Accepts input of an array, running .toString() on each result. // Sets both sides to lowercase, unless option is set to false
@@ -4652,7 +4654,6 @@ function compareToObjectArrayToString(inputArray, whatToLookFor, options) {
   }
   return false;
 }
-
 function splitHelper2(result, matchReg, regExpToRem, regExpToRem2, functionToRunOnEachValue) {
   // takes input from commands like /player_list where we want to isolate specific lines
   // and then isolate a single word, producing an array, running a function on each one, such
@@ -4673,7 +4674,6 @@ function splitHelper2(result, matchReg, regExpToRem, regExpToRem2, functionToRun
   }
   return outputArray;
 }
-
 function splitHelper2CB(command, options, matchReg, regExpToRem, regExpToRem2, functionToRunOnEachValue, cb) {
   // takes input from /player_list, producing an array, running a function on each one.
   return starNetVerifiedCB(serverObj, command, options, function (err, result) {
@@ -4684,15 +4684,9 @@ function splitHelper2CB(command, options, matchReg, regExpToRem, regExpToRem2, f
     }
   });
 }
-
-
-
-
-
 function makePlayerObj(input) {
   return new PlayerObj(input);
 }
-
 function getPlayerList(options, cb) { // Returns an array of player objects for all online players or false if the starNet command fails.
   // returns an array of all online players.  The array will be empty if nobody is online.
   var matchReg = /^RETURN: \[SERVER, \[PL\] Name: .*/;
@@ -4713,7 +4707,6 @@ function getPlayerList(options, cb) { // Returns an array of player objects for 
     }
   }
 }
-
 function getWhitelistedNameList(options, cb) {
   // /list_whitelist_name
   // RETURN: [SERVER, Whitelisted: {six, four, five}, 0]
@@ -4735,7 +4728,6 @@ function getWhitelistedNameList(options, cb) {
     }
   }
 }
-
 function getBannedNameList(options, cb) {
   // TODO:  Add {"fast":true} option to read directly from the blacklist.txt file.
   // /list_banned_name
@@ -4758,7 +4750,6 @@ function getBannedNameList(options, cb) {
     }
   }
 }
-
 function getAdminsList(options, cb) { // TODO:  Test this.. there are 4 ways of doing things.
   // Returns an array of PlayerObj, will be an empty array if no admins returned
   // Note: ALWAYS RETURNS NAMES IN LOWERCASE
@@ -4822,8 +4813,6 @@ function getAdminsList(options, cb) { // TODO:  Test this.. there are 4 ways of 
     });
   }
 };
-
-
 function isPlayerOnline(name, options, cb) { // Expects a string or PlayerObj as input for name.  Returns true if the player is online, false if not.
   return getPlayerList(options, function (err, resultArray) {
     if (err) {
@@ -4833,7 +4822,6 @@ function isPlayerOnline(name, options, cb) { // Expects a string or PlayerObj as
     }
   });
 }
-
 function isPlayerAdmin(name, options, cb) {
   return getAdminsList(options, function (err, result) {
     if (err) {
@@ -4843,7 +4831,6 @@ function isPlayerAdmin(name, options, cb) {
     }
   });
 }
-
 function isNameWhitelisted(name, options, cb) { // cb is optional
   return getWhitelistedNameList(options, function (err, resultArray) {
     if (err) {
@@ -4853,7 +4840,6 @@ function isNameWhitelisted(name, options, cb) { // cb is optional
     }
   });
 }
-
 function isNameBanned(name, options, cb) { //cb is optional.  Runs Sync if not given.  Options will be added to allow a "fast" option, which will read from the blacklist.txt file.
   return getBannedNameList(options, function (err, resultArray) {
     if (err) {
@@ -4863,12 +4849,9 @@ function isNameBanned(name, options, cb) { //cb is optional.  Runs Sync if not g
     }
   });
 }
-
-
 function makeSMNameObj(input) {
   return new SMNameObj(input);
 }
-
 function getBannedAccountsList(options, cb) { // Returns an array of SMNameObj
   // RETURN: [SERVER, Banned: {three, two, one}, 0]
   var matchReg = /^RETURN: \[SERVER, Banned: {.*/;
@@ -4878,7 +4861,6 @@ function getBannedAccountsList(options, cb) { // Returns an array of SMNameObj
   var theFunctionToRunOnEachResult = makeSMNameObj;
   return splitHelper1CB(theCommand, options, matchReg, regExpToRem, regExpToRem2, theFunctionToRunOnEachResult, cb);
 }
-
 function getWhitelistedAccountsList(options, cb) { // Returns an array of SMNameObj
   // RETURN: [SERVER, Whitelisted: {three, two, one}, 0]
   var matchReg = /^RETURN: \[SERVER, Whitelisted: {.*/;
@@ -4888,7 +4870,6 @@ function getWhitelistedAccountsList(options, cb) { // Returns an array of SMName
   var theFunctionToRunOnEachResult = makeSMNameObj;
   return splitHelper1CB(theCommand, options, matchReg, regExpToRem, regExpToRem2, theFunctionToRunOnEachResult, cb);
 }
-
 function isAccountWhitelisted(account, options, cb) {
   return getWhitelistedAccountsList(options, function (err, resultArray) {
     if (err) {
@@ -4898,7 +4879,6 @@ function isAccountWhitelisted(account, options, cb) {
     }
   });
 }
-
 function isAccountBanned(account, options, cb) {
   return getBannedAccountsList(options, function (err, resultArray) {
     if (err) {
@@ -4908,12 +4888,9 @@ function isAccountBanned(account, options, cb) {
     }
   });
 }
-
-
 function makeIPObj(input) {
   return new IPObj(input);
 }
-
 function getWhitelistedIPList(options, cb) {
   // RETURN: [SERVER, Whitelisted: {1.2.3.6, 1.2.3.5, 1.2.3.4}, 0]
   var matchReg = /^RETURN: \[SERVER, Whitelisted: {.*/;
@@ -4923,7 +4900,6 @@ function getWhitelistedIPList(options, cb) {
   var theFunctionToRunOnEachResult = makeIPObj;
   return splitHelper1CB(theCommand, options, matchReg, regExpToRem, regExpToRem2, theFunctionToRunOnEachResult, cb);
 }
-
 function getBannedIPList(options, cb) {
   // RETURN: [SERVER, Banned: {1.2.3.6, 1.2.3.5, 1.2.3.4}, 0]
   var matchReg = /^RETURN: \[SERVER, Banned: {.*/;
@@ -4933,7 +4909,6 @@ function getBannedIPList(options, cb) {
   var theFunctionToRunOnEachResult = makeIPObj;
   return splitHelper1CB(theCommand, options, matchReg, regExpToRem, regExpToRem2, theFunctionToRunOnEachResult, cb);
 }
-
 function isIPWhitelisted(ip, options, cb) {
   return getWhitelistedIPList(options, function (err, resultArray) {
     if (err) {
@@ -4943,7 +4918,6 @@ function isIPWhitelisted(ip, options, cb) {
     }
   });
 }
-
 function isIPBanned(ip, options, cb) {
   return getBannedIPList(options, function (err, resultArray) {
     if (err) {

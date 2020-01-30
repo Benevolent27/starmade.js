@@ -34,7 +34,8 @@ const sleepPromise = requireBin("mySleep.js").sleepPromise;
 const modBinFolder = path.join(__dirname, "bin");
 const setSettings = require(path.join(modBinFolder, "setSettings.js")); // This will confirm the settings.json file is created and the install folder is set up.
 const sqlQueryJs = require(path.join(__dirname, "sqlQuery.js"));
-const starNet = require(path.join(__dirname, "starNet.js"));
+const starNetJs = require(path.join(__dirname, "starNet.js"));
+const serverObjects = require(path.join(__dirname, "serverObjects.js"));
 const smInstallHelpers = require(path.join(modBinFolder, "smInstallHelpers.js"));
 const lineProcessor = require(path.resolve(__dirname, "lineProcessor.js"));
 const {
@@ -59,8 +60,10 @@ const {
 } = sqlQueryJs;
 const {
   starNetVerified,
-  returnMatchingLinesAsArray
-} = starNet;
+  returnMatchingLinesAsArray,
+  runSimpleCommand,
+  sendDirectToServer
+} = starNetJs;
 const {
   copyArray,
   toNumIfPossible,
@@ -95,18 +98,51 @@ const {
   areCoordsBetween,
   isPidAlive,
   ensureFolderExists,
-  log,
   existsAndIsDirectory,
   existsAndIsFile,
   isSeen,
   writeJSONFileSync,
   getSimpleDate,
-  getSimpleTime
+  getSimpleTime,
+  waitAndThenKill
 } = miscHelpers;
 // const {CustomConsole} = objectCreator; // This is now created by starmade.js and placed on the installObj
 
-var installObj=global.getInstallObj(__dirname);
+// Import all the server objects
+var { 
+  BlueprintObj,
+  BotObj,
+  ChannelObj,
+  CoordsObj,
+  EntityObj,
+  FactionObj,
+  IPObj,
+  LocationObj,
+  MessageObj,
+  PlayerObj,
+  SectorObj,
+  SMNameObj,
+  SystemObj,
+  decodeChmodNum,
+  isPlayerOnline,
+  getProtectionsDifferentialString,
+  getChmodArrayFromNum,
+  squish,
+  unSquish,
+  isSquishable,
+  getPlayerList,
+  getWhitelistedNameList,
+  getWhitelistedAccountsList,
+  getWhitelistedIPList,
+  getAdminsList,
+  getBannedAccountsList,
+  getBannedNameList,
+  getBannedIPList
+} = serverObjects;
 
+
+var installObj=global.getInstallObj(__dirname);
+var {event,settings,console,log,installPath}=installObj;
 
 async function getSuperAdminPassword(starMadeInstallPath) { // This will grab the superadmin password, setting it up and enabling it if not already.
   // TODO: Offload this to a require
@@ -150,6 +186,7 @@ async function getSuperAdminPassword(starMadeInstallPath) { // This will grab th
   return ini.getVal(serverCfgObj, "SUPER_ADMIN_PASSWORD");
 }
 
+// TODO: Fix recording
 function getRecordFileName() {
   if (miscHelpers.isSeen(recordingFile)) {
     recordingCounter++;
@@ -262,9 +299,8 @@ function ServerObj(theInstallFolder, options) { // theInstallFolder is optional.
     }
     return deregged; // Returns true if something was removed, false if not.
   }
-
   // this.event=new Event();  // This has been changed to being created in starmade.js so that the event listeners can be registered there and unregistered when mods are reloaded.
-  this.event = global.installObjects[self.installFolder].event;
+  this.event = event;
   global.settings.servers[self.installFolder] = self.settings; // Only update the settings to the global settings file IF the serverObj wasn't already set up.
   // Before we go any further, we should check to see if there are any previous PIDs associated with this server and kill them if necessary.
   if (self.settings.hasOwnProperty("lockPIDs")) {
@@ -284,7 +320,7 @@ function ServerObj(theInstallFolder, options) { // theInstallFolder is optional.
             console.log("TREE KILLING WITH EXTREME BURNINATION!");
             treeKill(lockPIDs[i], 'SIGTERM');
             // We should initiate a loop giving up to 5 minutes for it to shut down before sending a sig-kill.
-            miscHelpers.waitAndThenKill(300000, lockPIDs[i]);
+            waitAndThenKill(300000, lockPIDs[i]);
             sleepSync(1000); // Give the sigKILL time to complete if it was necessary.
             self.settings.lockPIDs = arrayMinus(self.settings.lockPIDs, lockPIDs[i]); // PID was killed, so remove it from the settings.json file.
           } else {
@@ -341,6 +377,15 @@ function ServerObj(theInstallFolder, options) { // theInstallFolder is optional.
     }
     throw new Error("Non-Number input given to removeLockPID!  Please provide a number!");
   }
+  this.killAllPIDs = function(){ // This will kill any PIDs associated with this server, first with sigTERM, then with sigKILL after 5 minutes.
+    console.log("Killing all PIDs..");
+    for (let i=self.lockPIDs.length-1;i<=0;i--){
+      console.log("DIE PID: " + self.lockPIDs[i]);
+      treeKill(self.lockPIDs[i], 'SIGTERM');
+      waitAndThenKill(300000, self.lockPIDs[i]); // We should initiate a loop giving up to 5 minutes for it to shut down before sending a sig-kill.
+      self.removeLockPID(self.lockPIDs[i]);
+    }
+  }
 
 
   // Set up any folders needed
@@ -348,32 +393,6 @@ function ServerObj(theInstallFolder, options) { // theInstallFolder is optional.
   this.starMadeInstallFolder = path.join(self.installFolder, "StarMade");
   ensureFolderExists(self.starMadeInstallFolder);
   this.logsFolder = path.join(self.installFolder, "logs");
-  // ensureFolderExists(self.logsFolder);
-  // var logFileName = getSimpleDate() + ".log";
-  // var logFilePath = path.join(self.logsFolder, logFileName);
-  // var logStream = fs.createWriteStream(logFilePath, {flags: 'a'}); // We create a stream here so the handle will not be opened a million times.  This will automatically close when the program ends, and does not need to be ended.
-  // process.on('exit', function () {
-  //   logStream.end();
-  // });
-  // this.log = function (logMsg) { // Writes to a log file with the current date into the /log subfolder
-  //   // ensureFolderExists(logFolder);  // This shouldn't be necessary since the folder is created if it doesn't exist at the beginning of this script
-  //   if (typeof logMsg == "string") {
-  //     let lineWrite = getSimpleTime() + " - " + logMsg;
-  //     // First check to ensure the correct date will be used.
-  //     let logFileNameTemp = getSimpleDate() + ".log";
-  //     if (logFileNameTemp != logFileName) { // The date must have changed
-  //       logFileName = logFileNameTemp; // Set up the filenames correctly, end the old log stream, and create a new one.
-  //       logFilePath = path.join(self.logsFolder, logFileName);
-  //       logStream.end();
-  //       logStream = fs.createWriteStream(logFilePath, {"flags": 'a'});
-  //     }
-  //     // touch(logFilePath);
-  //     logStream.write(lineWrite + "\n");
-  //   } else {
-  //     var errorMsg = "Invalid input given to serverObj.log function!  Expects a string!  Server: " + self.installFolder;
-  //     throw new Error(errorMsg);
-  //   }
-  // }
   this.log=installObj["log"]; // redundant
   this.starMadeLogFolder = path.join(self.starMadeInstallFolder, "logs"); // This is added because we have to parse the serverlog.0.log file for ship spawns
   var serverLogFile = path.join(self.starMadeLogFolder, "serverlog.0.log");
@@ -1474,6 +1493,19 @@ replace("'", "") + '"';
       return simplePromisifyIt(self.status, options);
     }
   }
+
+  // #####################
+  // ####   EVENTS    ####
+  // #####################
+  event.on("unloadMods",function(){ // Shut down the server and any pids, quickly.
+    console.log("unloadMods event detected!  Killing all PIDs!");
+    self.killAllPIDs();
+    // Unregister any constructors
+    console.log("Unregistering all constructors..");
+    self.deregAllConstructors();
+  });
+
+
   // shutdown(seconds,"message") // message is optional.  If given, a countdown timer will be used and then a 1 second shutdown when it is set to expire.
   // ip
   //
