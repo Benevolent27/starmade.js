@@ -1,3 +1,5 @@
+// Updated to use installObj
+
 module.exports={ // top exporting to allow circular dependencies to work.
   SqlQueryObj, // DO NOT USE THE OBJECT DIRECTLY FROM THIS FILE, USE THE objectCreator.js script for that to avoid unsupported circular dependencies, since that script uses export injection to provide this object.
   mapifyColumnsAndAllData, // This takes an array with columns, and another array with all the data, spitting out an array of maps
@@ -9,7 +11,7 @@ module.exports={ // top exporting to allow circular dependencies to work.
 
 // TODO:  Add callback forms for all StarNet.jar queries
 const path=require('path');
-const starNet=require("./starNet.js");
+const starNet=require(path.join(__dirname,"starNet.js"));
 const {starNetSync,starNetCb,starNetVerified,verifyResponse}=starNet;
 
 const mainFolder=path.dirname(require.main.filename); // This should be where the starmade.js is, unless this script is ran by itself.

@@ -222,6 +222,10 @@ var dummySettings = {
   }
 }
 
+global["loadWrapperMods"]=loadWrapperMods;
+global["unloadWrapperMods"]=unloadWrapperMods;
+global["reloadWrapperMods"]=reloadWrapperMods;
+
 global["settingsFilePath"] = path.join(mainFolder, "settings.json");
 global["settings"] = getSettings({ // These values will be overwritten by any existing settings.json file
   showStderr: true,
@@ -632,7 +636,6 @@ function requireServerMods(inputPath) { // Requires the path to the install
   // returnObj[serverFoldersArray[e]]=global["installObjects"][serverFoldersArray[e]]["modRequires"];
   return returnObj;
 }
-
 function loadAllServerMods(inputPath) {
   if (typeof inputPath == "string" || typeof inputPath == "undefined"){
     // outputs to the global.installObjects["/path/to/mod"].modRequires object, which will look something like this:
@@ -647,7 +650,6 @@ function loadAllServerMods(inputPath) {
     throw new Error("Invalid input given to loadAllServerMods!  Expects a string path or nothing!");
   }
 }
-
 function unloadServerMods(theInputPath) { // This cycles through the list of modfiles and deletes their cache
   // if 'inputPath' is specified, it will ONLY unload mods for that specific install.  Note that this functionality should not be used till global event listeners are broken down somehow by mod.
   var inputPath;
@@ -683,8 +685,7 @@ function unloadServerMods(theInputPath) { // This cycles through the list of mod
   }
 }
 function reloadServerMods(inputPath) { // This function is meant to reload ALL mods.  Specificity is not possible right now.
-  
-  console.log("Deleting the require cache's for mods..");
+  console.log("Unloading server mods..");
   unloadServerMods(inputPath);
   console.log("Re-requiring the mods..");
   loadAllServerMods(inputPath); // This will load new ones if they exist.
@@ -692,7 +693,7 @@ function reloadServerMods(inputPath) { // This function is meant to reload ALL m
 }
 
 
-function loadWrapperMods() {
+function loadWrapperMods() { // No inputPath here because there is only one folder
   // Cycle through the mods folders for this install and require each mod file in
   let modsFolder = path.join(__dirname, "mods-Wrapper");
   if (!global.hasOwnProperty("modRequires")){
@@ -727,13 +728,13 @@ function loadWrapperMods() {
   }
   return true;
 }
-function unloadWrapperMods(inputPath) { // This cycles through the list of wrapper modfiles and deletes their cache
-  global["event"].emit("removeGlobalListeners"); // removes listeners and non-invincible custom consoles
+function unloadWrapperMods() { // This cycles through the list of wrapper modfiles and deletes their cache
+  global["event"].emit("unloadWrapperMods"); // Gives wrapper mods a chance to do any extra cleanup they may need done before the reload
   console.log("Removing any global event listeners registered by Wrapper mods..");
   global["event"].removeAllListeners();
   // unloadGlobalEventListeners(inputPath); // old method
   // TODO:  Wrapper level mods may very well emit to server mods, so these need to have their own record.. I guess I could put it on global["installObjects"][__dirname]
-  objectCreator.deregAllConstructors(inputPath); // TODO: Make registering mods specific to installs, so they can be selectively de-registered. This deregisters objects added by wrapper mods.
+  objectCreator.deregAllConstructors();
   var newKeys = [];
   var loadedModsArray = Object.keys(global["modRequires"]);
   for (let e = 0;e < loadedModsArray.length;e++) {
@@ -746,7 +747,6 @@ function unloadWrapperMods(inputPath) { // This cycles through the list of wrapp
     Reflect.deleteProperty(global, "modRequires"); // Delete the modRequires variable, but only if empty.  It should always be empty.  This is redundant.
   }
 }
-
 function reloadWrapperMods() { // This function is meant to reload ALL mods.  Specificity is not possible right now.
   console.log("Deleting the require cache's, removing listeners, and unregistering Constructors for Wrapper mods..");
   unloadWrapperMods();
@@ -755,7 +755,7 @@ function reloadWrapperMods() { // This function is meant to reload ALL mods.  Sp
   console.log("Done reloading Wrapper mods!");
 }
 
-
+// TODO: Delete these, they have been obsoleted by the CustomEvent object
 function unloadServerEventListeners(inputPath) { // Removes the event listeners for all or a specific install
   if (typeof inputPath != "undefined" || typeof inputPath != "string"){
     throw new Error("Invalid input given to unloadServerEventListeners!  Expects nothing or a string! Input type given: " + typeof inputPath);
@@ -778,7 +778,6 @@ function unloadServerEventListeners(inputPath) { // Removes the event listeners 
     }
   } 
 }
-
 function unloadGlobalEventListeners(inputPath) { // change this after the global event listeners have been changed to require providing a path
   // TODO: Add removing of event listeners for all the servers or for a specific server.
   if (typeof inputPath != "undefined" || typeof inputPath != "string"){
@@ -815,7 +814,6 @@ function unloadGlobalEventListeners(inputPath) { // change this after the global
     }
   } 
 }
-
 
 function testStarMadeDirValue(installDir) {
   if (typeof installDir == "undefined") {
@@ -856,31 +854,30 @@ function testStarMadeDirValue(installDir) {
   return false;
 }
 
-
+// I'm removing these, because the functions actually emit these, which would cause a giant loop.  I added a .reload() method to the installObj.  TODO: Add a way for wrapper mods to initiate a reload.
 // To allow loading, unloading, and reloading of mods, a mod should probably emit an event to trigger the event here, rather than run it within it's own process.
-globalEventUnmodified.on("loadServerMods", function (inputPath) {
-  loadAllServerMods(inputPath);
-  emitToAllInstalls("init");;
-});
-globalEventUnmodified.on("unloadServerMods", function (inputPath) {
-  unloadServerMods(inputPath);
-});
-globalEventUnmodified.on("reloadServerMods", function (inputPath) {
-  reloadServerMods(inputPath);
-  emitToAllInstalls("init");;
-});
-
-globalEventUnmodified.on("loadWrapperMods", function (inputPath) {
-  loadWrapperMods(inputPath);
-  globalEventUnmodified.emit("init");;
-});
-globalEventUnmodified.on("unloadWrapperMods", function (inputPath) {
-  unloadWrapperMods(inputPath);
-});
-globalEventUnmodified.on("reloadWrapperMods", function (inputPath) {
-  reloadWrapperMods(inputPath);
-  globalEventUnmodified.emit("init");
-});
+// globalEventUnmodified.on("loadServerMods", function (inputPath) {
+//   loadAllServerMods(inputPath);
+//   emitToAllInstalls("init");;
+// });
+// globalEventUnmodified.on("unloadServerMods", function (inputPath) {
+//   unloadServerMods(inputPath);
+// });
+// globalEventUnmodified.on("reloadServerMods", function (inputPath) {
+//   reloadServerMods(inputPath);
+//   emitToAllInstalls("init");;
+// });
+// globalEventUnmodified.on("loadWrapperMods", function () {
+//   loadWrapperMods();
+//   globalEventUnmodified.emit("init");;
+// });
+// globalEventUnmodified.on("unloadWrapperMods", function () {
+//   unloadWrapperMods();
+// });
+// globalEventUnmodified.on("reloadWrapperMods", function () {
+//   reloadWrapperMods();
+//   globalEventUnmodified.emit("init");
+// });
 
 
 
@@ -1396,6 +1393,7 @@ function regServerObj(installPath, serverObj) {
     if (global["installObjects"].hasOwnProperty(installPath)) {
       if (typeof serverObj == "object") {
         global["installObjects"][installPath].serverObj = serverObj;
+        global["installObjects"][installPath].event.emit("start",serverObj);
       } else {
         throw new Error("Invalid input given for 'serverObj' parameter invalid!  Requires a server object!  Usage: regInstall(installPath,serverObj)");
       }

@@ -1,3 +1,5 @@
+// Updated to use installObj
+
 // Combined starNet with starNetHelpers - 01-09-20 - needs testing
 // Note:  The StarNet will not function if called before a serverObj exists for this server.
 module.exports={

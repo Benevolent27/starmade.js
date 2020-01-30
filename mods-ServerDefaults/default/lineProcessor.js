@@ -1,3 +1,5 @@
+// Updated to use installObj
+
 module.exports = { // IMPORTANT: These cannot be used until the serverObj has been created for the install
   processDataInput,
   processServerlogDataInput
@@ -5,8 +7,7 @@ module.exports = { // IMPORTANT: These cannot be used until the serverObj has be
 
 // This script needs to read from the server settings, so it needs the installObj
 var installObj = global.getInstallObj(__dirname);
-var settings = installObj.settings;
-var event = installObj.event;
+var {settings,event}=installObj;
 var serverObj = {}; // This will be set after the "start" is given.
 event.on("start", function (theServerObj) {
   serverObj = theServerObj;
