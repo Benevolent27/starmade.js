@@ -13,16 +13,19 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   // init, // This is needed so objects can send text directly to the server
   RemoteServerObj,
   CustomConsole,
+  CustomLog,
   regConstructor, // Allows outside scripts to register new functions for use with squish/unsquish
   deregAllConstructors, // Deregisters constructors registered by mods
   deregConstructor, // Deregisters a specific constructor added by a mod
   squish,
   unSquish,
-  isSquishable
+  isSquishable,
+  CustomEvent
 }
 
 // Requires
 const path                 = require('path');
+const fs                   = require('fs');
 const {PassThrough}      = require('stream'); // For custom console
 const {Console}            =require('console'); // For custom console
 const mainFolder           = path.dirname(require.main.filename); // This should be where the starmade.js is, unless this script is ran by itself for testing purposes.
@@ -32,6 +35,8 @@ const miscHelpers          = require(path.join(binFolder,"miscHelpers.js"));
 const requireBin           = miscHelpers["requireBin"];
 const objectHelper         = requireBin("objectHelper.js");
 const installAndRequire    = requireBin("installAndRequire.js");
+const EventEmitter         = require('events');
+class Event extends EventEmitter {};
 
 // NPM installable requires
 
@@ -39,7 +44,11 @@ const installAndRequire    = requireBin("installAndRequire.js");
 const {copyArray,toNumIfPossible,toStringIfPossible,subArrayFromAnother,findSameFromTwoArrays,isInArray} = objectHelper;
 const {testIfInput,trueOrFalse,isTrueOrFalse,isNum,colorize,getObjType,returnLineMatch,applyFunctionToArray,simplePromisifyIt,toTrueOrFalseIfPossible} = objectHelper;
 const {isTrue,isFalse,getOption,addOption,getParamNames,getRandomAlphaNumericString,arrayMinus,addUniqueToArray}=objectHelper;
-
+const {
+  ensureFolderExists,
+  getSimpleDate,
+  getSimpleTime
+}=miscHelpers;
 // Set up aliases from the global variable
 if (global.hasOwnProperty("console")){ // allows the global.debug and other modifications to pass through here.
   var console=global.console;
@@ -268,6 +277,160 @@ function SquishedObj(inputObj,objType,objCreationArray){ // Change this to take 
     } else {
         throw new Error("Invalid input given to SquishedObj!");
     }
+}
+
+
+function CustomEvent(options){
+  // The purpose of this object is to allow reloading of scripts by deleting their require cache.  One important part of that is removing any event listners without removing listeners created by the wrapper or other scripts.
+  // So, here we can create a "master custom event" and from that produce one or more "spawn" event emitter.
+  // For each spawn event-emitter, when listeners are registered, a cache is built.  When listeners are removed it only removes one ones registered to that specific spawn event-emitter.
+  //
+  // If the main event emitter has all listeners cleared, it will also remove all listeners for all spawns.
+  // Anything emitted to either the master event emitter or any spawn event emitter will trigger listeners on any of the emitters.
+  //
+  // Example usage: var myCustomEvent=new CustomEvent();
+  // To create a spawn:  var myEventSpawn=myCustomEvent.spawn();
+  // 
+  // Spawns can create other spawns as well.
+  // Example:  var anotherEventSpawn=myEventSpawn.spawn();
+  var newEvent = new Event();
+  var eventFunction={};
+  var newEventCopy=objectHelper.copyObj(newEvent);
+  newEventCopy["masterEvent"]=newEvent;
+  newEventCopy["spawns"]=[]; // This will be an array of all spawns based on this customEvent
+  newEventCopy.removeAllListeners=function(theEventName){ // This is necessary to clear all the listener arrays for all spawns
+    for (let i=0;i<newEventCopy["spawns"].length;i++){
+      console.log("Removing all listeners for spawn # " + i + " type given: " + theEventName);
+      newEventCopy["spawns"][i].removeAllListeners(theEventName);
+    }
+    console.log("###########  Now running it on the actual newEvent!"); // temp
+    return newEvent.removeAllListeners(theEventName);
+  }
+  var spawnID=0;
+  newEventCopy.spawn=function(){
+    var spawnCopyEvent=objectHelper.copyObj(newEventCopy);
+    var eventListeners=[];
+    spawnCopyEvent["on"] = function (eventName, theFunction) {
+      var theObj = {};
+      theObj[eventName] = theFunction;
+      eventListeners.push(theObj);
+      return newEvent.on(eventName, theFunction);
+    }
+    spawnCopyEvent["addListener"]=spawnCopyEvent["on"];
+    spawnCopyEvent["once"] = function (eventName, theFunction) {
+      var theObj = {};
+      theObj[eventName] = theFunction;
+      eventListeners.push(theObj);
+      return newEvent.once(eventName, theFunction);
+    }
+    spawnCopyEvent["prependListener"] = function (eventName, theFunction) {
+      var theObj = {};
+      theObj[eventName] = theFunction;
+      eventListeners.push(theObj);
+      return newEvent.prependListener(eventName, theFunction);
+    }
+    spawnCopyEvent["prependOnceListener"] = function (eventName, theFunction) {
+      var theObj = {};
+      theObj[eventName] = theFunction;
+      eventListeners.push(theObj);
+      return newEvent.prependOnceListener(eventName, theFunction);
+    }
+    spawnCopyEvent["removeListener"] = function (theName,theFunction) {
+      let tempObj={};
+      tempObj[theName]=theFunction;
+      // console.log("before:");
+      // console.table(eventListeners); // temp
+      eventListeners=eventListeners.filter(function(e){ // Remove this listener from the array
+        for (let key in e){
+          if (e.hasOwnProperty(key)){
+            if (key == theName && e[key] == theFunction){
+              return false;
+            }
+          }
+        }
+        return true;
+      });
+      // console.log("after:");
+      // console.table(eventListeners); // temp
+      return newEvent.removeListener(theName,theFunction);
+    }
+    spawnCopyEvent["off"]=spawnCopyEvent["removeListener"];
+    
+    spawnCopyEvent["removeAllListeners"] = function (theEventName) { // eventName is optional
+      var remove=false;
+      console.log("Before:");
+      console.table(eventListeners);
+    if (typeof theEventName == "string" || typeof theEventName == "undefined"){
+        for (let i = eventListeners.length-1;i>=0;i--){ // We work through the array backwards since we are removing values and don't want to work with an array that is shrinking as we move upward through it linearly
+          for (let eventName in eventListeners[i]){
+            if (eventListeners[i].hasOwnProperty(eventName)){
+              if (typeof theEventName == "undefined" || (typeof theEventName=="string" && theEventName === eventName)){
+                eventFunction=eventListeners[i][eventName];
+                newEvent.removeListener(eventName,eventFunction);
+                remove=true; // We don't remove the listener from the array here, in the random event the object has more than one key somehow.  Paranoid? yes.
+              }
+            }
+          }
+          if (remove == true){
+            eventListeners.splice(i,1); // Remove the value from the array
+            remove = false;
+          }
+        }
+        console.log("After:");
+        console.table(eventListeners);
+        return true;
+      } else {
+        throw new Error("Invalid input given to customEvent.removeAllListeners!  Expects a string or nothing!");
+      }
+    }
+    spawnCopyEvent["masterEvent"]=newEventCopy; // this lets us get the master event.  The original untouched event is never given.
+    
+    newEventCopy["spawns"].push(spawnCopyEvent); // Add it to the master list of spawns
+
+    spawnID++;
+    spawnCopyEvent[spawnID]=Number(spawnID);
+    spawnCopyEvent["unlink"]=function(){ // This unlinks this spawn as much as possible, but this does not delete it.  If any references exist still to this spawn, garbage collection will not eat it and clear the memory used.
+      spawnCopyEvent["masterEvent"]=null;
+      spawnCopyEvent["removeAllListeners"]();
+      for (let i=newEventCopy["spawns"].length-1;i<=0;i--){
+        if (newEventCopy["spawns"][i].spawnID == spawnCopyEvent[spawnID]){
+          newEventCopy["spawns"][i]=null;
+          newEventCopy["spawns"].splice(i,1);
+        }
+      }
+    }
+    return spawnCopyEvent;
+  }
+  return newEventCopy; // This is the master event, but we can get a spawn if we'd like.  Anything we do here will affect all spawns.
+}
+
+function CustomLog(inputPath,options){
+  var logsFolder = path.join(inputPath, "logs");
+  ensureFolderExists(logsFolder); // Creates the directory
+  var logFileName = getSimpleDate() + ".log";
+  var logFilePath = path.join(logsFolder, logFileName);
+  var logStream = fs.createWriteStream(logFilePath, {flags: 'a'}); // We create a stream here so the handle will not be opened a million times.  This will automatically close when the program ends, and does not need to be ended.
+  // process.on('exit', function () { // Should be unnecessary
+  //   logStream.end();
+  // });
+  return function (logMsg) { // Writes to a log file with the current date into the /log subfolder
+    if (typeof logMsg == "string") {
+      let lineWrite = getSimpleTime() + " - " + logMsg;
+      // First check to ensure the correct date will be used.
+      let logFileNameTemp = getSimpleDate() + ".log";
+      if (logFileNameTemp != logFileName) { // The date must have changed
+        logFileName = logFileNameTemp; // Set up the filenames correctly, end the old log stream, and create a new one.
+        logFilePath = path.join(logsFolder, logFileName);
+        logStream.end();
+        logStream = fs.createWriteStream(logFilePath, {"flags": 'a'});
+      }
+      // touch(logFilePath);
+      logStream.write(lineWrite + "\n");
+    } else {
+      var errorMsg = "Invalid input given to log!  Expects a string!";
+      throw new Error(errorMsg);
+    }
+  }
 }
 
 function CustomConsole(consoleName,options){
