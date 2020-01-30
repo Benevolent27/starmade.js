@@ -63,7 +63,7 @@ const spawn = require('child_process').spawn;
 const http = require('http');
 const miscHelpers = require(path.join(binFolder, "miscHelpers.js"));
 const {requireBin} = miscHelpers;
-const sqlQueryJs = requireBin("sqlQuery.js");
+const sqlQueryJs = require(path.join(__dirname,"sqlQuery.js"));
 // SqlQueryObj is not in the module.exports above because it cannot be defined till after sqlQuery.js is required.
 module.exports.SqlQueryObj = sqlQueryJs.SqlQueryObj; // Module injections should occur as quickly as possible to allow circular dependencies to function properly
 const objectHelper = requireBin("objectHelper.js");
