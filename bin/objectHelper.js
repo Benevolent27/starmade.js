@@ -231,7 +231,7 @@ function applyFunctionToArray(arrayInput,functionToRun){
   return outputArray;
 }
 
-function arrayMinus(theArray,val){ // Returns an array MINUS any values that match val
+function arrayMinus(theArray,val){ // Returns an array MINUS any values that match val.  Does not handle complicated comparisons.
   if (Array.isArray(theArray)){
     return theArray.filter(function(e){
       return e !== val;
