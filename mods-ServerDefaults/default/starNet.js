@@ -21,7 +21,9 @@ module.exports={
   getFactionNameFromNumber,
   getFactionNumberFromName,
   getFactionObjFromName,
-  returnMatchingLinesAsArray
+  returnMatchingLinesAsArray,
+  sendDirectToServer,
+  runSimpleCommand
 }
 
 const path=require('path');
@@ -1076,6 +1078,73 @@ function getStarNetErrorType(input,options){ // parses through a starNet.jar str
     }
     return undef; // No recognized error, so return undefined.
 }
+
+
+function sendDirectToServer(input, cb) { // if cb not given, functions as Sync. Expects a string input, returning "false" if the input wasn't valid.  This sends a command directly to the console with a return character.
+  // Note:  This is probably the one exception I'm making to allow running in sync mode, since it's just sending input to the stdin
+  var theResult = null;
+  var theErr = null;
+  if (testIfInput(input)) {
+    try {
+      theResult = serverObj.spawn.stdin.write(input + "\n");
+    } catch (err) {
+      theErr = err;
+    }
+    if (typeof cb == "function") {
+      return cb(theErr, theResult);
+    } else {
+      if (theErr) {
+        throw theErr;
+      }
+      return theResult; // This should not happen any longer
+    }
+  }
+  theErr = new Error("Invalid input given to sendDirectToServer function!");
+  if (typeof cb == "function") {
+    return cb(theErr, theResult);
+  } else {
+    throw theErr;
+  }
+};
+function runSimpleCommand(theCommand, options, cb) { // cb/promises compliant
+  // This is used for PlayerObj methods that can be sent to either the console or using StarNet
+  // An option can be specified so that it sends directly to the console.  {"fast":true}
+  if (typeof cb == "function") {
+    var theCommandToUse = toStringIfPossible(theCommand);
+    if (typeof theCommandToUse == "string") {
+      var fast = getOption(options, "fast", false);
+      var msgTestFail = new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] \\[ERROR\\]");
+      var msgTestFail2 = new RegExp("^RETURN: \\[SERVER, Admin command failed: Error packing parameters, 0\\]")
+      if (fast == true) { // this can run in Sync if a CB is not specified, since it's only sending input to a stdin of the server
+        return sendDirectToServer(theCommandToUse, cb);
+      }
+      console.debug("Running StarNet command: " + theCommandToUse);
+      if (testIfInput(options)) {
+        console.debug("Using options:");
+        console.debug(options);
+      }
+      return starNetVerified(serverObj, theCommandToUse, options, function (err, msgResult) {
+        if (err) {
+          // console.log("Returning an error: " + err);
+          return cb(err, msgResult);
+        } else if (checkForLine(msgResult, msgTestFail) || checkForLine(msgResult, msgTestFail2)) { // The player was offline, did not exist, or other parameters were incorrect.
+          console.debug("Command connection succeeded, but command failed. Returning a false value.");
+          console.debug("msgResult: " + msgResult);
+          return cb(err, Boolean(false)); // err will be null
+        } else { // The command appears to have not failed, so let's assume it succeeded.
+          // console.log("Returning an true on success.");
+          console.debug("Command connection succeeded and command succeeded. Returning a true value.");
+          console.debug("msgResult: " + msgResult);
+          return cb(err, Boolean(true)); // Err will be null
+        }
+      });
+    } else {
+      return cb(new Error("No command given to runSimpleCommand!"), null);
+    }
+  } else { // No cb specified, so run in promise mode. 
+    return simplePromisifyIt(runSimpleCommand, options, theCommand);
+  }
+};
   
   // ###########################
   // ### StarNet.jar errors: ###
