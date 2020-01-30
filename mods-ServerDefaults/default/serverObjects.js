@@ -228,23 +228,23 @@ event.on("start", function (theServerObj) { // This event only happens AFTER the
   // if (serverObj !== null) { // Only do stuff IF there is a server object, otherwise do nothing.
   //   // Set up prototypes for constructors, such as replacing .toString() functionality with a default value.  Prototypes will not appear as a regular key.
 
-  //   // Actually, I don't see any reason to register the constructors this way.  They are needed by the ServerObj, so I'll just load em in there.
-  //   // Register the constructors
-  //   // serverObj.regConstructor(SquishedObj);
-  //   // serverObj.regConstructor(BotObj);
-  //   // serverObj.regConstructor(MessageObj);
-  //   // serverObj.regConstructor(ChannelObj);
-  //   // serverObj.regConstructor(IPObj);
-  //   // serverObj.regConstructor(SMNameObj);
-  //   // serverObj.regConstructor(PlayerObj);
-  //   // serverObj.regConstructor(SystemObj);
-  //   // serverObj.regConstructor(BlueprintObj);
-  //   // serverObj.regConstructor(FactionObj);
-  //   // serverObj.regConstructor(LocationObj);
-  //   // serverObj.regConstructor(SectorObj);
-  //   // serverObj.regConstructor(CoordsObj);
-  //   // serverObj.regConstructor(CreatureObj);
-  //   // serverObj.regConstructor(EntityObj);
+    // I'm not sure if below is the best way to go about this, but some of my scripting relies on it currently, so I'll leave it be.
+    // Register the constructors
+    serverObj.regConstructor(SquishedObj);
+    serverObj.regConstructor(BotObj);
+    serverObj.regConstructor(MessageObj);
+    serverObj.regConstructor(ChannelObj);
+    serverObj.regConstructor(IPObj);
+    serverObj.regConstructor(SMNameObj);
+    serverObj.regConstructor(PlayerObj);
+    serverObj.regConstructor(SystemObj);
+    serverObj.regConstructor(BlueprintObj);
+    serverObj.regConstructor(FactionObj);
+    serverObj.regConstructor(LocationObj);
+    serverObj.regConstructor(SectorObj);
+    serverObj.regConstructor(CoordsObj);
+    serverObj.regConstructor(CreatureObj);
+    serverObj.regConstructor(EntityObj);
   //   }
 });
 
