@@ -106,14 +106,59 @@ global['_'] = _;
 
 // ### Set up submodules and aliases from requires.
 
+
+// Object aliases
+var {
+  isPidAlive,
+  isDirectory,
+  getDirectories,
+  isFile,
+  getFiles,
+  log,
+  existsAndIsFile,
+  existsAndIsDirectory,
+  trueOrFalse,
+  getJSONFileSync,
+  getJSONFile,
+  writeJSONFileSync,
+  writeJSONFile,
+  getSimpleDate,
+  getSimpleTime
+} = miscHelpers; // Sets up file handling
+var {
+  repeatString,
+  isInArray,
+  getRandomAlphaNumericString,
+  arrayMinus,
+  copyArray,
+  toStringIfPossible,
+  toNumIfPossible,
+  testIfInput,
+  simplePromisifyIt,
+  listObjectMethods,
+  getParamNames
+} = objectHelper;
+var {CustomEvent,CustomConsole,CustomLog} = objectCreator;
+
+
 // ######################
 // #### EVENTS SETUP ####
 // ######################
 // This is more in line with the node.js documentation.  TODO: Only use one method of setting up events.
-const EventEmitter = require('events');
-class Event extends EventEmitter {};
-global["event"]=getNewModifiedWrapperEvent(); // This replaces below.
-var globalEventUnmodified=global["event"].unmodifiedEvent;
+
+
+
+
+var globalEventUnmodified=new CustomEvent(); // Events registered here will not be affected if global["event"].removeAllListeners() is called (for example, if reloading wrapper mods)
+global["event"]=globalEventUnmodified.spawn(); // This can be cleared independently from any of the globalEvent for installs
+// Above replaces below.
+
+// const EventEmitter = require('events');
+// class Event extends EventEmitter {};
+// global["event"]=getNewModifiedWrapperEvent(); 
+// var globalEventUnmodified=global["event"].unmodifiedEvent;
+// Above This replaces below.
+
 // var globalEventUnmodified = new Event(); // This is for custom global events
 // global["event"] = objectHelper.copyObj(globalEventUnmodified); // This is a modified event handler that records when event listeners are set.  This allows unsetting the listeners which were added by mods later and then re-initializing the mods by also deleting their require caches and re-requiring them.
 // global["event"]["on"] = function (eventName, theFunction) {
@@ -131,36 +176,8 @@ var eventListenersToRemoveOnReload = []; // When a global call to reload mods ha
 //   eventListenersToRemoveOnReload.push(theObj);
 // }
 
-// Object aliases
-var {
-  isPidAlive,
-  isDirectory,
-  getDirectories,
-  isFile,
-  getFiles,
-  log,
-  existsAndIsFile,
-  existsAndIsDirectory,
-  trueOrFalse,
-  getJSONFileSync,
-  getJSONFile,
-  writeJSONFileSync,
-  writeJSONFile
-} = miscHelpers; // Sets up file handling
-var {
-  repeatString,
-  isInArray,
-  getRandomAlphaNumericString,
-  arrayMinus,
-  copyArray,
-  toStringIfPossible,
-  toNumIfPossible,
-  testIfInput,
-  simplePromisifyIt,
-  listObjectMethods,
-  getParamNames
-} = objectHelper;
-var {CustomConsole} = objectCreator;
+
+
 
 // #####################
 // ###    SETTINGS   ###
@@ -583,10 +600,6 @@ function loadServerMods() { // done: 01-07-20
   var serverFoldersArray = Object.keys(global["settings"].servers);
   // var returnObj={}; // Can be uncommented to allow outputting a built object of {/install/folder:{"/individual/mod/file.js":require}
   for (let e = 0;e < serverFoldersArray.length;e++) {
-    // Create a custom console for each install if it hasn't already been created.
-    if (!global["installObjects"][serverFoldersArray[e]].hasOwnProperty("console")){
-      global["installObjects"][serverFoldersArray[e]]["console"] = new CustomConsole(serverFoldersArray[e], {invincible: true}); // This is a console that only displays when mods for this install use it.  It is "invincible", so it will not be unloaded if the unloadListeners event happens.
-    }
     // Cycle through the mods folders for this install and require each mod file in
     let modsFolder = path.join(serverFoldersArray[e], "mods");
     if (existsAndIsDirectory(modsFolder)) {
@@ -632,7 +645,9 @@ function unloadServerMods(theInputPath) { // This cycles through the list of mod
   } else if (typeof inputPath != "undefined") {
     throw new Error("Invalid input given to function, 'unloadServerMods'! Expected nothing or a path string! Typeof inputPath: " + typeof inputPath);
   }
-  globalEventUnmodified.emit("removeListeners"); // This is for mods that want to use their own event handler for some reason.
+  unloadServerEventListeners(theInputPath); // Unload listeners on the server level event
+  unloadGlobalEventListeners(theInputPath); // Unload listeners on the global.globalEvent event for each server
+  global["event"].emit("removeServerListeners",theInputPath); // This is for mods that want to use their own event handler for some reason.
   var installFolders = Object.keys(global["installObjects"]);
   var loadedModsArray = [];
   var newKeys = [];
@@ -651,15 +666,15 @@ function unloadServerMods(theInputPath) { // This cycles through the list of mod
     }
   }
 }
-function reloadServerMods() { // This function is meant to reload ALL mods.  Specificity is not possible right now.
+function reloadServerMods(inputPath) { // This function is meant to reload ALL mods.  Specificity is not possible right now.
   console.log("Removing any event listeners registered by mods..");
-  unloadGlobalEventListeners(); // TODO:  Switch from global.event to a "globalEvent" on the installObj for each install, so global event listeners can be unloaded or reloaded per individual mods.  This is entangled with wrapper mods right now.
+  
   // console.log("Removing any registered Constructors for mods..");
   // objectCreator.deregAllConstructors(); // This is more for the to-be-created reloadWrapperMods() function
   console.log("Deleting the require cache's for mods..");
-  unloadServerMods();
+  unloadServerMods(inputPath);
   console.log("Re-requiring the mods..");
-  loadServerMods(); // This will load new ones if they exist.
+  loadServerMods(inputPath); // This will load new ones if they exist.
   console.log("Done reloading mods!");
 }
 
@@ -699,9 +714,12 @@ function loadWrapperMods() {
   }
   return true;
 }
-function unloadWrapperMods() { // This cycles through the list of wrapper modfiles and deletes their cache
-  globalEventUnmodified.emit("removeListeners"); // removes listeners and non-invincible custom consoles
-  objectCreator.deregAllConstructors(); // This deregisters objects added by wrapper mods.
+function unloadWrapperMods(inputPath) { // This cycles through the list of wrapper modfiles and deletes their cache
+  global["event"].emit("removeGlobalListeners"); // removes listeners and non-invincible custom consoles
+  console.log("Removing any global event listeners registered by Wrapper mods..");
+  unloadGlobalEventListeners(inputPath);
+  // TODO:  Wrapper level mods may very well emit to server mods, so these need to have their own record.. I guess I could put it on global["installObjects"][__dirname]
+  objectCreator.deregAllConstructors(inputPath); // TODO: Make registering mods specific to installs, so they can be selectively de-registered. This deregisters objects added by wrapper mods.
   var newKeys = [];
   var loadedModsArray = Object.keys(global["modRequires"]);
   for (let e = 0;e < loadedModsArray.length;e++) {
@@ -716,8 +734,6 @@ function unloadWrapperMods() { // This cycles through the list of wrapper modfil
 }
 
 function reloadWrapperMods() { // This function is meant to reload ALL mods.  Specificity is not possible right now.
-  console.log("Removing any event listeners registered by Wrapper mods..");
-  unloadGlobalEventListeners(); // I do not think it is possible to specify only removing listeners for a specific mod..
   console.log("Deleting the require cache's for Wrapper mods..");
   unloadWrapperMods();
   console.log("Re-requiring the Wrapper mods..");
@@ -726,6 +742,28 @@ function reloadWrapperMods() { // This function is meant to reload ALL mods.  Sp
 }
 
 
+function unloadServerEventListeners(inputPath) { // Removes the event listeners for all or a specific install
+  if (typeof inputPath != "undefined" || typeof inputPath != "string"){
+    throw new Error("Invalid input given to unloadServerEventListeners!  Expects nothing or a string! Input type given: " + typeof inputPath);
+  }
+  // Now remove the event listeners for mods.
+  var theInstalls=Object.keys(global["installObjects"]);
+  var eventFunction={};
+  for (let i=0;i<theInstalls.length;i++){  // First cycle through all the installs remove all listeners on their eventEmitter.
+    if ((typeof inputPath == "string" && inputPath == theInstalls[i]) || typeof inputPath == "undefined"){
+      // global["installObjects"][theInstalls[i]]["event"].removeAllListeners(); // This is just too lazy..
+      for (let e=0;e<global["installObjects"][theInstalls[i]].eventListeners.length;e++){
+        for (let eventName in global["installObjects"][theInstalls[i]].eventListeners[e]){
+          if (global["installObjects"][theInstalls[i]].eventListeners[e].hasOwnProperty(eventName)){
+            eventFunction=global["installObjects"][theInstalls[i]].eventListeners[e][eventName];
+            global["installObjects"][theInstalls[i]].event.removeListener(eventName,eventFunction);
+          }
+        }
+      }
+      global["installObjects"][theInstalls[i]].eventListeners=[];
+    }
+  } 
+}
 
 function unloadGlobalEventListeners(inputPath) { // change this after the global event listeners have been changed to require providing a path
   // TODO: Add removing of event listeners for all the servers or for a specific server.
@@ -733,19 +771,19 @@ function unloadGlobalEventListeners(inputPath) { // change this after the global
     throw new Error("Invalid input given to unloadGlobalEventListeners!  Expects nothing or a string! Input type given: " + typeof inputPath);
   }
   //  Will be needed when the change occurs.       if (typeof inputPath == "undefined" || (typeof inputPath == "string" && inputPath == eventListenersToRemoveOnReload[i])){
-  if (typeof inputPath == "undefined"){ // This MUST be global event emitter, so it won't have a path specified.  Run the emitters for the installs.
+  if (typeof inputPath == "undefined" || inputPath == __dirname){ // If no path or path to starmade.js folder specified, remove the global.event listeners
     for (let i = 0;i < eventListenersToRemoveOnReload.length;i++) { // Run through the array
       // eventListenersToRemoveOnReload[i] // This is an object with the event name and function
       for (let key in eventListenersToRemoveOnReload[i]) {
         if (eventListenersToRemoveOnReload[i].hasOwnProperty(key)) { // Only run on non-prototype keys
           console.log("Removing listener: " + key);
-          globalEventUnmodified.removeListener(key, eventListenersToRemoveOnReload[i][key]);
+          global["event"].removeListener(key, eventListenersToRemoveOnReload[i][key]);
         }
       }
     }
     eventListenersToRemoveOnReload = []; // There should no longer be any event listeners registered.
   }
-  // Now remove the event listeners for all mods.
+  // Now remove the event listeners for mods.
   var theInstalls=Object.keys(global["installObjects"]);
   var eventFunction={};
   for (let i=0;i<theInstalls.length;i++){  // First cycle through all the installs remove all listeners on their eventEmitter.
@@ -763,6 +801,8 @@ function unloadGlobalEventListeners(inputPath) { // change this after the global
     }
   } 
 }
+
+
 function testStarMadeDirValue(installDir) {
   if (typeof installDir == "undefined") {
     var defaultFolderName = "starmade";
@@ -804,27 +844,27 @@ function testStarMadeDirValue(installDir) {
 
 
 // To allow loading, unloading, and reloading of mods, a mod should probably emit an event to trigger the event here, rather than run it within it's own process.
-globalEventUnmodified.on("loadServerMods", function () {
-  loadServerMods();
+globalEventUnmodified.on("loadServerMods", function (inputPath) {
+  loadServerMods(inputPath);
   emitToAllInstalls("init");;
 });
-globalEventUnmodified.on("unloadServerMods", function () {
-  unloadServerMods();
+globalEventUnmodified.on("unloadServerMods", function (inputPath) {
+  unloadServerMods(inputPath);
 });
-globalEventUnmodified.on("reloadServerMods", function () {
-  reloadServerMods();
+globalEventUnmodified.on("reloadServerMods", function (inputPath) {
+  reloadServerMods(inputPath);
   emitToAllInstalls("init");;
 });
 
-globalEventUnmodified.on("loadWrapperMods", function () {
-  loadWrapperMods();
+globalEventUnmodified.on("loadWrapperMods", function (inputPath) {
+  loadWrapperMods(inputPath);
   globalEventUnmodified.emit("init");;
 });
-globalEventUnmodified.on("unloadWrapperMods", function () {
-  unloadWrapperMods();
+globalEventUnmodified.on("unloadWrapperMods", function (inputPath) {
+  unloadWrapperMods(inputPath);
 });
-globalEventUnmodified.on("reloadWrapperMods", function () {
-  reloadWrapperMods();
+globalEventUnmodified.on("reloadWrapperMods", function (inputPath) {
+  reloadWrapperMods(inputPath);
   globalEventUnmodified.emit("init");
 });
 
@@ -1578,17 +1618,27 @@ function goReady(){ // This is called when the "ready" event is emitted globally
   //   }   
   // };
   var serverKeys = Object.keys(global["settings"].servers);
-  // Create individual EventEmitters for each install
+  // Create the installObj entries for each install in settings
   for (let i = 0;i < serverKeys.length;i++) {
     global["installObjects"][serverKeys[i]] = {
       "path": serverKeys[i],
-      "eventListeners":[], // Any .on or .once listeners will be registered here so they can be deregistered later.
-      "event": getNewModifiedServerEvent(serverKeys[i]), // Each install gets it's own modified event listener, that allows deregistering each listener prior to reloading mods.
-      "globalEventListeners":[], // Any .on or .once global event listeners will be registered here so they can be deregistered later.
-      "globalEvent": getNewModifiedWrapperEvent(serverKeys[i]),
+      "log": new CustomLog(serverKeys[i]),
+      "console": new CustomConsole(serverKeys[i],{invincible: true}), // This is a console that only displays when mods for this install use it.  It is "invincible", so it will not be unloaded if the unloadListeners event happens.
+      "event": new CustomEvent(), // Each install gets it's own modified event listener.  Prior to scripts being reloaded, event listeners should be removed using .removeAllListeners()
+      "globalEvent": global["event"].spawn(), // This should be used by mods instead of global["event"].emit.  This will catch global["event"].emit's and any emits from any other install or sub-spawn of this custom event object.
       "settings": global["settings"].servers[serverKeys[i]] // This is redundant, to make it easier to pull the info.
+      // Below has been replaced with a new custom object, which is a more elegant solution.
+      // "eventListeners":[], // Any .on or .once listeners will be registered here so they can be deregistered later.
+      // "event": getNewModifiedServerEvent(serverKeys[i]), // Each install gets it's own modified event listener, that allows deregistering each listener prior to reloading mods.
+      // "globalEventListeners":[], // Any .on or .once global event listeners will be registered here so they can be deregistered later.
+      // "globalEvent": getNewModifiedWrapperEvent(serverKeys[i]),
     };
   }
+
+
+
+
+
 
   try { // This is to catch an error if there is an error in the spawn (if server auto-starts)
     console.log("############## Loading Mods ###############");
@@ -1599,6 +1649,7 @@ function goReady(){ // This is called when the "ready" event is emitted globally
     throw err;
   }
   // Now that all mods are loaded, let's throw the init event at them.  This is needed because some mods may need other mods to be loaded before they finish initialitizing themselves.
-  emitToAllInstalls("init");
+  global["event"].emit("init"); // emits to the global Event, including each globalEvent for each server.
+  emitToAllInstalls("init"); // emits to the server event for each install
   // On init, there is a default mod that will create a serverObj and emit "start" on it's own event emitter, providing the serverObj.  This is so other mods can then initialize with the serverObj.
 };
