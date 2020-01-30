@@ -1,22 +1,20 @@
 // The purpose of this mod is to extend existing objects with more methods.
-// The extensions are only available on init or later events, such as playerMessage, playerDeath, etc.
+// The extensions are only available after the start event, such as when playerMessage, playerDeath, or other events start triggering.
 
 // Pull the needed objects from the global variable.
 var {objectHelper}=global;
 var {testIfInput,getOption,addOption,toNumIfPossible,simplePromisifyIt}=objectHelper;
 
-
 var SectorObj={};
 var CoordsObj={};
-var serverPath=global.getServerPath(__dirname);
-global.event.on('start',function(forServerPath){
-    if (forServerPath == serverPath){ // Only extend the object for THIS server, not others.
-        var serverObj=global.getServerObj(__dirname);
-        SectorObj=serverObj.objects.SectorObj;
-        CoordsObj=serverObj.objects.CoordsObj
-        SectorObj.prototype.distanceToSector=distanceToSector; // Add a new method to the SectorObj
-        serverObj.distanceBetweenSectors=distanceBetweenSectors; // Add a helper to this server
-    }
+
+var installObj=global.getInstallObj(__dirname); // Get the install object
+var {event}=installObj;
+event.on('start',function(serverObj){
+  SectorObj=serverObj.objects.SectorObj;
+  CoordsObj=serverObj.objects.CoordsObj
+  SectorObj.prototype.distanceToSector=distanceToSector; // Add a new prototype to the SectorObj
+  serverObj.distanceBetweenSectors=distanceBetweenSectors; // Add a helper to this server
 });
 function distanceToSector(sector,options,cb){
     var objectThis=getOption(options,"this",this); // Contrary to ESLint, this does actually work.  This gets the object's root context or pulls it from the options.
