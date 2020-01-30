@@ -13,14 +13,13 @@ event.on("start", function (theServerObj) {
 });
 
 const path = require('path');
-const modBinFolder = path.join(__dirname, "bin");
-const patterns = require(path.join(modBinFolder, "patterns.js")); // Import the patterns that will be used to match to in-game events like deaths and messages.
+const patterns = require(path.join(__dirname,"patterns.js")); // Import the patterns that will be used to match to in-game events like deaths and messages.
 var includePatternRegex = patterns.includes();
 var excludePatternRegex = patterns.excludes();
 var includePatternServerLogRegex = patterns.serverLogIncludes();
 var excludePatternServerLogRegex = patterns.serverLogExcluded();
 
-const starNet = require(path.join(modBinFolder, "starNet.js"));
+const starNet = require(path.join(__dirname,"starNet.js"));
 var {
   getUIDfromName,
   getFactionNumberFromName,
@@ -29,9 +28,9 @@ var {
 
 
 const mainFolder = path.dirname(require.main.filename); // This should be where the starmade.js is, unless this script is ran by itself for testing purposes.
-const binFolder = path.join(mainFolder, "bin");
-const objectHelper = require(path.join(binFolder, "objectHelper.js"));
-const miscHelpers = require(path.join(binFolder, "miscHelpers.js"));
+const wrapperBinFolder = path.join(mainFolder, "bin");
+const objectHelper = require(path.join(wrapperBinFolder, "objectHelper.js"));
+const miscHelpers = require(path.join(wrapperBinFolder, "miscHelpers.js"));
 var {
   getSimpleTime,
   getSimpleDate

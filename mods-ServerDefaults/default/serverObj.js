@@ -32,9 +32,9 @@ const sleepPromise = requireBin("mySleep.js").sleepPromise;
 
 // TODO:  Below needs to be fixed, because they require a serverObj to initialize correctly
 const modBinFolder = path.join(__dirname, "bin");
-var setSettings = require(path.join(modBinFolder, "setSettings.js")); // This will confirm the settings.json file is created and the install folder is set up.
-const sqlQueryJs = require(path.join(modBinFolder, "sqlQuery.js"));
-const starNet = require(path.join(modBinFolder, "starNet.js"));
+const setSettings = require(path.join(modBinFolder, "setSettings.js")); // This will confirm the settings.json file is created and the install folder is set up.
+const sqlQueryJs = require(path.join(__dirname, "sqlQuery.js"));
+const starNet = require(path.join(__dirname, "starNet.js"));
 const smInstallHelpers = require(path.join(modBinFolder, "smInstallHelpers.js"));
 const lineProcessor = require(path.resolve(__dirname, "lineProcessor.js"));
 const {
