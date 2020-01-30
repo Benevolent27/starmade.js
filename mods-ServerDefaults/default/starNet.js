@@ -38,11 +38,9 @@ const sleep = mySleep.softSleep; // Only accurate for 100ms or higher wait times
 const {sleepPromise}=mySleep; // Less accurate but non-blocking - can only be used in async functions!
 
 var serverObj={};
-var installObj={};
-var event={};
 if (global.hasOwnProperty("getInstallObj")){ // This is to allow this script to be ran from the command line.
-  installObj=global.getInstallObj(__dirname);
-  const {event}=installObj; // These are events ONLY for this server.
+  var installObj=global.getInstallObj(__dirname);
+  var {event,settings,console,log,installPath}=installObj; // These are events ONLY for this server.
   event.on("start",function(theServerObj){ // the start event indicates that a serverObj has been created.
     serverObj=theServerObj;
   });
