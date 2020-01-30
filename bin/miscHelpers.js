@@ -298,18 +298,10 @@ function waitAndThenKill(mSeconds,thePID,options){ // options are optional.  Thi
   //    interval:'2',
   //    sigType:'SIGTERM'
   // }
-  var mSecondsCount=0;
-  var intervalVar=1000;
-  var sigType="SIGKILL";
+  var mSecondsCount=0; 
+  var intervalVar=getOption(options,"interval",1000);
+  var sigType=getOption(options,"sigType","SIGKILL");
   if (mSeconds && thePID){
-    if (typeof options == "object"){
-      if (options.hasOwnProperty("interval")){
-        intervalVar=options["interval"];
-      }
-      if (options.hasOwnProperty("sigType")){
-        sigType=options["sigType"];
-      }
-    }
     if (isPidAlive(thePID)){
       process.stdout.write("\nWaiting for process to die.");
       while (isPidAlive(thePID) && mSecondsCount < mSeconds){
