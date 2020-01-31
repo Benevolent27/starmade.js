@@ -142,7 +142,7 @@ var {
 
 
 var installObj=global.getInstallObj(__dirname);
-var {event,settings,console,log,installPath}=installObj;
+var {event,settings,log,installPath}=installObj;
 
 async function getSuperAdminPassword(starMadeInstallPath) { // This will grab the superadmin password, setting it up and enabling it if not already.
   // TODO: Offload this to a require
@@ -211,7 +211,8 @@ var recordFileName = "record";
 var recordingCounter = 1;
 var recordingFile = getRecordFileName();
 
-function ServerObj(theInstallFolder, options) { // theInstallFolder is optional.  If given it will load existing settings or create new ones if needed. // cb/promises/squish compliant 
+function ServerObj(options) { // If given it will load existing settings or create new ones if needed. // cb/promises/squish compliant 
+  // This object is set up so that there can only be 1 per install.  If a new one is attempted, it will just return the original one.
   // This us used to run server commands or gather specific information regarding the server.
   // TODO:  Make it so the server is actually spawned when this object is created.
   // TODO: Add sections with information on the parameters used for the server, the path to the jar file ran, etc.
@@ -229,25 +230,19 @@ function ServerObj(theInstallFolder, options) { // theInstallFolder is optional.
   var ignoreLockFile = getOption(options, "ignoreLockFile", false);;
 
   var response = "";
-  this.settings = {};
   var self = this; // This is needed to keep this context within subfunctions
-  if (typeof theInstallFolder == "string") { // Load up settings if they exist
-    this.installFolder = path.resolve(global["mainFolder"], theInstallFolder); // This only adds to the mainFolder if a full path was not given as 'starMadeFolder', which shouldn't happen normally.
-    if (global.settings.servers.hasOwnProperty(self.installFolder)) {
-      this.settings = global.settings.servers[self.installFolder]; // Use the settings from the settings file
-    }
-    self.settings.installFolder = self.installFolder; // Whether this is a new or existing server, we can use the starMadeFolder as the root install folder
-  }
-  this.serverName = path.basename(self.installFolder);
+  this.serverName = path.basename(installObj.path);
   // this.console = new CustomConsole(self.serverName); // This is to output text only when the user has switched to the console for this server.  It's a fully operational Console object.
   this.console = installObj.console; // redundant
   // Paths
-  this.settings = setSettings(self.settings); // Complete any missing settings.  If a starMadeFolder argument was given, this will be used as the install path.  This includes the starmade folder, min and max java settings, etc.
-  this.starMadeFolder = self.settings["starMadeFolder"];
+  installObj.settings=setSettings(installObj.settings); // Set up any missing settings
+  global.writeSettings();
+  this.settings = installObj.settings; // Complete any missing settings.  If a starMadeFolder argument was given, this will be used as the install path.  This includes the starmade folder, min and max java settings, etc.
+  this.starMadeFolder = self.settings["installFolder"];
   // We have to do the below check AFTER the settings were set up because we don't know what the starmade folder will be if none was provided to the object
-  if (global["servers"].hasOwnProperty(self.installFolder)) { // Check to see if this serverObj has already been created, returning that object if so.
+  if (installObj.hasOwnProperty("serverObj")) { // Check to see if this serverObj has already been created, returning that object if so.
     console.error("Server already initialized!  Ignoring any settings you may have set and using the existing server object!");
-    return global["servers"][self.installFolder]; // I have no idea if this will work or not
+    return installObj.serverObj; // TODO: Test this.  I have no idea if this will work or not
   }
 
   this.objects = {};
@@ -398,7 +393,7 @@ function ServerObj(theInstallFolder, options) { // theInstallFolder is optional.
   var serverLogFile = path.join(self.starMadeLogFolder, "serverlog.0.log");
   this.starMadeJar = path.join(self.starMadeInstallFolder, "StarMade.jar");
   // Ensure the mods folder exists, and copy over mods from the root install folder if it doesn't exist yet.
-  this.modsFolder = path.join(self.settingsFile["starMadeFolder"], "mods");
+  this.modsFolder = path.join(installObj.path, "mods"); 
   // ensureFolderExists(self.modsFolder); // This isn't needed if fsExtra creates the folder.  TODO: Test this
   if (!existsAndIsDirectory(self.modsFolder)) { //check to see if a mods folder exists, and if not, copy the mods from the root folder over.
     fsExtra.copy(global["modsFolder"], self.installFolder, function (err) {
@@ -425,7 +420,7 @@ function ServerObj(theInstallFolder, options) { // theInstallFolder is optional.
     }
   };
   this.getSuperAdminPassword = function () {
-    // self.superAdminPassword = getSuperAdminPassword(self.settingsFile["starMadeFolder"]); // Check the super admin password and set up if not configured.
+    // self.superAdminPassword = getSuperAdminPassword(installObj.settings["starMadeFolder"]); // Check the super admin password and set up if not configured.
     var serverCfgObj = self.getServerCfgFile(); // If the server.cfg file does not exist, this will be null.
     if (serverCfgObj === null) {
       return null;
@@ -493,19 +488,19 @@ function ServerObj(theInstallFolder, options) { // theInstallFolder is optional.
     });
   }
   // This may not exist yet if the StarMade install hasn't been performed yet.  Need the install routine put in here, so a check can be made and if not installed, install first.
-  this.bot = new BotObj(self, self.settingsFile["botName"]);
+  this.bot = new BotObj(self, installObj.settings["botName"]);
 
   // #### Settings
   this.ignoreLockFile = false;
   this.forceStart = false;
 
-  this.buildBranch = self.settingsFile["buildBranch"].toLowerCase().trim(); // Should be normal/dev/pre
-  var baseJavaArgs = ["-Xms" + self.settingsFile["javaMin"], "-Xmx" + self.settingsFile["javaMax"], "-jar"]; // These run on any OS.  TODO: Add support for JVM arguments
-  if (self.settingsFile.hasOwnProperty("addionalJavaArgs")) {
-    baseJavaArgs = self.settingsFile.addionalJavaArgs.concat(baseJavaArgs);
+  this.buildBranch = installObj.settings["buildBranch"].toLowerCase().trim(); // Should be normal/dev/pre
+  var baseJavaArgs = ["-Xms" + installObj.settings["javaMin"], "-Xmx" + installObj.settings["javaMax"], "-jar"]; // These run on any OS.  TODO: Add support for JVM arguments
+  if (installObj.settings.hasOwnProperty("addionalJavaArgs")) {
+    baseJavaArgs = installObj.settings.addionalJavaArgs.concat(baseJavaArgs);
   }
   var baseJavaArgsWindows = ["-Xincgc", "-Xshare:off"]; // These will run on windows only
-  var baseSMJarArgs = [self.starMadeJar, "-server", "-port:" + self.settingsFile["port"]];
+  var baseSMJarArgs = [self.starMadeJar, "-server", "-port:" + installObj.settings["port"]];
   if (self.buildBranch == "pre") {
     baseSMJarArgs.push("-pre");
   } else if (self.buildBranch == "dev") {

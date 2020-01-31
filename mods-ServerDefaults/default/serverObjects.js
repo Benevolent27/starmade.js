@@ -58,10 +58,10 @@ class Event extends EventEmitter {};
 const prompt = global["prompt"]; // This creates sync prompts and can have auto-complete capabilties.
 // const events               = require('events');
 const mainFolder = path.dirname(require.main.filename); // This should be where the starmade.js is, unless this script is ran by itself for testing purposes.
-const binFolder = path.join(mainFolder, "bin");
-const spawn = require('child_process').spawn;
-const http = require('http');
-const miscHelpers = require(path.join(binFolder, "miscHelpers.js"));
+const mainBinFolder = path.join(mainFolder, "bin");
+// const spawn = require('child_process').spawn;
+// const http = require('http');
+const miscHelpers = require(path.join(mainBinFolder, "miscHelpers.js"));
 const {requireBin} = miscHelpers;
 const sqlQueryJs = require(path.join(__dirname,"sqlQuery.js"));
 // SqlQueryObj is not in the module.exports above because it cannot be defined till after sqlQuery.js is required.
@@ -69,7 +69,7 @@ module.exports.SqlQueryObj = sqlQueryJs.SqlQueryObj; // Module injections should
 const objectHelper = requireBin("objectHelper.js");
 const regExpHelper = requireBin("regExpHelper.js");
 const ini = requireBin("iniHelper.js");
-var setSettings = requireBin("setSettings.js"); // This will confirm the settings.json file is created and the install folder is set up.
+// var setSettings = require(path.join(__dirname,"bin","setSettings.js")); // This will confirm the settings.json file is created and the install folder is set up.
 const installAndRequire = requireBin("installAndRequire.js");
 const sleep = requireBin("mySleep.js").softSleep;
 const sleepSync = global["sleepSync"];
@@ -77,7 +77,7 @@ const sleepPromise = requireBin("mySleep.js").sleepPromise;
 
 const modBinFolder = path.join(__dirname, "bin");
 // TODO: Fix below, since these require being loaded with a server object.
-const starNet = require(path.join(modBinFolder, "starNet.js")); // This self-initializes now
+const starNet = require(path.join(__dirname, "starNet.js")); // This self-initializes now
 
 // NPM installable requires
 const treeKill = installAndRequire('tree-kill', '^1.2.1'); // https://www.npmjs.com/package/tree-kill To kill the server and any sub-processes
@@ -145,7 +145,6 @@ const {
   isSeen,
   writeJSONFileSync
 } = miscHelpers;
-const smInstallHelpers = requireBin("smInstallHelpers.js");
 
 // Set up prototypes
 BlueprintObj.prototype.toString = function () {

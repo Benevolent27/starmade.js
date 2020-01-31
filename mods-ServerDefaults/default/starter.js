@@ -1,6 +1,7 @@
 // This script is responsible for starting the server and firing off the event signifying the serverObj has been created.
 
-var serverObjJs = require("serverObj.js");
+const path=require('path');
+var serverObjJs = require(path.join(__dirname,"serverObj.js"));
 var {ServerObj} = serverObjJs;
 // var serverPath=global.getServerPath(__dirname);
 var installObj = global.getInstallObj(__dirname);
