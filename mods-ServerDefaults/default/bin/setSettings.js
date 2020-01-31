@@ -2,10 +2,6 @@
 // If settings do not exist, it will ask for them.
 // It then returns the settings as an object.
 
-// To use this in the main starmade.js file, use as:
-// const setSettings = require("./bin/setSettings.js");
-// var settings = setSettings();
-
 // This should ONLY ever be ran from the starmade.js script, never as itself, otherwise it's script requires won't load properly.
 
 // TODO:  Add formatting options for how a bot message appears.
@@ -31,13 +27,9 @@ module.exports = function (serverSettingsObj) { // If no serverSettingsObj provi
     toNumIfPossible,
     mergeObjs
   } = objectHelper; // Aliases
-  var {
-    ensureFolderExists
-  } = miscHelpers;
+  var {ensureFolderExists} = miscHelpers;
   // console.log("Loading dependencies..");
-  const prompt = installAndRequire("prompt-sync", '^4.1.7')({
-    "sigint": true
-  }); // https://www.npmjs.com/package/prompt-sync - This creates sync prompts and can have auto-complete capabilties.  The sigint true part makes it so pressing CTRL + C sends the normal SIGINT to the parent javascript process
+  const prompt = installAndRequire("prompt-sync", '^4.1.7')({"sigint": true}); // https://www.npmjs.com/package/prompt-sync - This creates sync prompts and can have auto-complete capabilties.  The sigint true part makes it so pressing CTRL + C sends the normal SIGINT to the parent javascript process
   const isInvalidPath = installAndRequire("is-invalid-path", '^1.0.2'); // https://www.npmjs.com/package/is-invalid-path -- Not using the "is-valid-path" because my force require scripting won't work with it since it uses a non-standard path to it's scripts
   const mkdirp = installAndRequire("mkdirp", '^0.5.1'); // https://www.npmjs.com/package/mkdirp - Great for sync or async folder creation, creating all folders necessary up to the end folder
 
@@ -82,7 +74,7 @@ module.exports = function (serverSettingsObj) { // If no serverSettingsObj provi
     if (testIfInput(testVal)) {
       testTextArray = testVal.toString().toLowerCase().split("");
       if ((/[0-9kmg]/i).test(testTextArray.pop())) { // Check to see if the last value is a number, k, m, or g.  Pop also removes it from the array.
-        for (let i = 0; i < testTextArray.length; i++) { // Loop through the rest of values
+        for (let i = 0;i < testTextArray.length;i++) { // Loop through the rest of values
           if (!(/[0-9]/).test(testTextArray[i])) { // if the current value we are checking is NOT a number, then return false
             return false;
           }
@@ -234,6 +226,7 @@ module.exports = function (serverSettingsObj) { // If no serverSettingsObj provi
       console.log("\nWhat StarMade installation folder should we use?");
       console.log("By default, 'starmade' in the same folder as starmade.js is used. (recommended)");
       while (!(settings["installFolder"] = testStarMadeDirValue(prompt(": ")))) {
+
         /* empty on purpose */
       }
       console.log("StarMade Install Folder set to: " + settings["installFolder"]);
@@ -325,7 +318,7 @@ module.exports = function (serverSettingsObj) { // If no serverSettingsObj provi
       // console.log("commands: " + commands);
       return function (str) {
         var ret = [];
-        for (let i = 0; i < commands.length; i++) {
+        for (let i = 0;i < commands.length;i++) {
           // console.log("Working on: " + commands[i]);
           if (commands[i].indexOf(str) == 0) {
             ret.push(commands[i]);
@@ -350,9 +343,7 @@ module.exports = function (serverSettingsObj) { // If no serverSettingsObj provi
       console.log("please type 'yes' below.  Anything else will exit the setup process.");
 
       // var autocompleteTest = prompt('custom autocomplete: ', {"autocomplete": complete(['fuck','bye1234', 'by', 'bye12', 'bye123456'])});
-      settings["smTermsAgreedTo"] = prompt(": ", {
-        autocomplete: complete(["ardvark", "babelfish", "conch", "doge", "earwig", "fritiniency", "gadzooks!", "hereticide", "ichthyoacanthotoxism", "jackalope", "kickie-wickie", "lactescent", "milquetoast", "nougat", "nubile", "odiferous", "pupillarity", "quackle", "rencounter", "shrieval", "tabernacular", "uraniscus", "vulgus", "wharfinger", "xenodocheionology", "zyzzyva", "yabbadabbadoo!"])
-      }).toLowerCase();
+      settings["smTermsAgreedTo"] = prompt(": ", {autocomplete: complete(["ardvark", "babelfish", "conch", "doge", "earwig", "fritiniency", "gadzooks!", "hereticide", "ichthyoacanthotoxism", "jackalope", "kickie-wickie", "lactescent", "milquetoast", "nougat", "nubile", "odiferous", "pupillarity", "quackle", "rencounter", "shrieval", "tabernacular", "uraniscus", "vulgus", "wharfinger", "xenodocheionology", "zyzzyva", "yabbadabbadoo!"])}).toLowerCase();
       if (settings["smTermsAgreedTo"] != "yes") {
         console.log("\nSince you have not already agreed to Schine's terms of service for StarMade,");
         console.log("You have indicated that you are not authorized to download nor use their software,");
