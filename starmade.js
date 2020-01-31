@@ -298,16 +298,16 @@ function dumpToRecordFile(options, cb) {
   return simplePromisifyIt(dumpToRecordFile, options);
 }
 
-// Custom console code
-global["consoles"] = {};
-global["currentConsole"] = "main";
-global["console"] = new CustomConsole("main", {invincible: true}); // This is a console that only displays if the "main" console is currently selected.  It is "invincible", so it will not be unloaded if the unloadListeners event happens.
+// Custom console code  TODO:  Fix this.  For some reason it's silencing everything.
+// global["consoles"] = {};
+// global["currentConsole"] = "main";
+// global["console"] = new CustomConsole("main", {invincible: true}); // This is a console that only displays if the "main" console is currently selected.  It is "invincible", so it will not be unloaded if the unloadListeners event happens.
 log("starmade.js launched.");
 
 // ######################
 // ### Random Helpers ###
 // ######################
-global["cls"] = process.stdout.write("\u001b[2J\u001b[0;0H"); // Clears the screen and sets the cursor to the top.  Not sure how this will behave on a remote console or other OS's, but works on windows 10 cmd line.  Lots of options at the Source: https://stackoverflow.com/questions/9006988/node-js-on-windows-how-to-clear-console
+global["cls"] = function(){ process.stdout.write("\u001b[2J\u001b[0;0H") }; // Clears the screen and sets the cursor to the top.  Not sure how this will behave on a remote console or other OS's, but works on windows 10 cmd line.  Lots of options at the Source: https://stackoverflow.com/questions/9006988/node-js-on-windows-how-to-clear-console
 
 
 
@@ -482,7 +482,6 @@ function setupNewServer() {
     }
   }
   global["settings"]["servers"][serverFolder] = {"installFolder": serverFolder}; // This is just a bare bones directory of where to put the mods.  There are no default settings, because we leave this to the server to set these if they so choose.
-  
   // copy the default mods over // If someone wants to install mods for a different server type, they can delete the mods and replace them.  If I grow support for other game types in the future, I'll change this behavior.
   // @ts-ignore
   fsExtra.copySync(path.join(__dirname,"mods-ServerDefaults"),path.join(serverFolder,"mods")); // This creates the folder if it doesn't exist
@@ -509,8 +508,9 @@ function requireServerMods(inputPath) { // Requires the path to the install
   //   "/path/to/install/mods/someModFolder/anotherScript.js":theRequireObject,
   //   "/path/to/install/mods/aDifferentModFolder/etc.js":theRequireObject
   // }
-  if (inputPath != "string"){
-    throw new Error("No path given to loadServerMods!  Expects a path to a server install!  Example: loadServerMods('/path/to/install')");
+  console.log("inputPath: " + inputPath + " typeof inputPath: " + typeof inputPath);
+  if (typeof inputPath != "string"){
+    throw new Error("No path given to requireServerMods!  Expects a path to a server install!  Example: requireServerMods('/path/to/install')");
   }
   var modsFolder = path.join(inputPath, "mods");
   var returnObj={};
@@ -724,14 +724,20 @@ function unloadGlobalEventListeners(inputPath) { // change this after the global
   } 
 }
 
-function testStarMadeDirValue(installDir) {
-  if (typeof installDir == "undefined") {
+function testStarMadeDirValue(theInstallDir) {
+  console.log("typeof installDir: " + typeof theInstallDir + " theInstallDir: " + theInstallDir);
+  var installDir=theInstallDir; // .trim();
+  if (typeof installDir == "undefined" || installDir == "") {
     var defaultFolderName = "starmade";
-    var returnPath = path.join(mainFolder, defaultFolderName);
+    var returnPath = path.join(__dirname, defaultFolderName);
+
+    // temp
+    console.log("installDir: " + installDir);
+    console.log("returnPath: " + returnPath);
     var counter = 1;
     while (global["settings"]["servers"].hasOwnProperty(returnPath)) { // Keep going till the install path does not exist in settings.  It is ok if the folder already exists. 
       counter++;
-      returnPath = path.join(mainFolder, defaultFolderName + counter);
+      returnPath = path.join(__dirname, defaultFolderName + counter);
     }
     if (counter > 1) {
       console.log(`Existing install already existed, appended ${counter} to  the default name, '${defaultFolderName}'.`);
@@ -870,7 +876,7 @@ process.stdin.on('data', function (text) {
             console.log("ERROR: That console number did not appear to exist!  Cannot switch to it!");
             console.log("To see a list of consoles available, type: !consoles");
           } else {
-            console.clear(); // Some say this doesn't work in windows.  There is a global.cls option which I may need to switch to.
+            // console.clear(); // Some say this doesn't work in windows.  There is a global.cls option which I may need to switch to.
             console.log("Switched to console number " + theConsoleNum + ", '" + theChoice + "'.");
             global["currentConsole"] = theChoice;
           }
@@ -1502,6 +1508,7 @@ console.log("Ensuring all dependencies are downloaded or installed..");
 global["event"].emit("asyncStart",asyncOperation); // Mods are given this function so they can "start" or "end" operations to signal the next phase to the wrapper start.
 
 function installDepsAsync(){
+  console.log("Starting asyncronous setup operations..");
   asyncOperation("start"); // This prevents the first async function from starting the wrapper if it finishes before the next one starts.
   preDownload(starNetJarURL, starNetJar); // This function handles the asyncronous downloads and starts the sync event when finished.
   preDownload(starMadeInstallerURL, global["starMadeInstallerFilePath"]); // When setting the install path for StarMade, we should have handled the terms and conditions, so it should be ok to download it.
@@ -1540,16 +1547,21 @@ function goReady(){ // This is called when the "ready" event is emitted globally
   // };
   var serverKeys = Object.keys(global["settings"].servers);
   // Create the installObj entries for each install in settings
+  var log={};
+  var tempConsole={};
+  var tempEvent={};
+  var tempModRequires={}
   for (let i = 0;i < serverKeys.length;i++) {
+    console.log("Creating Install Object for: " + serverKeys[i]);
+    // tempConsole=new CustomConsole(serverKeys[i],{invincible: true}); // This needs to be fixed before I can use it.
     global["installObjects"][serverKeys[i]] = {
       "path": serverKeys[i],
       "log": new CustomLog(serverKeys[i]),
-      "console": new CustomConsole(serverKeys[i],{invincible: true}), // This is a console that only displays when mods for this install use it.  It is "invincible", so it will not be unloaded if the unloadListeners event happens.
+      "console": tempConsole, // This is a console that only displays when mods for this install use it.  It is "invincible", so it will not be unloaded if the unloadListeners event happens.
       "event": new CustomEvent(), // Each install gets it's own modified event listener.  Prior to scripts being reloaded, event listeners should be removed using .removeAllListeners()
       "globalEvent": global["event"].spawn(), // This should be used by mods instead of global["event"].emit.  This will catch global["event"].emit's and any emits from any other install or sub-spawn of this custom event object.
       "settings": global["settings"].servers[serverKeys[i]], // This is redundant, to make it easier to pull the info.
-      "modRequires": requireServerMods(serverKeys[i]), //  This loads in the mods.  It will update global["installObjects"] for each server, adding a "modRequires" element with each file and the associated require.   This is used when reloading the mods to be able to delete the cache and then re-require each file.
-      "reloadMods":reloadServerMods(serverKeys[i]) // Reloads the listeners and mods
+      "reloadMods": function(){ return reloadServerMods(serverKeys[i]) } // Reloads the listeners and mods
       // Each mod is responsible for setting up extra settings, installation, and starting the server.
 
       // "serverObj":theServerObj // This should be added by the starter mod for the install.
@@ -1560,6 +1572,9 @@ function goReady(){ // This is called when the "ready" event is emitted globally
       // "globalEventListeners":[], // Any .on or .once global event listeners will be registered here so they can be deregistered later.
       // "globalEvent": getNewModifiedWrapperEvent(serverKeys[i]),
     };
+    console.log("Install object created!  Loading mods in now..");
+    global["installObjects"][serverKeys[i]]["modRequires"]=requireServerMods(serverKeys[i]); //  This loads in the mods.  It will update global["installObjects"] for each server, adding a "modRequires" element with each file and the associated require.   This is used when reloading the mods to be able to delete the cache and then re-require each file.
+    console.log("Mods finished loading for server: " + serverKeys[i]);
   }
     
   // Now that all mods are loaded, let's emot init.  This indicates to mods that all other mods have been loaded, so if some mods need each other, now is the time to initialize
