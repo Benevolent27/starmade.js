@@ -5,6 +5,8 @@
 [![Dependencies Status](https://david-dm.org/Benevolent27/starmade.js.svg)](https://david-dm.org/Benevolent27/starmade.js)
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2FBenevolent27%2Fstarmade.js.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2FBenevolent27%2Fstarmade.js?ref=badge_shield)
 
+![image](https://user-images.githubusercontent.com/8181775/73602272-1cffbe00-453f-11ea-89bd-625ec05e60fe.png)
+
 This is a server wrapper for a StarMade server.  It is currently being developed and is lacking most features.
 
 The end goal here is to produce a highly moddable wrapper that will:
