@@ -219,7 +219,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
   // Takes a settings object, which specifies the following, as an example:
   // {
   //   commandOperator:"!",
-  //   starMadeFolder:"/path/to/starmade",
+  //   installPath:"/path/to/starmade",
   //   javaMin:"512m",
   //   javaMax:"4096m",
   //   port:"4242",
@@ -237,8 +237,13 @@ function ServerObj(options) { // If given it will load existing settings or crea
   // Paths
   installObj.settings=setSettings(installObj.settings); // Set up any missing settings
   global.writeSettings();
+
   this.settings = installObj.settings; // Complete any missing settings.  If a starMadeFolder argument was given, this will be used as the install path.  This includes the starmade folder, min and max java settings, etc.
-  this.starMadeFolder = self.settings["installFolder"];
+  console.log("installObj.settings: " + installObj.settings);
+  // this.starMadeFolder = self.settings["installFolder"];
+  this.installFolder = self.settings["installFolder"];
+  console.log("self.settings[\"installFolder\"]:" + self.settings["installFolder"]);
+
   // We have to do the below check AFTER the settings were set up because we don't know what the starmade folder will be if none was provided to the object
   if (installObj.hasOwnProperty("serverObj")) { // Check to see if this serverObj has already been created, returning that object if so.
     console.error("Server already initialized!  Ignoring any settings you may have set and using the existing server object!");
@@ -518,6 +523,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
 
   // this.spawn=spawn("java",self.spawnArgs,{"cwd": self.starMadeInstallFolder}); // TEMP for testing
   this.spawnStatus = "stopped"; // By default the server is not spawned yet at this point in the scripting.
+  this.spawnStatusWanted = "stopped"; // This is the end result of what the current process should be, such as if the status is "stopping", the wanted status is "stopped"
   this.start = function (options, cb) {
     if (typeof cb == "function") {
       // First check to see if the process already exists or not.
@@ -536,6 +542,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
       }
       self.spawn = spawn("java", self.spawnArgs, {"cwd": self.starMadeInstallFolder}); // Spawn the server
       self.spawnStatus = "started";
+      self.spawnStatusWanted= "started"; // This tells us if the server crashes or something, we know it should be restarted.
       // global["servers"][self.installFolder]=self.spawn; // Old method, plus no need to add the spawn, since this adds it to the ServerObj
       self.addLockPID(self.spawn.pid);
 
@@ -654,33 +661,33 @@ function ServerObj(options) { // If given it will load existing settings or crea
           }
         }
       });
-
-      self.serverTail.on('line', function (data) { // This is unfortunately needed because some events don't appear in the console output.  I do not know if the tail will be 100% accurate, missing nothing.
-        // console.log("Processing serverlog.0.log line: " + data.toString().trim());
-        // There needs to be a separate processor for serverlog stuff, since there can be duplicates found in the console and serverlog.0.log file.  This should also be faster once streamlined.
-        // let dataString=data.toString().trim().replace(/^\[[^\[]*\] */,''); // This was throwing ESLINTER areas I guess.
-        let dataString = data.toString().trim().replace(/^\[[^[]*\] */, ''); // This removes the timestamp from the beginning of each line so each line looks the same as a console output line, which has no timestamps.
-        if (dataString) { // Do not process empty lines
-          let dataArray = dataString.replace("\r", "").split("\n"); // simplify to only new line characters and split to individual lines.
-          for (let i = 0;i < dataArray.length;i++) {
-            if (dataArray[i]) { // Do not process empty lines
-              if (self.settings.showServerlog == true || self.settings.showAllEvents == true) {
-                if (typeof self.settings.serverlogFilter == "object") {
-                  if (self.settings.serverlogFilter.test(dataArray[i])) {
-                    console.log("serverlog.0.log: " + dataArray[i]);
-                  }
-                } else {
-                  console.log("serverlog.0.log: " + dataArray[i]);
-                }
-              }
-              if (recording) { // For the wrapper console command "!recording"
-                recordingArray.push("serverlog.0.log: " + dataArray[i]);
-              }
-              processServerlogDataInput(dataArray[i]); // Process the line to see if it matches any events and then trigger the appropriate event
-            }
-          }
-        }
-      });
+      // No longer needed since we aren't tailing the serverlog anymore
+      // self.serverTail.on('line', function (data) { // This is unfortunately needed because some events don't appear in the console output.  I do not know if the tail will be 100% accurate, missing nothing.
+      //   // console.log("Processing serverlog.0.log line: " + data.toString().trim());
+      //   // There needs to be a separate processor for serverlog stuff, since there can be duplicates found in the console and serverlog.0.log file.  This should also be faster once streamlined.
+      //   // let dataString=data.toString().trim().replace(/^\[[^\[]*\] */,''); // This was throwing ESLINTER areas I guess.
+      //   let dataString = data.toString().trim().replace(/^\[[^[]*\] */, ''); // This removes the timestamp from the beginning of each line so each line looks the same as a console output line, which has no timestamps.
+      //   if (dataString) { // Do not process empty lines
+      //     let dataArray = dataString.replace("\r", "").split("\n"); // simplify to only new line characters and split to individual lines.
+      //     for (let i = 0;i < dataArray.length;i++) {
+      //       if (dataArray[i]) { // Do not process empty lines
+      //         if (self.settings.showServerlog == true || self.settings.showAllEvents == true) {
+      //           if (typeof self.settings.serverlogFilter == "object") {
+      //             if (self.settings.serverlogFilter.test(dataArray[i])) {
+      //               console.log("serverlog.0.log: " + dataArray[i]);
+      //             }
+      //           } else {
+      //             console.log("serverlog.0.log: " + dataArray[i]);
+      //           }
+      //         }
+      //         if (recording) { // For the wrapper console command "!recording"
+      //           recordingArray.push("serverlog.0.log: " + dataArray[i]);
+      //         }
+      //         processServerlogDataInput(dataArray[i]); // Process the line to see if it matches any events and then trigger the appropriate event
+      //       }
+      //     }
+      //   }
+      // });
 
       // return this.spawn;
       return cb(null, this.spawn);
@@ -699,8 +706,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
       }
       if (typeof toStringIfPossible(message) == "string") {
         if (message.length > 0) {
-          var theMessage = '"' + toStringIfPossible(message).trim().replace('"', "").
-replace("'", "") + '"';
+          var theMessage = '"' + toStringIfPossible(message).trim().replace('"', "").replace("'", "") + '"';
         }
       }
       if (theDuration > 1) {
@@ -1500,6 +1506,14 @@ replace("'", "") + '"';
     self.deregAllConstructors();
   });
 
+  // ######################
+  // ####   STARTER    ####
+  // ######################
+  if (self.settings.autoStart == true){
+    console.log("Auto-start is on!  Starting server..");
+    self.start();
+  }
+  self.spawnStatusWanted="started";
 
   // shutdown(seconds,"message") // message is optional.  If given, a countdown timer will be used and then a 1 second shutdown when it is set to expire.
   // ip
