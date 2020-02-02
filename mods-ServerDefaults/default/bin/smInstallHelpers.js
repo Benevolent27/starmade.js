@@ -14,16 +14,10 @@ const child = require('child_process');
 const mainFolder  = path.dirname(require.main.filename); // This is where the starmade.js is.  I use this method instead of __filename because starmade.js might load itself or be started from another script
 const binFolder   = path.join(mainFolder,"bin");
 const miscHelpers = require(path.join(binFolder,"miscHelpers.js"));
-const objectHelper = require(path.join(binFolder,"objectHelper.js"));
-var {getOption}=objectHelper;
-function spawnStarMadeInstallTo(pathToInstall,installerExec,options){  // This always requires the installerJar path because this will be offloaded to a require later.
-  // Buildbranch can be specified by providing an options object.  Example: {"buildBranch":dev}
+
+function spawnStarMadeInstallTo(pathToInstall,installerExec){  // This always requires the installerJar path because this will be offloaded to a require later.
   // This needs to be able to use a Jar file or .exe file, depending on the OS.
   // TODO:  We need to add pre/dev options here.
-  var branch=getOption(options,"buildBranch","normal"); // Normal is the default
-  if (typeof branch == "string"){
-    branch=branch.toLowerCase();
-  }
   try {
     var starMadeInstallFolder=getSMInstallPath(pathToInstall);
   } catch (err) {
@@ -38,13 +32,7 @@ function spawnStarMadeInstallTo(pathToInstall,installerExec,options){  // This a
     console.debug("Using CWD: " + pathToInstall);
     // This needs to use java for .jar files and just run any .exe
     var smInstallerProcess={};
-    var argsArray=["-nogui"];
-    if (branch == "dev"){
-      argsArray.push("-dev");
-    } else if (branch == "pre"){
-      argsArray.push("-pre");
-    }
-    smInstallerProcess=miscHelpers.smartSpawnSync(installerExec,argsArray,{"cwd": pathToInstall})
+    smInstallerProcess=miscHelpers.smartSpawnSync(installerExec,["-nogui"],{"cwd": pathToInstall})
 
     // TODO: Delete this section once smartSpawnSync is verified to work correctly.
     // I don't have this function run differently depending on OS, because I want to keep it capable of running the .jar installer on windows if needed.
