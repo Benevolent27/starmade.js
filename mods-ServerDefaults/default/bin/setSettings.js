@@ -131,11 +131,11 @@ module.exports = function (serverSettingsObj) { // If no serverSettingsObj provi
   function loadSettings(serverSettingsObj) {
     var settings = { // these are the default settings to use if not otherwise specified
       showStderr: true, // Normally this would be true but can be turned to false if testing
-      stderrFilter: null,
+      stderrFilter: false,
       showStdout: false,
-      stdoutFilter: null,
-      showServerlog: true,
-      serverlogFilter: null,
+      stdoutFilter: false,
+      // showServerlog: true, // No longer needed
+      // serverlogFilter: null,
       showAllEvents: false,
       enumerateEventArguments: false,
       announceSpawnsToMainChat: true // Announces publicly when a player spawns.  More useful than the "connected" announcement, since they can now talk.
