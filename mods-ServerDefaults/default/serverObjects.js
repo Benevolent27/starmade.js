@@ -220,7 +220,7 @@ SystemObj.prototype.toString = function () {
 // #### START ####
 // ###############
 var installObj=global.getInstallObj(__dirname);
-var {event,settings,console,log,installPath}=installObj;
+var {event,settings,log}=installObj; // TODO: Add console back once it's running correctly.
 var serverObj = {};
 event.on("start", function (theServerObj) { // This event only happens AFTER the serverObj has been created
   serverObj=theServerObj; // Get the serverObj up and running

@@ -1,6 +1,6 @@
 // Updated to use installObj
 var installObj=global.getInstallObj(__dirname);
-var {event,settings,console,log,installPath}=installObj;
+var {event,settings,log}=installObj; // TODO: Add console back once it's working.
 var {toStringIfPossible}=global.objectHelper;
 // var serverObj={};
 event.on('start',function(theServerObj){
