@@ -240,10 +240,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
 
   this.settings = installObj.settings; // Complete any missing settings.  If a starMadeFolder argument was given, this will be used as the install path.  This includes the starmade folder, min and max java settings, etc.
   console.log("installObj.settings: " + installObj.settings);
-  // this.starMadeFolder = self.settings["installFolder"];
   this.installFolder = self.settings["installFolder"];
-  console.log("self.settings[\"installFolder\"]:" + self.settings["installFolder"]);
-
   // We have to do the below check AFTER the settings were set up because we don't know what the starmade folder will be if none was provided to the object
   if (installObj.hasOwnProperty("serverObj")) { // Check to see if this serverObj has already been created, returning that object if so.
     console.error("Server already initialized!  Ignoring any settings you may have set and using the existing server object!");
@@ -416,8 +413,8 @@ function ServerObj(options) { // If given it will load existing settings or crea
 
   this.getServerCfgFile = function () { // callbackify and promisify this
     // This should only be ran AFTER a successful install has been performed
-    if (existsAndIsFile(self.servercfgFilePath)) {
-      let theObj = ini.getFileAsObj(self.servercfgFilePath); // This generates a new ini file object each time it's ran
+    if (existsAndIsFile(self.serverCfgFilePath)) {
+      let theObj = ini.getFileAsObj(self.serverCfgFilePath); // This generates a new ini file object each time it's ran
       self.serverCfgFile = theObj;
       return theObj;
     } else {
@@ -455,7 +452,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
         // serverCfgObj["SUPER_ADMIN_PASSWORD_USE"]=keepIniComment(serverCfgObj["SUPER_ADMIN_PASSWORD_USE"],"true");
         ini.setVal(serverCfgObj, "SUPER_ADMIN_PASSWORD_USE", "true");
       }
-      ini.writeObjToFile(serverCfgObj, self.servercfgFilePath);
+      ini.writeObjToFile(serverCfgObj, self.serverCfgFilePath);
     } else if (superAdminPasswordEnabled != "true") { // Enable super admin password if it was disabled for some reason.
       console.log("Super Admin Password was disabled, enabling!");
       // serverCfgObj["SUPER_ADMIN_PASSWORD_USE"]=keepIniComment(serverCfgObj["SUPER_ADMIN_PASSWORD_USE"],"true");
@@ -493,7 +490,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
     });
   }
   // This may not exist yet if the StarMade install hasn't been performed yet.  Need the install routine put in here, so a check can be made and if not installed, install first.
-  this.bot = new BotObj(self, installObj.settings["botName"]);
+  this.bot = new BotObj(installObj.settings["botName"]);
 
   // #### Settings
   this.ignoreLockFile = false;
