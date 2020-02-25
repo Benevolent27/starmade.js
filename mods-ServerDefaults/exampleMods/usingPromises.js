@@ -26,31 +26,36 @@
 // register them.  There is an "init" event for this.
 var installObj = global.getInstallObj(__dirname); // Get the install object
 var {event} = installObj;
+
+
 event.on('start', function (theServerObj) {
   // This is super ugly for events.. TODO: Build separate events for servers in the config.
   event.on("command", command); // Only registered commands will trigger a "command" event.
   event.on("command", asyncCommand);
-  event.on("commandStart", function (regCommand) { // We cannot register our commands till the commands mod has finished loading.  It emits "commandStart" when it is ready.
-    regCommand("reg1", "Promises Tutorial", false, true); // This is function provided by one of the default mods, the "Commands" mod.  This provides the !help command and manages how commands function.
-    // The above registers a command, "reg1".  The player can type !reg1 in-game to run it.
-    // The category is set to "Promises Tutorial".
-    // It is NOT admin-only (false), so any player can run it.
-    // It SHOULD appear in the "!help" command's list of commands. (true)
+  
+});
+console.log("LISTENING FOR 'commandStart' event!");
+event.on("commandStart", function (regCommand) { // We cannot register our commands till the commands mod has finished loading.  It emits "commandStart" when it is ready.
+  // console.log("#@$@#$#@$@#$@#$#@$@#$@#$ PROMISES TUTORIAL LOADING IN SOME COMMANDS!");
+  regCommand("reg1", "Promises Tutorial", false, true); // This is function provided by one of the default mods, the "Commands" mod.  This provides the !help command and manages how commands function.
+  // The above registers a command, "reg1".  The player can type !reg1 in-game to run it.
+  // The category is set to "Promises Tutorial".
+  // It is NOT admin-only (false), so any player can run it.
+  // It SHOULD appear in the "!help" command's list of commands. (true)
 
-    // Ok, so let's register the rest of our commands for the tutorial..
-    regCommand("reg2", "Promises Tutorial", false, true);
-    regCommand("reg3", "Promises Tutorial", false, true);
-    // You know.. We don't actually need to set the last two values..
-    // If not specified, the default behavior is to NOT be admin-only and to appear in the !help list. 
-    regCommand("reg4", "Promises Tutorial"); // Ah, that's nice.
-    regCommand("async1", "Promises Tutorial");
-    regCommand("async2", "Promises Tutorial");
-    regCommand("async3", "Promises Tutorial");
-    regCommand("async4", "Promises Tutorial");
-    regCommand("async5", "Promises Tutorial");
-    regCommand("async6", "Promises Tutorial");
-    regCommand("async7", "Promises Tutorial");
-  });
+  // Ok, so let's register the rest of our commands for the tutorial..
+  regCommand("reg2", "Promises Tutorial", false, true);
+  regCommand("reg3", "Promises Tutorial", false, true);
+  // You know.. We don't actually need to set the last two values..
+  // If not specified, the default behavior is to NOT be admin-only and to appear in the !help list. 
+  regCommand("reg4", "Promises Tutorial"); // Ah, that's nice.
+  regCommand("async1", "Promises Tutorial");
+  regCommand("async2", "Promises Tutorial");
+  regCommand("async3", "Promises Tutorial");
+  regCommand("async4", "Promises Tutorial");
+  regCommand("async5", "Promises Tutorial");
+  regCommand("async6", "Promises Tutorial");
+  regCommand("async7", "Promises Tutorial");
 });
 
 // You should start up your server and connect to it.  In-game, type "!help".
