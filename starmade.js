@@ -226,6 +226,12 @@ global["loadWrapperMods"]=loadWrapperMods;
 global["unloadWrapperMods"]=unloadWrapperMods;
 global["reloadWrapperMods"]=reloadWrapperMods;
 
+global["loadServerMods"]=loadAllServerMods;
+global["unloadServerMods"]=unloadServerMods;
+global["reloadServerMods"]=reloadServerMods;
+
+
+
 global["settingsFilePath"] = path.join(mainFolder, "settings.json");
 global["settings"] = getSettings({ // These values will be overwritten by any existing settings.json file
   showStderr: true,
@@ -301,7 +307,9 @@ function dumpToRecordFile(options, cb) {
 // Custom console code  TODO:  Fix this.  For some reason it's silencing everything.
 // global["consoles"] = {};
 // global["currentConsole"] = "main";
-// global["console"] = new CustomConsole("main", {invincible: true}); // This is a console that only displays if the "main" console is currently selected.  It is "invincible", so it will not be unloaded if the unloadListeners event happens.
+global["console"]=console; // This allows console printout no matter what console is selected
+global["mainConsole"] = new CustomConsole("main", {invincible: true}); // This is a console that only displays if the "main" console is currently selected.  It is "invincible", so it will not be unloaded if the unloadListeners event happens.
+global["currentConsole"]="main";
 log("starmade.js launched.");
 
 // ######################
@@ -847,12 +855,19 @@ process.stdin.on('data', function (text) {
       console.log(" !changesetting [setting] [newvalue]");
     } else if (i(theCommand, "consoles")) {
       let consoleKeys = Object.keys(global["consoles"]);
+      let currentConsoleNumber=0;
       if (consoleKeys.length > 0) {
         console.log("");
         console.log("Consoles available:");
         for (let i = 0;i < consoleKeys.length;i++) {
           console.log("  " + i + ": " + consoleKeys[i]);
+          if (global["currentConsole"] == consoleKeys[i]){
+            currentConsoleNumber=i;
+          }
         }
+        console.log("");
+        console.log(`Current Console: [${currentConsoleNumber}] ${global["currentConsole"]}`)
+        
         console.log("");
         console.log("To switch to another console, type: !console [#]");
         console.log("Example:  !console 0");
@@ -890,6 +905,7 @@ process.stdin.on('data', function (text) {
     } else if (i(theCommand, "reloadmods")) {
       console.log("Reloading mods..");
       globalEventUnmodified.emit("reloadMods");
+      global["reloadServerMods"]();
     } else if (i(theCommand, "listGlobal")) {
       let params;
       console.log("Enumerating elements from the global object:");
@@ -1557,11 +1573,11 @@ function goReady(){ // This is called when the "ready" event is emitted globally
     global["installObjects"][serverKeys[i]] = {
       "path": serverKeys[i],
       "log": new CustomLog(serverKeys[i]),
-      "console": tempConsole, // This is a console that only displays when mods for this install use it.  It is "invincible", so it will not be unloaded if the unloadListeners event happens.
+      "console": new CustomConsole(serverKeys[i],{invincible: true}), // This is a console that only displays when mods for this install use it.  It is "invincible", so it will not be unloaded if the unloadListeners event happens.
       "event": new CustomEvent(), // Each install gets it's own modified event listener.  Prior to scripts being reloaded, event listeners should be removed using .removeAllListeners()
       "globalEvent": global["event"].spawn(), // This should be used by mods instead of global["event"].emit.  This will catch global["event"].emit's and any emits from any other install or sub-spawn of this custom event object.
       "settings": global["settings"].servers[serverKeys[i]], // This is redundant, to make it easier to pull the info.
-      "reloadMods": function(){ return reloadServerMods(serverKeys[i]) } // Reloads the listeners and mods
+      "reloadMods": function(){ return reloadServerMods(this.path) } // Reloads the listeners and mods
       // Each mod is responsible for setting up extra settings, installation, and starting the server.
 
       // "serverObj":theServerObj // This should be added by the starter mod for the install.

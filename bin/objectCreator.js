@@ -434,13 +434,16 @@ function CustomLog(inputPath,options){
 }
 
 function CustomConsole(consoleName,options){
+  
   if (typeof consoleName != "string" || consoleName == ""){
     throw new Error("Invalid input given to CustomConsole!  Requires a string!");
   }
+  console.log(`Creating new custom console, '${consoleName}'.`);
   var invincible=Boolean(getOption(options,"invincible",false)); // converts a string to boolean
   if (!global.hasOwnProperty("consoles")){
     global["consoles"]={};
   }
+  
   if (global["consoles"].hasOwnProperty(consoleName)){ // If a console with this name has already been created, don't recreate it, just return the existing console object for it.
     return global["consoles"][consoleName].console;
   }
