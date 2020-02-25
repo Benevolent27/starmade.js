@@ -28,13 +28,11 @@ var {
   isSeen,
   log
 } = miscHelpers;
-var serverPath = global.getServerPath(__dirname);
 var commands = {};
 var commandOperator;
 
 var installObj = global.getInstallObj(__dirname);
-var settings = installObj.settings;
-var event = installObj.event;
+var {settings,event} = installObj;
 var serverObj = {}; // This will be set after the "start" is given.
 
 CommandObj.prototype.toString = function () {
@@ -86,6 +84,9 @@ async function message(messageObj) { // Handle messages sent from players
   // Here we will need to see if the "commands" object has the command.
   if (messageObj.text[0] == settings["commandOperator"]) { // Process any commands, whether valid or not.
     // TODO:  Add admin only commands and commands that will only be given to specific players.
+    if (serverObj.hasOwnProperty("commands")){
+      commands=serverObj.commands;
+    }
     var textArray = messageObj.text.split(" ");
     var theCommand = textArray.shift().replace(settings["commandOperator"], ""); // This only replaces the first instance
     if (objectHelper.testIfInput(theCommand)) { // This will exclude any empty values.  For example, typing ! by itself.
@@ -410,6 +411,8 @@ function regCommand(name, category, adminOnly, displayInHelp, playersArray) {
         serverObj.commands = {};
       }
       serverObj.commands[myCommandName] = myCommandObj;
+      commands=serverObj.commands; // Set the commands variable if not already set.
+
       console.log("Registered new command: " + myCommandName);
       // console.dir(myCommandObj);
       failure = false;
