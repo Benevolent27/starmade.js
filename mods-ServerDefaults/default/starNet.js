@@ -34,6 +34,7 @@ const child=require('child_process');
 const mainFolder=path.dirname(require.main.filename); // This should be where the starmade.js is, unless this script is ran by itself.
 const mainBinFolder=path.join(mainFolder,"bin");
 var starNetJar=path.join(mainBinFolder,"StarNet.jar");
+
 var ini=require(path.join(mainBinFolder,"iniHelper.js"));
 var objectHelper=require(path.join(mainBinFolder,"objectHelper.js"));
 var {getOption,testIfInput,simplePromisifyIt,toStringIfPossible,getObjType,toNumIfPossible,toBoolean}=objectHelper;
@@ -121,6 +122,7 @@ function starNetCb(command,options,cb){ // If no CB given, returns a promise.
             console.error(theError);
             return cb(theError,null);
           }
+          console.log(`About to run: 'java ${theParameters}' within the current working directory of: ${mainBinFolder}`);
           return child.execFile("java",theParameters,{"cwd":mainBinFolder},function(error,stdout,stderr){
             var stdOutArray=[];
             var stdErrArray=[];
@@ -934,7 +936,8 @@ function starNetVerifiedCB(string,options,cb){ // Takes a string command.  Optio
         if (err){
           // There will not be an error returned unless StarNet.jar terminates abornally or could not be run.
           // We are throwing an error because the wrapper cannot do anything without StarNet.jar operating correctly.
-          throw new Error("StarNet.jar either could not be run or terminated abnormally!  This should never happen!  You may need to redownload StarNet.jar or add permission to run it.");
+          console.error("StarNet.jar either could not be run or terminated abnormally!  This should never happen!  You may need to redownload StarNet.jar or add permission to run it.");
+          throw err;
         } else if (verifyResponse(result)){ // Verify that no error happened.
             return cb(err,result); // No connection failure happened!  "err" will be Null.  This does NOT mean the command succeeded.  The result still needs to be processed, success/fail messages vary widely across commands.
         } else { // Some error happened
@@ -1125,7 +1128,7 @@ function runSimpleCommand(theCommand, options, cb) { // cb/promises compliant
         console.debug("Using options:");
         console.debug(options);
       }
-      return starNetVerified(serverObj, theCommandToUse, options, function (err, msgResult) {
+      return starNetVerified(theCommandToUse, options, function (err, msgResult) {
         if (err) {
           // console.log("Returning an error: " + err);
           return cb(err, msgResult);
