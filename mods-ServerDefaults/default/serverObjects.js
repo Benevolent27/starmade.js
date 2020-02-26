@@ -4768,7 +4768,7 @@ function getAdminsList(options, cb) { // TODO:  Test this.. there are 4 ways of 
   var remReg2 = /}, 0\]$/;
   var processLine;
   var processArray = []; // Note:  I have no idea if this will work as a callback function converted to a promise with this sync in here.
-  var adminsTxtFile = path.join(global.starMadeInstallFolder, "admins.txt");
+  var adminsTxtFile = path.join(serverObj.starMadeInstallFolder, "admins.txt");
   var adminFileContentsArray = [];
   var outputArray = [];
   if (fast == true) { // Perform file read style
