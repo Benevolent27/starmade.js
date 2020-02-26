@@ -408,22 +408,27 @@ function ServerObj(options) { // If given it will load existing settings or crea
 
   this.starMadeInstallerFilePath = global["starMadeInstallerFilePath"];
   this.serverCfgFilePath = path.join(self.starMadeInstallFolder, "server.cfg");
-
+  
   //  We need to ensure the server has been installed before we continue
 
-  this.getServerCfgFile = function () { // callbackify and promisify this
+  this.getServerCfgAsIniObj = function () { // callbackify and promisify this
     // This should only be ran AFTER a successful install has been performed
+    if (typeof self.serverCfgObj == "object"){
+      return self.serverCfgObj; // This is an iniObj.  This should get deleted when the server exits.
+    }
     if (existsAndIsFile(self.serverCfgFilePath)) {
-      let theObj = ini.getFileAsObj(self.serverCfgFilePath); // This generates a new ini file object each time it's ran
-      self.serverCfgFile = theObj;
-      return theObj;
+      self.serverCfgFile = ini.getFileAsObj(self.serverCfgFilePath); // This generates a new ini file object each time it's ran
+      return self.serverCfgFile;
     } else {
       return null; // File does not exist
     }
   };
   this.getSuperAdminPassword = function () {
+    if (typeof self.superAdminPassword == "string"){
+      return self.superAdminPassword; // This should get deleted when the server exits.
+    }
     // self.superAdminPassword = getSuperAdminPassword(installObj.settings["starMadeFolder"]); // Check the super admin password and set up if not configured.
-    var serverCfgObj = self.getServerCfgFile(); // If the server.cfg file does not exist, this will be null.
+    var serverCfgObj = self.getServerCfgAsIniObj(); // If the server.cfg file does not exist, this will be null.
     if (serverCfgObj === null) {
       return null;
     }
@@ -459,7 +464,8 @@ function ServerObj(options) { // If given it will load existing settings or crea
       ini.setVal(serverCfgObj, "SUPER_ADMIN_PASSWORD_USE", "true");
       ini.writeObjToFile(serverCfgObj, self.serverCfgFilePath);
     }
-    return ini.getVal(serverCfgObj, "SUPER_ADMIN_PASSWORD");
+    self.superAdminPassword=ini.getVal(serverCfgObj, "SUPER_ADMIN_PASSWORD");
+    return self.superAdminPassword;
   }
   this.install = function (options, cb) {
     if (typeof cb == "function") {
@@ -467,7 +473,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
       try {
         smInstallHelpers.spawnStarMadeInstallTo(self.installFolder, global["starMadeInstallerFilePath"]); // Does not create config files upon install.
         smInstallHelpers.verifyInstall(self.installFolder); // Creates config files if they don't exist
-        var testCfgFile = self.getServerCfgFile();
+        var testCfgFile = self.getServerCfgAsIniObj();
         if (testCfgFile === null) {
           console.error("ERROR: Could not retrieve server.cfg file.  Was there an error during install?  Please try the install again!");
           return cb(null, false);
@@ -570,27 +576,27 @@ function ServerObj(options) { // If given it will load existing settings or crea
       //   self.spawnStatus="closed";
       //   self.spawnStatusCode=code;
       // });
-      self.spawn.on('disconnect', function () {
+      self.spawn.on('disconnect', function (data) {
         console.log("###### SPAWN STATUS SET TO:  disconnect");
         self.spawnStatus = "disconnected";
-        self.event.emit("disconnect");
+        self.event.emit("disconnect",data);
         if (self.hasOwnProperty("spawnStatusCode")) {
           Reflect.deleteProperty(self, "spawnStatusCode");
         }
       });
-      self.spawn.on('error', function () { // This happens when a process could not be spawned, killed, or sending a message to the child process failed.
+      self.spawn.on('error', function (data) { // This happens when a process could not be spawned, killed, or sending a message to the child process failed.
         // Note:  This does not mean the spawn has exited, but it is possible that it did.  We will rely on the 'exit' event to remove the PID from the lock
         console.log("###### SPAWN STATUS SET TO:  error");
         self.spawnStatus = "errored";
-        self.event.emit("error");
+        self.event.emit("error",data);
         if (self.hasOwnProperty("spawnStatusCode")) {
           Reflect.deleteProperty(self, "spawnStatusCode");
         }
       });
       self.spawn.on('exit', function (code) { // I'm guessing if a non-zero code is given, it means the server errored out.
         console.log("###### SPAWN STATUS SET TO:  exited");
-        self.spawnStatus = "exited";
-        self.event.emit("exit");
+        self.spawnStatus = "stopped";
+        self.event.emit("exit",code);
         self.removeLockPID(self.spawn.pid);
         console.log("Removed PID, '" + self.spawn.pid + "' from lockPIDs.");
         if (typeof toStringIfPossible(code) == "string") {
@@ -599,6 +605,13 @@ function ServerObj(options) { // If given it will load existing settings or crea
         if (self.hasOwnProperty("spawnStatusCode")) {
           Reflect.deleteProperty(self, "spawnStatusCode");
         }
+        if (self.hasOwnProperty("serverCfgObj")) { // This ensures it will reload the server.cfg file on next start
+          Reflect.deleteProperty(self, "serverCfgObj");
+        }
+        if (self.hasOwnProperty("superAdminPassword")) { // Same as above. The superAdminPassword can change between reboots.
+          Reflect.deleteProperty(self, "superAdminPassword");
+        }
+
         // Tail will no longer be used in StarMade after the current version as of this writing
         // console.log("serverTail:");
         // console.dir(self.serverTail.listeners());
