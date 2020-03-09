@@ -59,6 +59,7 @@ const {
   simpleSqlQuery
 } = sqlQueryJs;
 const {
+  starNet,
   starNetVerified,
   returnMatchingLinesAsArray,
   runSimpleCommand,
@@ -143,6 +144,7 @@ var {
 
 var installObj=global.getInstallObj(__dirname);
 var {event,settings,log,installPath}=installObj;
+var consoleObj=installObj.console;
 
 async function getSuperAdminPassword(starMadeInstallPath) { // This will grab the superadmin password, setting it up and enabling it if not already.
   // TODO: Offload this to a require
@@ -486,6 +488,9 @@ function ServerObj(options) { // If given it will load existing settings or crea
     }
     return simplePromisifyIt(self.install, options);
   }
+  consoleObj.regCommand("Install",function(){ // Display errors, but do not crash the wrapper.
+    return self.install("",function(err){ console.error(err) });
+  },"Server Controls");
   // Check if the install exists or not and install it if needed
   if (!existsAndIsFile(self.serverCfgFilePath)) { // Right now we are only using the server.cfg file to check if it was installed or not.
     self.install("", function (err) {
@@ -527,22 +532,24 @@ function ServerObj(options) { // If given it will load existing settings or crea
   // this.spawn=spawn("java",self.spawnArgs,{"cwd": self.starMadeInstallFolder}); // TEMP for testing
   this.spawnStatus = "stopped"; // By default the server is not spawned yet at this point in the scripting.
   this.spawnStatusWanted = "stopped"; // This is the end result of what the current process should be, such as if the status is "stopping", the wanted status is "stopped"
+  this.runSimpleCommand=runSimpleCommand;
+  this.starNet=starNet;
+  this.sendDirectToServer=sendDirectToServer;
+  
   this.start = function (options, cb) {
     if (typeof cb == "function") {
       // First check to see if the process already exists or not.
-      if (self.spawn) {
-        if (self.spawn.hasOwnProperty("connected")) {
-          if (self.spawn.connected == true) { // TODO: Check to ensure this method works fine, otherwise check the PID to see if it's still running.
-            if (self.spawnStatus == "started") {
-              console.log("ERROR: Cannot start server.  It is already started!");
-              return cb(null, false);
-            } else { // Server may be shutting down or in an error state
-              console.log("ERROR: Cannot start server.  It has not been shut down yet!  If the server is in an error state, it must be stopped before started again!");
-              return cb(null, false);
-            }
-          }
+      if (self.hasOwnProperty("spawn")) {
+        console.log("Attempting to start the server.."); // temp
+        if (self.spawnStatus == "started") {
+          console.log("ERROR: Cannot start server.  It is already started!");
+          return cb(null, false);
+        } else if (self.spawnStatus != "stopped") { // Server may be shutting down or in an error state
+          console.log("ERROR: Cannot start server.  It has not been shut down yet!  If the server is in an error state, it must be stopped before started again!");
+          return cb(null, false);
         }
       }
+      console.log("Starting the server..");
       self.spawn = spawn("java", self.spawnArgs, {"cwd": self.starMadeInstallFolder}); // Spawn the server
       self.spawnStatus = "started";
       self.spawnStatusWanted= "started"; // This tells us if the server crashes or something, we know it should be restarted.
@@ -627,6 +634,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
       self.spawn.stdout.on('data', function (data) { // Displays the standard output from the starmade server
         let dataString = data.toString().trim(); // Clear out any blank lines
         if (dataString != "") {
+          // Data chunks can have multiple lines, so let's split them up to process each line.
           let dataArray = dataString.replace("\r", "").split("\n"); // simplify to only new line characters and split to individual lines.
           for (let i = 0;i < dataArray.length;i++) {
             if (dataArray[i] != "") {
@@ -651,6 +659,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
       self.spawn.stderr.on('data', function (data) { // Displays the error output from the starmade server
         let dataString = data.toString().trim(); // Clear out any blank lines
         if (dataString != "") {
+          // Data chunks can have multiple lines, so let's split them up to process each line.
           let dataArray = dataString.replace("\r", "").split("\n"); // simplify to only new line characters and split to individual lines.
           for (let i = 0;i < dataArray.length;i++) {
             if (dataArray[i]) {
@@ -705,7 +714,9 @@ function ServerObj(options) { // If given it will load existing settings or crea
       return simplePromisifyIt(self.start, options);
     }
   }
-
+  consoleObj.regCommand("Start",function(){ // Display errors, but do not crash the wrapper.
+    return self.start("",function(err){ if (err){ console.error(err) } });
+  },"Server Controls");
   this.stop = function (duration, message, options, cb) {
     if (typeof cb == "function") {
       console.log(`Stop function ran with duration: ${duration}  and message: ${message}`);
@@ -721,14 +732,14 @@ function ServerObj(options) { // If given it will load existing settings or crea
       }
       if (theDuration > 1) {
         if (typeof theMessage == "string") {
-          return runSimpleCommand(self, "/start_countdown " + theDuration + " " + theMessage, options, async function (err, result) {
+          return runSimpleCommand("/start_countdown " + theDuration + " " + theMessage, options, async function (err, result) {
             if (err) {
               console.log("Shutdown command failed with an error when attempting to start a countdown!");
               return cb(err, null);
             }
             if (result) {
               await sleepPromise(theDuration * 1000);
-              return runSimpleCommand(self, "/shutdown 1", options, cb);
+              return runSimpleCommand("/shutdown 1", options, cb);
             } else {
               console.error("Shutdown command failed due to connection error!");
               return cb(new Error("Shutdown command failed due to connection error!"), null);
@@ -736,14 +747,14 @@ function ServerObj(options) { // If given it will load existing settings or crea
           });
         } else {
           console.log("No message given, so using default shutdown message..");
-          return runSimpleCommand(self, "/start_countdown " + theDuration + '" Server shutting down in.."', options, async function (err, result) {
+          return runSimpleCommand("/start_countdown " + theDuration + '" Server shutting down in.."', options, async function (err, result) {
             if (err) {
               console.log("Shutdown command failed with an error when attempting to start a countdown!");
               return cb(err, null);
             }
             if (result) {
               await sleepPromise(theDuration * 1000);
-              return runSimpleCommand(self, "/shutdown 1", options, cb);
+              return runSimpleCommand("/shutdown 1", options, cb);
             } else {
               console.error("Shutdown command failed due to connection error!");
               return cb(new Error("Shutdown command failed due to connection error!"), null);
@@ -752,12 +763,23 @@ function ServerObj(options) { // If given it will load existing settings or crea
         }
       } else {
         console.log("Using failsafe shutdown option..");
-        return runSimpleCommand(self, "/shutdown 1", options, cb);
+        return runSimpleCommand("/shutdown 1", options, cb);
       }
     } else {
       return simplePromisifyIt(self.stop, options, duration, message);
     }
   }
+  consoleObj.regCommand("Stop",function(duration,message){ // Display errors, but do not crash the wrapper.
+    var theDuration=toNumIfPossible(duration);
+    var theMessage="";
+    if (typeof message == "string"){
+      theMessage=message;
+    }
+    if (typeof theDuration != "number"){
+      theDuration=10; // This sets a default of 10 seconds
+    }
+    return self.stop(theDuration,theMessage,"",function(err){ console.error(err) });
+  },"Server Controls");
 
   this.kill = function (options, cb) {
     // Returns (ErrorObject,null) if there is an error when attempting to send the kill signal to the PID
@@ -897,7 +919,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
         messageToSend = " "; // no message given, so let's just be nice and assume they want a blank message
       }
       // I don't think there is any difference between using "plain" with this command and the /chat command.
-      return runSimpleCommand(self, "/server_message_broadcast " + msgType + " '" + messageToSend.toString().trim() + "'", options, cb);
+      return runSimpleCommand("/server_message_broadcast " + msgType + " '" + messageToSend.toString().trim() + "'", options, cb);
     } else {
       return simplePromisifyIt(self.msg, options, message);
     }
@@ -921,7 +943,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
     // Note: Be careful with this!  This applies to the entire universe!
     // Does not have success or fail messages
     if (typeof cb == "function") {
-      return runSimpleCommand(self, "/clear_system_ship_spawns_all", options, cb);
+      return runSimpleCommand("/clear_system_ship_spawns_all", options, cb);
     } else {
       return simplePromisifyIt(self.clearShipSpawns, options);
     }
@@ -931,7 +953,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
       let timeToUse = toNumIfPossible(timeInHours);
       // Does not have success or fail messages
       if (typeof timeToUse == "number") {
-        return runSimpleCommand(self, "/daytime " + timeToUse, options, cb);
+        return runSimpleCommand("/daytime " + timeToUse, options, cb);
       } else {
         return cb(new Error("Invalid input given to Server.daytime() for timeInHours!"), null);
       }
@@ -944,7 +966,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
       let timeToUse = toNumIfPossible(timeInSeconds);
       // Does not have success or fail messages
       if (typeof timeToUse == "number") {
-        return runSimpleCommand(self, "/delay_save " + timeToUse, options, cb);
+        return runSimpleCommand("/delay_save " + timeToUse, options, cb);
       } else {
         return cb(new Error("Invalid input given to Server.delaySave() for timeInSeconds!"), null);
       }
@@ -972,7 +994,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
       if (isTrueOrFalse(shipOnly)) {
         shipOnlyToUse = shipOnly;
       }
-      return runSimpleCommand(self, "/despawn_all \"" + partOfShipNameToUse + "\" " + usedToUse + " " + shipOnlyToUse, options, cb);
+      return runSimpleCommand("/despawn_all \"" + partOfShipNameToUse + "\" " + usedToUse + " " + shipOnlyToUse, options, cb);
     } else {
       return simplePromisifyIt(self.despawn, options, partOfShipName, used, shipOnly);
     }
@@ -997,7 +1019,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
     if (typeof cb == "function") {
       let textFileToUseToUse = toStringIfPossible(textFileToUse);
       if (typeof textFileToUseToUse == "string") {
-        return runSimpleCommand(self, "/export_sector_bulk " + textFileToUse, options, cb);
+        return runSimpleCommand("/export_sector_bulk " + textFileToUse, options, cb);
       }
       return cb(new Error("Invalid textFileToUse specified for Server.exportSectorBulk"), null);
     } else {
@@ -1009,7 +1031,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
     if (typeof cb == "function") {
       let textFileToUseToUse = toStringIfPossible(textFileToUse);
       if (typeof textFileToUseToUse == "string") {
-        return runSimpleCommand(self, "/import_sector_bulk " + textFileToUse, options, cb);
+        return runSimpleCommand("/import_sector_bulk " + textFileToUse, options, cb);
       }
       return cb(new Error("Invalid textFileToUse specified for Server.importSectorBulk"), null);
     } else {
@@ -1019,7 +1041,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
   this.factionSanityCheck = function (options, cb) { // checks sanity of factions (removes leftover/invalid factions)
     // Does not have success or fail messages
     if (typeof cb == "function") {
-      return runSimpleCommand(self, "/faction_check", options, cb);
+      return runSimpleCommand("/faction_check", options, cb);
     } else {
       return simplePromisifyIt(self.factionSanityCheck, options);
     }
@@ -1034,9 +1056,9 @@ function ServerObj(options) { // If given it will load existing settings or crea
       if (typeof factionNameToUse == "string" && typeof playerNameToUse == "string") {
         if (typeof factionNumberToUse == "number") { // If a faction number is provided
           // Warning:  I do not know what happens if a faction number is given for one that already exists!
-          return runSimpleCommand(self, "/faction_create_as " + factionNumberToUse + " " + factionNameToUse + " " + playerNameToUse, options, cb);
+          return runSimpleCommand("/faction_create_as " + factionNumberToUse + " " + factionNameToUse + " " + playerNameToUse, options, cb);
         }
-        return runSimpleCommand(self, "/faction_create " + factionNameToUse + " " + playerNameToUse, options, cb);
+        return runSimpleCommand("/faction_create " + factionNameToUse + " " + playerNameToUse, options, cb);
       }
       return cb(new Error("Invalid parameters given to Server.factionCreate!"), null);
     } else {
@@ -1049,7 +1071,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
       var factionNameToUse = toStringIfPossible(factionName);
       var numberOfFactionsToUse = toNumIfPossible(numberOfFactions);
       if (typeof factionNameToUse == "string" && typeof numberOfFactionsToUse == "number") {
-        return runSimpleCommand(self, "/faction_create_amount " + factionNameToUse + " " + numberOfFactionsToUse, options, cb);
+        return runSimpleCommand("/faction_create_amount " + factionNameToUse + " " + numberOfFactionsToUse, options, cb);
       }
       throw new Error("Invalid parameters given to Server.factionCreateAmount!");
     } else {
@@ -1059,7 +1081,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
   this.factionPointTurn = function (options, cb) { // Forces the next faction point calculation turn
     // Does not have success or fail messages
     if (typeof cb == "function") {
-      return runSimpleCommand(self, "/faction_point_turn", options, cb);
+      return runSimpleCommand("/faction_point_turn", options, cb);
     } else {
       return simplePromisifyIt(self.factionPointTurn, options);
     }
@@ -1067,7 +1089,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
   this.factionReinstitute = function (options, cb) {
     // Does not have success or fail messages
     if (typeof cb == "function") {
-      return runSimpleCommand(self, "/faction_reinstitute", options, cb);
+      return runSimpleCommand("/faction_reinstitute", options, cb);
     } else {
       return simplePromisifyIt(self.factionReinstitute, options);
     }
@@ -1077,7 +1099,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
     if (typeof cb == "function") {
       let numberToUse = toNumIfPossible(timeInMs);
       if (typeof numberToUse == "number") {
-        return runSimpleCommand(self, "/fleet_speed " + numberToUse, options, cb);
+        return runSimpleCommand("/fleet_speed " + numberToUse, options, cb);
       } else {
         return cb(new Error("Invalid input given to Server.fleetSpeed() for timeInMs!"), null);
       }
@@ -1090,7 +1112,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
       let booleanToUse = trueOrFalse(trueOrFalse); // allows truthy values to convert to the words, "true" or "false"
       // Does not have success or fail messages
       if (isTrueOrFalse(booleanToUse)) {
-        return runSimpleCommand(self, "/fog_of_war " + booleanToUse, options, cb);
+        return runSimpleCommand("/fog_of_war " + booleanToUse, options, cb);
       } else {
         return cb(new Error("Invalid input given to Server.fogOfWar() for trueOrFalse!"), null);
       }
@@ -1103,7 +1125,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
       let booleanToUse = trueOrFalse(trueOrFalse); // allows truthy values to convert to the words, "true" or "false"
       // Does not have success or fail messages
       if (isTrueOrFalse(booleanToUse)) {
-        return runSimpleCommand(self, "/ignore_docking_area " + booleanToUse, options, cb);
+        return runSimpleCommand("/ignore_docking_area " + booleanToUse, options, cb);
       } else {
         return cb(new Error("Invalid input given to Server.ignoreDockingArea() for trueOrFalse!"), null);
       }
@@ -1115,7 +1137,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
     // Does not have success or fail messages
     if (typeof cb == "function") {
       console.log("Running force save..");
-      return runSimpleCommand(self, "/force_save", options, cb);
+      return runSimpleCommand("/force_save", options, cb);
     } else {
       return simplePromisifyIt(self.forceSave, options, trueOrFalse);
     }
@@ -1125,7 +1147,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
     if (typeof cb == "function") {
       let booleanToUse = trueOrFalse(trueOrFalse); // allows truthy values to convert to the words, "true" or "false"
       if (isTrueOrFalse(booleanToUse)) {
-        return runSimpleCommand(self, "/whitelist_activate " + booleanToUse, options, cb);
+        return runSimpleCommand("/whitelist_activate " + booleanToUse, options, cb);
       } else {
         return cb(new Error("Invalid input given to Server.activateWhitelist() for trueOrFalse!"), null);
       }
@@ -1136,7 +1158,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
   this.updateShopPrices = function (options, cb) { // Updates shop prices.
     // Does not have success or fail messages
     if (typeof cb == "function") {
-      return runSimpleCommand(self, "/update_shop_prices", options, cb);
+      return runSimpleCommand("/update_shop_prices", options, cb);
     } else {
       return simplePromisifyIt(self.updateShopPrices, options);
     }
@@ -1146,7 +1168,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
     if (typeof cb == "function") {
       let numberToUse = toNumIfPossible(sizeInM);
       if (typeof numberToUse == "number") {
-        return runSimpleCommand(self, "/sector_size " + numberToUse, options, cb);
+        return runSimpleCommand("/sector_size " + numberToUse, options, cb);
       } else {
         return cb(new Error("Invalid input given to Server.sectorSize() for sizeInM!"), null);
       }
@@ -1158,7 +1180,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
     if (typeof cb == "function") {
       let numberToUse = toNumIfPossible(sizeInM);
       if (typeof numberToUse == "number") {
-        return runSimpleCommand(self, "/set_weapon_range_reference " + numberToUse, options, cb);
+        return runSimpleCommand("/set_weapon_range_reference " + numberToUse, options, cb);
       } else {
         return cb(new Error("Invalid input given to Server.setWeaponRangeReference() for sizeInM!"), null);
       }
@@ -1171,7 +1193,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
       let booleanToUse = trueOrFalse(trueOrFalse); // allows truthy values to convert to the words, "true" or "false"
       // Does not have success or fail messages
       if (isTrueOrFalse(booleanToUse)) {
-        return runSimpleCommand(self, "/simulation_ai_enable " + booleanToUse, options, cb);
+        return runSimpleCommand("/simulation_ai_enable " + booleanToUse, options, cb);
       } else {
         return cb(new Error("Invalid input given to Server.aiSimulation() for trueOrFalse!"), null);
       }
@@ -1182,7 +1204,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
   this.simulationClear = function (options, cb) { // Clears all AI from simulation
     // Does not have success or fail messages
     if (typeof cb == "function") {
-      return runSimpleCommand(self, "/simulation_clear_all", options, cb);
+      return runSimpleCommand("/simulation_clear_all", options, cb);
     } else {
       return simplePromisifyIt(self.simulationClear, options);
     }
@@ -1191,7 +1213,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
     if (typeof cb == "function") {
       let timeToUse = toNumIfPossible(timeInSeconds);
       if (typeof timeToUse == "number") {
-        return runSimpleCommand(self, "/set_weapon_range_reference " + timeToUse, options, cb);
+        return runSimpleCommand("/set_weapon_range_reference " + timeToUse, options, cb);
       } else {
         return cb(new Error("Invalid input given to Server.simulationSpawnDelay() for sizeInM!"), null);
       }
@@ -1283,7 +1305,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
         console.error("Invalid input given as 'SecondSector' to ServerObj.loadSectorRange!");
         return cb(err, null);
       }
-      return runSimpleCommand(self, "/load_sector_range " + sectorToUse1.toString() + " " + sectorToUse2.toString(), options, cb);
+      return runSimpleCommand("/load_sector_range " + sectorToUse1.toString() + " " + sectorToUse2.toString(), options, cb);
     } else {
       return simplePromisifyIt(self.loadSectorRange, options, firstSector, SecondSector);
     }
@@ -1293,7 +1315,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
       let booleanToUse = trueOrFalse(trueOrFalse); // allows truthy values to convert to the words, "true" or "false"
       // Does not have success or fail messages
       if (isTrueOrFalse(booleanToUse)) {
-        return runSimpleCommand(self, "/missile_defense_friendly_fire " + booleanToUse, options, cb);
+        return runSimpleCommand("/missile_defense_friendly_fire " + booleanToUse, options, cb);
       } else {
         return cb(new Error("Invalid input given to Server.friendlyMissileFire() for trueOrFalse!"), null);
       }
@@ -1306,7 +1328,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
       let numberToUse = toNumIfPossible(floatTime);
       if (typeof numberToUse == "number") {
         if (numberToUse >= 0 && numberToUse <= 1) {
-          return runSimpleCommand(self, "/npc_fleet_loaded_speed " + numberToUse, options, cb);
+          return runSimpleCommand("/npc_fleet_loaded_speed " + numberToUse, options, cb);
         }
         return cb(new Error("Invalid input given to Server.npcLoadedFleetSpeed() for floatTime!  Expects a number between 0 and 1. ie. 0.5"), null);
       } else {
@@ -1318,21 +1340,21 @@ function ServerObj(options) { // If given it will load existing settings or crea
   }
   this.npcTurnAll = function (options, cb) { // "Turn for all NPC factions"
     if (typeof cb == "function") {
-      return runSimpleCommand(self, "/npc_turn_all", options, cb);
+      return runSimpleCommand("/npc_turn_all", options, cb);
     } else {
       return simplePromisifyIt(self.npcTurn, options);
     }
   }
   this.refreshServerMessage = function (options, cb) { // Refreshes the server message that players see upon joining the server from the "server-message.txt" located in the StarMade folder.
     if (typeof cb == "function") {
-      return runSimpleCommand(self, "/refresh_server_msg", options, cb);
+      return runSimpleCommand("/refresh_server_msg", options, cb);
     } else {
       return simplePromisifyIt(self.refreshServerMessage, options);
     }
   }
   this.restructAABB = function (options, cb) { // "Reconstructs the AABBs of all objects on the server"
     if (typeof cb == "function") {
-      return runSimpleCommand(self, "/restruct_aabb", options, cb);
+      return runSimpleCommand("/restruct_aabb", options, cb);
     } else {
       return simplePromisifyIt(self.restructAABB, options);
     }
@@ -1345,7 +1367,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
         if (numberToUse > 0) {
           numberToUse = Math.ceil(numberToUse); // Make sure we are using a whole number that is at least 1
           if (typeof messageToUse == "string") {
-            return runSimpleCommand(self, "/start_countdown " + numberToUse, options, cb);
+            return runSimpleCommand("/start_countdown " + numberToUse, options, cb);
           }
           return cb(new Error("Invalid input given to Server.startCountdown() for message!  Expects a string value!  ie. Explosions happening in.."), null);
         }
@@ -1398,9 +1420,9 @@ function ServerObj(options) { // If given it will load existing settings or crea
       // EXAMPLE: /npc_spawn_faction_pos_fixed "My NPC Faction" "My Faction's description" "Outcasts" 10 12 3 22
       if (systemToUse) {
         // This is lazy and might return an error in the systemobj rather than pointing here: return systemToUse.spawnNPCFaction(npcName,npcFactionName,npcDescription,initialGrowth,options);
-        return runSimpleCommand(self, "/npc_spawn_faction_pos_fixed \"" + npcNameToUse + "\" \"" + npcFactionNameToUse + "\" \"" + npcDescriptionToUse + "\" " + initialGrowthToUse + " " + systemToUse.toString(), options, cb);
+        return runSimpleCommand("/npc_spawn_faction_pos_fixed \"" + npcNameToUse + "\" \"" + npcFactionNameToUse + "\" \"" + npcDescriptionToUse + "\" " + initialGrowthToUse + " " + systemToUse.toString(), options, cb);
       } else {
-        return runSimpleCommand(self, "/npc_spawn_faction \"" + npcNameToUse + "\" \"" + npcFactionNameToUse + "\" \"" + npcDescriptionToUse + "\" " + initialGrowthToUse, options, cb);
+        return runSimpleCommand("/npc_spawn_faction \"" + npcNameToUse + "\" \"" + npcFactionNameToUse + "\" \"" + npcDescriptionToUse + "\" " + initialGrowthToUse, options, cb);
       }
     } else {
       return simplePromisifyIt(self.spawnNPCFaction, options, npcName, npcFactionName, npcDescription, initialGrowth, system);

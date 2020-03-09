@@ -47,7 +47,8 @@ const {isTrue,isFalse,getOption,addOption,getParamNames,getRandomAlphaNumericStr
 const {
   ensureFolderExists,
   getSimpleDate,
-  getSimpleTime
+  getSimpleTime,
+  i
 }=miscHelpers;
 // Set up aliases from the global variable
 if (global.hasOwnProperty("console")){ // allows the global.debug and other modifications to pass through here.
@@ -462,11 +463,37 @@ function CustomConsole(consoleName,options){
     });
   }
   var outputConsole=new Console(pass);
+  outputConsole.commands={};
+  outputConsole.regCommand=function(commandName,theFunction,category){ // Category is optional, default is "General". This is for registering commands that an admin types into the wrapper console.  These will show up when the player types "!help"
+    // category is used when the !help command is used, to separate out commands, such as "Server Commands" or "Settings Commands"
+    var theCategory="General";
+    if (typeof category == "string"){
+      theCategory=category;
+    }
+    if (typeof commandName == "string" && typeof theFunction == "function"){
+      // Check for an existing command, using a case insensitive search
+
+      let outputConsoleCommandKeys=Object.keys(outputConsole.commands); // Let's make sure a command of this name wasn't already registered.  To avoid confusion, everything is case insensitive and only one command of a name can be used by the wrapper.
+      for (let y=0;y<outputConsoleCommandKeys.length;y++){
+        if (i(outputConsoleCommandKeys[y],commandName)){
+          console.log("Existing wrapper command registered already!  Unregistering it and replacing it!");
+          delete outputConsole.commands[outputConsoleCommandKeys[y]];
+        }
+      }
+      console.log(`Registering wrapper command, ${commandName}, under category, ${theCategory}..`);
+      outputConsole.commands[commandName]=[theCategory,theFunction];
+    } else {
+      let theMessage="ERROR:  Could not register wrapper command!  Invalid input given!  ConsoleName: " + consoleName;
+      console.error(theMessage);
+      throw new Error(theMessage);
+    }
+  }
   outputConsole.debug=function () { // Replaces console.debug because normally in node.js there is no reason to use console.debug; it is the same as console.log.  This comes from browsers, which shows debug messages in a different color, but node does not.
     if (global["debug"]==true){
       console.log(arguments);
     }
   }
+
   global["consoles"][consoleName]={
     "console":outputConsole,
     "passthrough":pass // This is needed in case we want to pipe a program's output to this console or to attach other readers, such as for logging.  We can pipe or use pass.write("whatever").  Normally this would not be used though.

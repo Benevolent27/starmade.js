@@ -4,6 +4,7 @@
 // Note:  The StarNet will not function if called before a serverObj exists for this server.
 module.exports={
   starNetSync,
+  "starNet":starNetCb,
   starNetCb,
   mapifyShipInfoUIDString,
   getCoordsAndReturnNumArray,

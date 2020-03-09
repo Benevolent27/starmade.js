@@ -123,7 +123,8 @@ var {
   writeJSONFileSync,
   writeJSONFile,
   getSimpleDate,
-  getSimpleTime
+  getSimpleTime,
+  i
 } = miscHelpers; // Sets up file handling
 var {
   repeatString,
@@ -816,18 +817,90 @@ function testStarMadeDirValue(theInstallDir) {
 // This will process user input at the console and either direct it to the server process or parse it as a command.
 process.stdin.on('data', function (text) {
   let theText = text.toString().trim();
+  var theInstallObj;
+  var serverObj;
+  var theConsole;
+  var consoleCommands;
+  if (global["installObjects"].hasOwnProperty(global["currentConsole"])){ // See if the currently selected console has an install object entry
+    theInstallObj=global["installObjects"][global["currentConsole"]];
+    // console.log("Checking if there is a server Obj.."); // temp
+    if (theInstallObj.hasOwnProperty("serverObj")){ // If it does, then is there a serverObj on it to send the data?
+      // console.log("There was!"); // temp
+      serverObj=theInstallObj.serverObj;
+    }
+    // console.log("Checking if there was a console object.."); // temp
+    if (theInstallObj.hasOwnProperty("console")){ // If it does, then is there a serverObj on it to send the data?
+      // console.log("There was!");
+      theConsole=theInstallObj.console;
+      // console.log("Checking if there are commands.."); // temp
+      if (theConsole.hasOwnProperty("commands")){ 
+        // console.log("There were!"); // temp
+        consoleCommands=theConsole.commands; // This should be an object, whose elements are the names of the command.  Each element is an array with [category,function]
+      }
+    }
+  }
   if (theText[0] == "!") {
-    let theArguments = theText.split(/ +/); // Split with the + symbol so it splits by any amount of spaces
-    let theCommand = theArguments[0].toLowerCase();
+    var theArguments = theText.split(/ +/); // Split with the + symbol so it splits by any amount of spaces
+    var theCommand = theArguments[0].toLowerCase();
     theArguments.shift();
-    let tempArray = theCommand.split("")
+    var tempArray = theCommand.split("") // Remove the ! character from the start
     tempArray.shift();
     theCommand = tempArray.join("");
+    var theProperCommand="";
+    // console.log("Seeing if the command exists: " + theCommand);
     // console.log("Wrapper command detected: " + theCommand)
     // console.log("Full: " + theText);
-
+    if (typeof theConsole == "object"){
+      if (theConsole.hasOwnProperty("commands")){
+        // console.log("Commands found!"); // temp
+        // Now we need to do a case insensitive search of the commands and get the corresponding command.
+        let theCommands=Object.keys(theConsole.commands);
+        for (let z=0;z<theCommands.length;z++){ // Find if any case insensitive match and then run the first one found.
+          if (i(theCommands[z],theCommand)){
+            theProperCommand=theCommands[z];
+            // console.log("Registered command found!  Running it!"); // temp
+            if (Array.isArray(theConsole.commands[theProperCommand])){
+              if (typeof theConsole.commands[theProperCommand][1] == "function"){
+                // console.log("Running command now!!"); // temp
+                return theConsole.commands[theProperCommand][1](theArguments); // Runs the function associated with the command, providing the arguments, terminating with it.  This allows commands to replace wrapper commands.
+              } else {
+                throw new Error("ERROR: command was not registered properly!  Invalid input given as function!"); // This should never happen
+              }
+            } else {
+              throw new Error("ERROR: command was not registered properly!  Expected an array!"); // This should never happen
+            }
+          }
+        }
+        console.log("No command found for install, checking global commands.."); // temp
+      }
+    }
     if (i(theCommand, "help")) {
       console.log("Here are the current console commands:");
+      if (typeof consoleCommands == "object"){ // This will be undefined if there were no commands for the console.
+        var outputObject={};;
+        var consoleCommandsArray=Object.keys(consoleCommands);
+        var commandCategory="";
+        if (consoleCommandsArray.length > 0){ // There is at least 1 command registered for this console.
+          console.log("-- Install Commands --");
+          for (let i=0;i<consoleCommandsArray.length;i++){
+            commandCategory=consoleCommands[consoleCommandsArray[i]][0];
+            if (outputObject.hasOwnProperty(commandCategory)){ // Reorganize by categories for output display
+              outputObject[commandCategory].push(consoleCommandsArray[i]);
+            } else {
+              outputObject[commandCategory]=[consoleCommandsArray[i]];
+            }
+          }
+          var outputObjectKeys=Object.keys(outputObject);
+          for (let e=0;e<outputObjectKeys.length;e++){ // Display everything based on category
+            console.log(`-- ${outputObjectKeys[e]} --`);
+            for (let f=0;f<outputObject[outputObjectKeys[e]].length;f++){ // This should be an array of all the commands in the category
+              console.log(` !${outputObject[outputObjectKeys[e]][f]}`); // Read from the array of commands listed under this category
+            }
+          }
+          console.log(" ");
+        }
+      }
+
       // console.log(  "-- Server Commands --")
       // console.log(" !status");
       // console.log(" !start");
@@ -1215,12 +1288,26 @@ process.stdin.on('data', function (text) {
       //   }
       // } else if (testIfInput(theCommand)){
       //   console.log("ERROR: '" + theCommand + "' is not a valid command!  For a list of wrapper console commands, type: !help");
-    }
+    } else {
+      console.log("No such command found!");
+    } 
   } else if (testIfInput(theText)) {
     // if (global["server"].spawnStatus == "started"){
     //   console.log("Sending text to console: " + theText);
     //   global["server"].spawn.stdin.write(theText + "\n");
-    console.log("Sending text is disabled till the console system is built.");
+    // console.log("Sending text is disabled till the console system is built.");
+    if (typeof theInstallObj == "object"){
+      console.log("Install found, looking for server object..");
+      if (typeof serverObj == "object"){
+        console.log("The installObj had a serverObj!  Sending text to server..");
+        serverObj.sendDirectToServer(theText); // The serverObj should have a "SendDirectToServer" method for this.
+      } else {
+        console.log("The install did not have a serverObj registered!  Cannot send command to it!");
+      }
+    }
+    
+
+
     // TODO: Build the console system.
     // } else {
     //   console.error("ERROR: Server does not appear to be running.  Cannot send text to console!");
@@ -1487,13 +1574,7 @@ function preDownload(httpURL, fileToPlace) { // This function handles the pre-do
   }
   return true;
 }
-function i(input, input2) { // I use this to do easy case insensitive matching for commands since javascript is case sensitive
-  if (typeof input == "string" && typeof input2 == "string") {
-    return input.toLowerCase() === input2.toLowerCase();
-  } else {
-    return false;
-  }
-}
+
 
 
 // ##########################################
@@ -1573,7 +1654,7 @@ function goReady(){ // This is called when the "ready" event is emitted globally
     global["installObjects"][serverKeys[i]] = {
       "path": serverKeys[i],
       "log": new CustomLog(serverKeys[i]),
-      "console": new CustomConsole(serverKeys[i],{invincible: true}), // This is a console that only displays when mods for this install use it.  It is "invincible", so it will not be unloaded if the unloadListeners event happens.
+      "console": new CustomConsole(serverKeys[i],{invincible: true}), // This is a console that only displays when mods for this install use it.  It is "invincible", so it will not be unloaded if the unloadListeners event happens.  This is also used for registering commands for the wrapper.
       "event": new CustomEvent(), // Each install gets it's own modified event listener.  Prior to scripts being reloaded, event listeners should be removed using .removeAllListeners()
       "globalEvent": global["event"].spawn(), // This should be used by mods instead of global["event"].emit.  This will catch global["event"].emit's and any emits from any other install or sub-spawn of this custom event object.
       "settings": global["settings"].servers[serverKeys[i]], // This is redundant, to make it easier to pull the info.
@@ -1587,6 +1668,7 @@ function goReady(){ // This is called when the "ready" event is emitted globally
       // "event": getNewModifiedServerEvent(serverKeys[i]), // Each install gets it's own modified event listener, that allows deregistering each listener prior to reloading mods.
       // "globalEventListeners":[], // Any .on or .once global event listeners will be registered here so they can be deregistered later.
       // "globalEvent": getNewModifiedWrapperEvent(serverKeys[i]),
+      
     };
     console.log("Install object created!  Loading mods in now..");
     global["installObjects"][serverKeys[i]]["modRequires"]=requireServerMods(serverKeys[i]); //  This loads in the mods.  It will update global["installObjects"] for each server, adding a "modRequires" element with each file and the associated require.   This is used when reloading the mods to be able to delete the cache and then re-require each file.

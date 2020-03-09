@@ -23,7 +23,8 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   getSimpleDate,
   getSimpleTime,
   convertSectorCoordsToSystem,
-  getEntityPrefixFromPublicEntitiesTypeNumber
+  getEntityPrefixFromPublicEntitiesTypeNumber,
+  i // Does a simple case insensitive comparison on two strings, returning true if two strings match
 };
 
 
@@ -65,6 +66,14 @@ if (__filename == require.main.filename){ // Only run the arguments IF this scri
   //   console.log("\nTo run an individual test, include it as the first argument.");
   //   console.log("Example:  node miscHelpers.js downloadToString");
   // }
+}
+
+function i(input, input2) { // I use this to do easy case insensitive matching for commands since javascript is case sensitive
+  if (typeof input == "string" && typeof input2 == "string") {
+    return input.toLowerCase() === input2.toLowerCase();
+  } else {
+    return false;
+  }
 }
 
 function getEntityPrefixFromPublicEntitiesTypeNumber(input){
