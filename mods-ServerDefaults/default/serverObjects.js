@@ -220,7 +220,8 @@ SystemObj.prototype.toString = function () {
 // #### START ####
 // ###############
 var installObj=global.getInstallObj(__dirname);
-var {event,settings,log}=installObj; // TODO: Add console back once it's running correctly.
+var {event,settings,log}=installObj; 
+const thisConsole=installObj.console;
 var serverObj = {};
 event.on("start", function (theServerObj) { // This event only happens AFTER the serverObj has been created
   serverObj=theServerObj; // Get the serverObj up and running
@@ -250,11 +251,11 @@ event.on("start", function (theServerObj) { // This event only happens AFTER the
 
 function showResponseCallback(error, output) { // This is a helper function for testing purposes.  It shows any error or output when it's used as a callback function.
   if (error) {
-    console.error("Error: " + error.toString());
+    thisConsole.error("Error: " + error.toString());
   }
   if (output) {
-    console.log("output: ");
-    console.dir(output);
+    thisConsole.log("output: ");
+    thisConsole.dir(output);
   }
 }
 
@@ -287,26 +288,26 @@ function squishyElemIsAnythingBut(input) {
 function isSquishable(inputObj) {
   if (typeof inputObj == "object") {
     var inputObjName = inputObj.constructor.name;
-    // console.log("inputObjName: " + inputObjName);
-    // console.log("typeof inputObjName: " + typeof inputObjName);
+    // thisConsole.log("inputObjName: " + inputObjName);
+    // thisConsole.log("typeof inputObjName: " + typeof inputObjName);
     if (typeof inputObjName == "string" && inputObjName !== "") {
-      // console.log("Seeing if module.exports.hasOwnProperty(" + inputObjName + ")");
+      // thisConsole.log("Seeing if module.exports.hasOwnProperty(" + inputObjName + ")");
       if (module.exports.hasOwnProperty(inputObjName)) {
         if (inputObjName[0].match(/^[A-Z]+/)) { // Must have a capitalized letter as the first letter.
           // It is a registered object type, but can it be successfully squished and unsquished?
           try {
             var squishedObj = squish(inputObj);
           } catch (err) {
-            // console.log("Could not squish!",err);
+            // thisConsole.log("Could not squish!",err);
             return false;
           }
           try {
             var unSquishedObj = unSquish(squishedObj);
           } catch (err) {
-            // console.log("Could not unsquish!",err);
+            // thisConsole.log("Could not unsquish!",err);
             return false;
           }
-          // console.log("Made it to checking of objects are equivalent..");
+          // thisConsole.log("Made it to checking of objects are equivalent..");
           return objectHelper.areObjsEquivalent(inputObj, unSquishedObj); // Does the squished/unsquished object equal the original?
         }
       }
@@ -317,21 +318,21 @@ function isSquishable(inputObj) {
 
 function squish(inputObj, options) { // The purpose of this is to minify an object to be recreated back later
   // TODO:  Make this recursive so it will support nested objects, such as with MessageObj nesting PlayerObj as sender, etc.
-  console.log("Squishing object..");
+  thisConsole.log("Squishing object..");
   // Get the parameters needed to create the function:
 
   var objType = inputObj.constructor.name;
   // var objType=inputObj.name;
 
   // var objCreationString=inputObj.toString();
-  console.log("Object type: " + objType);
+  thisConsole.log("Object type: " + objType);
   // var theConstructor=eval(inputObj.constructor.name); // temp.  Works fine with natively registered constructors from this script but not from registered.
   // Cannot use "new", must instead use the module.exports[objType]
 
   if (module.exports.hasOwnProperty(objType)) {
     var theConstructor = module.exports[objType];
     var paramsNameArray = getParamNames(theConstructor);
-    console.log("Parameters: " + paramsNameArray);
+    thisConsole.log("Parameters: " + paramsNameArray);
 
     // Instead of using the input parameters to look up values from the object,
     // we can specify which ones to use, but the results MUST be able to be used
@@ -345,7 +346,7 @@ function squish(inputObj, options) { // The purpose of this is to minify an obje
 
     var iterableParams = getOption(options, "elements", paramsNameArray);
     var iterableFuncs = getOption(options, "preProcess", []); // This is used to process any value retrieved to a value that can then be used to recreate the object
-    console.log("Using iterable params: " + iterableParams);
+    thisConsole.log("Using iterable params: " + iterableParams);
     if (Array.isArray(iterableParams)) {
       if (iterableParams.length == paramsNameArray.length) {
         var theArgArray = [];
@@ -359,7 +360,7 @@ function squish(inputObj, options) { // The purpose of this is to minify an obje
           }
 
         }
-        console.log("Returning squished object..");
+        thisConsole.log("Returning squished object..");
         return new SquishedObj(inputObj, objType, theArgArray);
       } else {
         throw new Error("ERROR: elements array MUST be the same length as the input parameters required by the input Constructor!");
@@ -374,9 +375,9 @@ function squish(inputObj, options) { // The purpose of this is to minify an obje
 };
 
 function unSquish(squishedObj, options) {
-  // console.log("Unsquishing object..");
+  // thisConsole.log("Unsquishing object..");
   var squishedFromObjectType = squishedObj["squishedFromObjectType"];
-  // console.log("squishedFromObjectType: " + squishedFromObjectType); // temp
+  // thisConsole.log("squishedFromObjectType: " + squishedFromObjectType); // temp
   var theSquishObjCreationArray = squishedObj["theSquishObjCreationArray"];
   var iterableFuncs = getOption(options, "preProcess", []); // This is used to process any value retrieved to a value that can then be used to recreate the object
   for (let i = 0;i < iterableFuncs.length;i++) {
@@ -404,13 +405,13 @@ function SquishedObj(inputObj, objType, objCreationArray) { // Change this to ta
   if (typeof inputObj == "object" && typeof objType == "string" && Array.isArray(objCreationArray)) {
     // var compareToObj=Reflect.construct(eval(objType),objCreationArray);
     // Rather than constructing using reflect, we can simply call the function and look at the output
-    // console.log("objType: " + objType);
-    // console.log("objCreationArray:");
-    // console.dir(objCreationArray);
+    // thisConsole.log("objType: " + objType);
+    // thisConsole.log("objCreationArray:");
+    // thisConsole.dir(objCreationArray);
 
     var compareToObj = new module.exports[objType](...objCreationArray);
-    // console.log("compareToObj:"); // temp
-    // console.dir(compareToObj); // temp
+    // thisConsole.log("compareToObj:"); // temp
+    // thisConsole.dir(compareToObj); // temp
 
     for (var property in inputObj) {
       if (inputObj.hasOwnProperty(property)) { // I don't want to save prototypes
@@ -438,29 +439,29 @@ async function getSuperAdminPassword(starMadeFolder) { // This will grab the sup
     superAdminPasswordEnabled = superAdminPasswordEnabled.toLowerCase();
   }
   if (superAdminPassword == "mypassword" || !superAdminPassword) { // "mypassword" is the default value upon install.  We do not want to keep this since it'd be a major security vulnerability.
-    console.log("\nThe 'SuperAdminPassword' has not been set up yet!  This is needed for StarNet.jar to connect to the server.");
-    console.log("You can set a custom alphanumeric password OR just press [ENTER] to have a long, randomized one set for you. (Recommended)")
+    thisConsole.log("\nThe 'SuperAdminPassword' has not been set up yet!  This is needed for StarNet.jar to connect to the server.");
+    thisConsole.log("You can set a custom alphanumeric password OR just press [ENTER] to have a long, randomized one set for you. (Recommended)")
     let newSuperAdminPassword = "";
     do {
       newSuperAdminPassword = prompt("New SuperAdminPassword: ");
     }
     while (!(newSuperAdminPassword === null || newSuperAdminPassword == "" || regExpHelper.isAlphaNumeric(newSuperAdminPassword))) // If a person puts invalid characters in, it'll just keep repeating the prompt.
     if (newSuperAdminPassword === null || newSuperAdminPassword == "") {
-      console.log("Excellent choice!  I have set a LONG and nearly impossible to crack SuperAdminPassword for you! :D");
+      thisConsole.log("Excellent choice!  I have set a LONG and nearly impossible to crack SuperAdminPassword for you! :D");
       newSuperAdminPassword = getRandomAlphaNumericString(32);
     } else {
-      console.log("Alrighty then.  I'll just use what you provided!")
+      thisConsole.log("Alrighty then.  I'll just use what you provided!")
     };
     // await sleepSync(2000); // I don't know why a pause is needed here
     ini.setVal(serverCfgObj, "SUPER_ADMIN_PASSWORD", newSuperAdminPassword);
     if (superAdminPasswordEnabled == "false") {
-      console.log("Super Admin Password was disabled, enabling!");
+      thisConsole.log("Super Admin Password was disabled, enabling!");
       // serverCfgObj["SUPER_ADMIN_PASSWORD_USE"]=keepIniComment(serverCfgObj["SUPER_ADMIN_PASSWORD_USE"],"true");
       ini.setVal(serverCfgObj, "SUPER_ADMIN_PASSWORD_USE", "true");
     }
     ini.writeObjToFile(serverCfgObj, serverCfgFile);
   } else if (superAdminPasswordEnabled != "true") { // Enable super admin password if it was disabled for some reason.
-    console.log("Super Admin Password was disabled, enabling!");
+    thisConsole.log("Super Admin Password was disabled, enabling!");
     // serverCfgObj["SUPER_ADMIN_PASSWORD_USE"]=keepIniComment(serverCfgObj["SUPER_ADMIN_PASSWORD_USE"],"true");
     ini.setVal(serverCfgObj, "SUPER_ADMIN_PASSWORD_USE", "true");
     ini.writeObjToFile(serverCfgObj, serverCfgFile);
@@ -483,7 +484,7 @@ function BotObj(name) { // cb/promises/squishy compliant
         try {
           var thePlayer = new PlayerObj(player); // This creates a new playerObj with the playername string or PlayerObj
         } catch (err) {
-          console.log("ERROR:  Invalid input given to BotObj as 'player'!");
+          thisConsole.log("ERROR:  Invalid input given to BotObj as 'player'!");
           return cb(err, null);
         }
         return thePlayer.msg("[" + this.name + "]: " + theMessage, options, cb); // Any options PlayerObj.msg can take will be forwarded to it.
@@ -525,7 +526,7 @@ function MessageObj(senderString, receiverString, receiverTypeString, text) { //
   } else { // This should never happen, but hey maybe in the future they'll expand on the receiverTypes
     this.receiver = receiverString; // This is a string, which is no bueno, and is only temporary till receiverTypes are broken down
     this.type = receiverTypeString;
-    console.error("ERROR: Unknown Receiever type for message! Set receiver and type as string! " + receiverTypeString);
+    thisConsole.error("ERROR: Unknown Receiever type for message! Set receiver and type as string! " + receiverTypeString);
   }
 };
 
@@ -561,7 +562,7 @@ function IPObj(address, date) { // cb/promises/squish compliant
     if (possibleDate instanceof Date) {
       self.date = possibleDate;
     } else {
-      console.error("Unable to use date information given when creating new IpObj for IP, " + address + "! Invalid date information: " + date);
+      thisConsole.error("Unable to use date information given when creating new IpObj for IP, " + address + "! Invalid date information: " + date);
     }
   }
   // TODO:  Redo this section to standardize with the same options given as the PlayerObj
@@ -645,12 +646,12 @@ function SMNameObj(name) { // cb/promises/squish compliant
     if (typeof cb == "function") {
       var theTimeToUse = toNumIfPossible(timeToBan);
       if (typeof theTimeToUse == "number") { // temp ban
-        console.log("Banning player account, '" + self.name + "', for " + theTimeToUse + " minutes.");
+        thisConsole.log("Banning player account, '" + self.name + "', for " + theTimeToUse + " minutes.");
         return runSimpleCommand("/ban_account_temp " + self.name, options + " " + theTimeToUse, cb);
       } else if (testIfInput(timeToBan)) {
         return cb(new Error("Invalid input given to SMNameObj.ban as 'timeToBan'!"), null);
       } else { // permban
-        console.log("Banning player account: " + self.name);
+        thisConsole.log("Banning player account: " + self.name);
         return runSimpleCommand("/ban_account " + self.name, options, cb);
       }
     } else {
@@ -661,12 +662,12 @@ function SMNameObj(name) { // cb/promises/squish compliant
     if (typeof cb == "function") {
       var theTimeToUse = toNumIfPossible(timeToWhitelist);
       if (typeof theTimeToUse == "number") { // temp whitelist
-        console.log("Whitelisting player account, '" + self.name + "', for " + theTimeToUse + " minutes.");
+        thisConsole.log("Whitelisting player account, '" + self.name + "', for " + theTimeToUse + " minutes.");
         return runSimpleCommand("/whitelist_account_temp " + self.name, options + " " + theTimeToUse, cb);
       } else if (testIfInput(timeToWhitelist)) {
         return cb(new Error("Invalid input given to SMNameObj.whitelist as 'timeToWhitelist'!"), null);
       } else { // permban
-        console.log("Whitelisting player account: " + self.name);
+        thisConsole.log("Whitelisting player account: " + self.name);
         return runSimpleCommand("/whitelist_account " + self.name, options, cb);
       }
     } else {
@@ -681,7 +682,7 @@ function SMNameObj(name) { // cb/promises/squish compliant
         if (err) {
           return cb(err, result);
         }
-        console.dir(result); // Temp
+        thisConsole.dir(result); // Temp
         var outputArray = [];
         if (!result.error) { // This will be false if there was no error
           for (let i = 0;i < result.objArray.length;i++) {
@@ -950,22 +951,22 @@ function PlayerObj(name) { // cb/promises/squish compliant // "Player" must be a
       // This might be what you want if you plan on adding them later, but if not, then you'll want to
       // check their prior faction member count and delete it if empty.
       if (typeof cb == "function") {
-        console.debug("Looking up faction..");
+        thisConsole.debug("Looking up faction..");
         return self.faction(options, function (err, result) {
           if (err) {
             return cb(err, null);
           }
           var theFactionString = toStringIfPossible(result);
           var theFactionNum = toNumIfPossible(theFactionString);
-          console.debug("faction number found: " + theFactionNum);
+          thisConsole.debug("faction number found: " + theFactionNum);
           if (typeof theFactionNum == "number" && theFactionNum) { // If faction number is 0, this will be falsey
-            console.debug("Sending the del command..");
+            thisConsole.debug("Sending the del command..");
             return runSimpleCommand("/faction_del_member " + self.name + " " + theFactionNum, options, function (err, result) {
               if (err) {
-                console.debug("Encountered an error sending the command!");
+                thisConsole.debug("Encountered an error sending the command!");
                 return cb(err, result);
               }
-              console.debug("looks like the command succeeded!");
+              thisConsole.debug("looks like the command succeeded!");
               return cb(null, result); // should be true if the command succeeded.  False if they are not in a faction.
             });
           } else {
@@ -1118,7 +1119,7 @@ function PlayerObj(name) { // cb/promises/squish compliant // "Player" must be a
     }
     this.listAdminDeniedCommands = function (options, cb) { // Returns an array of all forbidden commands for the admin
       if (typeof cb == "function") {
-        console.log("Unfinished.");
+        thisConsole.log("Unfinished.");
         return starNetVerified("/list_admin_denied_commands " + self.name, options, function (err, result) {
           if (err) {
             return cb(err, null);
@@ -1158,7 +1159,7 @@ function PlayerObj(name) { // cb/promises/squish compliant // "Player" must be a
       // Also note that this ban does not apear to actually work.  It will kick the player, but then they can just rejoin.  An IP ban or ban via SMNameObj will actually be effective.
       // If options are specified, the other values can be ""
       if (typeof cb == "function") {
-        console.log("Banning player: " + self.name);
+        thisConsole.log("Banning player: " + self.name);
         // return sendDirectToServer("/ban " + self.name + " " + toKick + " '" + reason.toString().trim() + "' " + time);
         var banArray = [];
         banArray.push("/ban");
@@ -1177,7 +1178,7 @@ function PlayerObj(name) { // cb/promises/squish compliant // "Player" must be a
           banArray.push(time);
         }
         var banString = banArray.join(" ");
-        console.log("Banning player with string: " + banString);
+        thisConsole.log("Banning player with string: " + banString);
         return runSimpleCommand(banString, options, cb);
       }
       return simplePromisifyIt(self.ban, options, toKick, reason, time);
@@ -1261,7 +1262,7 @@ function PlayerObj(name) { // cb/promises/squish compliant // "Player" must be a
             return sendDirectToServer(setSpawnLocationCommand, cb);
           } else {
             return starNetVerified(setSpawnLocationCommand, options, function (err, result) { // TODO: Check if I should be returning starNetVerified or not.
-              console.log("using starnet verified to set the spawn location.  In objectCreator.js");
+              thisConsole.log("using starnet verified to set the spawn location.  In objectCreator.js");
               if (err) {
                 return cb(err, result);
               } else {
@@ -1284,7 +1285,7 @@ function PlayerObj(name) { // cb/promises/squish compliant // "Player" must be a
         try {
           var sectorToUse = new CoordsObj(sector).toString();
         } catch (error) { // Invalid input given.
-          console.error("ERROR: Invalid input given to PlayerObj.changeSector!");
+          thisConsole.error("ERROR: Invalid input given to PlayerObj.changeSector!");
           return cb(error, null);
         }
         if (typeof sectorToUse == "string") {
@@ -1293,7 +1294,7 @@ function PlayerObj(name) { // cb/promises/squish compliant // "Player" must be a
           if (fast) {
             return sendDirectToServer(changeSectorCommand, cb);
           } else {
-            return starNetVerified(serverObj, changeSectorCommand, options, function (err, result) { // TODO: Test this.  I don't know if I should be returning this or just running it?
+            return starNetVerified(changeSectorCommand, options, function (err, result) { // TODO: Test this.  I don't know if I should be returning this or just running it?
               if (err) {
                 return cb(err, result);
               } else {
@@ -1316,7 +1317,7 @@ function PlayerObj(name) { // cb/promises/squish compliant // "Player" must be a
         try {
           var sectorToUse = new CoordsObj(sector).toString();
         } catch (error) { // Invalid input given.
-          console.error("ERROR: Invalid input given to PlayerObj.changeSectorCopy!");
+          thisConsole.error("ERROR: Invalid input given to PlayerObj.changeSectorCopy!");
           return cb(error, null);
         }
         if (typeof sectorToUse == "string") {
@@ -1326,7 +1327,7 @@ function PlayerObj(name) { // cb/promises/squish compliant // "Player" must be a
           if (fast) {
             return sendDirectToServer(changeSectorCommand, cb);
           } else {
-            return starNetVerified(serverObj, changeSectorCommand, options, function (err, result) { // TODO: Test this.  I don't know if I should be returning this or just running it?
+            return starNetVerified(changeSectorCommand, options, function (err, result) { // TODO: Test this.  I don't know if I should be returning this or just running it?
               if (err) {
                 return cb(err, result);
               } else {
@@ -1364,7 +1365,7 @@ function PlayerObj(name) { // cb/promises/squish compliant // "Player" must be a
           try {
             spacialCoordsToUse = new CoordsObj(coords).toString();
           } catch (error) { // Invalid input given.
-            console.error("Invalid input given to teleportTo!");
+            thisConsole.error("Invalid input given to teleportTo!");
             return cb(error, null);
           }
         } else { // Invalid amount of arguments given
@@ -1377,7 +1378,7 @@ function PlayerObj(name) { // cb/promises/squish compliant // "Player" must be a
           if (fast) {
             return sendDirectToServer(teleportToCommand, cb);
           } else {
-            return starNetVerified(serverObj, teleportToCommand, options, function (err, result) {
+            return starNetVerified(teleportToCommand, options, function (err, result) {
               if (err) {
                 return cb(err, result);
               } else {
@@ -1399,7 +1400,7 @@ function PlayerObj(name) { // cb/promises/squish compliant // "Player" must be a
       // It does not currently return the entity the player is in, because the /player_info command does not give the UID of asteroids nor planet planets  TODO:  Change this behavior if/when Schema implements
       if (typeof cb == "function") {
         var returnObj = {};
-        return starNetVerified(serverObj, "/player_info " + self.name, options, function (err, result) {
+        return starNetVerified("/player_info " + self.name, options, function (err, result) {
           if (err) {
             return cb(err, result);
           }
@@ -1568,9 +1569,9 @@ function PlayerObj(name) { // cb/promises/squish compliant // "Player" must be a
       // RETURN: [SERVER, Planet, 0]
       // RETURN: [SERVER, END; Admin command execution ended, 0]
       if (typeof cb == "function") {
-        return starNetVerified(serverObj, "/entity_info_by_player_uid " + self.name, options, function (err, result) {
+        return starNetVerified("/entity_info_by_player_uid " + self.name, options, function (err, result) {
           if (err) {
-            console.error("PlayerObj.currentEntity encountered a StarNet problem.  On Player: " + self.name, err);
+            thisConsole.error("PlayerObj.currentEntity encountered a StarNet problem.  On Player: " + self.name, err);
             return cb(new Error(err), null);
           }
           if (!returnLineMatch(result, /^RETURN: \[SERVER, \[ADMIN COMMAND\] \[ERROR\]/)) {
@@ -1593,9 +1594,9 @@ function PlayerObj(name) { // cb/promises/squish compliant // "Player" must be a
       // Note:  By default it will only return unique IP's, but an option can be specified to return them all, which includes the timestamp of the login from the IP
       if (typeof cb == "function") {
         var unique = getOption(options, "unique", true); // By default only return unique IP's
-        return starNetVerified(serverObj, "/player_info " + this.name, options, function (err, result) {
+        return starNetVerified("/player_info " + this.name, options, function (err, result) {
           if (err) {
-            console.error("StarNet command failed when attempting to get the ips for player: " + self.name);
+            thisConsole.error("StarNet command failed when attempting to get the ips for player: " + self.name);
             return cb(err, result);
           }
           var resultArray = returnMatchingLinesAsArray(result, /^RETURN: \[SERVER, \[PL\] LOGIN: \[time=.*/);
@@ -1645,9 +1646,9 @@ function PlayerObj(name) { // cb/promises/squish compliant // "Player" must be a
         if (current) {
           commandToUse = "/player_get_current_inventory "; // This command does not exist yet, so don't use this till it is.
         }
-        return starNetVerified(serverObj, commandToUse + self.name, options, function (err, result) {
+        return starNetVerified(commandToUse + self.name, options, function (err, result) {
           if (err) {
-            console.error("PlayerObj.inventory StarNet command failed for player: " + self.name);
+            thisConsole.error("PlayerObj.inventory StarNet command failed for player: " + self.name);
             return cb(err, result);
           }
           // C:\coding\starmade.js\bin>node starNet.js "/player_get_inventory Benevolent27"
@@ -1661,7 +1662,7 @@ function PlayerObj(name) { // cb/promises/squish compliant // "Player" must be a
 
           // Fail: RETURN: [SERVER, [ADMIN COMMAND] [ERROR] player Benevolent27 not online, 0]
           if (!returnLineMatch(result, /^RETURN: \[SERVER, \[ADMIN COMMAND\] \[ERROR\].*/)) {
-            // console.log("Result found!"); // temp
+            // thisConsole.log("Result found!"); // temp
             var outputArray = [];
             // Parse through the lines, creating new objects and outputting to the outputArray.
             var theArray = result.trim().split("\n");
@@ -1674,10 +1675,10 @@ function PlayerObj(name) { // cb/promises/squish compliant // "Player" must be a
             var count;
             var outputObj = {};
             for (var i = 0;i < theArray.length;i++) {
-              // console.log("Processing line: " + theArray[i]);  // temp
+              // thisConsole.log("Processing line: " + theArray[i]);  // temp
               match = theArray[i].match(theReg); // Returns void if not found
               if (match) {
-                // console.log("Match found!  Processing it..");
+                // thisConsole.log("Match found!  Processing it..");
                 match = match.toString();
                 slot = match.match(/SLOT: [-]{0,1}[0-9]*/).toString().replace("SLOT: ", ""); // This should never error out, but a more careful approach might be needed.
                 multi = match.match(/MULTI: [a-zA-Z]*/).toString().replace("MULTI: ", "");
@@ -1691,8 +1692,8 @@ function PlayerObj(name) { // cb/promises/squish compliant // "Player" must be a
                   "meta": toNum(meta),
                   "count": toNum(count)
                 }
-                // console.log("Adding object to outputArray:");
-                // console.dir(outputObj);
+                // thisConsole.log("Adding object to outputArray:");
+                // thisConsole.dir(outputObj);
                 outputArray.push(outputObj);
               }
             }
@@ -1708,7 +1709,7 @@ function PlayerObj(name) { // cb/promises/squish compliant // "Player" must be a
     self.blueprints = function (options, cb) { // Returns an array of blueprint objects.
       if (typeof cb == "function") {
         var verbose = getOption(options, "verbose", false); // Not sure if I'll actually use this
-        return starNetVerified(serverObj, "/list_blueprints_by_owner " + self.name, options, function (err, result) {
+        return starNetVerified("/list_blueprints_by_owner " + self.name, options, function (err, result) {
           if (err) {
             return cb(err, result);
           }
@@ -1789,7 +1790,7 @@ function PlayerObj(name) { // cb/promises/squish compliant // "Player" must be a
 
 
 
-    // Phase 1 done - sending directly to console.  Phase 2 incomplete.
+    // Phase 1 done - sending directly to thisConsole.  Phase 2 incomplete.
     // msg(MessageString,info/warning/error) - Sends a private message to this specific player.  If no method is specified "plain" is used, which shows up on the player's main chat.
     // creativeMode(true/false) - Turns creative mode on or off for the player "/creative_mode player true/false"
     // godMode(true/false) - Sets godmode to true or false for the player using /god_mode
@@ -1887,7 +1888,7 @@ function SystemObj(x, y, z) { // cb/promises/squish compliant
   // load - Uses "/load_system x y z" to load the whole system.
   this.typeNumber = function (options, cb) {
     if (typeof cb == "function") {
-      return simpleSqlQuery(serverObj, `SELECT TYPE FROM PUBLIC.SYSTEMS WHERE X=${self.x} AND Y=${self.y} AND Z=${self.z};`, options, function (err, result) {
+      return simpleSqlQuery(`SELECT TYPE FROM PUBLIC.SYSTEMS WHERE X=${self.x} AND Y=${self.y} AND Z=${self.z};`, options, function (err, result) {
         if (err) {
           return cb(err, result);
         }
@@ -1908,7 +1909,7 @@ function SystemObj(x, y, z) { // cb/promises/squish compliant
   }
   this.claimEntity = function (options, cb) {
     if (typeof cb == "function") {
-      return simpleSqlQuery(serverObj, `SELECT OWNER_UID FROM PUBLIC.SYSTEMS WHERE X=${self.x} AND Y=${self.y} AND Z=${self.z};`, options, function (err, result) {
+      return simpleSqlQuery(`SELECT OWNER_UID FROM PUBLIC.SYSTEMS WHERE X=${self.x} AND Y=${self.y} AND Z=${self.z};`, options, function (err, result) {
         if (err) {
           return cb(err, result);
         }
@@ -1923,7 +1924,7 @@ function SystemObj(x, y, z) { // cb/promises/squish compliant
   }
   this.claimSector = function (options, cb) {
     if (typeof cb == "function") {
-      return simpleSqlQuery(serverObj, `SELECT OWNER_X,OWNER_Y,OWNER_Z FROM PUBLIC.SYSTEMS WHERE X=${self.x} AND Y=${self.y} AND Z=${self.z};`, options, function (err, result) {
+      return simpleSqlQuery(`SELECT OWNER_X,OWNER_Y,OWNER_Z FROM PUBLIC.SYSTEMS WHERE X=${self.x} AND Y=${self.y} AND Z=${self.z};`, options, function (err, result) {
         if (err) {
           return cb(err, result);
         }
@@ -1939,7 +1940,7 @@ function SystemObj(x, y, z) { // cb/promises/squish compliant
 
   this.claimFaction = function (options, cb) {
     if (typeof cb == "function") {
-      return simpleSqlQuery(serverObj, `SELECT OWNER_FACTION FROM PUBLIC.SYSTEMS WHERE X=${self.x} AND Y=${self.y} AND Z=${self.z};`, options, function (err, result) {
+      return simpleSqlQuery(`SELECT OWNER_FACTION FROM PUBLIC.SYSTEMS WHERE X=${self.x} AND Y=${self.y} AND Z=${self.z};`, options, function (err, result) {
         if (err) {
           return cb(err, result);
         }
@@ -2111,13 +2112,13 @@ function BlueprintObj(name) { // cb/promises/squish compliant
     if (typeof cb == "function") {
       var theShipName = toStringIfPossible(shipName);
       if (typeof theShipName != "string") {
-        console.error("Invalid input given to BlueprintObj.spawnTo for shipName!");
+        thisConsole.error("Invalid input given to BlueprintObj.spawnTo for shipName!");
         return cb(new Error("Invalid input given to BlueprintObj.spawnTo for shipName!"), null);
       }
       try {
         var theSector = new SectorObj(location); // Allows LocationObj, SectorObj, CoordsObj, or anything that can create a CoordsObj as input
       } catch (err) {
-        console.error("Invalid input given to BlueprintObj.spawnTo for location!");
+        thisConsole.error("Invalid input given to BlueprintObj.spawnTo for location!");
         return cb(err, null);
       }
       var theSpacial;
@@ -2125,7 +2126,7 @@ function BlueprintObj(name) { // cb/promises/squish compliant
         try {
           theSpacial = new CoordsObj(spacialCoords);
         } catch (err) {
-          console.error("Invalid input given to BlueprintObj.spawnTo for spacialCoords!");
+          thisConsole.error("Invalid input given to BlueprintObj.spawnTo for spacialCoords!");
           return cb(err, null);
         }
       }
@@ -2173,7 +2174,7 @@ function BlueprintObj(name) { // cb/promises/squish compliant
 
   this.info = function (options, cb) {
     if (typeof cb == "function") {
-      return starNetVerified(serverObj, "/blueprint_info '" + self.name + "'", options, function (err, result) {
+      return starNetVerified("/blueprint_info '" + self.name + "'", options, function (err, result) {
         var outputObj = {};
         if (err) {
           return cb(err, result);
@@ -2181,7 +2182,7 @@ function BlueprintObj(name) { // cb/promises/squish compliant
         if (result) {
           outputObj["UID"] = returnLineMatch(result, /^UID: .*/, /^UID: /);
           var ownerTest = returnLineMatch(result, /^Owner: .*/, /^Owner: /);
-          console.log("### OWNED BY: " + ownerTest); // temp
+          thisConsole.log("### OWNED BY: " + ownerTest); // temp
           if (ownerTest == "(unknown)") {
             outputObj["owner"] = null;
           } else {
@@ -2469,7 +2470,7 @@ function FactionObj(number) { // cb/promises/squish compliant
 
   this.name = function (options, cb) {
     if (typeof cb == "function") {
-      return starNetVerified(serverObj, "/faction_list", options, function (err, result) {
+      return starNetVerified("/faction_list", options, function (err, result) {
         if (err) {
           return cb(err, result);
         }
@@ -2493,7 +2494,7 @@ function FactionObj(number) { // cb/promises/squish compliant
   }
   this.description = function (options, cb) {
     if (typeof cb == "function") {
-      return starNetVerified(serverObj, "/faction_list", options, function (err, result) {
+      return starNetVerified("/faction_list", options, function (err, result) {
         if (err) {
           return cb(err, result);
         }
@@ -2518,7 +2519,7 @@ function FactionObj(number) { // cb/promises/squish compliant
   this.homeBaseEntity = function (options, cb) {
     // RETURN: [SERVER, FACTION: Faction [id=-9999990, name=Traders, description=The Trading Guild is a collection of large corporations. They work to better themselves primarily through trade and economics.The Trading Guild treats others with neutrality, and they hardly care who or what they sell their products to. Their wealth grants them strength, but they are a relatively peaceful faction., size: 0; FP: 100]; HomeBaseName: Traders Home; HomeBaseUID: ENTITY_SPACESTATION_NPC-HOMEBASE_-322_13_-216; HomeBaseLocation: (-322, 13, -216); Owned: [(-21, 0, -14), (-21, 0, -13), (-22, 0, -13), (-22, 0, -14), (-21, -1, -13), (-22, 1, -14), (-21, -1, -14), (-22, -1, -13), (-20, -1, -14), (-20, 0, -14), (-20, -1, -15), (-22, -1, -14), (-20, -1, -13), (-20, 0, -15), (-21, -1, -15), (-22, 0, -15), (-22, 0, -12), (-23, 0, -13), (-21, 0, -12), (-20, -1, -16), (-22, -1, -12), (-19, -1, -16), (-20, 0, -16), (-21, -1, -16), (-21, 0, -16), (-23, -1, -13), (-23, 0, -12), (-19, 0, -16), (-20, 0, -17), (-21, -1, -17), (-21, 0, -17), (-19, -1, -17), (-21, 0, -11), (-22, -2, -12)], 0]
     if (typeof cb == "function") {
-      return starNetVerified(serverObj, "/faction_list", options, function (err, result) {
+      return starNetVerified("/faction_list", options, function (err, result) {
         if (err) {
           return cb(err, result);
         }
@@ -2546,7 +2547,7 @@ function FactionObj(number) { // cb/promises/squish compliant
   this.homeBaseSector = function (options, cb) {
     // RETURN: [SERVER, FACTION: Faction [id=-9999990, name=Traders, description=The Trading Guild is a collection of large corporations. They work to better themselves primarily through trade and economics.The Trading Guild treats others with neutrality, and they hardly care who or what they sell their products to. Their wealth grants them strength, but they are a relatively peaceful faction., size: 0; FP: 100]; HomeBaseName: Traders Home; HomeBaseUID: ENTITY_SPACESTATION_NPC-HOMEBASE_-322_13_-216; HomeBaseLocation: (-322, 13, -216); Owned: [(-21, 0, -14), (-21, 0, -13), (-22, 0, -13), (-22, 0, -14), (-21, -1, -13), (-22, 1, -14), (-21, -1, -14), (-22, -1, -13), (-20, -1, -14), (-20, 0, -14), (-20, -1, -15), (-22, -1, -14), (-20, -1, -13), (-20, 0, -15), (-21, -1, -15), (-22, 0, -15), (-22, 0, -12), (-23, 0, -13), (-21, 0, -12), (-20, -1, -16), (-22, -1, -12), (-19, -1, -16), (-20, 0, -16), (-21, -1, -16), (-21, 0, -16), (-23, -1, -13), (-23, 0, -12), (-19, 0, -16), (-20, 0, -17), (-21, -1, -17), (-21, 0, -17), (-19, -1, -17), (-21, 0, -11), (-22, -2, -12)], 0]
     if (typeof cb == "function") {
-      return starNetVerified(serverObj, "/faction_list", options, function (err, result) {
+      return starNetVerified("/faction_list", options, function (err, result) {
         if (err) {
           return cb(err, result);
         }
@@ -2721,7 +2722,7 @@ function FactionObj(number) { // cb/promises/squish compliant
     if (typeof cb == "function") {
       //RETURN: [SERVER, [ADMIN COMMAND] [SUCCESS] Merc Dragon: {Lightspeed12=>FactionPermission [playerUID=Lightspeed12, roleID=2], Nosajimiki=>FactionPermission [playerUID=Nosajimiki, roleID=4]}, 0]
       // TODO: Add an option to return an array of pairs, player and role number.
-      return starNetVerified(serverObj, "/faction_list_members " + self.number, options, function (err, result) {
+      return starNetVerified("/faction_list_members " + self.number, options, function (err, result) {
         if (err) {
           return cb(err, result);
         }
@@ -2787,7 +2788,7 @@ function FactionObj(number) { // cb/promises/squish compliant
   }
   this.getFactionPoints = function (options, cb) {
     if (typeof cb == "function") {
-      return starNetVerified(serverObj, "/faction_point_get " + self.number, options, function (err, result) {
+      return starNetVerified("/faction_point_get " + self.number, options, function (err, result) {
         if (err) {
           return cb(err, result);
         }
@@ -2953,7 +2954,7 @@ function SectorObj(x, y, z) { // cb/promises/squish compliant
       // ^RETURN\: \[SERVER, LOADED SECTOR INFO\:
       // RETURN: [SERVER, LOADED SECTOR INFO: Sector[132](2, 2, 2); Permission[Peace,Protected,NoEnter,NoExit,NoIndication,NoFpLoss]: 000000; Seed: -4197430019395025102; Type: VOID;, 0]
       if (typeof cb == "function") {
-        return starNetVerified(serverObj, "/sector_info " + self.coords.toString(), options, function (err, result) {
+        return starNetVerified("/sector_info " + self.coords.toString(), options, function (err, result) {
           if (err) {
             return cb(err, result);
           }
@@ -2994,7 +2995,7 @@ function SectorObj(x, y, z) { // cb/promises/squish compliant
             // File exists
             return self.isLoaded(options, function (err, result) {
               if (err) {
-                console.error("Error when checking if sector was loaded: " + self.coords.toString());
+                thisConsole.error("Error when checking if sector was loaded: " + self.coords.toString());
                 return cb(err, result);
               }
               if (result) {
@@ -3005,7 +3006,7 @@ function SectorObj(x, y, z) { // cb/promises/squish compliant
             // This will not return any errors unless the parameters are incorrect.
           } else {
             // File does not exist
-            console.error("ERROR: Could not load sector export!  File does not exist: " + sectorExportFilePath);
+            thisConsole.error("ERROR: Could not load sector export!  File does not exist: " + sectorExportFilePath);
             return cb(null, Boolean(false));
           }
         }
@@ -3117,7 +3118,7 @@ function SectorObj(x, y, z) { // cb/promises/squish compliant
         } else {
           var theVal = toStringIfPossible(val);
           if (typeof theVal == "string") {
-            console.log("Setting sectorchmod for sector, '" + self.coords + "', to: " + theVal);
+            thisConsole.log("Setting sectorchmod for sector, '" + self.coords + "', to: " + theVal);
             return sectorSetChmod(self.coords, theVal, options, cb);
           } else {
             return cb(new Error("Invalid input given to SectorObj.setChmod as val!"), null);
@@ -3164,7 +3165,7 @@ function SectorObj(x, y, z) { // cb/promises/squish compliant
       if (typeof cb == "function") {
         var theNumToUse = toNumIfPossible(newNum);
         if (typeof theNumToUse == "number") {
-          return starNetVerified(serverObj, "/force_save", options, async function (err) { // Not sure if this needs to be async
+          return starNetVerified("/force_save", options, async function (err) { // Not sure if this needs to be async
             if (err) {
               return cb(err, null);
             }
@@ -3235,7 +3236,7 @@ function SectorObj(x, y, z) { // cb/promises/squish compliant
       // "options" are simply forwarded to the listEntityUIDs method and are also optional
       if (typeof cb == "function") {
         // var returnType=getOption(options,"type","any").toLowerCase();
-        // console.log("From SectorObj.entities returnType: " + returnType); // temp
+        // thisConsole.log("From SectorObj.entities returnType: " + returnType); // temp
         // var methodToUse;
         // if (returnType=="any"){
         //   methodToUse="listEntityUIDs";
@@ -3254,7 +3255,7 @@ function SectorObj(x, y, z) { // cb/promises/squish compliant
         // } else {
         //   throw new Error("Invalid option given to SectorObj.entities as 'type'!");
         // }
-        // console.log("From SectorObj.entities methodToUse: " + methodToUse); // temp
+        // thisConsole.log("From SectorObj.entities methodToUse: " + methodToUse); // temp
 
         // return self[methodToUse](filter,options,function(err,uidArray){ // Switch this to directly using the self.listEntityUIDs with option to only return a certain type
         return self.listEntityUIDs(filter, options, function (err, uidArray) {
@@ -3342,7 +3343,7 @@ function CoordsObj(x, y, z) { // cb/promises/squish compliant
       yToUse = objectHelper.toNumIfPossible(tempArray[1].trim());
       zToUse = objectHelper.toNumIfPossible(tempArray[2].trim());
     } else {
-      console.error("Invalid amount of numbers given as string to CoordsObj. (" + tempArray.length + "): " + x);
+      thisConsole.error("Invalid amount of numbers given as string to CoordsObj. (" + tempArray.length + "): " + x);
       throw new Error("Invalid amount of numbers given as string to CoordsObj.");
     }
   } else if (typeof x == "object") { // This handles arrays or other objects
@@ -3377,7 +3378,7 @@ function CoordsObj(x, y, z) { // cb/promises/squish compliant
     }
   }
   if (typeof xToUse != "number" || typeof yToUse != "number" || typeof zToUse != "number") {
-    console.error("Invalid coords input given to new CoordsObj: " + xToUse + " " + yToUse + " " + zToUse);
+    thisConsole.error("Invalid coords input given to new CoordsObj: " + xToUse + " " + yToUse + " " + zToUse);
     throw new Error("Invalid coords input given to new CoordsObj: " + xToUse + " " + yToUse + " " + zToUse);
   }
   self.x = xToUse;
@@ -3401,7 +3402,7 @@ function CoordsObj(x, y, z) { // cb/promises/squish compliant
 
 function CreatureObj(fullUID) { // Not usable right now since there are no creature commands that accept UID inputs
   // TODO: create creature object as an extension of EntityObj
-  console.log("Complete me plz.");
+  thisConsole.log("Complete me plz.");
   var self = this; // this is needed to reference the "this" of functions in other contexts, particularly for creating promises via the outside function.  If "this" is used, the promisify function will not work correctly.
   self.UID = stripFullUIDtoUID(fullUID);
   self.fullUID = fullUID;
@@ -3423,7 +3424,7 @@ function EntityObj(fullUID) { // cb/promises/squish compliant
   // }
 
   if (fullUIDToUse) {
-    // console.log("Creating a new entity.  fullUID: " + fullUID + " shipName: " + shipName);
+    // thisConsole.log("Creating a new entity.  fullUID: " + fullUID + " shipName: " + shipName);
     self.UID = stripFullUIDtoUID(fullUIDToUse); // Returns the UID as used with SQL queries, without the "ENTITY_SHIP_" whatever stuff.
     this.fullUID = fullUIDToUse;
 
@@ -3636,7 +3637,7 @@ function EntityObj(fullUID) { // cb/promises/squish compliant
 
 
     self.decay = function (options, cb) { // decays the ship
-      console.debug("Decaying UID: " + self.fullUID);
+      thisConsole.debug("Decaying UID: " + self.fullUID);
       return runSimpleCommand("/decay_uid " + self.fullUID, options, cb); // handles promises
     }
     self.setFaction = function (factionNumOrObj, options, cb) { // Expects a faction number or FactionObj as input.
@@ -3760,7 +3761,7 @@ function EntityObj(fullUID) { // cb/promises/squish compliant
           if (fast) {
             return sendDirectToServer(changeSectorCommand, cb);
           } else {
-            return starNetVerified(serverObj, changeSectorCommand, options, function (err, result) {
+            return starNetVerified(changeSectorCommand, options, function (err, result) {
               if (err) {
                 return cb(err, result);
               }
@@ -3802,7 +3803,7 @@ function EntityObj(fullUID) { // cb/promises/squish compliant
           if (fast) {
             return sendDirectToServer(teleportToCommand, cb);
           } else {
-            return starNetVerified(serverObj, teleportToCommand, options, function (err, result) {
+            return starNetVerified(teleportToCommand, options, function (err, result) {
               if (err) {
                 return cb(err, result);
               }
@@ -3825,7 +3826,7 @@ function EntityObj(fullUID) { // cb/promises/squish compliant
     this.dataMap = function (options, cb) {
       // return new starNet.ShipInfoUidObj(self.fullUID);
       if (typeof cb == "function") {
-        return starNetVerified(serverObj, "/ship_info_uid \"" + self.fullUID + "\"", options, function (err, result) {
+        return starNetVerified("/ship_info_uid \"" + self.fullUID + "\"", options, function (err, result) {
           if (err) {
             return cb(err, result);
           }
@@ -3837,7 +3838,7 @@ function EntityObj(fullUID) { // cb/promises/squish compliant
     this.dataObj = function (options, cb) {
       // return new starNet.ShipInfoUidObj(self.fullUID,{"objType":"object"})
       if (typeof cb == "function") {
-        return starNetVerified(serverObj, "/ship_info_uid \"" + self.fullUID + "\"", options, function (err, result) {
+        return starNetVerified("/ship_info_uid \"" + self.fullUID + "\"", options, function (err, result) {
           if (err) {
             return cb(err, result);
           }
@@ -3999,7 +4000,7 @@ function EntityObj(fullUID) { // cb/promises/squish compliant
 
       // Returns undefined if the entity does not have a world file entry yet
       if (typeof cb == "function") {
-        return simpleSqlQuery(serverObj, `SELECT TYPE FROM PUBLIC.ENTITIES WHERE UID='${self.UID}';`, options, function (err, result) {
+        return simpleSqlQuery(`SELECT TYPE FROM PUBLIC.ENTITIES WHERE UID='${self.UID}';`, options, function (err, result) {
           if (err) {
             return cb(err, result);
           }
@@ -4016,7 +4017,7 @@ function EntityObj(fullUID) { // cb/promises/squish compliant
       // Returns a true/false, depending on whether a player has interacted with the entity.  Does not count damage.
       // Returns undefined if the entity does not exist in the world file yet.
       if (typeof cb == "function") {
-        return simpleSqlQuery(serverObj, `SELECT TOUCHED FROM PUBLIC.ENTITIES WHERE UID='${self.UID}';`, options, function (err, result) {
+        return simpleSqlQuery(`SELECT TOUCHED FROM PUBLIC.ENTITIES WHERE UID='${self.UID}';`, options, function (err, result) {
           if (err) {
             return cb(err, result);
           }
@@ -4034,14 +4035,14 @@ function EntityObj(fullUID) { // cb/promises/squish compliant
       // Returns null if not docked
       // Returns undefined if not in the world file yet.
       if (typeof cb == "function") {
-        return simpleSqlQuery(serverObj, `SELECT DOCKED_TO FROM PUBLIC.ENTITIES WHERE UID='${self.UID}';`, options, function (err, result) {
+        return simpleSqlQuery(`SELECT DOCKED_TO FROM PUBLIC.ENTITIES WHERE UID='${self.UID}';`, options, function (err, result) {
           if (err) {
             return cb(err, result);
           }
           if (result.length > 0) {
             if (result != "-1") {
               var dockedTo = result[0]["DOCKED_TO"];
-              return simpleSqlQuery(serverObj, `SELECT UID,TYPE FROM PUBLIC.ENTITIES WHERE ID='${dockedTo}'`, options, function (err, result) {
+              return simpleSqlQuery(`SELECT UID,TYPE FROM PUBLIC.ENTITIES WHERE ID='${dockedTo}'`, options, function (err, result) {
                 if (err) {
                   return cb(err, result);
                 }
@@ -4065,14 +4066,14 @@ function EntityObj(fullUID) { // cb/promises/squish compliant
       // Returns null if not docked
       // Returns undefined if not in the world file yet.
       if (typeof cb == "function") {
-        return simpleSqlQuery(serverObj, `SELECT DOCKED_ROOT FROM PUBLIC.ENTITIES WHERE UID='${self.UID}';`, options, function (err, result) {
+        return simpleSqlQuery(`SELECT DOCKED_ROOT FROM PUBLIC.ENTITIES WHERE UID='${self.UID}';`, options, function (err, result) {
           if (err) {
             return cb(err, result);
           }
           if (result.length > 0) {
             if (result != "-1") {
               var dockedTo = result[0]["DOCKED_ROOT"];
-              return simpleSqlQuery(serverObj, `SELECT UID,TYPE FROM PUBLIC.ENTITIES WHERE ID='${dockedTo}'`, options, function (err, result) {
+              return simpleSqlQuery(`SELECT UID,TYPE FROM PUBLIC.ENTITIES WHERE ID='${dockedTo}'`, options, function (err, result) {
                 if (err) {
                   return cb(err, result);
                 }
@@ -4148,10 +4149,10 @@ function ipWhitelist(ipAddress, minutes, options, cb) { // minutes are optional.
     if (minutes) {
       var minutesNum = toNumIfPossible(minutes);
       if (typeof minutesNum == "number") {
-        console.log("Whitelisting IP, '" + ipAddress + "' for " + minutesNum + " minutes.");
-        return starNetVerified(serverObj, "/whitelist_ip_temp " + ipToUse + " " + minutesNum, options, function (err, result) {
+        thisConsole.log("Whitelisting IP, '" + ipAddress + "' for " + minutesNum + " minutes.");
+        return starNetVerified("/whitelist_ip_temp " + ipToUse + " " + minutesNum, options, function (err, result) {
           if (err) {
-            console.error("ERROR when attempting to whitelist IP, '" + ipToUse + "'!  Could not send command via StarNet.jar!");
+            thisConsole.error("ERROR when attempting to whitelist IP, '" + ipToUse + "'!  Could not send command via StarNet.jar!");
             return cb(err, result);
           }
           return cb(null, starNet.detectSuccess2(result));
@@ -4161,10 +4162,10 @@ function ipWhitelist(ipAddress, minutes, options, cb) { // minutes are optional.
       }
     } else {
       // no minutes provided, so perform a perm ban
-      console.log("Whitelisting IP, '" + ipAddress + "'!");
-      return starNetVerified(serverObj, "/whitelist_ip " + ipToUse, options, function (err, result) {
+      thisConsole.log("Whitelisting IP, '" + ipAddress + "'!");
+      return starNetVerified("/whitelist_ip " + ipToUse, options, function (err, result) {
         if (err) {
-          console.error("ERROR whitelisting ip: " + ipAddress);
+          thisConsole.error("ERROR whitelisting ip: " + ipAddress);
           return cb(err, result);
         }
         return cb(null, starNet.detectSuccess2(result));
@@ -4182,10 +4183,10 @@ function ipBan(ipAddress, minutes, options, cb) { // minutes are optional.  A pe
     if (minutes) {
       var minutesNum = toNumIfPossible(minutes);
       if (typeof minutesNum == "number") {
-        console.log("Banning IP, '" + ipAddress + "' for " + minutesNum + " minutes.");
-        return starNetVerified(serverObj, "/ban_ip_temp " + ipToUse + " " + minutesNum, options, function (err, result) {
+        thisConsole.log("Banning IP, '" + ipAddress + "' for " + minutesNum + " minutes.");
+        return starNetVerified("/ban_ip_temp " + ipToUse + " " + minutesNum, options, function (err, result) {
           if (err) {
-            console.error("ERROR when attempting to ban IP, '" + ipToUse + "'!  Could not send command via StarNet.jar!");
+            thisConsole.error("ERROR when attempting to ban IP, '" + ipToUse + "'!  Could not send command via StarNet.jar!");
             return cb(err, result);
           }
           return cb(null, starNet.detectSuccess2(result));
@@ -4195,10 +4196,10 @@ function ipBan(ipAddress, minutes, options, cb) { // minutes are optional.  A pe
       }
     } else {
       // no minutes provided, so perform a perm ban
-      console.log("PERMANENT banning IP, '" + ipAddress + "'!");
-      return starNetVerified(serverObj, "/ban_ip " + ipToUse, options, function (err, result) {
+      thisConsole.log("PERMANENT banning IP, '" + ipAddress + "'!");
+      return starNetVerified("/ban_ip " + ipToUse, options, function (err, result) {
         if (err) {
-          console.error("ERROR banning ip: " + ipAddress);
+          thisConsole.error("ERROR banning ip: " + ipAddress);
           return cb(err, result);
         }
         return cb(null, starNet.detectSuccess2(result));
@@ -4212,10 +4213,10 @@ function ipBan(ipAddress, minutes, options, cb) { // minutes are optional.  A pe
 function ipUnBan(ipAddress, options, cb) { // options are optional and should be an object.
   if (ipAddress) {
     var ipToUse = ipAddress.toString(); // This allows ipObj's to be fed in, and this should translate to an ip string.
-    console.log("Unbanning IP: " + ipAddress);
-    return starNetVerified(serverObj, "/unban_ip " + ipToUse, options, function (err, result) {
+    thisConsole.log("Unbanning IP: " + ipAddress);
+    return starNetVerified("/unban_ip " + ipToUse, options, function (err, result) {
       if (err) {
-        console.error();
+        thisConsole.error();
         return cb(err, result);
       }
       return cb(null, starNet.detectSuccess2(result));
@@ -4283,7 +4284,7 @@ function sectorSetChmod(coordsObj, chmodString, options, cb) { // Performs a sin
   try {
     var theCoordsObj = new CoordsObj(coordsObj); // Allows this to use any input a coordsObj can accept
   } catch (err) {
-    console.error(new Error("Invalid input given to sectorSetChmod() for coordsObj!"));
+    thisConsole.error(new Error("Invalid input given to sectorSetChmod() for coordsObj!"));
     return cb(err, null);
   }
   var theChmodString = toStringIfPossible(chmodString);
@@ -4292,7 +4293,7 @@ function sectorSetChmod(coordsObj, chmodString, options, cb) { // Performs a sin
     if (typeof coordsObjString == "string") {
       theChmodString = theChmodString.toLowerCase();
       let theCommand = "/sector_chmod " + coordsObj.toString() + " " + theChmodString;
-      return starNetVerified(serverObj, theCommand, options, function (err, result) {
+      return starNetVerified(theCommand, options, function (err, result) {
         if (err) {
           return cb(err, result);
         }
@@ -4375,7 +4376,7 @@ function returnEntityUIDList(coords, beginFilter, options, cb) {
   // returnEntityUIDList("2 2 2","ENTITY_SHIP_|ENTITY_SPACESTATION_"); // Returns ships and stations in the sector
 
   var type = getOption(options, "type", "any"); // By default return any
-  // console.debug("Using type: " + type);
+  // thisConsole.debug("Using type: " + type);
   var theTypeArray = [];
 
   if (type != "any") {
@@ -4385,7 +4386,7 @@ function returnEntityUIDList(coords, beginFilter, options, cb) {
     } else {
       typeArray.push(type);
     }
-    // console.debug("typeArray: " + typeArray);
+    // thisConsole.debug("typeArray: " + typeArray);
     for (let i = 0;i < typeArray.length;i++) {
       // More than 1 type can be included.  Any filter will be added to the END
       if (typeArray[i] == "ship") {
@@ -4408,21 +4409,21 @@ function returnEntityUIDList(coords, beginFilter, options, cb) {
       }
     }
   }
-  // console.debug("theTypeArray: " + theTypeArray);
-  // console.debug("theTypeArray.length: " + theTypeArray.length);
+  // thisConsole.debug("theTypeArray: " + theTypeArray);
+  // thisConsole.debug("theTypeArray.length: " + theTypeArray.length);
 
 
   try {
     var theSector = new SectorObj(coords);
     var theCoords = theSector.toString();
   } catch (err) {
-    console.error(err);
+    thisConsole.error(err);
     throw new Error("Invalid input given to returnEntityUIDList as 'coords'!  (Expect coordinates!)");
   }
 
   var theReg = new RegExp("");
-  // console.debug("beginFilter: " + beginFilter);
-  // console.debug("typeof beginFilter: " + typeof beginFilter);
+  // thisConsole.debug("beginFilter: " + beginFilter);
+  // thisConsole.debug("typeof beginFilter: " + typeof beginFilter);
   var filterArray = [];
   if (typeof beginFilter == "string") {
     filterArray.push(beginFilter);
@@ -4447,7 +4448,7 @@ function returnEntityUIDList(coords, beginFilter, options, cb) {
   } else { // No types were given, so just use the filter Array.
     finalFilterArray = filterArray;
   }
-  // console.debug("finalFilterArray:" + finalFilterArray);
+  // thisConsole.debug("finalFilterArray:" + finalFilterArray);
   var finalFilterRegArray = [];
   var tempValue;
   for (let i = 0;i < finalFilterArray.length;i++) {
@@ -4455,7 +4456,7 @@ function returnEntityUIDList(coords, beginFilter, options, cb) {
     if (typeof tempValue == "string") { // String check all the filters given and only add valid ones.
       finalFilterRegArray.push(tempValue)
     } else { // If not a string, discard it, with an error.
-      console.error("Invalid input given to returnEntityUIDList as beginFilter!  Skipping!");
+      thisConsole.error("Invalid input given to returnEntityUIDList as beginFilter!  Skipping!");
     }
   }
 
@@ -4467,7 +4468,7 @@ function returnEntityUIDList(coords, beginFilter, options, cb) {
   } else { // No filters were given
     theReg = new RegExp("uid=[^,]*");
   }
-  console.debug("finalFilterRegArray: " + finalFilterRegArray);
+  thisConsole.debug("finalFilterRegArray: " + finalFilterRegArray);
 
   // Check for options
   var checkSpawner = getOption(options, "spawnerFilter", false);
@@ -4527,12 +4528,12 @@ function returnEntityUIDList(coords, beginFilter, options, cb) {
     var shipListResults = "";
     return theSector.load(options, function (err, results) {
       if (err) {
-        console.error("ERROR:  Could not load sector!");
+        thisConsole.error("ERROR:  Could not load sector!");
         return cb(err, results);
       }
-      return starNetVerified(serverObj, "/sector_info " + theCoords, options, function (err, shipListResults) {
+      return starNetVerified("/sector_info " + theCoords, options, function (err, shipListResults) {
         if (err) {
-          console.error("Error getting sector_info for sector: " + theCoords);
+          thisConsole.error("Error getting sector_info for sector: " + theCoords);
           return cb(err, shipListResults);
         }
         var resultsArray = shipListResults.split("\n");
@@ -4623,7 +4624,7 @@ function splitHelper1(result, matchReg, regExpToRem, regExpToRem2, functionToRun
 }
 function splitHelper1CB(command, options, matchReg, regExpToRem, regExpToRem2, functionToRunOnEachValue, cb) {
   // takes input from banlist or whitelist, producing an array, running a function on each one.
-  return starNetVerifiedCB(serverObj, command, options, function (err, result) {
+  return starNetVerifiedCB(command, options, function (err, result) {
     if (err) {
       return cb(err, null);
     } else {
@@ -4666,7 +4667,9 @@ function splitHelper2(result, matchReg, regExpToRem, regExpToRem2, functionToRun
   var resultsArray = returnMatchingLinesAsArray(result, matchReg);
   var theLine;
   for (let i = 0;i < resultsArray.length;i++) {
-    theLine = theLine.replace(regExpToRem, "").replace(regExpToRem2, "");
+    // Not sure if this fix is correct or not.. // temp
+    // theLine = theLine.replace(regExpToRem, "").replace(regExpToRem2, "");
+    theLine = resultsArray[i].replace(regExpToRem, "").replace(regExpToRem2, "");
     if (theLine) {
       outputArray.push(functionToRun(theLine));
     }
@@ -4675,7 +4678,7 @@ function splitHelper2(result, matchReg, regExpToRem, regExpToRem2, functionToRun
 }
 function splitHelper2CB(command, options, matchReg, regExpToRem, regExpToRem2, functionToRunOnEachValue, cb) {
   // takes input from /player_list, producing an array, running a function on each one.
-  return starNetVerifiedCB(serverObj, command, options, function (err, result) {
+  return starNetVerifiedCB(command, options, function (err, result) {
     if (err) {
       return cb(err, null);
     } else {
@@ -4688,8 +4691,9 @@ function makePlayerObj(input) {
 }
 function getPlayerList(options, cb) { // Returns an array of player objects for all online players or false if the starNet command fails.
   // returns an array of all online players.  The array will be empty if nobody is online.
+  // RETURN: [SERVER, [PL] Name: Benevolent27
   var matchReg = /^RETURN: \[SERVER, \[PL\] Name: .*/;
-  var regExpToRem = /^RETURN: \[SERVER, \[PL\] Name: {/;
+  var regExpToRem = /^RETURN: \[SERVER, \[PL\] Name: /;
   var regExpToRem2 = /, 0]$/;
   var theCommand = "/player_list";
   var theFunctionToRunOnEachResult = makePlayerObj;
@@ -4698,10 +4702,10 @@ function getPlayerList(options, cb) { // Returns an array of player objects for 
     return splitHelper2CB(theCommand, options, matchReg, regExpToRem, regExpToRem2, theFunctionToRunOnEachResult, cb);
   } else {
     try {
-      var result = starNetVerified(serverObj, theCommand, options);
+      var result = starNetVerified(theCommand, options);
       return splitHelper2(result, matchReg, regExpToRem, regExpToRem2, theFunctionToRunOnEachResult);
     } catch (error) {
-      console.error(theErrorMsg);
+      thisConsole.error(theErrorMsg);
       throw error;
     }
   }
@@ -4719,10 +4723,10 @@ function getWhitelistedNameList(options, cb) {
     return splitHelper1CB(theCommand, options, matchReg, regExpToRem, regExpToRem2, theFunctionToRunOnEachResult, cb);
   } else {
     try {
-      var result = starNetVerified(serverObj, theCommand, options);
+      var result = starNetVerified(theCommand, options);
       return splitHelper1(result, matchReg, regExpToRem, regExpToRem2, theFunctionToRunOnEachResult);
     } catch (error) {
-      console.error(theErrorMsg);
+      thisConsole.error(theErrorMsg);
       throw error;
     }
   }
@@ -4741,10 +4745,10 @@ function getBannedNameList(options, cb) {
     return splitHelper1CB(theCommand, options, matchReg, regExpToRem, regExpToRem2, theFunctionToRunOnEachResult, cb);
   } else {
     try {
-      var result = starNetVerified(serverObj, theCommand, options);
+      var result = starNetVerified(theCommand, options);
       return splitHelper1(result, matchReg, regExpToRem, regExpToRem2, theFunctionToRunOnEachResult);
     } catch (error) {
-      console.error(theErrorMsg);
+      thisConsole.error(theErrorMsg);
       throw error;
     }
   }
@@ -4774,8 +4778,8 @@ function getAdminsList(options, cb) { // TODO:  Test this.. there are 4 ways of 
   if (fast == true) { // Perform file read style
     return fs.readFile(adminsTxtFile, "UTF-8", function (err, data) { // node.js documentation has 'utf8' as it's example.. maybe we should use that?
       if (err) {
-        console.error(theReadError);
-        console.dir(err);
+        thisConsole.error(theReadError);
+        thisConsole.dir(err);
         return cb(err, data);
       } else {
         var adminFileContents = data.replace(/\r/g, "");
@@ -4797,9 +4801,9 @@ function getAdminsList(options, cb) { // TODO:  Test this.. there are 4 ways of 
       }
     });
   } else { // Use StarNet to get admin list
-    return starNetVerified(serverObj, "/list_admins", options, function (err, result) {
+    return starNetVerified("/list_admins", options, function (err, result) {
       if (err) {
-        console.error(theError);
+        thisConsole.error(theError);
         return cb(err, result);
       } else {
         processLine = returnLineMatch(result, theReg, remReg, remReg2);
@@ -4960,7 +4964,7 @@ split(", "); // Supports scientific e notation, which is used sometimes for spac
 
 function getPlayerSpawnLocation(player, options, cb) {
   if (typeof cb == "function") {
-    return starNetVerified(serverObj, "/player_get_spawn " + player, options, function (err, result) {
+    return starNetVerified("/player_get_spawn " + player, options, function (err, result) {
       if (err) {
         return cb(err, result);
       } else {
@@ -4986,7 +4990,7 @@ function convertSectorCoordsToSystem(array) {
     for (let i = 0;i < array.length;i++) {
       outputArray.push(getSysCoordFromSector(array[i]));
     }
-    console.log("Sector: " + array + "  System: " + outputArray);
+    thisConsole.log("Sector: " + array + "  System: " + outputArray);
 
     return outputArray;
   }
@@ -4999,11 +5003,11 @@ function getSysCoordFromSector(input) {
     if (typeof theInput == "number") {
       if (theInput >= 0) {
         // Positive numbers need an offset of 1 because -1 is in -1 system, except where the value is divisible by 16, whereas 1 is in 0 system.
-        // console.log("theInput%16: " + theInput%16);
+        // thisConsole.log("theInput%16: " + theInput%16);
         if (theInput % 16 == "0") {
           return Math.floor(theInput / 16);
         } else {
-          // console.log("theInput/16: " + theInput/16);
+          // thisConsole.log("theInput/16: " + theInput/16);
           return Math.floor((theInput / 16)); // - 1;
         }
       } else {

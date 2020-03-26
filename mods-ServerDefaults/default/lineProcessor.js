@@ -8,6 +8,7 @@ module.exports = { // IMPORTANT: These cannot be used until the serverObj has be
 // This script needs to read from the server settings, so it needs the installObj
 var installObj = global.getInstallObj(__dirname);
 var {settings,event}=installObj;
+var thisConsole=installObj.console;
 var serverObj = {}; // This will be set after the "start" is given.
 event.on("start", function (theServerObj) {
   serverObj = theServerObj;
@@ -56,14 +57,14 @@ function processDataInput(dataInput) { // This function is run on every single l
     // TODO:  There needs to be a separate processing for the serverlog.0.log file, console, and stdout since there are some duplicates between the console.  This would also be faster.
 
     if (settings.showAllEvents == true) {
-      console.log("Event found!: " + dataInput + "Arguments: " + arguments.length);
+      thisConsole.log("Event found!: " + dataInput + "Arguments: " + arguments.length);
     }
     let theArguments = arguments[0].split(" "); // This is to allow easier parsing of each individual word in the line
 
     // enumerateEventArguments=true; // Temporary
     if (settings.enumerateEventArguments == true) {
       for (let i = 0;i < theArguments.length;i++) {
-        console.log("stderr--theArguments[" + i + "]: " + theArguments[i]);
+        thisConsole.log("stderr--theArguments[" + i + "]: " + theArguments[i]);
       }
     }
     // ### Player Messages ###
@@ -73,11 +74,11 @@ function processDataInput(dataInput) { // This function is run on every single l
       let receiverType = dataInput.match(/\[receiverType=[A-Za-z0-9_-]*/).toString().replace(/^\[receiverType=/, "");
       let message = dataInput.match(/\[message=.*(?=\]$)/).toString().replace(/^\[message=/, "");
       //arguments[0]: [CHANNELROUTER] RECEIVED MESSAGE ON Server(0): [CHAT][sender=Benevolent27][receiverType=CHANNEL][receiver=all][message=words]
-      // console.log("Message found: ");
-      // console.log("sender: " + sender);
-      // console.log("receiver: " + receiver);
-      // console.log("receiverType: " + receiverType);
-      // console.log("message: " + message);
+      // thisConsole.log("Message found: ");
+      // thisConsole.log("sender: " + sender);
+      // thisConsole.log("receiver: " + receiver);
+      // thisConsole.log("receiverType: " + receiverType);
+      // thisConsole.log("message: " + message);
       event.emit('playerMessage', new serverObj.objects.MessageObj(sender, receiver, receiverType, message));
 
     } else if ((/^\[SERVER\]\[SPAWN\] SPAWNING NEW CHARACTER FOR/).test(dataInput)) {
@@ -99,7 +100,7 @@ function processDataInput(dataInput) { // This function is run on every single l
       if (/PlS\[.*/.test(theArguments[5].toString())) {
         let playerName = theArguments[5].split("[").pop();
         if (typeof playerName == "string") {
-          // console.log("Player Spawned: " + playerName);
+          // thisConsole.log("Player Spawned: " + playerName);
           if (settings["announceSpawnsToMainChat"] == "true") {
             let mMessage = "/server_message_broadcast plain " + "'" + playerName + " has spawned.'";
             serverObj.spawn.stdin.write(mMessage.toString().trim() + "\n");
@@ -158,7 +159,7 @@ function processDataInput(dataInput) { // This function is run on every single l
         // theArguments[21]: metaID:
         // theArguments[22]: 100320
 
-        console.log("Some blueprint buy event happened."); // This might only be relevant if a server uses credits to buy blueprints?
+        thisConsole.log("Some blueprint buy event happened."); // This might only be relevant if a server uses credits to buy blueprints?
 
 
 
@@ -167,9 +168,9 @@ function processDataInput(dataInput) { // This function is run on every single l
 
       } else if (theArguments[0] == "[BLUEPRINT][LOAD]") { // New ship from load - possibly /spawn_mobs command
         // TODO:  Figure out why this isn't firing off on the first blueprint spawn.  It is ALWAYS the second blueprint spawn and all later spawns for some strange reason.
-        console.log("Some blueprint load event happened.");
+        thisConsole.log("Some blueprint load event happened.");
         let theUser = theArguments[1];
-        console.log("theUser:" + theUser);
+        thisConsole.log("theUser:" + theUser);
         var spawnType;
         if (theUser == "<admin>") {
           spawnType = "admin"
@@ -178,32 +179,32 @@ function processDataInput(dataInput) { // This function is run on every single l
         } else {
           spawnType = "player"
         }
-        console.log("spawnType:" + spawnType);
+        thisConsole.log("spawnType:" + spawnType);
 
         let bluePrintName = dataInput.match(/loaded .*as "/)[0].replace(/^loaded /, "").replace(/ as "$/, "");
-        console.log("bluePrintName:" + bluePrintName);
+        thisConsole.log("bluePrintName:" + bluePrintName);
         let shipName = dataInput.match(/".*"/)[0].replace(/"/g, "");
-        console.log("shipName:" + shipName);
+        thisConsole.log("shipName:" + shipName);
         let coordsArray = dataInput.match(/\(.*\)/)[0].replace(/[()]/g, "").split(', ');
-        console.log("coordsArray:" + coordsArray);
-        console.log("X:" + coordsArray[0]);
-        console.log("Y:" + coordsArray[1]);
-        console.log("Z:" + coordsArray[2]);
+        thisConsole.log("coordsArray:" + coordsArray);
+        thisConsole.log("X:" + coordsArray[0]);
+        thisConsole.log("Y:" + coordsArray[1]);
+        thisConsole.log("Z:" + coordsArray[2]);
         let factionNumber = dataInput.match(/(\d+)$/)[0];
-        console.log("factionNumber:" + factionNumber);
-        console.log(" ");
-        console.log(" ");
+        thisConsole.log("factionNumber:" + factionNumber);
+        thisConsole.log(" ");
+        thisConsole.log(" ");
 
 
 
         // starNet.getUIDfromName(shipName)
         return getUIDfromName(shipName, "", function (err, result) {
           if (err) {
-            console.log("Error getting entity UID from name!", err);
+            thisConsole.log("Error getting entity UID from name!", err);
           } else {
             let entityObj = new serverObj.objects.EntityObj(result);
             console.dir(entityObj);
-            console.log("Creating new coordsObj with: " + coordsArray);
+            thisConsole.log("Creating new coordsObj with: " + coordsArray);
             let coordsObj = new serverObj.objects.CoordsObj(coordsArray);
             console.dir(coordsObj);
             let sectorObj = new serverObj.objects.SectorObj(coordsObj.x, coordsObj.y, coordsObj.z);
@@ -291,9 +292,9 @@ function processDataInput(dataInput) { // This function is run on every single l
       // theArguments[10]: messages
 
     } else if (dataInput.match(/^\[SERVER\] PlayerCharacter\[.*/) || dataInput.match(/^\[SERVER\] Ship\[.*/) || dataInput.match(/^\[SERVER\] ManagedAsteroid\(.*/) || dataInput.match(/^\[SERVER\] Planet\(.*/)) {
-      // console.log("Sector change detected: " + dataInput);
+      // thisConsole.log("Sector change detected: " + dataInput);
       var excerptArray = dataInput.match(/has players attached. Doing Sector Change for PlS.*/);
-      // console.log("excerptArray: ");
+      // thisConsole.log("excerptArray: ");
       // console.dir(excerptArray);
       if (excerptArray) {
         var excerpt = excerptArray[0];
@@ -310,10 +311,10 @@ function processDataInput(dataInput) { // This function is run on every single l
         for (let i = 0;i < coordsArray.length;i++) {
           cleanCoordsArray.push(coordsArray[i].match(/[-]{0,1}[0-9]+, [-]{0,1}[0-9]+, [-]{0,1}[0-9]+/)[0].split(","))
         }
-        // console.log("Coords:");
+        // thisConsole.log("Coords:");
         // console.dir(cleanCoordsArray); // First set is the sector starting in, second is going to
-        // console.log("Player Name: " + playerNameCaptured);
-        // console.log("Player SM Name:" + playerSMNameCaptured);
+        // thisConsole.log("Player Name: " + playerNameCaptured);
+        // thisConsole.log("Player SM Name:" + playerSMNameCaptured);
 
 
         var startingCoords = new serverObj.objects.SectorObj(cleanCoordsArray[0]);
@@ -322,7 +323,7 @@ function processDataInput(dataInput) { // This function is run on every single l
         var playerSMName = new serverObj.objects.SMNameObj(playerSMNameCaptured);
 
         // TODO:  Test this to see if it works
-        console.log("Sector change detected for player, '" + player.toString() + "', with registry name, '" + playerSMName.toString() + "', from sector, '" + startingCoords.toString() + "', to sector, '" + endingCoords.toString() + "'.");
+        thisConsole.log("Sector change detected for player, '" + player.toString() + "', with registry name, '" + playerSMName.toString() + "', from sector, '" + startingCoords.toString() + "', to sector, '" + endingCoords.toString() + "'.");
         event.emit('playerSectorChange', player, startingCoords, endingCoords, playerSMName); // playerObj will be undefined if the blueprint was spawned by admin or mass spawned
       }
       // Bash scripting:  (needs converting to javascript)
@@ -450,7 +451,7 @@ function processDataInput(dataInput) { // This function is run on every single l
           console.debug("theName: " + theName);
           return getUIDfromName(theName, "", function (err, theUID) {
             if (err) {
-              console.log("There was an error!", err);
+              thisConsole.log("There was an error!", err);
               return err;
             }
             console.debug("ship theUID: " + theUID);
@@ -522,26 +523,26 @@ function processServerlogDataInput(dataInput) { // This function is run on every
     // enumerateEventArguments=true; // Temporary
     if (settings.enumerateEventArguments == true) {
       for (let i = 0;i < theArguments.length;i++) {
-        console.log("theArguments[" + i + "]: " + theArguments[i]);
+        thisConsole.log("theArguments[" + i + "]: " + theArguments[i]);
       }
     }
     // ### New Ship or Base Creation (not blueprints) ###
     if (theArguments[0] == "[SPAWN]") {
       // Event found!: [SERVER] Object Ship[Benevolent27_1523387756157](1447) didn't have a db entry yet. Creating entry!Arguments: 1
-      console.log("Parsing possible ship or base spawn: " + theArguments.join(" ").toString());
+      thisConsole.log("Parsing possible ship or base spawn: " + theArguments.join(" ").toString());
       var playerName = theArguments[1];
       var playerObj = new serverObj.objects.PlayerObj(playerName);
       console.dir(playerObj); // temp
       // var shipName=arguments[0].match(/spawned new ship: "[0-9a-zA-Z _-]*/);
       var shipName = arguments[0].match(/spawned new ship: ["][0-9a-zA-Z _-]*/);
       if (shipName) {
-        console.log("Temp shipName: " + shipName);
+        thisConsole.log("Temp shipName: " + shipName);
         shipName = shipName.toString().replace(/^spawned new ship: ["]/, '');
         // shipName=shipName.toString().split(":").pop();
-        console.log("Temp shipName: " + shipName);
+        thisConsole.log("Temp shipName: " + shipName);
         return getUIDfromName(shipName, "", function (err, result) {
           if (err) {
-            console.log("Error getting entity UID from name!", err);
+            thisConsole.log("Error getting entity UID from name!", err);
           } else {
             let entityObj = new serverObj.objects.EntityObj(result);
             entityObj.spawnTime = Math.floor((new Date()).getTime() / 1000);
@@ -559,7 +560,7 @@ function processServerlogDataInput(dataInput) { // This function is run on every
           // baseNameArray=baseName.split()
           return getUIDfromName(baseName, "", function (err, result) {
             if (err) {
-              console.log("Error getting entity UID from name!", err);
+              thisConsole.log("Error getting entity UID from name!", err);
             } else {
               let entityObj = new serverObj.objects.EntityObj(result);
               entityObj.spawnTime = Math.floor((new Date()).getTime() / 1000);
@@ -676,8 +677,8 @@ function processServerlogDataInput(dataInput) { // This function is run on every
             }
           } else {
             killer = toStringIfPossible(responsible.match(/(?<=<)[^>]*(?=>.*)/));
-            console.log("Secondary killer string: " + killer);
-            // console.log(`killer: ${killer}`);
+            thisConsole.log("Secondary killer string: " + killer);
+            // thisConsole.log(`killer: ${killer}`);
             if (person == killer) {
               // This probably should be broadened to include suiciding via their own ship
               message = `${message} killed themselves.`
@@ -735,16 +736,16 @@ function processServerlogDataInput(dataInput) { // This function is run on every
         if (lastMessage == String(message)) {
           console.debug("### SKIPPING DUPLICATE DEATH MESSAGE ###: " + lastMessage);
         } else {
-          console.log(message);
+          thisConsole.log(message);
           lastMessage = String(message); // This is needed to filter out any duplicate death messages, such as when a weapon has several outputs and they all killed a player at the same time.  Note we do not want to link to the "message" variable, but rather set a new string based on it.
-          console.log("##### INFOS ######");
-          // console.log("# Everything: ${b}"
-          console.log(`# theDate: ${theDate}  theTime: ${theTime}  deathType: ${deathType}`);
-          console.log(`# responsibleEntity: ${responsibleEntity}`);
-          console.log(`# killer: ${killer}  responsibleFaction: ${responsibleFaction}`);
-          console.log("dataInput: " + dataInput);
-          console.log(`#### END INFOS #####`);
-          console.log(" ");
+          thisConsole.log("##### INFOS ######");
+          // thisConsole.log("# Everything: ${b}"
+          thisConsole.log(`# theDate: ${theDate}  theTime: ${theTime}  deathType: ${deathType}`);
+          thisConsole.log(`# responsibleEntity: ${responsibleEntity}`);
+          thisConsole.log(`# killer: ${killer}  responsibleFaction: ${responsibleFaction}`);
+          thisConsole.log("dataInput: " + dataInput);
+          thisConsole.log(`#### END INFOS #####`);
+          thisConsole.log(" ");
           if (deathType == "suicide") {
             event.emit('playerDeath', personObj, deathType);
           } else if (deathType == "person") {
@@ -755,11 +756,11 @@ function processServerlogDataInput(dataInput) { // This function is run on every
             if (testIfInput(responsibleFaction)) {
               ofTheFaction = `, of the faction '${responsibleFaction}',`
             }
-            console.log(`${killer}${ofTheFaction} killed ${person} while piloting the entity, '${responsibleEntity}'.`);
+            thisConsole.log(`${killer}${ofTheFaction} killed ${person} while piloting the entity, '${responsibleEntity}'.`);
             if (testIfInput(responsibleFaction)) {
               return getFactionObjFromName(serverObj, responsibleFaction, "", function (err, responsibleFactionObj) {
                 if (err) {
-                  console.log("ERROR: Could not get factionObj from responsibleFaction: " + responsibleFaction + " -- Cannot emit event!!", err);
+                  thisConsole.log("ERROR: Could not get factionObj from responsibleFaction: " + responsibleFaction + " -- Cannot emit event!!", err);
                 } else {
                   event.emit('playerDeath', personObj, deathType, responsibleEntityObj, responsibleFactionObj, killerObj);
                 }
@@ -769,49 +770,49 @@ function processServerlogDataInput(dataInput) { // This function is run on every
             }
           } else if (deathType == "entity") {
             if (testIfInput(responsibleFaction)) {
-              console.log(`${person} was killed by an entity, '${responsibleEntity}', from the faction, ${responsibleFaction}.`);
+              thisConsole.log(`${person} was killed by an entity, '${responsibleEntity}', from the faction, ${responsibleFaction}.`);
               return getFactionObjFromName(serverObj, responsibleFaction, "", function (err, responsibleFactionObj) {
                 if (err) {
-                  console.log("ERROR: Could not get factionObj from responsibleFaction: " + responsibleFaction + " -- Cannot emit event!!", err);
+                  thisConsole.log("ERROR: Could not get factionObj from responsibleFaction: " + responsibleFaction + " -- Cannot emit event!!", err);
                 } else {
                   event.emit('playerDeath', personObj, deathType, responsibleEntityObj, responsibleFactionObj, killerObj);
                 }
               });
 
             } else {
-              console.log(`${person} was killed by an entity, '${responsibleEntity}'.`);
+              thisConsole.log(`${person} was killed by an entity, '${responsibleEntity}'.`);
               event.emit('playerDeath', personObj, deathType, responsibleEntityObj, "", killerObj);
             }
           } else if (deathType == "blackhole") {
-            console.log(`${person} was killed by a black hole.`);
+            thisConsole.log(`${person} was killed by a black hole.`);
             event.emit('playerDeath', personObj, deathType);
 
           } else if (deathType == "star") {
-            console.log(`${person} was killed by a star.`);
+            thisConsole.log(`${person} was killed by a star.`);
             event.emit('playerDeath', personObj, deathType);
           } else if (deathType == "asteroid") {
-            console.log(`${person} was killed by an asteroid.`);
+            thisConsole.log(`${person} was killed by an asteroid.`);
             event.emit('playerDeath', personObj, deathType);
           } else if (deathType == "planetSegment") {
-            console.log(`${person} was killed by a planet segment.`);
+            thisConsole.log(`${person} was killed by a planet segment.`);
             event.emit('playerDeath', personObj, deathType, responsibleEntityObj); // responsibleEntityObj will be undefined if no EntityObj was given.  //TODO: This needs to be tested.
           } else if (deathType == "planetCore") { // This is currently not used.  If functional, this would be for planet cores.
-            console.log(`${person} was killed by a planet core.`);
+            thisConsole.log(`${person} was killed by a planet core.`);
             event.emit('playerDeath', personObj, deathType, responsibleEntityObj);
           } else if (deathType == "shipyarddesign") {
-            console.log(`${person} was killed by a shipyard design.  How did that happen?!`);
+            thisConsole.log(`${person} was killed by a shipyard design.  How did that happen?!`);
             event.emit('playerDeath', personObj, deathType);
           } else if (testIfInput(responsibleFaction)) {
             return getFactionObjFromName(serverObj, responsibleFaction, "", function (err, responsibleFactionObj) {
               if (err) {
-                console.log("ERROR: Could not get factionObj from responsibleFaction: " + responsibleFaction + " -- Cannot emit event!!", err);
+                thisConsole.log("ERROR: Could not get factionObj from responsibleFaction: " + responsibleFaction + " -- Cannot emit event!!", err);
               } else {
-                console.log(`${person} was killed ${killer}, in the entity, ${responsibleEntity}, from the faction, ${responsibleFaction}.`);
+                thisConsole.log(`${person} was killed ${killer}, in the entity, ${responsibleEntity}, from the faction, ${responsibleFaction}.`);
                 event.emit('playerDeath', personObj, deathType, responsibleEntityObj, responsibleFactionObj, killerObj);
               }
             });
           } else {
-            console.log(`${person} was killed.  Deathtype was: ${deathType} --Responsible entity was: ${responsibleEntity}.`);
+            thisConsole.log(`${person} was killed.  Deathtype was: ${deathType} --Responsible entity was: ${responsibleEntity}.`);
             event.emit('playerDeath', personObj, deathType, responsibleEntityObj, "", killerObj);
           }
         }

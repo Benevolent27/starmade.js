@@ -144,7 +144,7 @@ var {
 
 var installObj=global.getInstallObj(__dirname);
 var {event,settings,log,installPath}=installObj;
-var consoleObj=installObj.console;
+var thisConsole=installObj.console;
 
 async function getSuperAdminPassword(starMadeInstallPath) { // This will grab the superadmin password, setting it up and enabling it if not already.
   // TODO: Offload this to a require
@@ -157,6 +157,7 @@ async function getSuperAdminPassword(starMadeInstallPath) { // This will grab th
     superAdminPasswordEnabled = superAdminPasswordEnabled.toLowerCase();
   }
   if (superAdminPassword == "mypassword" || !superAdminPassword) { // "mypassword" is the default value upon install.  We do not want to keep this since it'd be a major security vulnerability.
+    // We don't use the custom console here, because prompt does not work with the console switching system.
     console.log("\nThe 'SuperAdminPassword' has not been set up yet!  This is needed for StarNet.jar to connect to the server.");
     console.log("You can set a custom alphanumeric password OR just press [ENTER] to have a long, randomized one set for you. (Recommended)")
     let newSuperAdminPassword = "";
@@ -241,11 +242,11 @@ function ServerObj(options) { // If given it will load existing settings or crea
   global.writeSettings();
 
   this.settings = installObj.settings; // Complete any missing settings.  If a starMadeFolder argument was given, this will be used as the install path.  This includes the starmade folder, min and max java settings, etc.
-  console.log("installObj.settings: " + installObj.settings);
+  thisConsole.log("installObj.settings: " + installObj.settings);
   this.installFolder = self.settings["installFolder"];
   // We have to do the below check AFTER the settings were set up because we don't know what the starmade folder will be if none was provided to the object
   if (installObj.hasOwnProperty("serverObj")) { // Check to see if this serverObj has already been created, returning that object if so.
-    console.error("Server already initialized!  Ignoring any settings you may have set and using the existing server object!");
+    thisConsole.error("Server already initialized!  Ignoring any settings you may have set and using the existing server object!");
     return installObj.serverObj; // TODO: Test this.  I have no idea if this will work or not
   }
 
@@ -259,7 +260,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
           throw new Error("Unable to register constructor! Constructor functions should have an uppercase first letter! '" + theFunction.name + "' does not have an uppercase first letter! -- Source Server: " + self.installFolder);
         } else {
           self.objects[theFunction.name] = theFunction;
-          console.log("Registered new Constructor, '" + theFunction.name + "', for server: " + self.installFolder); // This does not make it a constructor.
+          thisConsole.log("Registered new Constructor, '" + theFunction.name + "', for server: " + self.installFolder); // This does not make it a constructor.
           return true;
         }
       }
@@ -308,41 +309,43 @@ function ServerObj(options) { // If given it will load existing settings or crea
       lockPIDs = copyArray(self.settings.lockPIDs);
       for (let i = 0;i < lockPIDs.length;i++) {
         if (isPidAlive(lockPIDs[i])) {
-          console.log("Existing server process found running on PID, '" + lockPIDs[i] + "'!");
+          thisConsole.log("Existing server process found running on PID, '" + lockPIDs[i] + "'!");
           if (forceStart == true) {
-            console.log("forceKill flag set!  Auto-killing PID!");
+            thisConsole.log("forceKill flag set!  Auto-killing PID!");
             response = "yes";
           } else {
             response = prompt("If you want to kill it, type 'yes': ").toLowerCase();
           }
           if (response == "yes") {
-            console.log("TREE KILLING WITH EXTREME BURNINATION!");
+            thisConsole.log("TREE KILLING WITH EXTREME BURNINATION!");
             treeKill(lockPIDs[i], 'SIGTERM');
             // We should initiate a loop giving up to 5 minutes for it to shut down before sending a sig-kill.
             waitAndThenKill(300000, lockPIDs[i]);
             sleepSync(1000); // Give the sigKILL time to complete if it was necessary.
             self.settings.lockPIDs = arrayMinus(self.settings.lockPIDs, lockPIDs[i]); // PID was killed, so remove it from the settings.json file.
           } else {
-            console.log("Alrighty, I'll just let it run then.");
+            thisConsole.log("Alrighty, I'll just let it run then.");
           }
         } else {
-          console.log("Prior starmade.js wrapper PID (" + lockPIDs[i] + ") not running. Cool.");
+          thisConsole.log("Prior starmade.js wrapper PID (" + lockPIDs[i] + ") not running. Cool.");
           self.settings.lockPIDs = arrayMinus(self.settings.lockPIDs, lockPIDs[i]); // PID wasn't alive, so remove it from the settings.json file.
         }
       }
-      console.log("");
+      thisConsole.log("");
       if (self.settings.lockPIDs.length > 0) {
+        // TODO:  Find a different solution here.  It should simply
         // We never want to start the wrapper if any of the PIDs are still alive, unless the person started with the argument to ignore the lock file
-        console.log("\nDANGER WILL ROBINSON!  There are " + self.settings.lockPIDs.length + " server processes still running!");
-        console.log("We cannot continue while an existing server might still be running!  Exiting!");
-        console.log("NOTE: If you are 100% SURE that these the PIDs from the lock file are NOT from another server running, you can create the server object again with the option, {ignoreLockFile:true}.  This will ignore the old PIDs and delete them from the settings.json file.");
-        console.log("NOTE2: If you want to create this server object auto-killing any old PID's, you can use the {forceStart:true} option.");
-        process.exit(1);
+        thisConsole.log("\nDANGER WILL ROBINSON!  There are " + self.settings.lockPIDs.length + " server processes still running!");
+        thisConsole.log("We cannot start the server while an existing server might still be running!  Cancelling!");
+        // thisConsole.log("NOTE: If you are 100% SURE that these the PIDs from the lock file are NOT from another server running, you can create the server object again with the option, {ignoreLockFile:true}.  This will ignore the old PIDs and delete them from the settings.json file.");
+        // thisConsole.log("NOTE2: If you want to create this server object auto-killing any old PID's, you can use the {forceStart:true} option.");
+        // process.exit(1);
+        return false; // We don't want to kill the main process anymore.
 
       }
     } else if (self.settings.lockPIDs.length > 0) {
       var settingsBackupFile = path.join(self.installFolder, "settingsBackup.json");
-      console.log("Ignoring existing server PIDs and deleting them from the settings.json file.  Saving a backup here: " + settingsBackupFile);
+      thisConsole.log("Ignoring existing server PIDs and deleting them from the settings.json file.  Saving a backup here: " + settingsBackupFile);
       writeJSONFileSync(settingsBackupFile, global.settings);
       self.settings.lockPIDs = [];
     }
@@ -377,9 +380,9 @@ function ServerObj(options) { // If given it will load existing settings or crea
     throw new Error("Non-Number input given to removeLockPID!  Please provide a number!");
   }
   this.killAllPIDs = function(){ // This will kill any PIDs associated with this server, first with sigTERM, then with sigKILL after 5 minutes.
-    console.log("Killing all PIDs..");
+    thisConsole.log("Killing all PIDs..");
     for (let i=self.lockPIDs.length-1;i<=0;i--){
-      console.log("DIE PID: " + self.lockPIDs[i]);
+      thisConsole.log("DIE PID: " + self.lockPIDs[i]);
       treeKill(self.lockPIDs[i], 'SIGTERM');
       waitAndThenKill(300000, self.lockPIDs[i]); // We should initiate a loop giving up to 5 minutes for it to shut down before sending a sig-kill.
       self.removeLockPID(self.lockPIDs[i]);
@@ -404,7 +407,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
       if (err) {
         throw err;
       }
-      console.log("Copied mods folder from wrapper folder to starmade install folder: " + self.modsFolder);
+      thisConsole.log("Copied mods folder from wrapper folder to starmade install folder: " + self.modsFolder);
     })
   }
 
@@ -472,6 +475,10 @@ function ServerObj(options) { // If given it will load existing settings or crea
   this.install = function (options, cb) {
     if (typeof cb == "function") {
       // Need to add a check to see if the folder already has an install or not.
+      if (self.spawnStatus == "started"){
+        thisConsole.log("Server is already installed and started!  Aborting!");
+        return cb(null,false);
+      }
       try {
         smInstallHelpers.spawnStarMadeInstallTo(self.installFolder, global["starMadeInstallerFilePath"]); // Does not create config files upon install.
         smInstallHelpers.verifyInstall(self.installFolder); // Creates config files if they don't exist
@@ -488,9 +495,6 @@ function ServerObj(options) { // If given it will load existing settings or crea
     }
     return simplePromisifyIt(self.install, options);
   }
-  consoleObj.regCommand("Install",function(){ // Display errors, but do not crash the wrapper.
-    return self.install("",function(err){ console.error(err) });
-  },"Server Controls");
   // Check if the install exists or not and install it if needed
   if (!existsAndIsFile(self.serverCfgFilePath)) { // Right now we are only using the server.cfg file to check if it was installed or not.
     self.install("", function (err) {
@@ -524,7 +528,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
   } else {
     this.spawnArgs = baseJavaArgs.concat(baseSMJarArgs);
   }
-  console.log("Set spawnArgs: " + self.spawnArgs);
+  thisConsole.log("Set spawnArgs: " + self.spawnArgs);
 
   // Todo:  add stop(), kill(), forceKill(), isResponsive(), etc.
   // This might be useful for spawning:  this.spawn=spawn("java",this.javaArgs,{"cwd": this.settings["starMadeInstallFolder"]});
@@ -540,16 +544,16 @@ function ServerObj(options) { // If given it will load existing settings or crea
     if (typeof cb == "function") {
       // First check to see if the process already exists or not.
       if (self.hasOwnProperty("spawn")) {
-        console.log("Attempting to start the server.."); // temp
+        thisConsole.log("Attempting to start the server.."); // temp
         if (self.spawnStatus == "started") {
-          console.log("ERROR: Cannot start server.  It is already started!");
+          thisConsole.log("ERROR: Cannot start server.  It is already started!");
           return cb(null, false);
         } else if (self.spawnStatus != "stopped") { // Server may be shutting down or in an error state
-          console.log("ERROR: Cannot start server.  It has not been shut down yet!  If the server is in an error state, it must be stopped before started again!");
+          thisConsole.log("ERROR: Cannot start server.  It has not been shut down yet!  If the server is in an error state, it must be stopped before started again!");
           return cb(null, false);
         }
       }
-      console.log("Starting the server..");
+      thisConsole.log("Starting the server..");
       self.spawn = spawn("java", self.spawnArgs, {"cwd": self.starMadeInstallFolder}); // Spawn the server
       self.spawnStatus = "started";
       self.spawnStatusWanted= "started"; // This tells us if the server crashes or something, we know it should be restarted.
@@ -557,15 +561,15 @@ function ServerObj(options) { // If given it will load existing settings or crea
       self.addLockPID(self.spawn.pid);
 
       // Tailing is no longer necessary, since the console should output serverlog messages (added after StarMade ver 0.201.378)
-      // console.log("Initializing tail of serverlog.0.log");
+      // thisConsole.log("Initializing tail of serverlog.0.log");
       // miscHelpers.touch(serverLogFile); // Ensure the file exists before we tail it.
       // if (process.platform == "win32" ){ // TODO:  See if there is a cleaner workaround than using a powershell instance to force the serverTail to be faster..  It does not handle errors well.  I believe it will crash when log rotation happens.
-      //   console.log("#########   Windows detected, running powershell listener.  #########");
+      //   thisConsole.log("#########   Windows detected, running powershell listener.  #########");
       //   //  powershell type -wait -Tail 0 .\serverlog.0.log  <-- this will force it to refresh  Source: https://serverfault.com/questions/1845/how-to-monitor-a-windows-log-file-in-real-time
       //   var powershellArgs=["type","-wait","-Tail 0",serverLogFile];
-      //   console.log("Set Powershell arguments to: " + powershellArgs)
+      //   thisConsole.log("Set Powershell arguments to: " + powershellArgs)
       //   self.powershellSpawn=spawn("powershell",powershellArgs,{"cwd": self.starMadeLogFolder});
-      //   console.log("Powershell started with PID: " + self.powershellSpawn.pid);
+      //   thisConsole.log("Powershell started with PID: " + self.powershellSpawn.pid);
       //   self.addLockPID(self.powershellSpawn.pid); // This is to ensure the PID is killed if the server is started again and was not successfully shut down.  I am also adding a treekill to the global exit listener.
       // }
       // var tailOptions = {
@@ -579,12 +583,12 @@ function ServerObj(options) { // If given it will load existing settings or crea
 
       // Unnecessary to follow the 'close' since 'exit' suffices.  This would duplicate with the 'exit' listener.
       // this.spawn.on('close',function(code){ // This has to do with whether it's STDIO is closed or not, this normally fires after the exit.
-      //   console.log("###### SPAWN STATUS SET TO:  closed");
+      //   thisConsole.log("###### SPAWN STATUS SET TO:  closed");
       //   self.spawnStatus="closed";
       //   self.spawnStatusCode=code;
       // });
       self.spawn.on('disconnect', function (data) {
-        console.log("###### SPAWN STATUS SET TO:  disconnect");
+        thisConsole.log("###### SPAWN STATUS SET TO:  disconnect");
         self.spawnStatus = "disconnected";
         self.event.emit("disconnect",data);
         if (self.hasOwnProperty("spawnStatusCode")) {
@@ -593,7 +597,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
       });
       self.spawn.on('error', function (data) { // This happens when a process could not be spawned, killed, or sending a message to the child process failed.
         // Note:  This does not mean the spawn has exited, but it is possible that it did.  We will rely on the 'exit' event to remove the PID from the lock
-        console.log("###### SPAWN STATUS SET TO:  error");
+        thisConsole.log("###### SPAWN STATUS SET TO:  error");
         self.spawnStatus = "errored";
         self.event.emit("error",data);
         if (self.hasOwnProperty("spawnStatusCode")) {
@@ -601,13 +605,13 @@ function ServerObj(options) { // If given it will load existing settings or crea
         }
       });
       self.spawn.on('exit', function (code) { // I'm guessing if a non-zero code is given, it means the server errored out.
-        console.log("###### SPAWN STATUS SET TO:  exited");
+        thisConsole.log("###### SPAWN STATUS SET TO:  exited");
         self.spawnStatus = "stopped";
         self.event.emit("exit",code);
         self.removeLockPID(self.spawn.pid);
-        console.log("Removed PID, '" + self.spawn.pid + "' from lockPIDs.");
+        thisConsole.log("Removed PID, '" + self.spawn.pid + "' from lockPIDs.");
         if (typeof toStringIfPossible(code) == "string") {
-          console.log('Server instance exited with code: ' + code.toString());
+          thisConsole.log('Server instance exited with code: ' + code.toString());
         }
         if (self.hasOwnProperty("spawnStatusCode")) {
           Reflect.deleteProperty(self, "spawnStatusCode");
@@ -620,9 +624,9 @@ function ServerObj(options) { // If given it will load existing settings or crea
         }
 
         // Tail will no longer be used in StarMade after the current version as of this writing
-        // console.log("serverTail:");
-        // console.dir(self.serverTail.listeners());
-        // console.log("Shutting down server log tail..");
+        // thisConsole.log("serverTail:");
+        // thisConsole.dir(self.serverTail.listeners());
+        // thisConsole.log("Shutting down server log tail..");
         // self.serverTail.unwatch();
       });
 
@@ -641,10 +645,10 @@ function ServerObj(options) { // If given it will load existing settings or crea
               if (self.settings.showStdout == true || self.settings.showAllEvents == true) {
                 if (typeof self.settings.stdoutFilter == "object") {
                   if (self.settings.stderrFilter.test(dataArray[i])) {
-                    console.log("STDOUT: " + dataArray[i]);
+                    thisConsole.log("STDOUT: " + dataArray[i]);
                   }
                 } else {
-                  console.log("STDOUT: " + dataArray[i]);
+                  thisConsole.log("STDOUT: " + dataArray[i]);
                 }
               }
               if (recording) { // For the wrapper console command "!recording"
@@ -666,10 +670,10 @@ function ServerObj(options) { // If given it will load existing settings or crea
               if (self.settings.showStderr == true || self.settings.showAllEvents == true) {
                 if (typeof self.settings.stderrFilter == "object") {
                   if (self.settings.stderrFilter.test(dataArray[i])) {
-                    console.log("STDERR: " + dataArray[i]);
+                    thisConsole.log("STDERR: " + dataArray[i]);
                   }
                 } else {
-                  console.log("STDERR: " + dataArray[i]);
+                  thisConsole.log("STDERR: " + dataArray[i]);
                 }
               }
               if (recording) { // For the wrapper console command "!recording"
@@ -682,7 +686,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
       });
       // No longer needed since we aren't tailing the serverlog anymore
       // self.serverTail.on('line', function (data) { // This is unfortunately needed because some events don't appear in the console output.  I do not know if the tail will be 100% accurate, missing nothing.
-      //   // console.log("Processing serverlog.0.log line: " + data.toString().trim());
+      //   // thisConsole.log("Processing serverlog.0.log line: " + data.toString().trim());
       //   // There needs to be a separate processor for serverlog stuff, since there can be duplicates found in the console and serverlog.0.log file.  This should also be faster once streamlined.
       //   // let dataString=data.toString().trim().replace(/^\[[^\[]*\] */,''); // This was throwing ESLINTER areas I guess.
       //   let dataString = data.toString().trim().replace(/^\[[^[]*\] */, ''); // This removes the timestamp from the beginning of each line so each line looks the same as a console output line, which has no timestamps.
@@ -693,10 +697,10 @@ function ServerObj(options) { // If given it will load existing settings or crea
       //         if (self.settings.showServerlog == true || self.settings.showAllEvents == true) {
       //           if (typeof self.settings.serverlogFilter == "object") {
       //             if (self.settings.serverlogFilter.test(dataArray[i])) {
-      //               console.log("serverlog.0.log: " + dataArray[i]);
+      //               thisConsole.log("serverlog.0.log: " + dataArray[i]);
       //             }
       //           } else {
-      //             console.log("serverlog.0.log: " + dataArray[i]);
+      //             thisConsole.log("serverlog.0.log: " + dataArray[i]);
       //           }
       //         }
       //         if (recording) { // For the wrapper console command "!recording"
@@ -714,12 +718,9 @@ function ServerObj(options) { // If given it will load existing settings or crea
       return simplePromisifyIt(self.start, options);
     }
   }
-  consoleObj.regCommand("Start",function(){ // Display errors, but do not crash the wrapper.
-    return self.start("",function(err){ if (err){ console.error(err) } });
-  },"Server Controls");
   this.stop = function (duration, message, options, cb) {
     if (typeof cb == "function") {
-      console.log(`Stop function ran with duration: ${duration}  and message: ${message}`);
+      thisConsole.log(`Stop function ran with duration: ${duration}  and message: ${message}`);
       self.spawnStatus = "stopping";
       var theDuration = 10;
       if (isNum(duration)) {
@@ -734,53 +735,41 @@ function ServerObj(options) { // If given it will load existing settings or crea
         if (typeof theMessage == "string") {
           return runSimpleCommand("/start_countdown " + theDuration + " " + theMessage, options, async function (err, result) {
             if (err) {
-              console.log("Shutdown command failed with an error when attempting to start a countdown!");
+              thisConsole.log("Shutdown command failed with an error when attempting to start a countdown!");
               return cb(err, null);
             }
             if (result) {
               await sleepPromise(theDuration * 1000);
               return runSimpleCommand("/shutdown 1", options, cb);
             } else {
-              console.error("Shutdown command failed due to connection error!");
+              thisConsole.error("Shutdown command failed due to connection error!");
               return cb(new Error("Shutdown command failed due to connection error!"), null);
             }
           });
         } else {
-          console.log("No message given, so using default shutdown message..");
+          thisConsole.log("No message given, so using default shutdown message..");
           return runSimpleCommand("/start_countdown " + theDuration + '" Server shutting down in.."', options, async function (err, result) {
             if (err) {
-              console.log("Shutdown command failed with an error when attempting to start a countdown!");
+              thisConsole.log("Shutdown command failed with an error when attempting to start a countdown!");
               return cb(err, null);
             }
             if (result) {
               await sleepPromise(theDuration * 1000);
               return runSimpleCommand("/shutdown 1", options, cb);
             } else {
-              console.error("Shutdown command failed due to connection error!");
+              thisConsole.error("Shutdown command failed due to connection error!");
               return cb(new Error("Shutdown command failed due to connection error!"), null);
             }
           });
         }
       } else {
-        console.log("Using failsafe shutdown option..");
+        thisConsole.log("Using failsafe shutdown option..");
         return runSimpleCommand("/shutdown 1", options, cb);
       }
     } else {
       return simplePromisifyIt(self.stop, options, duration, message);
     }
   }
-  consoleObj.regCommand("Stop",function(duration,message){ // Display errors, but do not crash the wrapper.
-    var theDuration=toNumIfPossible(duration);
-    var theMessage="";
-    if (typeof message == "string"){
-      theMessage=message;
-    }
-    if (typeof theDuration != "number"){
-      theDuration=10; // This sets a default of 10 seconds
-    }
-    return self.stop(theDuration,theMessage,"",function(err){ console.error(err) });
-  },"Server Controls");
-
   this.kill = function (options, cb) {
     // Returns (ErrorObject,null) if there is an error when attempting to send the kill signal to the PID
     // Returns (false,false) if the spawn previously was ran, but the PID is no longer active
@@ -792,15 +781,15 @@ function ServerObj(options) { // If given it will load existing settings or crea
           try {
             return cb(null, self.spawn.kill()); // Sends SIGTERM
           } catch (err) {
-            console.log("Error when attempting to kill server spawn (with TERM signal)!");
+            thisConsole.log("Error when attempting to kill server spawn (with TERM signal)!");
             return cb(err, null);
           }
         } else {
-          console.log(`Spawn PID (${self.spawn.pid}) was not alive!  Cannot kill it!`);
+          thisConsole.log(`Spawn PID (${self.spawn.pid}) was not alive!  Cannot kill it!`);
           return cb(false, false);
         }
       } else {
-        console.log("Cannot kill spawn.  There is no PID associated with it!");
+        thisConsole.log("Cannot kill spawn.  There is no PID associated with it!");
         return cb(new Error(null, null));
       }
     } else {
@@ -818,15 +807,15 @@ function ServerObj(options) { // If given it will load existing settings or crea
           try {
             return cb(null, self.spawn.kill('SIGKILL')); // Sends SIGTERM
           } catch (err) {
-            console.log("Error when attempting to kill server spawn (with KILL signal)!");
+            thisConsole.log("Error when attempting to kill server spawn (with KILL signal)!");
             return cb(err, null);
           }
         } else {
-          console.log(`Spawn PID (${self.spawn.pid}) was not alive!  Cannot kill it!`);
+          thisConsole.log(`Spawn PID (${self.spawn.pid}) was not alive!  Cannot kill it!`);
           return cb(false, false);
         }
       } else {
-        console.log("Cannot kill spawn.  There is no PID associated with it!");
+        thisConsole.log("Cannot kill spawn.  There is no PID associated with it!");
         return cb(new Error(null, null));
       }
     } else {
@@ -852,56 +841,56 @@ function ServerObj(options) { // If given it will load existing settings or crea
 
   this.onlinePlayers = function (options, cb) {
     if (typeof cb == "function") {
-      return getPlayerList(self, options, cb);
+      return getPlayerList(options, cb);
     } else {
       return simplePromisifyIt(self.onlinePlayers, options);
     }
   }
   this.getAdmins = function (options, cb) {
     if (typeof cb == "function") {
-      return getAdminsList(self, options, cb);
+      return getAdminsList(options, cb);
     } else {
       return simplePromisifyIt(self.getAdmins, options);
     }
   };
   this.getBannedAccounts = function (options, cb) {
     if (typeof cb == "function") {
-      return getBannedAccountsList(self, options, cb)
+      return getBannedAccountsList(options, cb)
     } else {
       return simplePromisifyIt(self.getBannedAccounts, options);
     }
   };
   this.getBannedIPs = function (options, cb) {
     if (typeof cb == "function") {
-      return getBannedIPList(self, options, cb);
+      return getBannedIPList(options, cb);
     } else {
       return simplePromisifyIt(self.getBannedIPs, options);
     }
   };
   this.getBannedNames = function (options, cb) {
     if (typeof cb == "function") {
-      return getBannedNameList(self, options, cb);
+      return getBannedNameList(options, cb);
     } else {
       return simplePromisifyIt(self.getBannedNames, options);
     }
   };
   this.getWhitelistedAccounts = function (options, cb) {
     if (typeof cb == "function") {
-      return getWhitelistedAccountsList(self, options, cb);
+      return getWhitelistedAccountsList(options, cb);
     } else {
       return simplePromisifyIt(self.getWhitelistedAccounts, options);
     }
   };
   this.getWhitelistedIPs = function (options, cb) {
     if (typeof cb == "function") {
-      return getWhitelistedIPList(self, options, cb);
+      return getWhitelistedIPList(options, cb);
     } else {
       return simplePromisifyIt(self.getWhitelistedIPs, options);
     }
   };
   this.getWhitelistedNames = function (options, cb) {
     if (typeof cb == "function") {
-      return getWhitelistedNameList(self, options, cb);
+      return getWhitelistedNameList(options, cb);
     } else {
       return simplePromisifyIt(self.getWhitelistedNames, options);
     }
@@ -1136,7 +1125,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
   this.forceSave = function (options, cb) { // Performs a force save
     // Does not have success or fail messages
     if (typeof cb == "function") {
-      console.log("Running force save..");
+      thisConsole.log("Running force save..");
       return runSimpleCommand("/force_save", options, cb);
     } else {
       return simplePromisifyIt(self.forceSave, options, trueOrFalse);
@@ -1224,16 +1213,16 @@ function ServerObj(options) { // If given it will load existing settings or crea
   this.simulationInfo = function (options, cb) { // Prints info about macro AI Simulation
     // this returns a string for now.. I'm not interested in discovery and parsing of the data at this time.
     if (typeof cb == "function") {
-      return starNetVerified(self, "/simulation_info", options, cb);
+      return starNetVerified("/simulation_info", options, cb);
     } else {
       return simplePromisifyIt(self.simulationInfo, options);
     }
   }
   this.factionList = function (options, cb) { // Returns an array of FactionObj for all factions on the server.
     if (typeof cb == "function") {
-      return starNetVerified(self, "/faction_list", options, function (err, results) {
+      return starNetVerified("/faction_list", options, function (err, results) {
         if (err) {
-          console.error("ERROR:  Could not obtain faction list for ServerObj.factionList!");
+          thisConsole.error("ERROR:  Could not obtain faction list for ServerObj.factionList!");
           return cb(err, results);
         }
         // RETURN: [SERVER, FACTION: Faction [id=-9999992
@@ -1259,9 +1248,9 @@ function ServerObj(options) { // If given it will load existing settings or crea
   }
   this.blueprintList = function (options, cb) { // Returns an array of FactionObj for all factions on the server.
     if (typeof cb == "function") {
-      return starNetVerified(self, "/list_blueprints", options, function (err, results) {
+      return starNetVerified("/list_blueprints", options, function (err, results) {
         if (err) {
-          console.error("ERROR: Could not obtain blueprint list for ServerObj.blueprintList!");
+          thisConsole.error("ERROR: Could not obtain blueprint list for ServerObj.blueprintList!");
           return cb(err, results);
         }
         var returnArray = [];
@@ -1286,7 +1275,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
   this.listControlUnits = function (options, cb) { // Prints info about characters and entities
     // this returns a string for now.. I'm not interested in discovery and parsing of the data at this time, since other commands have better info than this.
     if (typeof cb == "function") {
-      return starNetVerified(self, "/list_control_units", options, cb);
+      return starNetVerified("/list_control_units", options, cb);
     } else {
       return simplePromisifyIt(self.listControlUnits, options);
     }
@@ -1296,13 +1285,13 @@ function ServerObj(options) { // If given it will load existing settings or crea
       try {
         var sectorToUse1 = new CoordsObj(firstSector); // This will error if invalid input is given.
       } catch (err) {
-        console.error("Invalid input given as 'firstSector' to ServerObj.loadSectorRange!");
+        thisConsole.error("Invalid input given as 'firstSector' to ServerObj.loadSectorRange!");
         return cb(err, null);
       }
       try {
         var sectorToUse2 = new CoordsObj(SecondSector);
       } catch (err) {
-        console.error("Invalid input given as 'SecondSector' to ServerObj.loadSectorRange!");
+        thisConsole.error("Invalid input given as 'SecondSector' to ServerObj.loadSectorRange!");
         return cb(err, null);
       }
       return runSimpleCommand("/load_sector_range " + sectorToUse1.toString() + " " + sectorToUse2.toString(), options, cb);
@@ -1435,7 +1424,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
       var partOfEntityNameToUse = toStringIfPossible(partOfEntityName);
       if (typeof partOfEntityNameToUse == "string") {
         var returnArray = [];
-        return starNetVerified(self, "/search " + partOfEntityNameToUse, options, function (err, results) {
+        return starNetVerified("/search " + partOfEntityNameToUse, options, function (err, results) {
           if (err) {
             return cb(err, results);
           }
@@ -1467,7 +1456,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
   }
   this.status = function (options, cb) { // returns an object with the server's status, as reported by /server_status
     if (typeof cb == "function") {
-      return starNetVerified(self, "/status", options, function (err, results) {
+      return starNetVerified("/status", options, function (err, results) {
         if (err) {
           return cb(err, results);
         }
@@ -1531,10 +1520,10 @@ function ServerObj(options) { // If given it will load existing settings or crea
   // ####   EVENTS    ####
   // #####################
   event.on("unloadMods",function(){ // Shut down the server and any pids, quickly.
-    console.log("unloadMods event detected!  Killing all PIDs!");
+    thisConsole.log("unloadMods event detected!  Killing all PIDs!");
     self.killAllPIDs();
     // Unregister any constructors
-    console.log("Unregistering all constructors..");
+    thisConsole.log("Unregistering all constructors..");
     self.deregAllConstructors();
   });
 
@@ -1542,7 +1531,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
   // ####   STARTER    ####
   // ######################
   if (self.settings.autoStart == true){
-    console.log("Auto-start is on!  Starting server..");
+    thisConsole.log("Auto-start is on!  Starting server..");
     self.start();
   }
   self.spawnStatusWanted="started";

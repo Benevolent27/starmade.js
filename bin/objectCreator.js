@@ -444,15 +444,24 @@ function CustomConsole(consoleName,options){
   if (!global.hasOwnProperty("consoles")){
     global["consoles"]={};
   }
-  
   if (global["consoles"].hasOwnProperty(consoleName)){ // If a console with this name has already been created, don't recreate it, just return the existing console object for it.
+    console.log("Console already existed!  Returning existing console..");
     return global["consoles"][consoleName].console;
   }
+  if (!global.hasOwnProperty("consoleSelected")){
+    global["consoleSelected"]=consoleName; // If no other console has been created, select this one by default.
+  }
   const pass = new PassThrough();
+  var lastLines=[];
+  var maxLines=100;
   pass.on('data', (chunk) => {
-      if (global.consoleSelected == consoleName){
-          process.stdout.write(chunk.toString());
-      }
+    lastLines.unshift(chunk.toString()); // Add the line to the beginning of the array
+    if (lastLines.length > maxLines){ // Trim off anything past the max lines.
+      lastLines=lastLines.slice(0,maxLines); // This does not include the last value
+    }
+    if (global.consoleSelected == consoleName){
+        process.stdout.write(chunk.toString());
+    }
   });
   if (!invincible){ // Only listen for the unload if it is not invincible
     global.event.on("unloadListeners",function(){ // This will require the customConsole obj be recreated to be usable.
@@ -463,6 +472,14 @@ function CustomConsole(consoleName,options){
     });
   }
   var outputConsole=new Console(pass);
+  outputConsole.switchTo=function(){
+    process.stdout.write("\u001b[2J\u001b[0;0H"); // This clears the screen and puts the cursor at the top.  I'm not sure if it works in all the OS's.
+    console.log(`Switched to console, '${consoleName}'.`);
+    for (let i=0;i<lastLines.length;i++){ // Display each line from the cache
+      process.stdout.write(lastLines[i]);      
+    }
+    global.consoleSelected = consoleName;
+  }
   outputConsole.commands={};
   outputConsole.regCommand=function(commandName,theFunction,category){ // Category is optional, default is "General". This is for registering commands that an admin types into the wrapper console.  These will show up when the player types "!help"
     // category is used when the !help command is used, to separate out commands, such as "Server Commands" or "Settings Commands"

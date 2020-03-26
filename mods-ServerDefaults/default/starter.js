@@ -6,8 +6,11 @@ var {ServerObj} = serverObjJs;
 // var serverPath=global.getServerPath(__dirname);
 var installObj = global.getInstallObj(__dirname);
 var {event}=installObj;
+const thisConsole=installObj.console;
 var serverObj = {}; // This will be set after the "start" is given.
 event.on("init", function () { // Only start the server when the init is given, which is after all initial setup and installs have been done by starmade.js
+  thisConsole.log("Creating server object..");
   serverObj = new ServerObj(installObj.path); // The ServerObj loads it's own settings, installs itself if needed, and starts the server if autoStart is set to true.
+  thisConsole.log("Registering server object..");
   global.regServer(installObj.path, serverObj); // Registers the server to the global installObj and emits "start" which provides the serverObj
 });

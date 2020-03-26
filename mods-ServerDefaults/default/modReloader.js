@@ -5,6 +5,7 @@
 var installObj = global.getInstallObj(__dirname);
 var installPath=installObj.path;
 var {settings,event,reloadMods}=installObj;
+var thisConsole=installObj.console;
 var serverObj={};
 event.on("start",function(theServerObj){
   serverObj=theServerObj;
@@ -20,17 +21,17 @@ event.on('commandStart',function(regCommand){
             // TODO: I need to send a global command to remove the event listeners, this will not suffice.
             player.botMsg("Done!",{fast:true}); // This is syncronous
         } else if (command == "listeners"){ // TODO: Change this so it looks at all event listeners and then lists each.
-            console.log("command:");
+            thisConsole.log("command:");
             console.dir(event.listeners('command'));
-            console.log("playerSpawn:");
+            thisConsole.log("playerSpawn:");
             console.dir(event.listeners('playerSpawn'));
-            console.log("shipSpawn:");
+            thisConsole.log("shipSpawn:");
             console.dir(event.listeners('shipSpawn'));
-            console.log("baseSpawn:");
+            thisConsole.log("baseSpawn:");
             console.dir(event.listeners('baseSpawn'));
-            console.log("blueprintSpawn:");
+            thisConsole.log("blueprintSpawn:");
             console.dir(event.listeners('blueprintSpawn'));
-            console.log("reloadMods:");
+            thisConsole.log("reloadMods:");
             console.dir(event.listeners('reloadMods'));
         }
     });

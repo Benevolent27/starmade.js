@@ -44,19 +44,21 @@ const sleep = mySleep.softSleep; // Only accurate for 100ms or higher wait times
 const {sleepPromise}=mySleep; // Less accurate but non-blocking - can only be used in async functions!
 
 var serverObj={};
+module.debug=false;
+var thisConsole=console;
 if (global.hasOwnProperty("getInstallObj")){ // This is to allow this script to be ran from the command line.
   var installObj=global.getInstallObj(__dirname);
-  var {event,settings,console,log,installPath}=installObj; // These are events ONLY for this server.
+  var {event}=installObj; // These are events ONLY for this server.
+  thisConsole=installObj.console;
   event.on("start",function(theServerObj){ // the start event indicates that a serverObj has been created.
     serverObj=theServerObj;
   });
 }
-
-
-module.debug=false;
-if (__filename == require.main.filename){ // Only run the arguments IF this script is being run by itself and NOT as a require.
+if (__filename == require.main.filename){ 
+  // Only run the arguments IF this script is being run by itself and NOT as a require.
   // This script must be provided with the ip, port, and superadmin password.
   // TODO: Make it so this script can look up the super admin password for the current server.
+  // Usage: node starNet.js 127.0.0.1:4242 SuperAdminPassword /some_command and arguments here
   var theArgsArray=process.argv;
   if (theArgsArray[0]=='node'){
     theArgsArray.shift();
@@ -72,9 +74,10 @@ if (__filename == require.main.filename){ // Only run the arguments IF this scri
     if (err){
       throw err;
     }
-    console.log(result);
+    thisConsole.log(result);
   });
 }
+
 function getSuperAdminPassword(){
   if (serverObj.hasOwnProperty("getSuperAdminPassword")){
     return serverObj.getSuperAdminPassword();
@@ -106,24 +109,24 @@ function starNetCb(command,options,cb){ // If no CB given, returns a promise.
           if (simulateProblem == "none"){
             theParameters=["-jar",starNetJar,theIP + ":" + thePort,theSuperAdminPassword,command];
           } else if (simulateProblem=="wrongip"){ // Destination unreachable
-            console.log("### Simulating wrong ip -- destination unreachable ###");
+            thisConsole.log("### Simulating wrong ip -- destination unreachable ###");
             theParameters=["-jar",starNetJar,"128.0.0.1:" + thePort,theSuperAdminPassword,command];
           } else if (simulateProblem=="wrongport"){ // Refused connection
-            console.log("### Simulating wrong port -- refused connection ###");
+            thisConsole.log("### Simulating wrong port -- refused connection ###");
             theParameters=["-jar",starNetJar,theIP + ":" + 6767,theSuperAdminPassword,command];
           } else if (simulateProblem=="wrongsuperadminpassword"){
-            console.log("### Simulating wrong super admin password ###");
+            thisConsole.log("### Simulating wrong super admin password ###");
             theParameters=["-jar",starNetJar,theIP + ":" + thePort,"This is wrong",command];
           } else if (simulateProblem=="wrongparameters"){
             // invalid parameters
-            console.log("### Simulating bad parameters ###");
+            thisConsole.log("### Simulating bad parameters ###");
             theParameters=["-jar",starNetJar,"This is wrong",command];
           } else {
             var theError=new Error("Invalid problem given to simpulate!");
-            console.error(theError);
+            thisConsole.error(theError);
             return cb(theError,null);
           }
-          console.log(`About to run: 'java ${theParameters}' within the current working directory of: ${mainBinFolder}`);
+          thisConsole.log(`About to run: 'java ${theParameters}' within the current working directory of: ${mainBinFolder}`);
           return child.execFile("java",theParameters,{"cwd":mainBinFolder},function(error,stdout,stderr){
             var stdOutArray=[];
             var stdErrArray=[];
@@ -156,7 +159,7 @@ function starNetCb(command,options,cb){ // If no CB given, returns a promise.
                 theErrorText="StarNet was killed with signal: " + error.signal;
               }
               var theError=new Error(theErrorText); // Not sure if this is necessary.
-              console.dir(theError);
+              thisConsole.dir(theError);
               return cb(error,returnString);
             } else {
               return cb(null,returnString);
@@ -164,7 +167,7 @@ function starNetCb(command,options,cb){ // If no CB given, returns a promise.
           });
         } else {
           var theError2=new Error("No super admin password established yet!  Can't do anything!");
-          console.dir(theError2);
+          thisConsole.dir(theError2);
           return cb(theError2,null);
         }
       }
@@ -183,10 +186,10 @@ function starNetSync(command,options){ // This should never be used.  Use the CB
   } else if (objectHelper.isObjHasPropAndEquals(options,"debug",true)){ // checks if any value was passed as an object, if it has a property "debug", and if that property strictly equals true
     debug=true
   }
-  // console.dir(options);
-  // console.dir(command);
+  // thisConsole.dir(options);
+  // thisConsole.dir(command);
   var simulateProblem=getOption(options,"simulateProblem","none").toLowerCase(); // For testing purposes only to ascertain errors
-  // console.log("simulateProblem: " + simulateProblem);
+  // thisConsole.log("simulateProblem: " + simulateProblem);
   if (testIfInput(command)){
     var theSuperAdminPassword=getOption(options,"superAdminPassword",getSuperAdminPassword());
     var theIP=getOption(options,"ip",getIpToUse());
@@ -205,13 +208,13 @@ function starNetSync(command,options){ // This should never be used.  Use the CB
       // invalid parameters
         results=child.spawnSync("java",["-jar",starNetJar,"This is wrong",command],{"cwd":mainBinFolder});
       } else {
-        console.error("Invalid problem to simulate, so doing nothing!");
+        thisConsole.error("Invalid problem to simulate, so doing nothing!");
       }
       if (debug == true){ process.stdout.write(results.stderr.toString()); }
       // return results.stderr.toString().trim();
       return results.stderr.toString().trim().replace(/(\r)/g,""); // This is needed for windows
     }
-    console.error("No super admin password established yet!  Can't do anything!");
+    thisConsole.error("No super admin password established yet!  Can't do anything!");
   }
   return false;
 }
@@ -274,14 +277,14 @@ function mapifyDatabaseEntry(databaseEntryStr){ // This will always return a map
     }
 }
 function cleanRegularValue(inputStr){
-    // console.debug("Cleaning input: " + inputStr);
+    // thisConsole.debug("Cleaning input: " + inputStr);
     if (typeof inputStr == "string"){
       var remBeginSpam=new RegExp("^RETURN: [[]SERVER, "); // Remove the begin spam
       var remEndSpam=new RegExp(", [0-9]{1,1}\\]$"); // Remove the end spam
       let tempVal=inputStr.replace(remBeginSpam,"").toString();
-      // console.debug("Removed begin spam: " + tempVal);
+      // thisConsole.debug("Removed begin spam: " + tempVal);
       tempVal=tempVal.replace(remEndSpam,"").toString();
-      // console.debug("Removed end spam: " + tempVal);
+      // thisConsole.debug("Removed end spam: " + tempVal);
       return tempVal;
     } else {
       throw new Error("ERROR: Invalid input given to cleanRegularValue function!  Expected a string!");
@@ -345,11 +348,11 @@ function mapifyShipInfoUIDString(responseStr,options){ // options are optional. 
     //   }
     // }
   
-    console.debug("Starting mapify!");
+    thisConsole.debug("Starting mapify!");
     if (typeof responseStr == "string"){
-      console.debug("Using responseStr: " + responseStr);
+      thisConsole.debug("Using responseStr: " + responseStr);
       var results=responseStr.split("\n");
-      console.debug("Results found!");
+      thisConsole.debug("Results found!");
       var loadedValueReg=new RegExp("^RETURN: \\[SERVER, [a-zA-Z()-]+: .+");
       var entityNotExistReg=new RegExp("RETURN: \\[SERVER, UID also");
       var entityNotExistInDBReg=new RegExp("RETURN: \\[SERVER, UID Not");
@@ -358,7 +361,7 @@ function mapifyShipInfoUIDString(responseStr,options){ // options are optional. 
       var returnMap=new Map();
       // Cycle through all the lines, populating the object with each value.
       for (let i=0;i<results.length;i++){
-        console.debug("Working on result: " + results[i]);
+        thisConsole.debug("Working on result: " + results[i]);
         if (/^RETURN: \[SERVER, Loaded: [a-zA-Z]+/.test(results[i])){ // This is treated specially because it's the only value that should be a boolean
           let loadedVal=objectHelper.toBoolean(cleanRegularValue(results[i]).replace(/^Loaded: /,"").toString());
           returnMap.set("loaded",loadedVal);
@@ -400,7 +403,7 @@ function mapifyShipInfoUIDString(responseStr,options){ // options are optional. 
         } else if (entityNotExistReg.test(results[i])){
           returnMap.set("exists",false);
         } else if (malformedRequestReg.test(results[i])){
-          console.error("ERROR: Malformed request!")
+          thisConsole.error("ERROR: Malformed request!")
           returnMap.set("malformedRequest",true);
           break;
         } else {
@@ -408,7 +411,7 @@ function mapifyShipInfoUIDString(responseStr,options){ // options are optional. 
           // We need to ignore the line that will be "END; Admin command execution ended"
           let testVal=cleanRegularValue(results[i]);
           if (testVal != "END; Admin command execution ended"){
-            // console.log("Setting type to: " + results[i]);
+            // thisConsole.log("Setting type to: " + results[i]);
             returnMap.set("type",testVal.toLowerCase());
           }
   
@@ -515,42 +518,42 @@ function getUIDfromName(name,options,cb){ // Runs in sync mode to assist in crea
     // If an error is encountered running starnet:  undefined
     // If invalid input is given, it will throw an error
     // If ship is found:  The FULL UID of the ship
-    // console.log("Looking up name: " + name); // temp
+    // thisConsole.log("Looking up name: " + name); // temp
     if (typeof cb=="function"){
       let returnResult;
       if (typeof name == "string"){
-        console.log("Getting the UID from entity name: " + name);
+        thisConsole.log("Getting the UID from entity name: " + name);
         return starNetVerified('/ship_info_name "' + name + '"',options,function(err,result){
           if (err){
-            console.log("There was an error getting the UID from the entity name!");
+            thisConsole.log("There was an error getting the UID from the entity name!");
             return cb(err,result);
           }
           var theArray=result.trim().split("\n");  // Split results by return lines, so we can check each line
           var notFound=false;
           for (let i=0;i<theArray.length;i++){ // Check if it is not found
             if (theArray[i].match(/.*not found in database, 0\]$/)){
-              console.log("Entity not found in the database!");
+              thisConsole.log("Entity not found in the database!");
               notFound=true;
             }
           }
           if (notFound){
             returnResult=null; // The ship was not found, so return null
           } else if (theArray[0].match(/found in loaded objects, 0\]$/)) { // The ship is loaded
-            console.log("Entity found in loaded objects.. cycling through to get the UID..");
+            thisConsole.log("Entity found in loaded objects.. cycling through to get the UID..");
             for (let i=1;i<theArray.length;i++){ // Cycle through all the values, looking for the UID
               if (theArray[i].match(/^RETURN: \[SERVER, UID:/)){
                 returnResult=theArray[i].match(/[^:]+, 0\]$/)[0].trim().replace(/, 0\]$/,"");
               }
             }
           } else { // The ship was found but not loaded
-            console.log("Entity not found in loaded objects.. cycling through the databaseentry to get the UID..");
+            thisConsole.log("Entity not found in loaded objects.. cycling through the databaseentry to get the UID..");
             for (let i=1;i<theArray.length;i++){ // Cycle through all the values, looking for the UID
               if (theArray[i].match(/^RETURN: \[SERVER, DatabaseEntry /)){
                 returnResult=theArray[i].match(/uid=[^,]+/)[0].replace(/^uid=/,"");
               }
             }
           }
-          console.log("Returning the result: " + returnResult);
+          thisConsole.log("Returning the result: " + returnResult);
           return cb(null,returnResult);
   
         });
@@ -568,19 +571,19 @@ function getUIDfromNameSync(name,options){ // Runs in sync mode to assist in cre
     // If an error is encountered running starnet:  undefined
     // If invalid input is given, it will throw an error
     // If ship is found:  The FULL UID of the ship
-    // console.log("Looking up name: " + name); // temp
+    // thisConsole.log("Looking up name: " + name); // temp
     let returnResult;
     if (typeof name == "string"){
       const results=starNetSync('/ship_info_name "' + name + '"',options);
-      // console.log("Results:"); //temp
-      // console.dir(results); // temp
+      // thisConsole.log("Results:"); //temp
+      // thisConsole.dir(results); // temp
     
       if (verifyResponse(results)){
         // There are different results that can happen.  Errors are filtered out by verifyResponse
   
-        // console.log("looks like the results came in fine.") // temp
+        // thisConsole.log("looks like the results came in fine.") // temp
         var theArray=results.trim().split("\n");  // Split results by return lines, so we can check each line
-        // console.dir(theArray);
+        // thisConsole.dir(theArray);
         var notFound=false;
         // Not found:
         // RETURN: [SERVER, [INFO] Benevolent27_15613535805644 not found in loaded objects. Checking Database..., 0]
@@ -591,7 +594,7 @@ function getUIDfromNameSync(name,options){ // Runs in sync mode to assist in cre
             notFound=true;
           }
         }
-        // console.log("notFound: " + notFound);
+        // thisConsole.log("notFound: " + notFound);
         if (notFound){
           returnResult=null; // The ship was not found, so return null
         } else if (theArray[0].match(/found in loaded objects, 0\]$/)) { // The ship is loaded
@@ -616,7 +619,7 @@ function getUIDfromNameSync(name,options){ // Runs in sync mode to assist in cre
             // RETURN: [SERVER, Ship, 0]
             // RETURN: [SERVER, END; Admin command execution ended, 0]
   
-            //console.log("Ship loaded.");
+            //thisConsole.log("Ship loaded.");
             for (let i=1;i<theArray.length;i++){ // Cycle through all the values, looking for the UID
               if (theArray[i].match(/^RETURN: \[SERVER, UID:/)){
                 returnResult=theArray[i].match(/[^:]+, 0\]$/)[0].trim().replace(/, 0\]$/,"");
@@ -624,7 +627,7 @@ function getUIDfromNameSync(name,options){ // Runs in sync mode to assist in cre
               // There should ALWAYS be a match here, but if for some reason there isn't, then the returnResult will be undefined
             }
         } else { // The ship was found but not loaded
-          // console.log("Ship not loaded.");
+          // thisConsole.log("Ship not loaded.");
   
           // Found, but Unloaded:
           // We'll need to cycle through the DatabaseEntry field
@@ -640,7 +643,7 @@ function getUIDfromNameSync(name,options){ // Runs in sync mode to assist in cre
           }
         }
       } else {
-        console.error("There was a problem with the input!  Either starnet didn't run correctly or the parameters were invalid!");
+        thisConsole.error("There was a problem with the input!  Either starnet didn't run correctly or the parameters were invalid!");
         // Don't change the "returnResult" so that it will be undefined.
       }
     } else {
@@ -680,10 +683,10 @@ function getEntityValue(uidOrShipObj,valueString,options,cb){
           return cb(err,result);
         }
         var resultMap=mapifyShipInfoUIDString(result);
-        // console.log("\nMapify result:");
-        // console.dir(resultMap);
-        // console.log("\nJust because, here's the nameMap:");
-        // console.dir(nameMap);
+        // thisConsole.log("\nMapify result:");
+        // thisConsole.dir(resultMap);
+        // thisConsole.log("\nJust because, here's the nameMap:");
+        // thisConsole.dir(nameMap);
         if (resultMap.get("loaded") == true){
           // If no value existed, this will be returned as undefined.  An exception is made for "faction" because this will likely be included by Schema shortly
           if (valueString == "faction"){
@@ -701,11 +704,11 @@ function getEntityValue(uidOrShipObj,valueString,options,cb){
           // resultMap.exists // Will only be true if data was found besides the "loaded" value
           if (resultMap.get("existsInDB") == true){
             returnVal=resultMap.get("DatabaseEntry").get(nameMap[valueString]);
-            // console.log("Ship not loaded.  Translated query of '" + valueString + "' to the DatabaseEntry value, '" + nameMap[valueString] + "'.");
+            // thisConsole.log("Ship not loaded.  Translated query of '" + valueString + "' to the DatabaseEntry value, '" + nameMap[valueString] + "'.");
           } else if (resultMap.get("malformedRequest" == true)){
               return cb(new Error(malformedRequestMsg),null);
           } else {
-            console.error(shipNotExistMsg);
+            thisConsole.error(shipNotExistMsg);
             return cb(null,Boolean(false)); // The command failed because the ship did not exist in the DB.
             // If it doesn't exist in the DB, then there is no way to load the ship, even if it exists but is not in the database yet, so we are forced to return undefined.
           }
@@ -728,7 +731,7 @@ function getEntityValue(uidOrShipObj,valueString,options,cb){
               }
             }
             if (tryAgain==true){
-              console.debug("Value only available when sector is loaded.  Loading sector, " + theSectorString + ", and trying again.." + new Date());
+              thisConsole.debug("Value only available when sector is loaded.  Loading sector, " + theSectorString + ", and trying again.." + new Date());
               return starNetVerified("/load_sector_range " + theSectorString + " " + theSectorString,options,function(err,result2){
                 if (err){
                   return cb(err,result2);
@@ -739,10 +742,10 @@ function getEntityValue(uidOrShipObj,valueString,options,cb){
               });
             }
         } else if (resultMap.get("malformedRequest")){
-            console.error(malformedRequestMsg);
+            thisConsole.error(malformedRequestMsg);
             return cb(new Error(malformedRequestMsg),null);
         } else {
-          console.error(shipNotExistMsg);
+          thisConsole.error(shipNotExistMsg);
           return cb(null,Boolean(false));
         }
         return cb(null,returnVal); // Returns undefined if no value was present.
@@ -772,12 +775,12 @@ function getEntityValueSync(uidOrShipObj,valueString,options){ // Options are op
   
     if (typeof uidToUse == "string" && typeof valueString == "string"){
       const results=starNetSync("/ship_info_uid \"" + uidToUse + "\"",options);
-      // console.log("Results found: " + results);
+      // thisConsole.log("Results found: " + results);
       var resultMap=mapifyShipInfoUIDString(results);
-      // console.log("\nMapify result:");
-      // console.dir(resultMap);
-      // console.log("\nJust because, here's the nameMap:");
-      // console.dir(nameMap);
+      // thisConsole.log("\nMapify result:");
+      // thisConsole.dir(resultMap);
+      // thisConsole.log("\nJust because, here's the nameMap:");
+      // thisConsole.dir(nameMap);
       if (resultMap.get("loaded") == true){
         // If no value existed, this will be returned as undefined.  An exception is made for "faction" because this will likely be included by Schema shortly
         if (valueString == "faction"){
@@ -797,11 +800,11 @@ function getEntityValueSync(uidOrShipObj,valueString,options){ // Options are op
         // resultMap.exists // Will only be true if data was found besides the "loaded" value
         if (resultMap.get("existsInDB") == true){
           returnVal=resultMap.get("DatabaseEntry").get(nameMap[valueString]);
-          // console.log("Ship not loaded.  Translated query of '" + valueString + "' to the DatabaseEntry value, '" + nameMap[valueString] + "'.");
+          // thisConsole.log("Ship not loaded.  Translated query of '" + valueString + "' to the DatabaseEntry value, '" + nameMap[valueString] + "'.");
         } else if (resultMap.get("malformedRequest" == true)){
-            console.error(malformedRequestMsg);
+            thisConsole.error(malformedRequestMsg);
         } else {
-          console.error(shipNotExistMsg);
+          thisConsole.error(shipNotExistMsg);
           // If it doesn't exist in the DB, then there is no way to load the ship, even if it exists but is not in the database yet, so we are forced to return undefined.
         }
       } else if (resultMap.get("existsInDB") == true){
@@ -823,16 +826,16 @@ function getEntityValueSync(uidOrShipObj,valueString,options){ // Options are op
             }
           }
           if (tryAgain==true){
-            // console.debug("Value only available when sector is loaded.  Loading sector, " + theSectorString + ", and trying again.." + new Date());
+            // thisConsole.debug("Value only available when sector is loaded.  Loading sector, " + theSectorString + ", and trying again.." + new Date());
             starNetSync("/load_sector_range " + theSectorString + " " + theSectorString,options);
             returnVal=getEntityValueSync(uidToUse,valueString); // Try again till successful.  This will cause an infinite loop while the sector is unloaded, but will not run again if the command fails.
             // If the entity loads and no value is present, 'undefined' will be returned.  This is intended.
             // The reason we try loading the sector is for futureproofing.
           }
       } else if (resultMap.get("malformedRequest")){
-          console.error(malformedRequestMsg);
+          thisConsole.error(malformedRequestMsg);
       } else {
-        console.error(shipNotExistMsg);
+        thisConsole.error(shipNotExistMsg);
       }
       return returnVal; // Returns undefined if no value was present.
     } else {
@@ -930,14 +933,14 @@ function starNetVerifiedCB(string,options,cb){ // Takes a string command.  Optio
     // If these options don't exist on the options, add them for the next try (if needed).
     optionsToUse.starNetVerifiedCBTryCount=getOption(options,"starNetVerifiedCBTryCount",1);
     optionsToUse.starNetVerifiedCBtimeToRetryTill=getOption(options,"starNetVerifiedCBtimeToRetryTill",new Date().getTime() + optionsToUse.maxTimeToRetry);
-    // console.log("Using options:"); // temp
-    // console.dir(optionsToUse);
+    // thisConsole.log("Using options:"); // temp
+    // thisConsole.dir(optionsToUse);
     if (typeof string == "string"){
       return starNetCb(string,optionsToUse,async function (err,result){ // Not sure if I should be using async here, but what the hey
         if (err){
           // There will not be an error returned unless StarNet.jar terminates abornally or could not be run.
           // We are throwing an error because the wrapper cannot do anything without StarNet.jar operating correctly.
-          console.error("StarNet.jar either could not be run or terminated abnormally!  This should never happen!  You may need to redownload StarNet.jar or add permission to run it.");
+          thisConsole.error("StarNet.jar either could not be run or terminated abnormally!  This should never happen!  You may need to redownload StarNet.jar or add permission to run it.");
           throw err;
         } else if (verifyResponse(result)){ // Verify that no error happened.
             return cb(err,result); // No connection failure happened!  "err" will be Null.  This does NOT mean the command succeeded.  The result still needs to be processed, success/fail messages vary widely across commands.
@@ -950,11 +953,11 @@ function starNetVerifiedCB(string,options,cb){ // Takes a string command.  Optio
           }
           var timeStamp=new Date().getTime();
           var starNetVerifiedRetrySecondsLeft=Math.ceil((optionsToUse.starNetVerifiedCBtimeToRetryTill-timeStamp)/1000);
-          console.error("ERROR:  Connection problem to server when attempting command: " + string);
+          thisConsole.error("ERROR:  Connection problem to server when attempting command: " + string);
   
           if (optionsToUse.retryOnConnectionProblem && connectionProblem && optionsToUse.starNetVerifiedCBTryCount < optionsToUse.maxRetriesOnConnectionProblem && optionsToUse.starNetVerifiedCBtimeToRetryTill > timeStamp){ // Only sleep and then continue to loop IF there was a connection problem.
             // Neither the max time nor max count has been reached yet
-            console.error("Trying again in " + optionsToUse.retryOnConnectionProblemMs + " ms.  (Retry " + optionsToUse.starNetVerifiedCBTryCount + "/" + optionsToUse.maxRetriesOnConnectionProblem + ")  Giving up in " + starNetVerifiedRetrySecondsLeft + " seconds.");
+            thisConsole.error("Trying again in " + optionsToUse.retryOnConnectionProblemMs + " ms.  (Retry " + optionsToUse.starNetVerifiedCBTryCount + "/" + optionsToUse.maxRetriesOnConnectionProblem + ")  Giving up in " + starNetVerifiedRetrySecondsLeft + " seconds.");
             await sleepPromise(optionsToUse.retryOnConnectionProblemMs); // TODO: Test this.  I made this sub-function async, base function async, and starNetCB async.  How will this affect CB functionality?  Will it still be able to access the variables from the function it's running under?
             optionsToUse.starNetVerifiedCBTryCount++;
   
@@ -1023,8 +1026,8 @@ function starNetVerifiedSync(string,options){ // This runs syncronously.  It sho
             // When a connection error happens,
             retrySecondsLeft=Math.ceil((timeToRetryTill-timeStamp)/1000);
             retryCount++;
-            console.error("ERROR:  Connection problem to server when attempting command: " + string);
-            console.error("Trying again in " + retryOnConnectionProblemMs + " seconds.  (Retry " + retryCount + "/" + maxRetriesOnConnectionProblem + ")  Giving up in " + retrySecondsLeft + " seconds.");
+            thisConsole.error("ERROR:  Connection problem to server when attempting command: " + string);
+            thisConsole.error("Trying again in " + retryOnConnectionProblemMs + " seconds.  (Retry " + retryCount + "/" + maxRetriesOnConnectionProblem + ")  Giving up in " + retrySecondsLeft + " seconds.");
             sleep(retryOnConnectionProblemMs);
         } else {
             // Only throw an error IF retryOnConnectionProblem was falsey.
@@ -1114,7 +1117,7 @@ function sendDirectToServer(input, cb) { // if cb not given, functions as Sync. 
 };
 function runSimpleCommand(theCommand, options, cb) { // cb/promises compliant
   // This is used for PlayerObj methods that can be sent to either the console or using StarNet
-  // An option can be specified so that it sends directly to the console.  {"fast":true}
+  // An option can be specified so that it sends directly to the console .  {"fast":true}
   if (typeof cb == "function") {
     var theCommandToUse = toStringIfPossible(theCommand);
     if (typeof theCommandToUse == "string") {
@@ -1124,23 +1127,23 @@ function runSimpleCommand(theCommand, options, cb) { // cb/promises compliant
       if (fast == true) { // this can run in Sync if a CB is not specified, since it's only sending input to a stdin of the server
         return sendDirectToServer(theCommandToUse, cb);
       }
-      console.debug("Running StarNet command: " + theCommandToUse);
+      thisConsole.debug("Running StarNet command: " + theCommandToUse);
       if (testIfInput(options)) {
-        console.debug("Using options:");
-        console.debug(options);
+        thisConsole.debug("Using options:");
+        thisConsole.debug(options);
       }
       return starNetVerified(theCommandToUse, options, function (err, msgResult) {
         if (err) {
-          // console.log("Returning an error: " + err);
+          // thisConsole.log("Returning an error: " + err);
           return cb(err, msgResult);
         } else if (checkForLine(msgResult, msgTestFail) || checkForLine(msgResult, msgTestFail2)) { // The player was offline, did not exist, or other parameters were incorrect.
-          console.debug("Command connection succeeded, but command failed. Returning a false value.");
-          console.debug("msgResult: " + msgResult);
+          thisConsole.debug("Command connection succeeded, but command failed. Returning a false value.");
+          thisConsole.debug("msgResult: " + msgResult);
           return cb(err, Boolean(false)); // err will be null
         } else { // The command appears to have not failed, so let's assume it succeeded.
-          // console.log("Returning an true on success.");
-          console.debug("Command connection succeeded and command succeeded. Returning a true value.");
-          console.debug("msgResult: " + msgResult);
+          // thisConsole.log("Returning an true on success.");
+          thisConsole.debug("Command connection succeeded and command succeeded. Returning a true value.");
+          thisConsole.debug("msgResult: " + msgResult);
           return cb(err, Boolean(true)); // Err will be null
         }
       });

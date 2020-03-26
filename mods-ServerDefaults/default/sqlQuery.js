@@ -50,7 +50,8 @@ if (__filename == require.main.filename){ // Only run the arguments IF this scri
     console.log(`Usage: ${__filename} ip:port "sqlquery goes here"`);
   }
 }
-
+var installObj = global.getInstallObj(__dirname);
+var thisConsole=installObj.console;
 
 function getSQLquery(query){ // This will preprocess a query so that it should work with starNet.js to run correctly.
   // This should correct for improper quote types.
@@ -171,7 +172,7 @@ function sqlQuery(sqlQuery,options,cb){ // Needs testing // Also the code here c
 function SqlQueryObj(sqlQuery){ // TODO:  Discontinue this object since it relies on Sync methods in preference to the sqlQuery function.
   this.query=sqlQuery;
   this.time=Date.now();
-  // console.log("Running sql query: " + sqlQuery);
+  // thisConsole.log("Running sql query: " + sqlQuery);
   this.mapArray=[]; // This is modified later in the script, but declared here in case there is an error.
   var resultsStr=starNetSync(getSQLquery(sqlQuery));
   if (verifyResponse(resultsStr) == false){
@@ -180,7 +181,7 @@ function SqlQueryObj(sqlQuery){ // TODO:  Discontinue this object since it relie
   } else {
     var tempArray=[]; // Let's clean up the results so it only contains the relevant SQL lines
     tempArray=resultsStr.split("\n");
-    // console.log("\nBefore Trimming: ");
+    // thisConsole.log("\nBefore Trimming: ");
     // console.dir(tempArray);
     // Trim the top
     while (tempArray.length > 0 && !(/^RETURN: \[SERVER, SQL#/).test(tempArray[0])){

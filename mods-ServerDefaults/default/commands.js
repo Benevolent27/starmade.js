@@ -33,6 +33,7 @@ var commandOperator;
 
 var installObj = global.getInstallObj(__dirname);
 var {settings,event} = installObj;
+const thisConsole=installObj.console;
 var serverObj = {}; // This will be set after the "start" is given.
 
 CommandObj.prototype.toString = function () {
@@ -73,13 +74,13 @@ event.on('start', function (theServerObj) { // The serverObj has been created.
 });
 
 function removeCommands() {
-  console.log("Removing any commands registered by mods..");
+  thisConsole.log("Removing any commands registered by mods..");
   serverObj["commands"] = {};
 };
 async function message(messageObj) { // Handle messages sent from players
   // Expects message to be a message type object
 
-  // console.log("Message (type: " + messageObj.type +") DETECTED from " + messageObj.sender.name + " to " + messageObj.receiver.name + ": " + messageObj.text);
+  // thisConsole.log("Message (type: " + messageObj.type +") DETECTED from " + messageObj.sender.name + " to " + messageObj.receiver.name + ": " + messageObj.text);
 
   // Here we will need to see if the "commands" object has the command.
   if (messageObj.text[0] == settings["commandOperator"]) { // Process any commands, whether valid or not.
@@ -103,13 +104,13 @@ async function message(messageObj) { // Handle messages sent from players
           messageObj.sender.botMsg("Sorry, but this is an admin only command, and you are not an admin!", {"fast": true}).catch((err) => console.error(err));
         }
 
-        console.log("'command' event emitted!"); // temp
+        thisConsole.log("'command' event emitted!"); // temp
       } else if (lowerCaseCommand == "help") { // This only fires if a mod hasn't replaced the default help.
         // If an argument is given, run the command with help, which is the same as "!command help"
         var showAll = false;
         if (typeof textArray[0] == "string") {
           if (textArray[0].toLowerCase() == "-showall") {
-            console.log("Showing all help commands, even hidden ones, if the player is an admin.");
+            thisConsole.log("Showing all help commands, even hidden ones, if the player is an admin.");
             showAll = true;
             textArray.shift();
           }
@@ -163,7 +164,7 @@ async function message(messageObj) { // Handle messages sent from players
               }
 
               // Before adding the command name to the category, check to ensure the command is hidden or an admin only command.
-              // console.log("Checking command, " + property + ", to see if should be added to help.  commands[property].displayInHelp: " + commands[property].displayInHelp);
+              // thisConsole.log("Checking command, " + property + ", to see if should be added to help.  commands[property].displayInHelp: " + commands[property].displayInHelp);
               // if ((!commands[property].adminOnly || playerAdminCheck) && (commands[property].displayInHelp || (playerAdminCheck && showAll))){ // If the command is NOT adminonly OR the player is an admin, let it show up.  If the command is not set to displayInHelp, then do not show it.
               if ((!commands[property].adminOnly || playerAdminCheck) && (commands[property].displayInHelp || (!commands[property].adminOnly && showAll))) { // If the command is NOT adminonly OR the player is an admin, let it show up.  If the command is not set to displayInHelp, then do not show it.
                 commandCategories[theCategory].push(commands[property].name);
@@ -243,7 +244,7 @@ async function message(messageObj) { // Handle messages sent from players
             messageObj.sender.botMsg("There do not appear to be any commands visible!", {"fast": true}).catch((err) => console.error(err));
           }
         }
-        console.log("Help command finished.");
+        thisConsole.log("Help command finished.");
       } else {
         messageObj.sender.msg("ERROR:  " + theCommand + " is not a valid command!", {"fast": true});
         messageObj.sender.msg("To view a list of wrapper commands, type: !help", {"fast": true});
@@ -256,12 +257,12 @@ function importSettingsFile() {
   if (isSeen(settingsFile)) {
     if (isFile(settingsFile)) {
       defaultSettings = require(settingsFile);
-      console.log("Imported default settings for command.js:");
+      thisConsole.log("Imported default settings for command.js:");
     } else {
-      console.log("Settings file was not a file?  Skipping!");
+      thisConsole.log("Settings file was not a file?  Skipping!");
     }
   } else {
-    console.log("Settings file for commands.js not found, skipping!");
+    thisConsole.log("Settings file for commands.js not found, skipping!");
   }
 }
 
@@ -413,7 +414,7 @@ function regCommand(name, category, adminOnly, displayInHelp, playersArray) {
       serverObj.commands[myCommandName] = myCommandObj;
       commands=serverObj.commands; // Set the commands variable if not already set.
 
-      console.log("Registered new command: " + myCommandName);
+      thisConsole.log("Registered new command: " + myCommandName);
       // console.dir(myCommandObj);
       failure = false;
     }
@@ -481,7 +482,7 @@ function writeSettings() {
     var settingsFileStream = fs.createWriteStream(settingsFile);
     settingsFileStream.write(JSON.stringify(defaultSettings, null, 4));
     settingsFileStream.end();
-    console.log("Updated '" + settingsFileName + "' file.");
+    thisConsole.log("Updated '" + settingsFileName + "' file.");
     log("Updated '" + settingsFileName + "' file.");
   } catch (err) {
     console.error("ERROR: Could not write to the '" + settingsFileName + "' file!");

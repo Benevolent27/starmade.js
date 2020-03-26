@@ -305,12 +305,9 @@ function dumpToRecordFile(options, cb) {
   return simplePromisifyIt(dumpToRecordFile, options);
 }
 
-// Custom console code  TODO:  Fix this.  For some reason it's silencing everything.
-// global["consoles"] = {};
-// global["currentConsole"] = "main";
-global["console"]=console; // This allows console printout no matter what console is selected
-global["mainConsole"] = new CustomConsole("main", {invincible: true}); // This is a console that only displays if the "main" console is currently selected.  It is "invincible", so it will not be unloaded if the unloadListeners event happens.
-global["currentConsole"]="main";
+var mainConsole=new CustomConsole("main", {invincible: true}); // This is a console that only displays if the "main" console is currently selected.  It is "invincible", so it will not be unloaded if the unloadListeners event happens.
+global["mainConsole"] = mainConsole;
+// global["consoleSelected"]="main"; // Not needed anymore.  The CustomConsole will set to main by default.
 log("starmade.js launched.");
 
 // ######################
@@ -408,9 +405,9 @@ if (process.argv[2]) {
 // TODO:  Separate the lock check for wrapper to here, and server PID checks in the server obj
 if (global["settings"].lockPIDs.length > 0 && ignoreLockFile == false) {
   //todo if the lock file exists, we need to grab the PID from the file and see if the server is running.  If not, then we can safely remove the lock file, otherwise end with an error.
-  console.log("Existing wrapper PIDs found!");
+  mainConsole.log("Existing wrapper PIDs found!");
   var response = "";
-  console.log("Checking if any of the prior wrapper PIDs are still running..");
+  mainConsole.log("Checking if any of the prior wrapper PIDs are still running..");
   // Checking the main starmade.js process PID - We check this first because we run a treekill on it which will normally also bring down the individual server PID and prevent it from auto-restarting the server on abnormal exit
   var lockPIDs = [];
   if (global["settings"].lockPIDs.length > 0) {
@@ -418,35 +415,35 @@ if (global["settings"].lockPIDs.length > 0 && ignoreLockFile == false) {
   }
   for (let i = 0;i < lockPIDs.length;i++) {
     if (isPidAlive(lockPIDs[i])) {
-      console.log("Existing starmade.js wrapper process found running on PID, '" + lockPIDs[i] + "'.");
+      mainConsole.log("Existing starmade.js wrapper process found running on PID, '" + lockPIDs[i] + "'.");
       if (forceStart == true) {
-        console.log("forceKill flag set!  Auto-killing PID!");
+        mainConsole.log("forceKill flag set!  Auto-killing PID!");
         response = "yes";
       } else {
         response = prompt("If you want to kill it, type 'yes': ").toLowerCase();
       }
       if (response == "yes") {
-        console.log("TREE KILLING WITH EXTREME BURNINATION!");
+        mainConsole.log("TREE KILLING WITH EXTREME BURNINATION!");
         treeKill(lockPIDs[i], 'SIGTERM');
         // We should initiate a loop giving up to 5 minutes for it to shut down before sending a sig-kill.
         miscHelpers.waitAndThenKill(300000, lockPIDs[i]);
         sleepSync(1000); // Give the sigKILL time to complete if it was necessary.
         global["settings"].lockPIDs = arrayMinus(global["settings"].lockPIDs, lockPIDs[i]); // PID was killed, so remove it from the settings.json file.
       } else {
-        console.log("Alrighty, I'll just let it run then.");
+        mainConsole.log("Alrighty, I'll just let it run then.");
       }
     } else {
-      console.log("Prior starmade.js wrapper PID (" + lockPIDs[i] + ") not running. Cool.");
+      mainConsole.log("Prior starmade.js wrapper PID (" + lockPIDs[i] + ") not running. Cool.");
       global["settings"].lockPIDs = arrayMinus(global["settings"].lockPIDs, lockPIDs[i]); // PID wasn't alive, so remove it from the settings.json file.
     }
   }
-  console.log("");
+  mainConsole.log("");
   if (global["settings"].lockPIDs.length > 0) {
     // We never want to start the wrapper if any of the PIDs are still alive, unless the person started with the argument to ignore the lock file
-    console.log("\nDANGER WILL ROBINSON!  There are still " + global["settings"].lockPIDs.length + " processes still running!");
-    console.log("We cannot continue while an existing wrapper might still be running!  Exiting!");
-    console.log("NOTE: If you are 100% SURE that these the PIDs from the lock file are NOT from another starmade.js script or StarMade servers, you can restart this script with '-ignorelockfile' to ignore the old lock file and create a new one.");
-    console.log("NOTE2: If you want to start this script auto-killing any old PID's, you can use the -forceStart argument.");
+    mainConsole.log("\nDANGER WILL ROBINSON!  There are still " + global["settings"].lockPIDs.length + " processes still running!");
+    mainConsole.log("We cannot continue while an existing wrapper might still be running!  Exiting!");
+    mainConsole.log("NOTE: If you are 100% SURE that these the PIDs from the lock file are NOT from another starmade.js script or StarMade servers, you can restart this script with '-ignorelockfile' to ignore the old lock file and create a new one.");
+    mainConsole.log("NOTE2: If you want to start this script auto-killing any old PID's, you can use the -forceStart argument.");
     process.exit(1);
 
   }
@@ -465,6 +462,7 @@ writeSettings();
 // #########################
 function setupNewServer() {
   // This is used to create a new server
+  // We do not use the "mainConsole" because "prompt" is not compatible with the console system, so we want this to display everywhere.
   console.log("\nWhat installation folder should we use?");
   var serverFolder;
   console.log("By default, 'starmade' in the same folder as starmade.js is used. (recommended)");
@@ -517,7 +515,7 @@ function requireServerMods(inputPath) { // Requires the path to the install
   //   "/path/to/install/mods/someModFolder/anotherScript.js":theRequireObject,
   //   "/path/to/install/mods/aDifferentModFolder/etc.js":theRequireObject
   // }
-  console.log("inputPath: " + inputPath + " typeof inputPath: " + typeof inputPath);
+  mainConsole.log("inputPath: " + inputPath + " typeof inputPath: " + typeof inputPath);
   if (typeof inputPath != "string"){
     throw new Error("No path given to requireServerMods!  Expects a path to a server install!  Example: requireServerMods('/path/to/install')");
   }
@@ -528,26 +526,26 @@ function requireServerMods(inputPath) { // Requires the path to the install
     if (modFolders.length > 0) {
       var fileList = [];
       for (var i = 0;i < modFolders.length;i++) {
-        console.log("Mod Folder found: " + modFolders[i] + " Looking for scripts..");
+        mainConsole.log("Mod Folder found: " + modFolders[i] + " Looking for scripts..");
         fileList = getFiles(modFolders[i]);
         for (var c = 0;c < fileList.length;c++) {
           if (fileList[c].match(/.\.js$/)) {
-            console.log("Loading JS file: " + fileList[c]);
+            mainConsole.log("Loading JS file: " + fileList[c]);
             try {
               // For each installObj, add an element which contains all the requires.  This is to delete their cache's later and reload them.  It could also be used just to inspect what files are loaded currently or even reload specific scripts for some reason.
               returnObj[fileList[c]] = require(fileList[c]);
             } catch (err) {
-              console.log("Error loading mod: " + fileList[c], err);
+              mainConsole.log("Error loading mod: " + fileList[c], err);
               throw err;
             }
           }
         }
       }
     } else {
-      console.log("Cannot load any mods. Mods folder contained no mods.  Server Path: " + inputPath);
+      mainConsole.log("Cannot load any mods. Mods folder contained no mods.  Server Path: " + inputPath);
     }
   } else {
-    console.log("Cannot load any mods. No 'mods' folder found.  Server Path: " + inputPath);
+    mainConsole.log("Cannot load any mods. No 'mods' folder found.  Server Path: " + inputPath);
     fsExtra.ensureDir(modsFolder);
   }
   // This can be uncommented out if we'd prefer to return an object with all the folders/requires for some reason.
@@ -586,12 +584,12 @@ function unloadServerMods(theInputPath) { // This cycles through the list of mod
   for (let i = 0;i < installFolders.length;i++) {
     if ((typeof inputPath == "string" && inputPath == installFolders[i]) || typeof inputPath == "undefined") {
       global["installObjects"][installFolders[i]].event.emit("unloadMods"); // This is for mods that need to do other cleanup when reloading
-      console.log("Removing all server and global event listeners..");
+      mainConsole.log("Removing all server and global event listeners..");
       global["installObjects"][installFolders[i]].event.removeAllListeners();
       global["installObjects"][installFolders[i]].globalEvent.removeAllListeners();
       loadedModsArray = Object.keys(installFolders[i]["modRequires"]);
       for (let e = 0;e < loadedModsArray.length;e++) {
-        console.log("Unloading JS file: " + loadedModsArray[e]);
+        mainConsole.log("Unloading JS file: " + loadedModsArray[e]);
         Reflect.deleteProperty(global["installObjects"][installFolders[i]]["modRequires"], loadedModsArray[e]); // Delete the individual path entry for this require
         Reflect.deleteProperty(require.cache, require.resolve(loadedModsArray[e])); // Remove the require entirely. Source: http://derpturkey.com/reload-module-with-node-js-require/ with some modification to use reflect.
       }
@@ -603,11 +601,11 @@ function unloadServerMods(theInputPath) { // This cycles through the list of mod
   }
 }
 function reloadServerMods(inputPath) { // This function is meant to reload ALL mods.  Specificity is not possible right now.
-  console.log("Unloading server mods..");
+  mainConsole.log("Unloading server mods..");
   unloadServerMods(inputPath);
-  console.log("Re-requiring the mods..");
+  mainConsole.log("Re-requiring the mods..");
   loadAllServerMods(inputPath); // This will load new ones if they exist.
-  console.log("Done reloading mods!");
+  mainConsole.log("Done reloading mods!");
 }
 
 
@@ -622,33 +620,33 @@ function loadWrapperMods() { // No inputPath here because there is only one fold
     if (modFolders.length > 0) {
       var fileList = [];
       for (var i = 0;i < modFolders.length;i++) {
-        console.log("Wrapper Mod Folder found: " + modFolders[i] + " Looking for scripts..");
+        mainConsole.log("Wrapper Mod Folder found: " + modFolders[i] + " Looking for scripts..");
         fileList = getFiles(modFolders[i]);
         for (var c = 0;c < fileList.length;c++) {
           if (fileList[c].match(/.\.js$/)) {
-            console.log("Loading JS file: " + fileList[c]);
+            mainConsole.log("Loading JS file: " + fileList[c]);
             try {
               // For each installObj, add an element which contains all the requires.  This is to delete their cache's later and reload them.  It could also be used just to inspect what files are loaded currently or even reload specific scripts for some reason.
               global["modRequires"][fileList[c]] = require(fileList[c]);
             } catch (err) {
-              console.log("Error loading mod: " + fileList[c], err);
+              mainConsole.log("Error loading mod: " + fileList[c], err);
               throw err;
             }
           }
         }
       }
     } else {
-      console.log("No wrapper mods found.  Skipping..");
+      mainConsole.log("No wrapper mods found.  Skipping..");
     }
   } else {
-    console.log("No wrapper mods folder found!  Creating it, then skipping..");
+    mainConsole.log("No wrapper mods folder found!  Creating it, then skipping..");
     fsExtra.ensureDir(modsFolder);
   }
   return true;
 }
 function unloadWrapperMods() { // This cycles through the list of wrapper modfiles and deletes their cache
   global["event"].emit("unloadWrapperMods"); // Gives wrapper mods a chance to do any extra cleanup they may need done before the reload
-  console.log("Removing any global event listeners registered by Wrapper mods..");
+  mainConsole.log("Removing any global event listeners registered by Wrapper mods..");
   global["event"].removeAllListeners();
   // unloadGlobalEventListeners(inputPath); // old method
   // TODO:  Wrapper level mods may very well emit to server mods, so these need to have their own record.. I guess I could put it on global["installObjects"][__dirname]
@@ -656,7 +654,7 @@ function unloadWrapperMods() { // This cycles through the list of wrapper modfil
   var newKeys = [];
   var loadedModsArray = Object.keys(global["modRequires"]);
   for (let e = 0;e < loadedModsArray.length;e++) {
-    console.log("Unloading JS file: " + loadedModsArray[e]);
+    mainConsole.log("Unloading JS file: " + loadedModsArray[e]);
     Reflect.deleteProperty(global["modRequires"], loadedModsArray[e]); // Delete the individual path entry for this require
     Reflect.deleteProperty(require.cache, require.resolve(loadedModsArray[e])); // Remove the require entirely. Source: http://derpturkey.com/reload-module-with-node-js-require/ with some modification to use reflect.
   }
@@ -666,11 +664,11 @@ function unloadWrapperMods() { // This cycles through the list of wrapper modfil
   }
 }
 function reloadWrapperMods() { // This function is meant to reload ALL mods.  Specificity is not possible right now.
-  console.log("Deleting the require cache's, removing listeners, and unregistering Constructors for Wrapper mods..");
+  mainConsole.log("Deleting the require cache's, removing listeners, and unregistering Constructors for Wrapper mods..");
   unloadWrapperMods();
-  console.log("Re-requiring the Wrapper mods..");
+  mainConsole.log("Re-requiring the Wrapper mods..");
   loadWrapperMods(); // This will load new ones if they exist.
-  console.log("Done reloading Wrapper mods!");
+  mainConsole.log("Done reloading Wrapper mods!");
 }
 
 // TODO: Delete these, they have been obsoleted by the CustomEvent object
@@ -707,7 +705,7 @@ function unloadGlobalEventListeners(inputPath) { // change this after the global
       // eventListenersToRemoveOnReload[i] // This is an object with the event name and function
       for (let key in eventListenersToRemoveOnReload[i]) {
         if (eventListenersToRemoveOnReload[i].hasOwnProperty(key)) { // Only run on non-prototype keys
-          console.log("Removing listener: " + key);
+          mainConsole.log("Removing listener: " + key);
           global["event"].removeListener(key, eventListenersToRemoveOnReload[i][key]);
         }
       }
@@ -734,22 +732,22 @@ function unloadGlobalEventListeners(inputPath) { // change this after the global
 }
 
 function testStarMadeDirValue(theInstallDir) {
-  console.log("typeof installDir: " + typeof theInstallDir + " theInstallDir: " + theInstallDir);
+  mainConsole.log("typeof installDir: " + typeof theInstallDir + " theInstallDir: " + theInstallDir);
   var installDir=theInstallDir; // .trim();
   if (typeof installDir == "undefined" || installDir == "") {
     var defaultFolderName = "starmade";
     var returnPath = path.join(__dirname, defaultFolderName);
 
     // temp
-    console.log("installDir: " + installDir);
-    console.log("returnPath: " + returnPath);
+    mainConsole.log("installDir: " + installDir);
+    mainConsole.log("returnPath: " + returnPath);
     var counter = 1;
     while (global["settings"]["servers"].hasOwnProperty(returnPath)) { // Keep going till the install path does not exist in settings.  It is ok if the folder already exists. 
       counter++;
       returnPath = path.join(__dirname, defaultFolderName + counter);
     }
     if (counter > 1) {
-      console.log(`Existing install already existed, appended ${counter} to  the default name, '${defaultFolderName}'.`);
+      mainConsole.log(`Existing install already existed, appended ${counter} to  the default name, '${defaultFolderName}'.`);
     }
     return returnPath;
   }
@@ -757,24 +755,24 @@ function testStarMadeDirValue(theInstallDir) {
     let resolvedInstallDir = path.resolve(__dirname, installDir); // This will resolve from right to left, so if the install dir is a full path, it will not use the main starmade directory as the first part.  Otherwise, it will be relative to the folder starmade.js is in.
     if (fs.existsSync(resolvedInstallDir)) { // If the path exists, check to see if it is a file or named pipe.  IF so, we cannot use it.
       if (fs.statSync(resolvedInstallDir).isFile()) {
-        console.log("ERROR: '" + resolvedInstallDir + "' already exists as a filename.  Please choose a different directory path!");
+        mainConsole.log("ERROR: '" + resolvedInstallDir + "' already exists as a filename.  Please choose a different directory path!");
         return false;
       } else if (fs.statSync(resolvedInstallDir).isFIFO()) {
-        console.log("ERROR: '" + resolvedInstallDir + "' already exists as a named pipe.  Please choose a different directory path!");
+        mainConsole.log("ERROR: '" + resolvedInstallDir + "' already exists as a named pipe.  Please choose a different directory path!");
         return false;
       } // If the path is already a directory, that is ok.
     }
     // The path specified was valid, so let's return it.  The next part of the scripting will then create it if it does not exist, making SURE this is the path intended.
     if (global["settings"]["servers"].hasOwnProperty(resolvedInstallDir)) {
-      console.log("ERROR: There is already an install in that directory!  Please choose a different install path!");
+      mainConsole.log("ERROR: There is already an install in that directory!  Please choose a different install path!");
       return false;
     }
     return resolvedInstallDir;
   }
   // The path was invalid, so throw crap at the person.
-  console.log("ERROR: The path you specified is not valid!");
-  console.log("Please enter the folder name OR full path to where you want your Server install to be.");
-  console.log("Note:  If you simply press enter, we'll create a folder called 'starmade' within the same folder that starmade.js is in. (Recommended!)");
+  mainConsole.log("ERROR: The path you specified is not valid!");
+  mainConsole.log("Please enter the folder name OR full path to where you want your Server install to be.");
+  mainConsole.log("Note:  If you simply press enter, we'll create a folder called 'starmade' within the same folder that starmade.js is in. (Recommended!)");
   return false;
 }
 
@@ -815,26 +813,26 @@ function testStarMadeDirValue(theInstallDir) {
 // ###    COMMAND LINE WRAPPER START   ###
 // #######################################
 // This will process user input at the console and either direct it to the server process or parse it as a command.
-process.stdin.on('data', function (text) {
+process.stdin.on('data', function (text) { // This runs for any console
   let theText = text.toString().trim();
   var theInstallObj;
   var serverObj;
   var theConsole;
   var consoleCommands;
-  if (global["installObjects"].hasOwnProperty(global["currentConsole"])){ // See if the currently selected console has an install object entry
-    theInstallObj=global["installObjects"][global["currentConsole"]];
-    // console.log("Checking if there is a server Obj.."); // temp
+  if (global["installObjects"].hasOwnProperty(global["consoleSelected"])){ // See if the currently selected console has an install object entry
+    theInstallObj=global["installObjects"][global["consoleSelected"]];
+    // mainConsole.log("Checking if there is a server Obj.."); // temp
     if (theInstallObj.hasOwnProperty("serverObj")){ // If it does, then is there a serverObj on it to send the data?
-      // console.log("There was!"); // temp
+      // mainConsole.log("There was!"); // temp
       serverObj=theInstallObj.serverObj;
     }
-    // console.log("Checking if there was a console object.."); // temp
+    // mainConsole.log("Checking if there was a console object.."); // temp
     if (theInstallObj.hasOwnProperty("console")){ // If it does, then is there a serverObj on it to send the data?
-      // console.log("There was!");
+      // mainConsole.log("There was!");
       theConsole=theInstallObj.console;
-      // console.log("Checking if there are commands.."); // temp
+      // mainConsole.log("Checking if there are commands.."); // temp
       if (theConsole.hasOwnProperty("commands")){ 
-        // console.log("There were!"); // temp
+        // mainConsole.log("There were!"); // temp
         consoleCommands=theConsole.commands; // This should be an object, whose elements are the names of the command.  Each element is an array with [category,function]
       }
     }
@@ -934,12 +932,12 @@ process.stdin.on('data', function (text) {
         console.log("Consoles available:");
         for (let i = 0;i < consoleKeys.length;i++) {
           console.log("  " + i + ": " + consoleKeys[i]);
-          if (global["currentConsole"] == consoleKeys[i]){
+          if (global["consoleSelected"] == consoleKeys[i]){
             currentConsoleNumber=i;
           }
         }
         console.log("");
-        console.log(`Current Console: [${currentConsoleNumber}] ${global["currentConsole"]}`)
+        console.log(`Current Console: [${currentConsoleNumber}] ${global["consoleSelected"]}`)
         
         console.log("");
         console.log("To switch to another console, type: !console [#]");
@@ -966,7 +964,8 @@ process.stdin.on('data', function (text) {
           } else {
             // console.clear(); // Some say this doesn't work in windows.  There is a global.cls option which I may need to switch to.
             console.log("Switched to console number " + theConsoleNum + ", '" + theChoice + "'.");
-            global["currentConsole"] = theChoice;
+            // global["consoleSelected"] = theChoice;
+            global["consoles"][theChoice]["console"].switchTo();
           }
         }
       } else {
@@ -1334,84 +1333,13 @@ globalEventUnmodified.once('ready', goReady);
 // ###  FUNCTIONS  #### -- The standard practice for functions is first write in place, then make a multi-purpose function that handles what you need and can be used elsewhere, then bundle it in a require and change over functionality.  This is to keep the main script at a maintainable length and also have high re-usability value for code created.
 // ####################
 
-// function getNextServerID(){
-//   var returnID=1;
-//   for (let i=0;installTrackerFile.length>0;i++){
-//     if (installTrackerFile[i].hasOwnProperty("id")){
-//       if (typeof installTrackerFile[i].id == "number"){
-//         if (installTrackerFile[i].id>returnID){
-//           returnID=installTrackerFile[i].id + 1;
-//         }
-//       }
-//     }
-//   }
-//   return returnID; // Returns 1 if no other servers were previously registered
-// }
-
-// function regInstall(serverObj){
-//   var trackerObj={
-//     "ID":serverObj.settingsFile["ID"],
-//     "autoRun":serverObj.settingsFile["autoStart"],
-//     "pathToInstall":serverObj.settingsFile["installFolder"],
-//     "server":serverObj
-//   };
-//   var placed=false;
-//   for (let i=0;i<installTrackerFile.length;i++){
-//     if (installTrackerFile[i].hasOwnProperty("ID")){
-//       if (installTrackerFile[i]["ID"] == serverObj.settingsFile["ID"]){
-//         installTrackerFile[i]=trackerObj;
-//         placed=true;
-//       }
-//     }
-//   }
-//   if (placed == false){
-//     installTrackerFile.push(trackerObj);
-//   }
-//   writeInstallTrackerFile("",function(err){
-//     if (err){
-//       throw err;
-//     }
-//     console.log("Tracker file updated with new server ID: " + serverObj.settingsFile["ID"]);
-//   });
-// }
-
-// function getInstallTrackerFile(options,cb){
-//   if (typeof cb == "function"){
-//     if (existsAndIsFile(installTrackerFilePath)){
-//       return fs.readFile(installTrackerFilePath,'utf8',function(err,result){
-//         if (err){
-//           return cb(err,null);
-//         }
-//         let resultParsed=JSON.parse(result.toString());
-//         installTrackerFile=resultParsed;
-//         return cb(null,resultParsed);
-//       });
-//     }
-//     return cb(null,null);
-//   }
-//   return simplePromisifyIt(getInstallTrackerFile,options);
-// }
-
-// function writeInstallTrackerFile(options,cb){
-//   // This relies on the
-//   if (typeof cb == "function"){
-//     var contentsToWrite=JSON.stringify(installTrackerFile, null, 4);
-//     return fs.writeFile(installTrackerFilePath,contentsToWrite,function(err){
-//       if (err){
-//         return cb(err,false);
-//       }
-//       return cb(null,true);
-//     });
-//   }
-//   return simplePromisifyIt(writeInstallTrackerFile,options);
-// }
-
 function regServerObj(installPath, serverObj) {
   if (typeof installPath == "string") {
-    if (global["installObjects"].hasOwnProperty(installPath)) {
+    if (global["installObjects"].hasOwnProperty(installPath)) { // The installObjects object should have already been created at this point.
       if (typeof serverObj == "object") {
         global["installObjects"][installPath].serverObj = serverObj;
         global["installObjects"][installPath].event.emit("start",serverObj);
+        mainConsole.log("Registered server object for install: " + installPath);
       } else {
         throw new Error("Invalid input given for 'serverObj' parameter invalid!  Requires a server object!  Usage: regInstall(installPath,serverObj)");
       }
@@ -1467,10 +1395,10 @@ function writeSettings() {
     // settingsFileStream.write(JSON.stringify(settings, null, 4));
     // settingsFileStream.end();
     writeJSONFileSync(global["settingsFilePath"], global["settings"]);
-    console.log("Updated '" + settingsFileName + "' file.");
+    mainConsole.log("Updated '" + settingsFileName + "' file.");
     log("Updated '" + settingsFileName + "' file.");
   } catch (err) {
-    console.error("ERROR: Could not write to the '" + settingsFileName + "' file!");
+    mainConsole.error("ERROR: Could not write to the '" + settingsFileName + "' file!");
     log("ERROR: Could not write to the '" + settingsFileName + "' file!");
     throw err;
   }
@@ -1485,7 +1413,7 @@ function getSettings(defaultSettings) { // This grabs the settings from the sett
       outputSettings = theSettings;
     }
   } else if (typeof defaultSettings == "object") {
-    console.log("No settings.json file existed, creating a new one!");
+    mainConsole.log("No settings.json file existed, creating a new one!");
     writeJSONFileSync(global["settingsFilePath"], defaultSettings); // settings.json file has not been created, so let's create it.  This assumes the defaults have already been set at the top of this script.
     return defaultSettings; // This assumes default settings had been set up by this script.
   } else {
@@ -1495,21 +1423,21 @@ function getSettings(defaultSettings) { // This grabs the settings from the sett
 }
 var operationMessages = []; // This is unused for now, but it can be used to see the operations that completed and their order if they were named.
 function asyncOperation(val) { // This controls when the start operation occurs.  All file reads, downloads, installs, etc, must be completed before this will trigger the "ready" event.
-  // console.log("operations ongoing: " + operations + " Command given: " + val);
+  // mainConsole.log("operations ongoing: " + operations + " Command given: " + val);
   var operationMessage = ".";
   if (arguments[1]) {
     operationMessage = ": " + arguments[1];
   }
   if (val == "start") { // Start is used when an asyncronous operation starts and end should be used when it's finished.
     operations++;
-    // console.log("Operation started" + operationMessage);
+    // mainConsole.log("Operation started" + operationMessage);
   } else if (val == "end") {
-    // console.log("Operation ended" + operationMessage);
+    // mainConsole.log("Operation ended" + operationMessage);
     operationMessages.push("Operation ended" + operationMessage);
     if (operations > 1) {
       operations--;
     } else {
-      console.log("Async operations finished.");
+      mainConsole.log("Async operations finished.");
       global["event"].emit("syncStart");
     }
   }
@@ -1527,7 +1455,7 @@ function preDownload(httpURL, fileToPlace) { // This function handles the pre-do
   // fs.accessSync(resolvedFileToPlace),fs.constants.F_OK); // Supposed to check if the file can be seen but it was not working for me for some reason.
   if (fs.existsSync(resolvedFileToPlace)) { // We can see that a file, directory, or symlink exists at the target path
     if (fs.statSync(resolvedFileToPlace).isFile()) {
-      // console.log("'" + baseFileToPlace + "' existed.  Good!"); // File already exists, nothing to do.
+      // mainConsole.log("'" + baseFileToPlace + "' existed.  Good!"); // File already exists, nothing to do.
       asyncOperation("end", "preDownload: " + fileToPlace);
       return true;
     } else if (fs.statSync(resolvedFileToPlace).isDirectory()) {
@@ -1536,18 +1464,18 @@ function preDownload(httpURL, fileToPlace) { // This function handles the pre-do
       throw new Error("ERROR: Cannot pre-download file: " + resolvedFileToPlace + "\nPath already exists with the name!  Please rectify this and then run this script again!");
     }
   } else { // If the file does not exist, let's download it.
-    console.log("Downloading '" + baseFileToPlace + "' from: " + httpURL);
+    mainConsole.log("Downloading '" + baseFileToPlace + "' from: " + httpURL);
     miscHelpers.ensureFolderExists(baseDirForFile); // ensure the directory the file needs to be placed in exists before trying to write to the file.
     var file = fs.createWriteStream(tempFileToPlace); // Open up a write stream to the temporary file.  We are using a temporary file to ensure the file will only exist at the target IF the download is a success and the file write finishes.
     try {
       var request = http.get(httpURL, function (response) {
-        // console.log("Status Code: " + response.statusCode);
+        // mainConsole.log("Status Code: " + response.statusCode);
         // When the file is downloaded with the "http.get" method, it returns an object from which you can get the HTTP status code.
         // 200 means it was successfully downloaded, anything else is a failure.  Such as 404.
         if (response.statusCode == 200) {
           response.pipe(file);
         } else {
-          console.error("Error downloading file, '" + baseFileToPlace + "'!  HTTP Code: " + response.statusCode);
+          mainConsole.error("Error downloading file, '" + baseFileToPlace + "'!  HTTP Code: " + response.statusCode);
           process.exitCode = 5;
           throw new Error("Response from HTTP server: " + response.statusMessage);
         };
@@ -1557,7 +1485,7 @@ function preDownload(httpURL, fileToPlace) { // This function handles the pre-do
         throw new Error(`problem with request: ${e.message}`);
       });
     } catch (err) { // If there was any trouble connecting to the server, then hopefully this will catch those errors and exit the wrapper.
-      console.log("ERROR:  Failed to download, '" + httpURL + "'!");
+      mainConsole.log("ERROR:  Failed to download, '" + httpURL + "'!");
       process.exitCode = 4;
       throw err;
     }
@@ -1567,7 +1495,7 @@ function preDownload(httpURL, fileToPlace) { // This function handles the pre-do
         if (err) {
           throw err;
         }
-        console.log("'" + baseFileToPlace + "' downloaded successfully! :D");
+        mainConsole.log("'" + baseFileToPlace + "' downloaded successfully! :D");
         asyncOperation("end", "preDownload: " + fileToPlace); // We're using a function to keep track of all ongoing operations and only triggering the start event when all are complete.  So let's complete this operation.
       });
     });
@@ -1600,12 +1528,12 @@ loadWrapperMods();
 
 // Check for dependencies, such as StarNet.jar and download/install if needed.
 // When all dependency downloads/installs are finished, start the server!
-console.log("Ensuring all dependencies are downloaded or installed..");
+mainConsole.log("Ensuring all dependencies are downloaded or installed..");
 // ### Async downloads/installs that have no dependencies ### -- This sub-section is for all installs/downloads that can be done asynchronously to occur as quickly as possible.
 global["event"].emit("asyncStart",asyncOperation); // Mods are given this function so they can "start" or "end" operations to signal the next phase to the wrapper start.
 
 function installDepsAsync(){
-  console.log("Starting asyncronous setup operations..");
+  mainConsole.log("Starting asyncronous setup operations..");
   asyncOperation("start"); // This prevents the first async function from starting the wrapper if it finishes before the next one starts.
   preDownload(starNetJarURL, starNetJar); // This function handles the asyncronous downloads and starts the sync event when finished.
   preDownload(starMadeInstallerURL, global["starMadeInstallerFilePath"]); // When setting the install path for StarMade, we should have handled the terms and conditions, so it should be ok to download it.
@@ -1616,7 +1544,7 @@ function installDepsAsync(){
 function installDepsSync() { // This is called DIRECTLY by the when syncStart is emitted.
   // ### Only syncronous installs here ### e.g. await installRoutine();
   // None right now
-  console.log("About to start server..");
+  mainConsole.log("About to start server..");
   // ### Unimportant Async downloads/installs ### -- These should not be required by the server to run, but they may have depended on the first async install or sync installs before they could be run.
   // None right now
   global["event"].emit('ready'); // Signal ready to load the server mods, which are then responsible for starting their own servers.
@@ -1630,7 +1558,7 @@ function goReady(){ // This is called when the "ready" event is emitted globally
   // Check to see if any server has been set up yet in settings, if not, get the install path before loading the mods.
   // The mods should handle setting up the rest of the settings, installing, and starting
   if (Object.keys(global["settings"].servers).length < 1) {
-    console.log("No server has been set up before!  Let's set one up!");
+    mainConsole.log("No server has been set up before!  Let's set one up!");
     setupNewServer();
   }
   global["installObjects"] = {}; // I'm using install objects instead of inititializing these on the serverObj because that created a chicken and the egg problem with initializing mods
@@ -1649,7 +1577,7 @@ function goReady(){ // This is called when the "ready" event is emitted globally
   var tempEvent={};
   var tempModRequires={}
   for (let i = 0;i < serverKeys.length;i++) {
-    console.log("Creating Install Object for: " + serverKeys[i]);
+    mainConsole.log("Creating Install Object for: " + serverKeys[i]);
     // tempConsole=new CustomConsole(serverKeys[i],{invincible: true}); // This needs to be fixed before I can use it.
     global["installObjects"][serverKeys[i]] = {
       "path": serverKeys[i],
@@ -1670,9 +1598,9 @@ function goReady(){ // This is called when the "ready" event is emitted globally
       // "globalEvent": getNewModifiedWrapperEvent(serverKeys[i]),
       
     };
-    console.log("Install object created!  Loading mods in now..");
+    mainConsole.log("Install object created!  Loading mods in now..");
     global["installObjects"][serverKeys[i]]["modRequires"]=requireServerMods(serverKeys[i]); //  This loads in the mods.  It will update global["installObjects"] for each server, adding a "modRequires" element with each file and the associated require.   This is used when reloading the mods to be able to delete the cache and then re-require each file.
-    console.log("Mods finished loading for server: " + serverKeys[i]);
+    mainConsole.log("Mods finished loading for server: " + serverKeys[i]);
   }
     
   // Now that all mods are loaded, let's emot init.  This indicates to mods that all other mods have been loaded, so if some mods need each other, now is the time to initialize
