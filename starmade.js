@@ -137,7 +137,8 @@ var {
   testIfInput,
   simplePromisifyIt,
   listObjectMethods,
-  getParamNames
+  getParamNames,
+  getOption
 } = objectHelper;
 var {CustomEvent,CustomConsole,CustomLog} = objectCreator;
 
@@ -222,6 +223,8 @@ var dummySettings = {
     }
   }
 }
+
+global["asyncOperation"]=asyncOperation; // Allows wrapper mods to do async setup.
 
 global["loadWrapperMods"]=loadWrapperMods;
 global["unloadWrapperMods"]=unloadWrapperMods;
@@ -566,11 +569,14 @@ function loadAllServerMods(inputPath) {
     throw new Error("Invalid input given to loadAllServerMods!  Expects a string path or nothing!");
   }
 }
-function unloadServerMods(theInputPath) { // This cycles through the list of modfiles and deletes their cache
+function unloadServerMods(theInputPath,options) { 
+  // This cycles through the list of modfiles and deletes their cache
   // if 'inputPath' is specified, it will ONLY unload mods for that specific install.  Note that this functionality should not be used till global event listeners are broken down somehow by mod.
+  // This should unload server mods, except the ones in the default directory by default.
+  var unloadDefaultDir=getOption(options,"unloadDefaultDir",false);
   var inputPath;
   if (typeof theInputPath == "string"){
-    inputPath=path.resolve(__dirname,theInputPath);
+    inputPath=path.resolve(__dirname,theInputPath); // If theInputPath is an incomplete path, use the starmade.js folder as the base path
   } else if (typeof inputPath != "undefined") {
     throw new Error("Invalid input given to function, 'unloadServerMods'! Expected nothing or a path string! Typeof inputPath: " + typeof inputPath);
   }
@@ -581,6 +587,8 @@ function unloadServerMods(theInputPath) { // This cycles through the list of mod
   var installFolders = Object.keys(global["installObjects"]);
   var loadedModsArray = [];
   var newKeys = [];
+  var defaultDir="";
+  var thisDir="";
   for (let i = 0;i < installFolders.length;i++) {
     if ((typeof inputPath == "string" && inputPath == installFolders[i]) || typeof inputPath == "undefined") {
       global["installObjects"][installFolders[i]].event.emit("unloadMods"); // This is for mods that need to do other cleanup when reloading
@@ -589,9 +597,16 @@ function unloadServerMods(theInputPath) { // This cycles through the list of mod
       global["installObjects"][installFolders[i]].globalEvent.removeAllListeners();
       loadedModsArray = Object.keys(installFolders[i]["modRequires"]);
       for (let e = 0;e < loadedModsArray.length;e++) {
-        mainConsole.log("Unloading JS file: " + loadedModsArray[e]);
-        Reflect.deleteProperty(global["installObjects"][installFolders[i]]["modRequires"], loadedModsArray[e]); // Delete the individual path entry for this require
-        Reflect.deleteProperty(require.cache, require.resolve(loadedModsArray[e])); // Remove the require entirely. Source: http://derpturkey.com/reload-module-with-node-js-require/ with some modification to use reflect.
+        // Check if it is a default mod or not.
+        defaultDir=path.join(installFolders[i],"default");
+        thisDir=path.dirname(loadedModsArray[e]);
+        if ((unloadDefaultDir == false && defaultDir != thisDir) || unloadDefaultDir == true){
+          mainConsole.log("Unloading JS file: " + loadedModsArray[e]);
+          Reflect.deleteProperty(global["installObjects"][installFolders[i]]["modRequires"], loadedModsArray[e]); // Delete the individual path entry for this require
+          Reflect.deleteProperty(require.cache, require.resolve(loadedModsArray[e])); // Remove the require entirely. Source: http://derpturkey.com/reload-module-with-node-js-require/ with some modification to use reflect.
+        } else {
+          mainConsole.log("Skipping default mod file: " + loadedModsArray[e]);
+        }
       }
       newKeys = Object.keys(global["installObjects"][installFolders[i]]["modRequires"]);
       if (newKeys.length == 0) {
