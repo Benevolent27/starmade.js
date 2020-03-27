@@ -1,0 +1,98 @@
+things to do:
+move regCommand to the server object
+rethink how mods can attach to a server object.  For example, can a wrapper mod detect when a new server is started?  Perhaps instead of directly adding itself to the global variable, the server SHOULD use a "global.regServer" function, which could then send off an event to the wrapper.
+DONE: Replacement for global.regConstructor is needed.  Consider having a "server.objects" section, and a "server.regConstructor" instead.
+Move over whatever /bin/ scripts are used for a server, not the main wrapper to be mods instead.
+
+move the ServerObj to the serverObjects.js file mod.
+Have starmade.js simply get the server settings set up if no server has been established, then write the settings, copy over the mods to the install folder.  Maybe it should then start a mods/default/starter.js file.  This would then create the objects, etc.
+get the recording function working properly on the ServerObj in objectCreator.js
+move the event replacer and mod reloader scripting to the ServerObj
+
+Come up with a coherent way for each server to output text to a console.. Perhaps: console=global.server[pathToInstall].console;  This would then only display the text when the user is on the console for the server.
+
+01-09-20:  Design a "commands" system that allows wrapper commands that work on all screens, and then commands that only work on certain consoles, such as an individual server console.
+
+
+
+New Design thoughts
+
+1.  Wrapper simply loads up:
+  A. Makes sure previous wrapper is not running
+  B. Established a global event object
+  B. Sets up helper stuff, assigning to global variables
+  C. Downloads things like StarNet.jar and the installer.
+  D. Sets up settings for a server if no server has been set up yet.  Places settings on the global variable @ global.settings.servers[pathToStarMade]
+  E. Creates the directory for the install dir, then asks if it should copy default mods to the folder, loads the mods into a global variable for each install directory under: global.mods[pathToStarMade]
+  E. Fires a "init" event.
+2. Mods are responsible for installing the server and running it upon "init"
+On "init" a "starter.js" mod in the default directory should be listening for this event.  It can utilize a global.getServerFolder(__folder) to get it's own install directory
+	A. Sets up any settings needed to run the server, storing them in global.settings[starmadeFolder], such as java settings, bot name, etc.
+	B. Create a new serverObj using the retrieved install directory.  It registers this object using global.regServer(starmadeFolder,serverObj) which places the server object at global.servers[starmadeFolder].
+	C. The serverObj will utilize the settings from global.settings.servers[starMadeFolder] to set itself up and sets up it's serverObj.event for server events.
+	D. the starter.js emits a "start" event to global.event, supplying 'starmadeFolder', so other mods can grab the serverObj and start listening on serverObj.event
+	E. The starter.js script will then check if the server is installed, install it through the serverObj if not.
+	F. starter.js then runs serverObj.start if the server is set to auto-start. The serverObj will update it's own status, etc.
+	
+Other scripts will listen for a "start" event on global.event and verify it equals their global.getServerFolder(__folder).  When this triggers, a serverObj should be available.  This is when they should initialize themselves.
+They do this by using global.getServer(__folder), which passes the serverObj to them, grabbing it from global.servers[starmadeFolder].  They can then set up their event listeners on serverObj.event
+
+
+
+
+
+
+Global variable:
+global.settings // has the wrapper settings, including all servers
+global.settings.servers[pathToStarMade] // Has the settings for an individual server
+global.servers[pathToStarMade] // has the serverObj
+global.getServerFolder(__Folder) // Uses the mod's folder to determine the install folder
+global.regServer(serverObj) // Stores the serverObj to global.servers[pathToStarMade]
+global.getServer(__folder) // Returns the serverObj from global.servers[pathToStarMade].  __folder should be the pathToStarMade/mods/whatever/, so all it does is removes /mods/whatever, then uses that path to retrieve the serverObj
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+AFTER FIXING STRUCTURE CHANGES, MAKING SERVEROBJ THE ROOT
+1. see why the connect event is firing off so many damn times
+2. Have authentication on by default in the server.cfg file after install
+3.  Fix the following death situations:
+A. player in a factioned ship kills me.  The factionObj is not being returned.  It might be necessary to get the factionObj of the base entity.. though this would not be accurate since this is currently bugged.. hmm
+B. astronaut kills another astronaut.  The responsibleEntityObj is a PlayerObj rather than the killerObj
+4. Test deaths:
+star
+blackhole
+asteroidWeapon
+asteroidTurretWeapon
+PlanetWeapon
+PlanetTurretWeapon
+Mines -- this needs to be added
+5. Post install, add more setup questions to handle:
+A. Turn authentication on by default:
+USE_STARMADE_AUTHENTICATION = true //allow star-made.org authentication
+REQUIRE_STARMADE_AUTHENTICATION = true //require star-made.org authentication (USE_STARMADE_AUTHENTICATION must be true)
+B. Set up other common settings changes, such as sector size.
+C. Set up the optimization settings, such as core count.
+
+
+
+
+major updates (12-19-19):
+1. Change the smart lock to separate the main process from servers.
+2. Change the tail and listeners to be server specific.
+3. Change the announceSpawnsToMainChat to be server specific
+4. Change the !settings command to be server specific, requiring a unique identifier.
+5. Make a !servers command to list each server by ID

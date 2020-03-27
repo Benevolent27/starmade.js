@@ -1,3 +1,5 @@
+// Updated to use installObj
+
 module.exports={ // top exporting to allow circular dependencies to work.
   SqlQueryObj, // DO NOT USE THE OBJECT DIRECTLY FROM THIS FILE, USE THE objectCreator.js script for that to avoid unsupported circular dependencies, since that script uses export injection to provide this object.
   mapifyColumnsAndAllData, // This takes an array with columns, and another array with all the data, spitting out an array of maps
@@ -5,73 +7,51 @@ module.exports={ // top exporting to allow circular dependencies to work.
   simpleSqlQuery
 };
 
-// TODO: Discontinue the SqlQuery object in favor of the sqlQuery function and merge this into the StarNetHelper.js file.
+// TODO: Discontinue the SqlQuery object in favor of the sqlQuery function and merge this into the starNet.js file.
 
 // TODO:  Add callback forms for all StarNet.jar queries
 const path=require('path');
-const binFolder=path.resolve(__dirname);
-const starNet=require(path.resolve(binFolder,"starNet.js"));
-const {starNetSync,starNetCb}=starNet;
-const objectHelper=require(path.resolve(binFolder,"objectHelper.js"));
-const starNetHelper=require(path.resolve(binFolder,"starNetHelper.js"));
+const starNet=require(path.join(__dirname,"starNet.js"));
+const {starNetSync,starNetCb,starNetVerified,verifyResponse}=starNet;
+
+const mainFolder=path.dirname(require.main.filename); // This should be where the starmade.js is, unless this script is ran by itself.
+const mainBinFolder=path.join(mainFolder,"bin");
+const objectHelper=require(path.join(mainBinFolder,"objectHelper.js"));
 
 // TODO: Set up the check where if there are no columns returned, the query must have been invalid
 // Set up aliases
-const {starNetVerified,verifyResponse}=starNetHelper;
-const {addNumToErrorObj,simplePromisifyIt}=objectHelper;
-// const verifyResponse=starNetHelper["verifyResponse"]; // This checks to make sure there was no error anywhere and that the command executed
-// const addNumToErrorObj=objectHelper["addNumToErrorObj"];
-
-// Set up prototype modifiers
+const {addNumToErrorObj,simplePromisifyIt,toStringIfPossible}=objectHelper;
+// var {getOption,testIfInput,}=objectHelper;
 
 
-// Command line arguments
-// This can either return the full sqlQuery object OR an individual part of it.
-// Note:  the ["whatever"] convention does not work here due to how arguments are processed.
-// Example:  node sqlQuery.js "SELECT * FROM PUBLIC.ENTITIES WHERE X=2;" mapArray
-// Example2:  node sqlQuery.js "SELECT * FROM PUBLIC.ENTITIES WHERE X=2;" columns
-// if (__filename == require.main.filename){ // Only run starnet with command line arguments if this script is running as itself
-//   var clArguments=process.argv.slice(2);
-//   if (clArguments){
-//     var theQuery=clArguments[0];
-//     console.log("Running with query: " + theQuery);
-//     var theResults=new SqlQueryObj(theQuery);
-//     if (clArguments[1]){
-//       console.log("Returning value of '" + clArguments[1] + "':");
-//       let tempStr="theResults." + clArguments[1];
-//       console.dir(eval(tempStr));
-//     } else {
-//       console.log("Results:");
-//       console.dir(theResults);
-//     }
-//   }
-// }
-
-// switching to using the sqlQuery function instead.
-if (__filename == require.main.filename){ // Only run starnet with command line arguments if this script is running as itself
-  var clArguments=process.argv.slice(2);
-  if (clArguments){
-    var theQuery=clArguments[0];
-    console.log("Running with query: " + theQuery);
-    sqlQuery(theQuery,"",function(err,result){
+if (__filename == require.main.filename){ // Only run the arguments IF this script is being run by itself and NOT as a require.
+  // This script must be provided with the ip, port, and superadmin password.
+  // TODO: Make it so this script can look up the super admin password for the current server.
+  try {
+    var theArgsArray=process.argv;
+    if (theArgsArray[0]=='node'){
+      theArgsArray.shift();
+    }
+    theArgsArray.shift();
+    var theIP=toStringIfPossible(theArgsArray[0].match(/^[^:]*/));
+    var thePort=toStringIfPossible(theArgsArray[0].match(/[^:]*$/));
+    var superAdminPassword=theArgsArray[1];
+    theArgsArray.shift();
+    theArgsArray.shift();
+    var theCommand=theArgsArray.join(" ");
+    simpleSqlQuery(theCommand,{"ip":theIP,"port":thePort,"superAdminPassword":superAdminPassword},function(err,result){
       if (err){
-        console.error("Error performing SQLQuery: ");
-        console.dir(err);
-        return false;
+        throw err;
       }
-      if (clArguments[1]){
-        console.log("Returning value of '" + clArguments[1] + "':");
-        let section=clArguments[1];
-        console.dir(result[section]);
-        return true;
-      } else {
-        console.log("Results:");
-        console.dir(result);
-        return true;
-      }
+      console.log(result); // Consider using console.table instead of console.log
     });
+  } catch (err){
+    console.log("ERROR:  Invalid input given!");
+    console.log(`Usage: ${__filename} ip:port "sqlquery goes here"`);
   }
 }
+var installObj = global.getInstallObj(__dirname);
+var thisConsole=installObj.console;
 
 function getSQLquery(query){ // This will preprocess a query so that it should work with starNet.js to run correctly.
   // This should correct for improper quote types.
@@ -192,7 +172,7 @@ function sqlQuery(sqlQuery,options,cb){ // Needs testing // Also the code here c
 function SqlQueryObj(sqlQuery){ // TODO:  Discontinue this object since it relies on Sync methods in preference to the sqlQuery function.
   this.query=sqlQuery;
   this.time=Date.now();
-  // console.log("Running sql query: " + sqlQuery);
+  // thisConsole.log("Running sql query: " + sqlQuery);
   this.mapArray=[]; // This is modified later in the script, but declared here in case there is an error.
   var resultsStr=starNetSync(getSQLquery(sqlQuery));
   if (verifyResponse(resultsStr) == false){
@@ -201,7 +181,7 @@ function SqlQueryObj(sqlQuery){ // TODO:  Discontinue this object since it relie
   } else {
     var tempArray=[]; // Let's clean up the results so it only contains the relevant SQL lines
     tempArray=resultsStr.split("\n");
-    // console.log("\nBefore Trimming: ");
+    // thisConsole.log("\nBefore Trimming: ");
     // console.dir(tempArray);
     // Trim the top
     while (tempArray.length > 0 && !(/^RETURN: \[SERVER, SQL#/).test(tempArray[0])){

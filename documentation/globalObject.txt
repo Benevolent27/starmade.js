@@ -13,7 +13,7 @@ miscHelpers
 requireBin
 settings
 starNet
-starNetHelper
+
 
 objectCreator
 installAndRequire // Installs a NPM module on the fly and then requires it.  This adds it to the package.json file.

@@ -74,8 +74,18 @@ function included(){ // Include Patterns
   // includePatterns.push("^\\[SPAWN\\]"); // This is for the serverlog.0.log, which shows when a player spawns in a ship -- this information is not found in the console output or elsewhere.
   // includePatterns.push("^\\[SEGMENTCONTROLLER\\] ENTITY");
   // includePatterns.push("^\\[SHUTDOWN\\]");  // When the server shuts down naturally
-
-
+  
+  // Added to dev build by Schema.  Added to this code 01-08-2020  Everything sent to the serverlog.0.log file now displays with a [SERVERLOG] in front of it to the console, so I should be able to safely move these over and stop tailing that log file.
+  // [SERVERLOG]
+  // [SERVERLOG] [DEATH] Benevolent27 committed suicide
+  // [SERVERLOG] [DEATH] Benevolent27 has been killed by 'Killer: Benevolent27[Faction=0, Owner=PlS[Benevolent27 ; id(2)(1)f(0)], UID={ENTITY_PLAYERSTATE_Benevolent27}] (0.0/120.0 HP left)'; controllable: PlS[Benevolent27 ; id(2)(1)f(0)]
+  includePatterns.push("^\\[SERVERLOG\\] \\[DEATH\\]");
+  includePatterns.push("^\\[SERVERLOG\\] \\[SPAWN\\]"); // Ship spawns
+  includePatterns.push("^\\[SERVERLOG\\] \\[SEGMENTCONTROLLER\\] ENTITY");
+  includePatterns.push("^\\[SERVERLOG\\] \\[FACTION\\]");
+  includePatterns.push("^\\[SERVERLOG\\] \\[FACTIONMANAGER\\]");
+  includePatterns.push("^\\[SERVERLOG\\] \\[SHUTDOWN\\]");  // When the server shuts down naturally
+  // END - Added to dev build by Schema.
 
   var includePatternRegexTemp="(" + includePatterns[0];
   for (var i=1;i<includePatterns.length;i++){ includePatternRegexTemp+="|" + includePatterns[i]; }

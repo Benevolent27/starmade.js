@@ -1,0 +1,1 @@
+Mods in this folder are loaded by starmade.js as soon as possible after the wrapper starts.  These should alter functionality of the wrapper itself, not any server.

@@ -8,15 +8,18 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   toBoolean, // This converts a value to Boolean, handling "false" string as false
   toNumIfPossible, // This converts a value to a number if possible, otherwise returns the value back.
   toStringIfPossible, // This converts a value to a string if possible, otherwise returns the value back.
+  toArrayIfPossible, // Only works on objects that have a .toArray() prototype, such as SectorObj, CoordsObj, and LocationObj
   getObjType, // This checks the object.constructor.name value for any object.  All constructor names should be capitalized.  Otherwise returns the typeof value, which should be lowercase.
   "type":getObjType, // This is just an alias.. not sure why I did this..
   colorize, // This adds ANSI values to colorize text
   addNumToErrorObj, // This adds an errno element to an error object equal to the number specified.
   copyArray, // This copies an array rather than linking a value to the same array.
   copyObj,
+  mergeObjs, // Usage: mergeObjs(obj1,obj2)  Obj1 is the object used as the basis, with any existing elements overwritten by elements from obj2.  A new object is returned.
   isAlphaNumeric,
   isArrayAllEqualTo, // Compares all values in an array to a single value.  This is used to process arrays of true/false values, where each value indicates a success or failure of an individual operation.
   isInArray, // Checks an array for a value.  Usage:  isInArray(inputArray,ValueToCompare)
+  addUniqueToArray, // Only adds to an array if the value isn't already in it.
   subArrayFromAnother, // Subtracts any values that exist in one array from another.
   findSameFromTwoArrays,  // Finds whatever values exist in both arrays
   getOption, // Processes options given to objects {"whatever":true}.  getOption(input,elementToLookFor,whatToUseIfNotFound)
@@ -40,17 +43,69 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   returnLineMatch,
   repeatString,
   getRandomAlphaNumericString,
-  arrayMinus,
+  arrayMinus, // Usage: arrayMinus(inputArray,valToRemove) -- Returns a new array of all values except the valToRemove
+  removeOneFromArray, // Usage: removeOneFromArray(inputArray,valToRemove) -- Returns a new array of all values, minus the first instance of valToRemove
   applyFunctionToArray,
   simplePromisifyIt,
   getParamNames,
-  listObjectMethods
+  listObjectMethods,
+  createDateObjIfPossible,
+  compareToObjectArrayToString
 };
 
 const util=require('util');
 const path=require('path');
 const binFolder=path.resolve(__dirname,"../bin/");
 
+function toArrayIfPossible(input){ // Only works on objects that have a .toArray() prototype, such as SectorObj, CoordsObj, and LocationObj
+  var output=[];
+  if (Array.isArray(input)){
+    return input;
+  } else if (typeof input == "object"){
+    try{
+      output=input.toArray();
+    } catch (err){
+      output=input;
+    }
+  }
+  return output;
+}
+
+function compareToObjectArrayToString(inputArray,whatToLookFor,options){ // InputArray should contain objects that have a .toString() prototype so the string value can be compared.
+  // Used when checking if a player or entity is in a list, such as for bans/whitelists.  Can be used to check an array of entities returned from a sector to see if a certain entity is there.
+  // Accepts input of an array, running .toString() on each result. // Sets both sides to lowercase, unless option is set to false
+  var doLowerCase=getOption(options,"toLowerCase",true);
+  var theCheck;
+  if (doLowerCase){
+    theCheck=whatToLookFor.toString().toLowerCase(); // Allows objects that can be turned into strings to be used as input
+    for (let i=0;i<inputArray.length;i++){ if (inputArray[i].toString().toLowerCase() == theCheck){ return true } };
+  } else {
+    theCheck=whatToLookFor.toString(); // Allows objects that can be turned into strings to be used as input
+    for (let i=0;i<inputArray.length;i++){ if (inputArray[i].toString() == theCheck){ return true } };
+  }
+  return false;
+}
+
+function createDateObjIfPossible(input){ // Takes either a date string that "new Date" can turn into an object, passes along a Date object fed to it, or returns false if no new Date could be created.
+  // This can be used to return a date object from some dates provided by StarMade directly, such as the ip dates returned by the /player_info command.
+  if (typeof input != "undefined" && input != "" && getObjType(input) != "Null"){ // if an input is nulled out using null, it actually appears as an "object" to typeof
+    if (getObjType(input) == "Date"){
+      return input; // If the input was already a Date object, just return it
+    } else {
+      try{
+        var dateTest=new Date(input);
+        if (dateTest.toString() == "Invalid Date"){ // If invalid input is given, return false
+          return false;
+        }
+        return dateTest;
+
+      } catch(err) {
+        return false;  // Returns false if creating the data object threw an error.
+      }
+    }
+  }
+  return false; // Returns false if no input given
+};
 
 function listObjectMethods(obj) { // This lists the methods/data available on an object.
   // console.log("Type of input: " + typeof obj);
@@ -98,9 +153,9 @@ function getParamNames(func) {
 
 function simplePromisifyIt(cbFunctionToCall,options){
   // This is used to turn callback functions into promises, provided that they follow the convention used by objectCreator.js
-  // That convention is functionName(arguments1,arguments2,arguments3,options,cb);
+  // The callback function provided should be structured as follows: functionName(arguments1,arguments2,arguments3,options,cb);
   // The cb function does not need to require any arguments:  functionName(options,cb); is fine.
-  // The function should ALWAYS have an 'options' and a 'cb' parameter required.
+  // However, simplePromisifyIt MUST always be given an 'options' and a 'cb' parameter.
   // Example of usage: simplePromisifyIt(myCBFunction,options,firstArgument,secondArgument,thirdArgument)
 
   // The function given should run the CB function in node.js style:  cb(err,result);
@@ -176,13 +231,13 @@ function applyFunctionToArray(arrayInput,functionToRun){
   return outputArray;
 }
 
-function arrayMinus(theArray,val){ // Returns an array MINUS any values that match val
-  if (val && theArray){
+function arrayMinus(theArray,val){ // Returns an array MINUS any values that match val.  Does not handle complicated comparisons.
+  if (Array.isArray(theArray)){
     return theArray.filter(function(e){
       return e !== val;
     });
   }
-  throw new Error("Insufficient parameters given to arrayMinus function!");
+  throw new Error("Please provide an array to the arrayMinus function!");
 }
 
 function getRandomAlphaNumericString(charLength){ // If no charlength given or it is invalid, it will output 10 and throw an error message. // Original code from: https://stackoverflow.com/questions/1349404/generate-random-string-characters-in-javascript
@@ -223,13 +278,27 @@ function repeatString(inputStr,repeatCount){ // This repeats a string a number o
 }
 
 function copyObj(obj) { // This will create a new object from an existing one, rather than linking to the original.  From:  https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/forEach
-  const copy = Object.create(Object.getPrototypeOf(obj)); // Ignore the ESLint warnings, it really doesn't know what it's talking about.  I looked into it, it's suggesting to use functions of Reflect that don't exist.
+  const copy = Object.create(Reflect.getPrototypeOf(obj)); // Ignore the ESLint warnings, it really doesn't know what it's talking about.  I looked into it, it's suggesting to use functions of Reflect that don't exist.
   const propNames = Object.getOwnPropertyNames(obj);
   propNames.forEach(function(name) {
-    const desc = Object.getOwnPropertyDescriptor(obj, name);
-    Object.defineProperty(copy, name, desc);
+    const desc = Reflect.getOwnPropertyDescriptor(obj, name);
+    Reflect.defineProperty(copy, name, desc);
   });
   return copy;
+}
+
+function mergeObjs(obj1,obj2) { // This will create a new object by merging 2 objects
+  return Object.assign({},obj1,obj2); // This should work fine, provided this never runs in IE for some reason.
+  
+  // Below is unnecessary, unless for some reason the code needs to run in IE..
+  // the base object used is obj1.  Any values in obj2 will overwrite existing ones in obj1.
+  // var outputObj=copyObj(obj1);
+  // const propNames = Object.getOwnPropertyNames(obj2);
+  // propNames.forEach(function(name) {
+  //   const desc = Reflect.getOwnPropertyDescriptor(obj2, name);
+  //   Reflect.defineProperty(outputObj, name, desc);
+  // });
+  // return outputObj;
 }
 
 function mapToJson(map) {
@@ -339,6 +408,18 @@ function objHasPropAndEquals(obj,property,valueCheck){
   }
   return false;
 }
+function removeOneFromArray(theArray,valToRemove){ // Only removes the first found instance of a value from an array
+  if (Array.isArray(theArray)){
+    var outputArray=copyArray(theArray);
+    var indexNum=outputArray.indexOf(valToRemove);
+    if (indexNum >= 0){
+      outputArray.splice(indexNum,1);
+    }
+    return outputArray;
+  }
+  throw new Error("Invalid input given! Please provide an array!");
+}
+
 
 function subArrayFromAnother(arrayToSubtract,arrayToSubtractFrom){
   var outputArray=copyArray(arrayToSubtractFrom);
@@ -361,8 +442,18 @@ function findSameFromTwoArrays(arrayOne,arrayTwo){ // This compares two arrays, 
   return outputArray;
 }
 
+function addUniqueToArray(theArray,val){ // Adds a value to an array only if it isn't already in it
+  if (Array.isArray(theArray)){
+    if (!isInArray(theArray,val)){
+      theArray.push(val);
+    }
+    return theArray;
+  }
+  throw new Error("Input given was not an array!  Please provide an array!");
+}
+
 function isInArray(inputArray,valueToCompare){ // Returns true if the value is found in any part of an array
-  if (getObjType(inputArray) == "Array"){
+  if (Array.isArray(inputArray)){
     for (let i=0;i<inputArray.length;i++){
       if (inputArray[i] == valueToCompare){
         return true;
@@ -493,7 +584,7 @@ function isTrueOrFalse(input){ // Returns true if the input value is either true
 function returnLineMatch(input,matchRegExp,replaceRegExp){ // This will parse through multiple lines and only return the first line that matches a regex pattern
   // input can be an Array OR a blob of text that needs to be separated by new lines
   // matchRegExp is mandatory.  This is the matching line that will be returned.
-  // replaceRegExp is optional.  It will replace the value found with nothing.  If more arguments are specified, they are treated as additional replaceRegExp arguments and applied sequentially
+  // replaceRegExp is optional.  It will replace the matching value found with nothing (subtracting from the found line).  If more arguments are specified, they are treated as additional replaceRegExp arguments and applied sequentially
 
   var matchRegExpToUse=new RegExp(matchRegExp); // if matchRegExp is not a regExp, then create a new one.
   var replaceRegExpToUse;
