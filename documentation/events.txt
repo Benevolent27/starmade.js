@@ -27,7 +27,7 @@ playerSectorChange
 
 
 
-
+BELOW IS OUTDATED AS OF 2020, SCHEMA CHANGED THE WAY DEATH MESSAGES APPEAR
 Console lines:
 
 playerDeath
