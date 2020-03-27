@@ -11,7 +11,7 @@ event.on("start",function(theServerObj){
   serverObj=theServerObj;
 });
 event.on('commandStart',function(regCommand){
-    regCommand("reloadMods","HiddenHelpers",true,false);
+    regCommand("reloadMods","HiddenHelpers",true,false); // Admin only command
     regCommand("listeners","HiddenHelpers",true,false);
     event.on('command', function (player,command,args,messageObj) { // Normally we would not use the messageObj, but it's here if for some reason we want the command to operate differently depending on channel sent to
         if (command == "reloadmods"){
@@ -22,17 +22,17 @@ event.on('commandStart',function(regCommand){
             player.botMsg("Done!",{fast:true}); // This is syncronous
         } else if (command == "listeners"){ // TODO: Change this so it looks at all event listeners and then lists each.
             thisConsole.log("command:");
-            console.dir(event.listeners('command'));
+            thisConsole.dir(event.listeners('command'));
             thisConsole.log("playerSpawn:");
-            console.dir(event.listeners('playerSpawn'));
+            thisConsole.dir(event.listeners('playerSpawn'));
             thisConsole.log("shipSpawn:");
-            console.dir(event.listeners('shipSpawn'));
+            thisConsole.dir(event.listeners('shipSpawn'));
             thisConsole.log("baseSpawn:");
-            console.dir(event.listeners('baseSpawn'));
+            thisConsole.dir(event.listeners('baseSpawn'));
             thisConsole.log("blueprintSpawn:");
-            console.dir(event.listeners('blueprintSpawn'));
+            thisConsole.dir(event.listeners('blueprintSpawn'));
             thisConsole.log("reloadMods:");
-            console.dir(event.listeners('reloadMods'));
+            thisConsole.dir(event.listeners('reloadMods'));
         }
     });
 });
