@@ -557,6 +557,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
       self.spawn = spawn("java", self.spawnArgs, {"cwd": self.starMadeInstallFolder}); // Spawn the server
       self.spawnStatus = "started";
       self.spawnStatusWanted= "started"; // This tells us if the server crashes or something, we know it should be restarted.
+      self.event.emit("serverStart",self); // Provides the serverObj
       // global["servers"][self.installFolder]=self.spawn; // Old method, plus no need to add the spawn, since this adds it to the ServerObj
       self.addLockPID(self.spawn.pid);
 
@@ -587,10 +588,10 @@ function ServerObj(options) { // If given it will load existing settings or crea
       //   self.spawnStatus="closed";
       //   self.spawnStatusCode=code;
       // });
-      self.spawn.on('disconnect', function (data) {
+      self.spawn.on('disconnect', function () {
         thisConsole.log("###### SPAWN STATUS SET TO:  disconnect");
         self.spawnStatus = "disconnected";
-        self.event.emit("disconnect",data);
+        self.event.emit("serverDisconnect",self.spawn);
         if (self.hasOwnProperty("spawnStatusCode")) {
           Reflect.deleteProperty(self, "spawnStatusCode");
         }
@@ -598,7 +599,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
       self.spawn.on('error', function (data) { // This happens when a process could not be spawned, killed, or sending a message to the child process failed.
         // Note:  This does not mean the spawn has exited, but it is possible that it did.  We will rely on the 'exit' event to remove the PID from the lock
         thisConsole.log("###### SPAWN STATUS SET TO:  error");
-        self.spawnStatus = "errored";
+        self.spawnStatus = "serverError";
         self.event.emit("error",data);
         if (self.hasOwnProperty("spawnStatusCode")) {
           Reflect.deleteProperty(self, "spawnStatusCode");
@@ -607,7 +608,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
       self.spawn.on('exit', function (code) { // I'm guessing if a non-zero code is given, it means the server errored out.
         thisConsole.log("###### SPAWN STATUS SET TO:  exited");
         self.spawnStatus = "stopped";
-        self.event.emit("exit",code);
+        self.event.emit("serverStop",code);
         self.removeLockPID(self.spawn.pid);
         thisConsole.log("Removed PID, '" + self.spawn.pid + "' from lockPIDs.");
         if (typeof toStringIfPossible(code) == "string") {
@@ -720,52 +721,99 @@ function ServerObj(options) { // If given it will load existing settings or crea
   }
   this.stop = function (duration, message, options, cb) {
     if (typeof cb == "function") {
-      thisConsole.log(`Stop function ran with duration: ${duration}  and message: ${message}`);
-      self.spawnStatus = "stopping";
-      var theDuration = 10;
-      if (isNum(duration)) {
-        theDuration = toNumIfPossible(duration);
-      }
-      if (typeof toStringIfPossible(message) == "string") {
-        if (message.length > 0) {
-          var theMessage = '"' + toStringIfPossible(message).trim().replace('"', "").replace("'", "") + '"';
+      if (self.spawnStatus=="started"){
+        thisConsole.log(`Stop function ran with duration: ${duration}  and message: ${message}`);
+        self.event.emit("serverStopping");
+        self.spawnStatus = "stopping";
+        self.spawnStatusWanted="stopped";
+        var theDuration = 10;
+        if (isNum(duration)) {
+          theDuration = toNumIfPossible(duration);
         }
-      }
-      if (theDuration > 1) {
-        if (typeof theMessage == "string") {
-          return runSimpleCommand("/start_countdown " + theDuration + " " + theMessage, options, async function (err, result) {
-            if (err) {
-              thisConsole.log("Shutdown command failed with an error when attempting to start a countdown!");
-              return cb(err, null);
-            }
-            if (result) {
-              await sleepPromise(theDuration * 1000);
-              return runSimpleCommand("/shutdown 1", options, cb);
-            } else {
-              thisConsole.error("Shutdown command failed due to connection error!");
-              return cb(new Error("Shutdown command failed due to connection error!"), null);
-            }
-          });
+        if (typeof toStringIfPossible(message) == "string") {
+          if (message.length > 0) {
+            var theMessage = '"' + toStringIfPossible(message).trim().replace('"', "").replace("'", "") + '"';
+          }
+        }
+        if (theDuration > 1) {
+          if (typeof theMessage == "string") {
+            return runSimpleCommand("/start_countdown " + theDuration + " " + theMessage, options, async function (err, result) {
+              if (err) {
+                thisConsole.error("Shutdown command failed with an error when attempting to start a countdown!");
+                self.spawnStatus = "started";
+                return cb(err, null);
+              }
+              if (result) {
+                await sleepPromise(theDuration * 1000);
+                return runSimpleCommand("/shutdown 1", options, function(err,result){
+                  if (err){
+                    thisConsole.log("Shutdown command failed with an error when attempting to start the one second shutdown!");
+                    self.spawnStatus = "started";
+                    return cb(err, null);
+                  }
+                  if (result){ // Should be true if the command succeeded.  The spawn.on("exit") will change the spawnStatus to stopped
+                    return cb(null,result);
+                  } else {
+                    thisConsole.error("Shutdown command failed due to connection error!");
+                    self.spawnStatus = "started";
+                    return cb(new Error("Shutdown command failed due to connection error!"),null);
+                  }
+                });
+              } else {
+                thisConsole.error("Shutdown command failed due to connection error!");
+                self.spawnStatus = "started";
+                return cb(new Error("Shutdown command failed due to connection error!"), null);
+              }
+            });
+          } else {
+            thisConsole.log("No message given, so using default shutdown message..");
+            return runSimpleCommand("/start_countdown " + theDuration + '" Server shutting down in.."', options, async function (err, result) {
+              if (err) {
+                thisConsole.log("Shutdown command failed with an error when attempting to start a countdown!");
+                self.spawnStatus = "started";
+                return cb(err, null);
+              }
+              if (result) {
+                await sleepPromise(theDuration * 1000);
+                return runSimpleCommand("/shutdown 1", options, function(err,result){
+                  if (err){
+                    thisConsole.log("Shutdown command failed with an error when attempting to start the one second shutdown!");
+                    self.spawnStatus = "started";
+                    return cb(err, null);
+                  }
+                  if (result){ // Should be true if the command succeeded.  The spawn.on("exit") will change the spawnStatus to stopped
+                    return cb(null,result);
+                  } else {
+                    thisConsole.error("Shutdown command failed due to connection error!");
+                    self.spawnStatus = "started";
+                    return cb(new Error("Shutdown command failed due to connection error!"),null);
+                  }
+                });
+                // When the server is stopped, it will change the spawnStatus
+              } else {
+                thisConsole.error("Shutdown command failed due to connection error!");
+                self.spawnStatus = "started";
+                return cb(new Error("Shutdown command failed due to connection error!"), null);
+              }
+            });
+          }
         } else {
-          thisConsole.log("No message given, so using default shutdown message..");
-          return runSimpleCommand("/start_countdown " + theDuration + '" Server shutting down in.."', options, async function (err, result) {
-            if (err) {
-              thisConsole.log("Shutdown command failed with an error when attempting to start a countdown!");
-              return cb(err, null);
-            }
-            if (result) {
-              await sleepPromise(theDuration * 1000);
-              return runSimpleCommand("/shutdown 1", options, cb);
-            } else {
-              thisConsole.error("Shutdown command failed due to connection error!");
-              return cb(new Error("Shutdown command failed due to connection error!"), null);
-            }
-          });
+          thisConsole.log("Using failsafe shutdown option..");
+          return runSimpleCommand("/shutdown 1", options, cb);
         }
-      } else {
-        thisConsole.log("Using failsafe shutdown option..");
-        return runSimpleCommand("/shutdown 1", options, cb);
+      } else if (self.spawnStatusWanted=="stopping"){
+        thisConsole.log("Server Stop attempted, but server is already stopping!  Please allow stop attempt to complete!");
+        return cb(null,false);
+      } else if (self.spawnStatusWanted=="stopped"){
+        thisConsole.log("Server Stop attempted, but the server is already stopped!");
+        return cb(null,false);
+      } else if (self.spawnStatusWanted=="errored"){
+        thisConsole.log("Server Stop attempted while server in error state!");
+        // This should determine if the server has, in fact been shut down or not.
+
+        return cb(null,false);
       }
+      return cb(null,null);
     } else {
       return simplePromisifyIt(self.stop, options, duration, message);
     }
