@@ -20,7 +20,7 @@ event.on("init", function () { // Only start the server when the init is given, 
 // Simple restarter for unexpected shutdowns
 event.on("serverStop",function(){ // This will catch errors as well
   if (serverObj.spawnStatusWanted == "started"){ // Only do something if the server SHOULD BE started
-    if (serverObj.autoRestart == true){ // Only restart it if set to autoRestart
+    if (serverObj.settings.autoRestart == true){ // Only restart it if set to autoRestart
       if (serverObj.spawnStatus == "errored"){
         thisConsole.log("Server shut down with an error!  Restarting it!");
         global.log(`Server (${installPath}) shut down with an error!  Restarting it!`);
