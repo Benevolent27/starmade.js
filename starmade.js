@@ -1367,7 +1367,7 @@ function regServerObj(installPath, serverObj) {
     throw new Error("Invalid input given for 'installPath' parameter! Should be a string!  Usage: regInstall(installPathString,serverObj)");
   }
 }
-function getServerPath(pathToMod) { // mods will be in /installPath/mods/nameOfMod/, so all this does is remove /mods/nameOfMod/ from the path
+function getServerPathOld(pathToMod) { // mods will be in /installPath/mods/nameOfMod/, so all this does is remove /mods/nameOfMod/ from the path
   if (typeof pathToMod == "string") {
     var pathArray = pathToMod.split(path.sep);
     pathArray.pop();
@@ -1376,14 +1376,44 @@ function getServerPath(pathToMod) { // mods will be in /installPath/mods/nameOfM
   }
   throw new Error("Invalid input given for pathToMod argument.  Usage: getServerPath(__dirname)");
 }
+
+function getServerPath(pathToMod) { // mods will be in /installPath/mods/nameOfMod/, so all this does is remove /mods/nameOfMod/ from the path
+  // This will recurivesly move down, trying on each path down till there is no path left.
+  // Example (where c:\starmade.js\starmade is the install folder):
+  // Where the script name is:  c:\starmade.js\starmade\mods\myMod\bin\someScript.js
+  // First it sees if this is a server mod: c:\starmade.js\starmade\mods\
+  // It is not, so then it will try:  c:\starmade.js\starmade\
+  // This IS the registered install folder, so that is what it will return.
+  if (typeof pathToMod == "string") {
+    var pathArray = pathToMod.split(path.sep);
+    if (pathArray.length > 3){ // All paths MUST BE at least 2 deep past the install folder. Example: /mods/MyMod
+      pathArray.pop();
+      pathArray.pop();
+    } else {
+      throw new Error("Invalid folder length given to getServerPath function!");
+    }
+    var pathArrayLength=pathArray.length; // This should be 1 or higher
+    var tempPath="";
+    for (let i=0;i<pathArrayLength;i++){ // Try up to the amount of folder paths listed.  For example C:\starmade\mods\myMod will have a 4 length.
+      tempPath=pathArray.join(path.sep);
+      if (global["installObjects"].hasOwnProperty(tempPath)) {
+        return tempPath; // An install object exists for this path, so return this path.
+      }
+      pathArray.pop(); // If none of the paths were an install object, then the array will be empty after all cycles.
+    }
+    return null; // No install path found based on input
+  }
+  throw new Error("Invalid input given for pathToMod argument.  Usage: getServerPath(__dirname)");
+}
+
 function getInstallObj(pathToMod) {
   // This is used for a mod to grab the installObj of the server it is a part of.
   // Usage:  global.getInstallObj(__dirname);
   // Returns an object that contains event, path, modRequires, and serverObj (if it has been initialized).
   // If the install has not been registered to the global variable, it will return null
   if (typeof pathToMod == "string") {
-    var serverPath = getServerPath(pathToMod);
-    if (global["installObjects"].hasOwnProperty(serverPath)) {
+    var serverPath=getServerPath(pathToMod);
+    if (serverPath !== null){
       return global["installObjects"][serverPath];
     }
     return null;
