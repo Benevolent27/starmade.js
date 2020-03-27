@@ -3,17 +3,82 @@ var installObj=global.getInstallObj(__dirname);
 var {event,settings,log}=installObj; // TODO: Add console back once it's working.
 const thisConsole=installObj.console;
 var {toNumIfPossible,toStringIfPossible}=global.objectHelper;
+var {i} = global.miscHelpers;
 var thisServerObj={};
+
+
+
 event.on('start',function(theServerObj){
   thisServerObj=theServerObj;
   // #####  SERVER CONTROL  #####
   thisConsole.regCommand("Start",start,"Server Controls");
   thisConsole.regCommand("Stop",stop,"Server Controls");
   thisConsole.regCommand("Install",install,"Server Controls");
-  thisConsole.regCommand("Status",currentStatus,"Server Controls");
-// #####  SERVER INFO  #####
+  thisConsole.regCommand("AutoRestart",autoRestart,"Server Controls");
+  // #####  SERVER INFO  #####
+  thisConsole.regCommand("Status",currentStatus,"Server Info");
   thisConsole.regCommand("Players",onlinePlayers,"Server Info");
+  // #####  SERVER TEXT TO DISPLAY  #####
+  thisConsole.regCommand("ShowAllEvents",showAllEvents,"Server Text Display");
+  thisConsole.regCommand("Stdout",stdout,"Server Text Display");
+  thisConsole.regCommand("Stderr",stderr,"Server Text Display");
+  thisConsole.regCommand("StderrFilter",stderrFilter,"Server Text Display");
+
+  
 });
+
+function showAllEvents(theArguments){
+  if (i(theArguments[0],"on")){
+    thisConsole.log("Setting showAllEvents to true!");
+    thisServerObj.settings["showAllEvents"]=true;
+  } else if (i(theArguments[0],"off")){
+    thisConsole.log("Setting showAllEvents to false!");
+    thisServerObj.settings["showAllEvents"]=false;
+  } else {
+    thisConsole.log("Invalid parameter.  Usage:  !ShowAllEvents on/off")
+  }
+}
+function autoRestart(theArguments){
+  if (i(theArguments[0],"on")){
+    thisConsole.log("Setting autoRestart to true!");
+    thisServerObj.settings["autoRestart"]=true;
+  } else if (i(theArguments[0],"off")){
+    thisConsole.log("Setting autoRestart to false!");
+    thisServerObj.settings["autoRestart"]=false;
+  } else {
+    thisConsole.log("Invalid parameter.  Usage:  !AutoRestart on/off")
+  }
+}
+function stdout(theArguments){
+  if (i(theArguments[0],"on")){
+    thisConsole.log("Setting showStdout to true!");
+    thisServerObj.settings["showStdout"]=true;
+  } else if (i(theArguments[0],"off")){
+    thisConsole.log("Setting showStdout to false!");
+    thisServerObj.settings["showStdout"]=false;
+  } else {
+    thisConsole.log("Invalid parameter.  Usage:  !stdout on/off")
+  }
+}
+function stderr(theArguments){
+  if (i(theArguments[0],"on")){
+    thisConsole.log("Setting showStderr to true!");
+    thisServerObj.settings["showStderr"]=true;
+  } else if (i(theArguments[0],"off")){
+    thisConsole.log("Setting showStderr to false!");
+    thisServerObj.settings["showStderr"]=false;
+  } else {
+    thisConsole.log("Invalid parameter.  Usage:  !stderr on/off")
+  }
+}
+function stderrFilter(theArguments){
+  if (theArguments.length > 0){
+    thisServerObj.settings["showStderr"]=new RegExp(theArguments[0]);
+  } else {
+    thisConsole.log("Invalid parameter.  Usage:  !stderrfilter [Filter]")
+    thisConsole.log("Example: !stderrfilter ^\\[SPAWN\\]");
+  }
+}
 
 async function onlinePlayers(){
   if (thisServerObj.hasOwnProperty("spawnStatus")){
@@ -47,7 +112,6 @@ async function onlinePlayers(){
 
 
 async function currentStatus(){
-  
   var theResults=[];
   var firstSet={};
   var spawnStatus;
@@ -72,7 +136,6 @@ async function currentStatus(){
   for (let i=0;i<theResults.length;i++){
     thisConsole.table(theResults[i]);
   }
-  
 }
 
 function start(){ // Display errors, but do not crash the wrapper.
