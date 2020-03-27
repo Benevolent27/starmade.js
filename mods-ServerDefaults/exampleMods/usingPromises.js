@@ -30,8 +30,8 @@ var {event} = installObj;
 
 event.on('start', function (theServerObj) {
   // This is super ugly for events.. TODO: Build separate events for servers in the config.
-  event.on("command", command); // Only registered commands will trigger a "command" event.
-  event.on("command", asyncCommand);
+  event.on("playerCommand", command); // Only registered commands will trigger a "command" event.
+  event.on("playerCommand", asyncCommand);
   
 });
 console.log("LISTENING FOR 'commandStart' event!");

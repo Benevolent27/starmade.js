@@ -57,7 +57,7 @@ event.on('start', function (theServerObj) { // The serverObj has been created.
     serverObj["commandSettings"] = defaultSettings;
     event.on("reloadMods", removeCommands);
     // event.on("init", init);
-    event.on('command', command);
+    event.on('playerCommand', command);
     event.on('playerMessage', message);
     event.emit('commandStart', regCommand); // This signals that other mods can register their commands since the serverObj should have the needed methods.
 
@@ -99,7 +99,7 @@ async function message(messageObj) { // Handle messages sent from players
           playerAdminCheck = await messageObj.sender.isAdmin({"fast": true}).catch((err) => console.error(err)); // Fast makes it read from the file rather than perform a StarNet command.
         }
         if (playerAdminCheck) {
-          event.emit('command', messageObj.sender, lowerCaseCommand, textArray, messageObj);
+          event.emit('playerCommand', messageObj.sender, lowerCaseCommand, textArray, messageObj);
         } else {
           messageObj.sender.botMsg("Sorry, but this is an admin only command, and you are not an admin!", {"fast": true}).catch((err) => console.error(err));
         }
@@ -126,7 +126,7 @@ async function message(messageObj) { // Handle messages sent from players
               playerAdminCheck = await messageObj.sender.isAdmin({"fast": true}).catch((err) => console.error(err)); // Fast makes it read from the file rather than perform a StarNet command, which is much faster.
             }
             if (playerAdminCheck) {
-              event.emit('command', messageObj.sender, lowerCaseSubCommand, textArray, messageObj); // The messageObj is unchanged, so a mod can detect if it was ran with the !help command or "!command help" if needed for some reason.
+              event.emit('playerCommand', messageObj.sender, lowerCaseSubCommand, textArray, messageObj); // The messageObj is unchanged, so a mod can detect if it was ran with the !help command or "!command help" if needed for some reason.
             } else {
               messageObj.sender.botMsg("Sorry, you cannot receive help on this command because it is admin-only, and you are not an admin!", {"fast": true}).catch((err) => console.error(err));
             }

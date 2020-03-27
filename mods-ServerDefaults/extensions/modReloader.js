@@ -13,7 +13,7 @@ event.on("start",function(theServerObj){
 event.on('commandStart',function(regCommand){
     regCommand("reloadMods","HiddenHelpers",true,false); // Admin only command
     regCommand("listeners","HiddenHelpers",true,false);
-    event.on('command', function (player,command,args,messageObj) { // Normally we would not use the messageObj, but it's here if for some reason we want the command to operate differently depending on channel sent to
+    event.on('playerCommand', function (player,command,args,messageObj) { // Normally we would not use the messageObj, but it's here if for some reason we want the command to operate differently depending on channel sent to
         if (command == "reloadmods"){
             player.botMsg("Reloading all mods!  This might take a few seconds.",{fast:true}).catch((err) => console.error(err));
             reloadMods(); // This will emit a "unloadMods" event, which the serverObj is listening for
