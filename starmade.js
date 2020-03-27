@@ -1224,14 +1224,6 @@ process.stdin.on('data', function (text) { // This runs for any console
       //     console.log("ERROR:  Please specify a filter to use!  Example: \\[SPAWN\\]");
       //   }
 
-      // } else if (i(theCommand,"serverlog")) {
-      //   if (theArguments[0] == "on"){
-      //     console.log("Setting showServerlog to true!");
-      //     showServerlog=true;
-      //   } else if (theArguments[0] == "off"){
-      //     console.log("Setting showServerlog to false!");
-      //     showServerlog=false;
-      //   }
 
     } else if (i(theCommand, "debug")) {
       if (theArguments[0] == "on") {
@@ -1632,16 +1624,9 @@ function goReady(){ // This is called when the "ready" event is emitted globally
       "globalEvent": global["event"].spawn(), // This should be used by mods instead of global["event"].emit.  This will catch global["event"].emit's and any emits from any other install or sub-spawn of this custom event object.
       "settings": global["settings"].servers[serverKeys[i]], // This is redundant, to make it easier to pull the info.
       "reloadMods": function(){ return reloadServerMods(this.path) } // Reloads the listeners and mods
-      // Each mod is responsible for setting up extra settings, installation, and starting the server.
-
       // "serverObj":theServerObj // This should be added by the starter mod for the install.
 
-      // Below has been replaced with a new custom object, which is a more elegant solution.
-      // "eventListeners":[], // Any .on or .once listeners will be registered here so they can be deregistered later.
-      // "event": getNewModifiedServerEvent(serverKeys[i]), // Each install gets it's own modified event listener, that allows deregistering each listener prior to reloading mods.
-      // "globalEventListeners":[], // Any .on or .once global event listeners will be registered here so they can be deregistered later.
-      // "globalEvent": getNewModifiedWrapperEvent(serverKeys[i]),
-      
+      // Each mod is responsible for setting up extra settings, installation, and starting the server.
     };
     mainConsole.log("Install object created!  Loading mods in now..");
     global["installObjects"][serverKeys[i]]["modRequires"]=requireServerMods(serverKeys[i]); //  This loads in the mods.  It will update global["installObjects"] for each server, adding a "modRequires" element with each file and the associated require.   This is used when reloading the mods to be able to delete the cache and then re-require each file.
