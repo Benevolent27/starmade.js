@@ -118,7 +118,7 @@ async function withdraw(player, command, args, messageObj){
               bankingFileObj[player.name]-=creditsToWithdraw; // If successful, remove credits player's bank account
               writeBankingFile();
               log(`BANKING:  Withdrew ${toNumberWithCommas(creditsToWithdraw)} for player, ${player.name}, bringing their account to ${toNumberWithCommas(bankingFileObj[player.name])} credits.`);
-              return player.botMsg(`SUCCESSFULLY withdrew ${toNumberWithCommas(creditsToWithdraw)} credits!  Your bank account now has ${toNumberWithCommas(bankingFileObj[player.name])} credits and your inventory has ${playerNewCreditCount} credits!`,{fast:true}).catch((err) => console.error(err));
+              return player.botMsg(`SUCCESSFULLY withdrew ${toNumberWithCommas(creditsToWithdraw)} credits!  Your bank account now has ${toNumberWithCommas(bankingFileObj[player.name])} credits and your inventory has ${toNumberWithCommas(playerNewCreditCount)} credits!`,{fast:true}).catch((err) => console.error(err));
             } else {
               log(`BANKING: Failed to add credits to inventory for '${player.name}' during withdraw.  Credits attempted: ${toNumberWithCommas(creditsToWithdraw)}`);
               return player.botMsg(`ERROR:  Could not add credits to your inventory!  Please try again! (Your bank credits are SAFE!)`,{fast:true}).catch((err) => console.error(err));  
