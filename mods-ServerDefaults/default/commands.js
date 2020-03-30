@@ -52,7 +52,7 @@ event.on('start', function (theServerObj) { // The serverObj has been created.
 
     // Extenders - These will only be guaranteed available after the "init" event is triggered.
     // objectCreator["CommandObj"]=CommandObj;
-    serverObj.regConstructor(CommandObj);
+    // serverObj.regConstructor(CommandObj);
     serverObj["regCommand"] = regCommand; // Extend the serverObj
     serverObj["commandSettings"] = defaultSettings;
     event.on("reloadMods", removeCommands);
@@ -94,15 +94,38 @@ async function message(messageObj) { // Handle messages sent from players
       var lowerCaseCommand = theCommand.toLowerCase();
       if (commands.hasOwnProperty(lowerCaseCommand)) { // If it is a valid command, it will have been registered.
         // Note:  the default "help" command can be replaced by a mod if desired.
-        let playerAdminCheck = true;
-        if (commands[lowerCaseCommand].adminOnly) {
-          playerAdminCheck = await messageObj.sender.isAdmin({"fast": true}).catch((err) => console.error(err)); // Fast makes it read from the file rather than perform a StarNet command.
+        let canPlayerRunCommand="neutral";
+        // Check to see if there is a permission forbidding the player from running the command.
+        if (commands[lowerCaseCommand].hasOwnProperty("playersObj")){
+          if (typeof commands[lowerCaseCommand]["playersObj"] == "object"){
+            if (commands[lowerCaseCommand]["playersObj"].hasOwnProperty(messageObj.sender.name)){
+              if (objectHelper.isFalse(commands[lowerCaseCommand]["playersObj"][messageObj.sender.name])){
+                canPlayerRunCommand=false;
+              } else if (objectHelper.isTrue(commands[lowerCaseCommand]["playersObj"][messageObj.sender.name])){
+                canPlayerRunCommand=true;
+              }
+            }
+          }
         }
-        if (playerAdminCheck) {
-          event.emit('playerCommand', messageObj.sender, lowerCaseCommand, textArray, messageObj);
+        if (canPlayerRunCommand){
+          let playerAdminCheck = true;
+          if (commands[lowerCaseCommand].adminOnly) {
+            playerAdminCheck = await messageObj.sender.isAdmin({"fast": true}).catch((err) => console.error(err)); // Fast makes it read from the file rather than perform a StarNet command.
+          }
+          if (playerAdminCheck || canPlayerRunCommand === true) { // If a player has been specifically set to "true" to run the command, they do not need to be an admin to run admin only commands!
+            event.emit('playerCommand', messageObj.sender, lowerCaseCommand, textArray, messageObj);
+            if (commands[lowerCaseCommand].hasOwnProperty("functToRun")){ // If a function was provided when registering the command, run it.
+              if (typeof commands[lowerCaseCommand]["functToRun"] == "function"){
+                commands[lowerCaseCommand]["functToRun"](messageObj.sender, lowerCaseCommand, textArray, messageObj);
+              }
+            }
+          } else {
+            messageObj.sender.botMsg("Sorry, but this is an admin only command, and you are not an admin!", {"fast": true}).catch((err) => console.error(err));
+          }
         } else {
-          messageObj.sender.botMsg("Sorry, but this is an admin only command, and you are not an admin!", {"fast": true}).catch((err) => console.error(err));
+          messageObj.sender.botMsg("Sorry, but you have been forbidding from using this command!", {"fast": true}).catch((err) => console.error(err));
         }
+
 
         thisConsole.log("'command' event emitted!"); // temp
       } else if (lowerCaseCommand == "help") { // This only fires if a mod hasn't replaced the default help.
@@ -389,7 +412,7 @@ async function command(player, command, args, messageObj) { // Normally we would
 
 
 // function regCommand(myCommandObj){ // This is used by mods to register a command object, which is later used by !help and to trigger command events.
-function regCommand(name, category, adminOnly, displayInHelp, playersArray) {
+function regCommand(name, category, adminOnly, displayInHelp, playersObj,functToRun) {
   // This is used by mods to register a command object, which is later used by !help and to trigger command events.
   // This can accept an object as the first argument, 'name' with some of the values registered.  It will fill in the blanks with defaults as necessary.
   // Note:  This can be used to reregister a command, if the permissions might change later.
@@ -403,7 +426,7 @@ function regCommand(name, category, adminOnly, displayInHelp, playersArray) {
   // TODO: allow "playersAuthorized":["Array","of","playernames"]
 
   // This is to ensure it has all the properties it needs -- This can accept an object as input and will fill out anything that is missing.
-  var myCommandObj = new CommandObj(name, category, adminOnly, displayInHelp, playersArray);
+  var myCommandObj = new CommandObj(name, category, adminOnly, displayInHelp, playersObj, functToRun);
   var failure = true;
   if (myCommandObj.hasOwnProperty("name")) {
     if (testIfInput(myCommandObj.name)) {
@@ -413,7 +436,6 @@ function regCommand(name, category, adminOnly, displayInHelp, playersArray) {
       }
       serverObj.commands[myCommandName] = myCommandObj;
       commands=serverObj.commands; // Set the commands variable if not already set.
-
       thisConsole.log("Registered new command: " + myCommandName);
       // console.dir(myCommandObj);
       failure = false;
@@ -424,8 +446,15 @@ function regCommand(name, category, adminOnly, displayInHelp, playersArray) {
   }
 }
 
-function CommandObj(name, category, adminOnly, displayInHelp, playersArray) { // Expects string values or an object as the first argument.
+function CommandObj(name, category, adminOnly, displayInHelp, playersObj, functToRun) { 
+  // Expects string values or an object as the first argument.
   // If given an object, it will add to it as necessary.
+  // name = a string value for name of the command. 
+  // category = The category this command will be listed under in !help
+  // adminOnly = Boolean true/false value.  If set to true, the command will only display in help or run for players who are admins.
+  // displayInHelp = Boolean true/false value.  This determines if the command will display in help or not.  If typed out, the command will still run.
+  // playersObj = An object file with player names.  Each player can be true/false.  If false, the command will not show in help or run for the player.
+  // functToRun = Optional - a function that will run, providing all the same values as the command event.  This method can be used by mods instead of the command event to simplify their code.
   if (typeof name == "object") {
     if (name.hasOwnProperty("name")) { // This should only be set IF a name was provided.  We cannot set a "default" command name.
       this.name = name.name;
@@ -433,11 +462,16 @@ function CommandObj(name, category, adminOnly, displayInHelp, playersArray) { //
     this.category = getOption(name, "category", defaultSettings.defaultCategory);
     this.adminOnly = getOption(name, "adminOnly", defaultSettings.defaultAdminOnly);
     this.displayInHelp = getOption(name, "displayInHelp", defaultSettings.defaultDisplayInHelp);
-    var arrayToTest = getOption(name, "playersArray");
-    if (isArray(arrayToTest)) {
-      if (arrayToTest.length > 0) {
-        this.playersArray = arrayToTest;
+    var thePlayersObj = getOption(name, "playersObj");
+    if (typeof thePlayersObj == "object") {
+      var thePlayersObjKeys=Object.keys(thePlayersObj);
+      if (thePlayersObjKeys.length > 0) {
+        this.playersObj = thePlayersObj;
       }
+    }
+    var theFunctToRun=getOption(name, "functToRun");
+    if (typeof theFunctToRun == "function"){
+      this.functToRun=theFunctToRun;
     }
   } else {
     var theName = name.toString();
@@ -459,10 +493,14 @@ function CommandObj(name, category, adminOnly, displayInHelp, playersArray) { //
     } else {
       this.displayInHelp = defaultSettings.defaultDisplayInHelp;
     }
-    if (isArray(playersArray)) {
-      if (playersArray.length > 0) {
-        this.playersArray = playersArray;
+    if (typeof playersObj == "object") {
+      var objectKeys=Object.keys(playersObj)
+      if (objectKeys.length > 0) {
+        this.playersObj = playersObj;
       }
+    }
+    if (typeof functToRun == "function"){
+      this.functToRun=functToRun;
     }
   }
 };
