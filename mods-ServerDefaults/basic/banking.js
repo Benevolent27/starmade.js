@@ -46,9 +46,18 @@ event.on("commandStart",function(regCommand){
   thisConsole.log("Registering commands for banking.js..");
   regCommand("deposit", "Banking", false, true,{},deposit);
   regCommand("withdraw", "Banking", false, true,{},withdraw);
+  regCommand("balance", "Banking", false, true,{},balance);
   // regCommand("transfer", "Banking", false, true,{},transfer);
   // regCommand("banktransfer", "Banking", false, true,{},banktransfer);
 });
+
+function balance(player, command, args, messageObj){
+  if (!bankingFileObj.hasOwnProperty(player.name)){ // If the player has no bank account, set it to 0.
+    bankingFileObj[player.name]=0;  
+  }
+  return player.botMsg(`Your bank account currently contains ${bankingFileObj[player.name]} credits.`,{fast:true}).catch((err) => console.error(err));
+}
+
 
 async function withdraw(player, command, args, messageObj){
   // Expect
