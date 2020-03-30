@@ -88,7 +88,7 @@ async function message(messageObj) { // Handle messages sent from players
     if (serverObj.hasOwnProperty("commands")){
       commands=serverObj.commands;
     }
-    var textArray = messageObj.text.split(" ");
+    var textArray = messageObj.text.replace(/ +(?= )/g,'').split(" "); // Convert multiple spaces to individual spaces, then split by spaces.
     var theCommand = textArray.shift().replace(settings["commandOperator"], ""); // This only replaces the first instance
     if (objectHelper.testIfInput(theCommand)) { // This will exclude any empty values.  For example, typing ! by itself.
       var lowerCaseCommand = theCommand.toLowerCase();
@@ -107,7 +107,7 @@ async function message(messageObj) { // Handle messages sent from players
             }
           }
         }
-        if (canPlayerRunCommand){
+        if (canPlayerRunCommand){ // if "neutral" or true
           let playerAdminCheck = true;
           if (commands[lowerCaseCommand].adminOnly) {
             playerAdminCheck = await messageObj.sender.isAdmin({"fast": true}).catch((err) => console.error(err)); // Fast makes it read from the file rather than perform a StarNet command.
@@ -131,6 +131,7 @@ async function message(messageObj) { // Handle messages sent from players
       } else if (lowerCaseCommand == "help") { // This only fires if a mod hasn't replaced the default help.
         // If an argument is given, run the command with help, which is the same as "!command help"
         var showAll = false;
+        thisConsole.log("textArray[0]: " + textArray[0]); // temp
         if (typeof textArray[0] == "string") {
           if (textArray[0].toLowerCase() == "-showall") {
             thisConsole.log("Showing all help commands, even hidden ones, if the player is an admin.");
@@ -162,6 +163,10 @@ async function message(messageObj) { // Handle messages sent from players
         } else {
           // If no arguments are given, then display all the commands in an orderly way
           let playerAdminCheck = await messageObj.sender.isAdmin({"fast": true}).catch((err) => console.error(err));
+          if (showAll == true && !playerAdminCheck){ // Non-Admin player is trying to show all commands.  This is not allowed.
+            thisConsole.log("Non-Admin player attempted to show all commands!  Not allowing!");
+            showAll=false;
+          }
           var playerCanRunCommandCheck="neutral";
           // First we need to build the values needed to display
           var commandCategories = {};
@@ -279,6 +284,9 @@ async function message(messageObj) { // Handle messages sent from players
             messageObj.sender.msg(" ", {"fast": true});
             messageObj.sender.msg("To use a command, type: \"" + settings["commandOperator"] + "[command]\" (without the brackets)", {"fast": true});
             messageObj.sender.msg("For help on a command, type !help [command]", {"fast": true});
+            if (playerAdminCheck && !showAll){
+              messageObj.sender.msg("Note: To show hidden commands, type !help -showAll", {"fast": true});
+            }
           } else {
             // No commands are set up or visible.
             messageObj.sender.botMsg("There do not appear to be any commands visible!", {"fast": true}).catch((err) => console.error(err));
