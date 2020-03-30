@@ -332,7 +332,11 @@ function toBoolean(input){ // The main purpose of this function is to convert st
 }
 function toNumIfPossible(input){ // This also converts numbers from scientific notation to floating point
   if (typeof input != "undefined" && input != ""){ // This check is necessary since Number will create a 0 number using them
-    var output=Number(input);
+    var output=input;
+    if (typeof input == "string"){
+      output=input.replace(",","");
+    }
+    output=Number(output);
     if (isNaN(output)){
       return input;
     } else {
