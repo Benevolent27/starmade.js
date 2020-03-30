@@ -518,12 +518,13 @@ function requireServerMods(inputPath) { // Requires the path to the install
   //   "/path/to/install/mods/someModFolder/anotherScript.js":theRequireObject,
   //   "/path/to/install/mods/aDifferentModFolder/etc.js":theRequireObject
   // }
-  mainConsole.log("inputPath: " + inputPath + " typeof inputPath: " + typeof inputPath);
+  // mainConsole.log("inputPath: " + inputPath + " typeof inputPath: " + typeof inputPath); // temp
   if (typeof inputPath != "string"){
     throw new Error("No path given to requireServerMods!  Expects a path to a server install!  Example: requireServerMods('/path/to/install')");
   }
   var modsFolder = path.join(inputPath, "mods");
   var returnObj={};
+  var tempFolderName="";
   if (existsAndIsDirectory(modsFolder)) {
     var modFolders = getDirectories(modsFolder);
     if (modFolders.length > 0) {
@@ -542,6 +543,11 @@ function requireServerMods(inputPath) { // Requires the path to the install
               throw err;
             }
           }
+        }
+        // Set up the dataObj for each individual mod folder.
+        tempFolderName=path.basename(modFolders[i]);
+        if (!global["installObjects"][inputPath]["dataObj"].hasOwnProperty(tempFolderName)){ // If an object for the mod folder doesn't exist..
+          global["installObjects"][inputPath]["dataObj"][tempFolderName]={}; // ..set a blank object for it using the folder name only.
         }
       }
     } else {
@@ -1549,6 +1555,7 @@ exitHook(() => { // This will handle sigint and sigterm exits, errors, and every
   // Cleanup that needs to be done on the global scope should be done here.
   console.log("Global Exit event running using exitHook require..");
   writeSettings(); // Always make sure the settings get written before exit, so any changes are recorded.
+  writeDataObjects(); // Write the data objects for every install, to ensure they are saved.
 });
 
 // ##############################
@@ -1613,9 +1620,11 @@ function goReady(){ // This is called when the "ready" event is emitted globally
   var tempConsole={};
   var tempEvent={};
   var tempModRequires={}
+  var dataObjName="data.json";
   for (let i = 0;i < serverKeys.length;i++) {
-    mainConsole.log("Creating Install Object for: " + serverKeys[i]);
+    mainConsole.log("Creating Install Object for server: " + serverKeys[i]);
     // tempConsole=new CustomConsole(serverKeys[i],{invincible: true}); // This needs to be fixed before I can use it.
+    
     global["installObjects"][serverKeys[i]] = {
       "path": serverKeys[i],
       "log": new CustomLog(serverKeys[i]),
@@ -1623,14 +1632,17 @@ function goReady(){ // This is called when the "ready" event is emitted globally
       "event": new CustomEvent(), // Each install gets it's own modified event listener.  Prior to scripts being reloaded, event listeners should be removed using .removeAllListeners()
       "globalEvent": global["event"].spawn(), // This should be used by mods instead of global["event"].emit.  This will catch global["event"].emit's and any emits from any other install or sub-spawn of this custom event object.
       "settings": global["settings"].servers[serverKeys[i]], // This is redundant, to make it easier to pull the info.
+      "dataObj":{},
+      "readDataObj":function(){ return readDataObj(path.join(serverKeys[i],dataObjName)) },
+      "writeDataObj":function(options){ return writeJSONFileSync(path.join(serverKeys[i],dataObjName),global["installObjects"][serverKeys[i]]["dataObj"],options) },
       "reloadMods": function(){ return reloadServerMods(this.path) } // Reloads the listeners and mods
       // "serverObj":theServerObj // This should be added by the starter mod for the install.
 
       // Each mod is responsible for setting up extra settings, installation, and starting the server.
     };
-    mainConsole.log("Install object created!  Loading mods in now..");
-    global["installObjects"][serverKeys[i]]["modRequires"]=requireServerMods(serverKeys[i]); //  This loads in the mods.  It will update global["installObjects"] for each server, adding a "modRequires" element with each file and the associated require.   This is used when reloading the mods to be able to delete the cache and then re-require each file.
-    mainConsole.log("Mods finished loading for server: " + serverKeys[i]);
+    global["installObjects"][serverKeys[i]]["readDataObj"](); // Loads the dataObj or creates a new one if needed.  This is needed for the requireServerMods function.
+    global["installObjects"][serverKeys[i]]["modRequires"]=requireServerMods(serverKeys[i]); //  This loads in the mods.  This is used when reloading the mods to be able to delete the cache and then re-require each file.
+    mainConsole.log(`Finished Install object for install: ${serverKeys[i]}!`);
   }
     
   // Now that all mods are loaded, let's emot init.  This indicates to mods that all other mods have been loaded, so if some mods need each other, now is the time to initialize
@@ -1638,3 +1650,24 @@ function goReady(){ // This is called when the "ready" event is emitted globally
   emitToAllInstalls("init"); // emits to the server event for each install
   // On init, there is a default mod that will create a serverObj and emit "start" on it's own server event emitter, providing the serverObj.  This is so other mods can then initialize with the serverObj.
 };
+global["writeDataObjects"]=writeDataObjects;
+function writeDataObjects(){  // This will write all the data objects for all installs.  This is intended to be ran on exit.
+  var installKeys=Object.keys(global["installObjects"]);
+  for (let i=0;i<installKeys.length;i++){ // For each install..
+    mainConsole.log("Writing data object to hard drive for install: " + installKeys[i]);
+    global["installObjects"][installKeys[i]]["writeDataObj"](); // ..Write the data object to the hard drive
+  }
+}
+
+function readDataObj(inputPath){ // requires the full path to the data object
+  var installPath=path.dirname(inputPath);
+  if (existsAndIsFile(inputPath)){
+    global["installObjects"][installPath]["dataObj"]=getJSONFileSync(inputPath);
+    mainConsole.log("Loaded data json file: " + inputPath);
+  } else {
+    global["installObjects"][installPath]["dataObj"]={};
+    writeJSONFileSync(inputPath,{});
+    mainConsole.log("Created data json file: " + inputPath);
+  }
+  return global["installObjects"][installPath]["dataObj"];
+}
