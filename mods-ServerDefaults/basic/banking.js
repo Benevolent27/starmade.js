@@ -57,7 +57,7 @@ async function balance(player, command, args, messageObj){
   }
   var playerCredits=await player.credits().catch((err) => console.error(err));
   if (typeof playerCredits == "number"){
-    return player.botMsg(`Your bank account currently contains ${bankingFileObj[player.name]} credits and your player inventory has ${playerCredits} credits.`,{fast:true}).catch((err) => console.error(err));
+    return player.botMsg(`Your bank account currently contains ${toNumberWithCommas(bankingFileObj[player.name])} credits and your player inventory has ${toNumberWithCommas(playerCredits)} credits.`,{fast:true}).catch((err) => console.error(err));
   }
   return player.botMsg(`Error retreiving your inventory credit amount!  Please try again!`,{fast:true}).catch((err) => console.error(err));
 }
