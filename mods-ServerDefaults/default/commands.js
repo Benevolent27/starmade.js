@@ -162,7 +162,7 @@ async function message(messageObj) { // Handle messages sent from players
         } else {
           // If no arguments are given, then display all the commands in an orderly way
           let playerAdminCheck = await messageObj.sender.isAdmin({"fast": true}).catch((err) => console.error(err));
-
+          var playerCanRunCommandCheck="neutral";
           // First we need to build the values needed to display
           var commandCategories = {};
           var theCategory = "";
@@ -189,7 +189,24 @@ async function message(messageObj) { // Handle messages sent from players
               // Before adding the command name to the category, check to ensure the command is hidden or an admin only command.
               // thisConsole.log("Checking command, " + property + ", to see if should be added to help.  commands[property].displayInHelp: " + commands[property].displayInHelp);
               // if ((!commands[property].adminOnly || playerAdminCheck) && (commands[property].displayInHelp || (playerAdminCheck && showAll))){ // If the command is NOT adminonly OR the player is an admin, let it show up.  If the command is not set to displayInHelp, then do not show it.
-              if ((!commands[property].adminOnly || playerAdminCheck) && (commands[property].displayInHelp || (!commands[property].adminOnly && showAll))) { // If the command is NOT adminonly OR the player is an admin, let it show up.  If the command is not set to displayInHelp, then do not show it.
+              
+              // Also check if there are permissions for this player to explicitely have access or not to this command
+              playerCanRunCommandCheck="neutral"; // Reset the check.  Does nothing for or against the player.
+              if (commands[property].playersObj.hasOwnProperty(messageObj.sender.name)){
+                if (objectHelper.isTrue(commands[property].playersObj[messageObj.sender.name])){
+                  // Player can always see and run the command, even if it's an admin only command and they are not an admin.
+                  playerCanRunCommandCheck=true;
+                } else if (objectHelper.isFalse(commands[property].playersObj[messageObj.sender.name])){
+                  // Player can never see or run the command, even if they are an admin.
+                  playerCanRunCommandCheck=false;
+                };
+              }
+              if ((!commands[property].adminOnly || playerAdminCheck || playerCanRunCommandCheck === true) && 
+              (commands[property].displayInHelp || showAll) && 
+              (playerCanRunCommandCheck !== false)) { 
+                // If the command is NOT adminonly OR the player is an admin OR the player has forced allow, let it show.  
+                // If the command is NOT set to displayInHelp, then do not show it, unless showAll was used.
+                // Do not show this command if a player has been specifically been set to NOT ALLOW usage of the command.
                 commandCategories[theCategory].push(commands[property].name);
                 commandsAddedNum++;
               }
@@ -462,12 +479,11 @@ function CommandObj(name, category, adminOnly, displayInHelp, playersObj, functT
     this.category = getOption(name, "category", defaultSettings.defaultCategory);
     this.adminOnly = getOption(name, "adminOnly", defaultSettings.defaultAdminOnly);
     this.displayInHelp = getOption(name, "displayInHelp", defaultSettings.defaultDisplayInHelp);
-    var thePlayersObj = getOption(name, "playersObj");
-    if (typeof thePlayersObj == "object") {
-      var thePlayersObjKeys=Object.keys(thePlayersObj);
-      if (thePlayersObjKeys.length > 0) {
-        this.playersObj = thePlayersObj;
-      }
+    this.playersObj = getOption(name, "playersObj",{}); // Set it to a blank object if nothing given.
+    if (typeof thePlayersObj != "object") {
+      this.playersObj={}; // If an invalid value is given, like a string, change to an empty object and display an error
+      thisConsole.log("ERROR:  Invalid input given to CommandObj as playersObj!  Using blank object instead! Type: " + typeof playersObj + " Value: " + playersObj);
+      log("ERROR:  Invalid input given to CommandObj as playersObj!  Using blank object instead! Type: " + typeof playersObj + " Value: " + playersObj);
     }
     var theFunctToRun=getOption(name, "functToRun");
     if (typeof theFunctToRun == "function"){
@@ -493,12 +509,15 @@ function CommandObj(name, category, adminOnly, displayInHelp, playersObj, functT
     } else {
       this.displayInHelp = defaultSettings.defaultDisplayInHelp;
     }
+    this.playersObj={}; // This value always needs to exist, even if empty.
     if (typeof playersObj == "object") {
-      var objectKeys=Object.keys(playersObj)
-      if (objectKeys.length > 0) {
         this.playersObj = playersObj;
-      }
+    } else if (typeof playersObj != "undefined") {
+      // If an invalid value is given, like a string, change to an empty object and display an error
+      thisConsole.log("ERROR:  Invalid input given to CommandObj as playersObj!  Using blank object instead! Type: " + typeof playersObj + " Value: " + playersObj);
+      log("ERROR:  Invalid input given to CommandObj as playersObj!  Using blank object instead! Type: " + typeof playersObj + " Value: " + playersObj);
     }
+
     if (typeof functToRun == "function"){
       this.functToRun=functToRun;
     }
