@@ -24,6 +24,7 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   getSimpleTime,
   convertSectorCoordsToSystem,
   getEntityPrefixFromPublicEntitiesTypeNumber,
+  toNumberWithCommas, // Converts a number to one with commas
   i // Does a simple case insensitive comparison on two strings, returning true if two strings match
 };
 
@@ -66,6 +67,12 @@ if (__filename == require.main.filename){ // Only run the arguments IF this scri
   //   console.log("\nTo run an individual test, include it as the first argument.");
   //   console.log("Example:  node miscHelpers.js downloadToString");
   // }
+}
+
+function toNumberWithCommas(x) {
+  var parts = x.toString().split(".");
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return parts.join(".");
 }
 
 function i(input, input2) { // I use this to do easy case insensitive matching for commands since javascript is case sensitive
