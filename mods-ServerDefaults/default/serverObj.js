@@ -19,7 +19,7 @@ const mainFolder = path.dirname(require.main.filename); // This should be where 
 const binFolder = path.join(mainFolder, "bin");
 const spawn = require('child_process').spawn;
 const miscHelpers = require(path.join(binFolder, "miscHelpers.js"));
-const {requireBin} = miscHelpers;
+const {requireBin,i} = miscHelpers;
 
 // const objectCreator = requireBin("objectCreator.js"); // This is imported for the CustomConsole object
 const objectHelper = requireBin("objectHelper.js");
@@ -905,9 +905,10 @@ function ServerObj(options) { // If given it will load existing settings or crea
           if (err){
             return cb(err,results);
           }
-          for (let i=0;i<results.length;i++){
-            if (i(results[i].name,playerName)){
-              return cb(null,results[i]);
+          // TODO: FIX THIS.  Getting call stack size exceeded. I am guessing this is actually not returning an array or something. // temp
+          for (let e=0;e<results.length;e++){
+            if (i(results[e].name,playerName)){
+              return cb(null,results[e]);
             }
           }
           return cb(null,false); // Name did not resolve to any online player
@@ -916,7 +917,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
         return cb(new Error("Invalid input given as playerName.  Expects a string!"),null)
       }
     } else {
-      return simplePromisifyIt(self.resolveOnlinePlayerName, options);
+      return simplePromisifyIt(self.resolveOnlinePlayerName,options,playerName);
     }
   }
 
