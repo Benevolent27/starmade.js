@@ -87,9 +87,9 @@ async function bankTransfer(player, command, args, messageObj){
         writeBankingFile();
         log(`BANKING:  BANK TRANSFER of ${toNumberWithCommas(creditAmountToTransfer)} credits from player, ${player.name}, to player, ${playerNameToTransferTo}, successful!`);
         if (playerObjToTransferTo){ // Player was online.
-          playerObjToTransferTo.botMsg(`${player.name} sent ${toNumberWithCommas(creditAmountToTransfer)} credits to you via bank transfer!  Your new bank balance is:  ${toNumberWithCommas(bankingFileObj[playerNameToTransferTo])}`,{fast:true}).catch((err) => console.error(err));
+          playerObjToTransferTo.botMsg(`${player.name} sent ${toNumberWithCommas(creditAmountToTransfer)} credits to you via bank transfer!  Your new bank credit balance is:  ${toNumberWithCommas(bankingFileObj[playerNameToTransferTo])}`,{fast:true}).catch((err) => console.error(err));
         }
-        return player.botMsg(`Bank transfer of ${toNumberWithCommas(creditAmountToTransfer)} credits sent successfully to player ${playerNameToTransferTo}!  Your bank account has ${toNumberWithCommas(bankingFileObj[player.name])} credits left.`,{fast:true}).catch((err) => console.error(err));
+        return player.botMsg(`Bank transfer of ${toNumberWithCommas(creditAmountToTransfer)} credits to player ${playerNameToTransferTo} succeeded!  Your new bank account credit balance is: ${toNumberWithCommas(bankingFileObj[player.name])}`,{fast:true}).catch((err) => console.error(err));
       } else {
         return player.botMsg(`ERROR:  You cannot transfer more credits than you have!  Your bank account balance is currently: ${toNumberWithCommas(bankingFileObj[player.name])}`,{fast:true}).catch((err) => console.error(err));    
       }
@@ -136,6 +136,7 @@ async function transfer(player, command, args, messageObj){
       await player.botMsg(`ERROR: ${playerNameToTransferTo} is either not online or their name has been mispelled!  The player must be online to receive an inventory credit transfer.  If transferring credits to an offline player, please use the ${commandOperator}banktransfer command.`,{fast:true}).catch((err) => console.error(err));  
       return player.botMsg(`If you are sure the player is online, please check the spelling of their name and try again.`,{fast:true}).catch((err) => console.error(err));  
     }
+    playerNameToTransferTo=playerObjToTransferTo.name; // This corrects any case missmatch
     var playerObjToTransferToCredits=await playerObjToTransferTo.credits().catch((err) => console.error(err)); // This is needed because players can only have up to a certain number of credits.
     var playerCredits=await player.credits().catch((err) => console.error(err));
     if (typeof playerCredits == "number" && typeof playerObjToTransferToCredits == "number"){ // Ensure the credits commands were successful
@@ -158,7 +159,7 @@ async function transfer(player, command, args, messageObj){
       if (removeResult){
         let addResult=await playerObjToTransferTo.giveCredits(creditAmountToTransfer).catch((err) => console.error(err));
         if (addResult){
-          player.botMsg(`Transfer of ${toNumberWithCommas(creditAmountToTransfer)} credits SUCCESSFULLY transfered to player, ${playerNameToTransferTo}!`,{fast:true}).catch((err) => console.error(err));
+          player.botMsg(`Successfully transferred ${toNumberWithCommas(creditAmountToTransfer)} credits to ${playerNameToTransferTo}!`,{fast:true}).catch((err) => console.error(err));
           return playerObjToTransferTo.botMsg(`${player.name} has transferred ${toNumberWithCommas(creditAmountToTransfer)} credits to your inventory!  Congrats!  You now have ${toNumberWithCommas(playerObjToTransferToNewCredits)} credits.`,{fast:true}).catch((err) => console.error(err));
         } else {
           // Here we need to attempt to re-add the credits to the player's inventory and give a stronger admin message if this also fails.
@@ -267,7 +268,7 @@ async function withdraw(player, command, args, messageObj){
               bankingFileObj[player.name]-=creditsToWithdraw; // If successful, remove credits player's bank account
               writeBankingFile();
               log(`BANKING:  Withdrew ${toNumberWithCommas(creditsToWithdraw)} for player, ${player.name}, bringing their account to ${toNumberWithCommas(bankingFileObj[player.name])} credits.`);
-              return player.botMsg(`SUCCESSFULLY withdrew ${toNumberWithCommas(creditsToWithdraw)} credits!  Your bank account now has ${toNumberWithCommas(bankingFileObj[player.name])} credits and your inventory has ${toNumberWithCommas(playerNewCreditCount)} credits!`,{fast:true}).catch((err) => console.error(err));
+              return player.botMsg(`Credit withdrawel of ${toNumberWithCommas(creditsToWithdraw)} succeeded!  Your bank account now has ${toNumberWithCommas(bankingFileObj[player.name])} credits and your inventory has ${toNumberWithCommas(playerNewCreditCount)} credits!`,{fast:true}).catch((err) => console.error(err));
             } else {
               log(`BANKING: Failed to add credits to inventory for '${player.name}' during withdraw.  Credits attempted: ${toNumberWithCommas(creditsToWithdraw)}`);
               return player.botMsg(`ERROR:  Could not add credits to your inventory!  Please try again! (Your bank credits are SAFE!)`,{fast:true}).catch((err) => console.error(err));  
@@ -333,7 +334,7 @@ async function deposit(player, command, args, messageObj){
               bankingFileObj[player.name]+=creditsToDeposit;
               writeBankingFile();
               log(`BANKING:  Deposited ${toNumberWithCommas(creditsToDeposit)} for player, ${player.name}, bringing their account to ${toNumberWithCommas(bankingFileObj[player.name])} credits.`);
-              return player.botMsg(`SUCCESSFULLY deposited ${toNumberWithCommas(creditsToDeposit)} credits!  Your bank account now has ${toNumberWithCommas(bankingFileObj[player.name])} credits!`,{fast:true}).catch((err) => console.error(err));
+              return player.botMsg(`Deposited ${toNumberWithCommas(creditsToDeposit)} credits!  Your bank account now has ${toNumberWithCommas(bankingFileObj[player.name])} credits!`,{fast:true}).catch((err) => console.error(err));
             } else {
               log(`BANKING: Failed to remove credit count for '${player.name}' during deposit.  Credits attempted: ${creditsToDeposit}`);
               return player.botMsg(`ERROR:  Could not remove credits from your inventory!  Please try again!`,{fast:true}).catch((err) => console.error(err));  
