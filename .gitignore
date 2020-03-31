@@ -22,6 +22,8 @@ temp*
 !mods-Wrapper/default/*/*
 /mods-ServerDefaults/default/bin/old
 /mods-ServerDefaults/default/bin/old/*
+/mods-ServerDefaults/lvd
+/mods-ServerDefaults/lvd/*
 /logs/*
 /bin/test.js
 /bin/*.old
