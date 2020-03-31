@@ -4,10 +4,11 @@
 //
 // This mod is designed to introduce basic banking to servers, so players can bank their credits.
 // This mod adds the following in-game commands:
-// !deposit 
-// !withdraw
-// !transfer
-// !bankTransfer
+// !balance
+// !deposit [# of credits]
+// !withdraw [# of credits]
+// !transfer [# of credits] [Player to transfer to]
+// !bankTransfer [# of credits] [Player to transfer to]
 const path=require('path');
 const objectHelper=global.objectHelper;
 var {toNumIfPossible}=objectHelper;
