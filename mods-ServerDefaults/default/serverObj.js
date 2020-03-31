@@ -894,6 +894,32 @@ function ServerObj(options) { // If given it will load existing settings or crea
       return simplePromisifyIt(self.onlinePlayers, options);
     }
   }
+  // TODO:  Create a this.resolvePlayerName function, utilizing player files to find correct capitalization
+  this.resolveOnlinePlayerName = function (playerName,options,cb){
+    // Takes a playername of any caps and resolves to the correct caps for the online player
+    // Returns PlayerObj if player found, false if not online, or null if there was an error
+    // Does not resolve the player name if offline
+    if (typeof cb == "function") {
+      if (typeof playerName == "string"){
+        return getPlayerList(options, function(err,results){
+          if (err){
+            return cb(err,results);
+          }
+          for (let i=0;i<results.length;i++){
+            if (i(results[i].name,playerName)){
+              return cb(null,results[i]);
+            }
+          }
+          return cb(null,false); // Name did not resolve to any online player
+        });
+      } else {
+        return cb(new Error("Invalid input given as playerName.  Expects a string!"),null)
+      }
+    } else {
+      return simplePromisifyIt(self.resolveOnlinePlayerName, options);
+    }
+  }
+
   this.getAdmins = function (options, cb) {
     if (typeof cb == "function") {
       return getAdminsList(options, cb);
