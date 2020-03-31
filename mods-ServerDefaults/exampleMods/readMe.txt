@@ -1,0 +1,1 @@
+These are example mods.  You can safely remove this folder when you are done looking at them or if you don't want to tinker with modding the wrapper yourself.
