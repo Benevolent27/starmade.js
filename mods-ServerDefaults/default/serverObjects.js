@@ -4144,85 +4144,94 @@ function EntityObj(fullUID) { // cb/promises/squish compliant
 // Support Functions
 
 function ipWhitelist(ipAddress, minutes, options, cb) { // minutes are optional.  A perm ban is applied if none provided. options are optional
-  if (ipAddress) {
-    var ipToUse = ipAddress.toString(); // This allows ipObj's to be fed in, and this should translate to an ip string.
-    if (minutes) {
-      var minutesNum = toNumIfPossible(minutes);
-      if (typeof minutesNum == "number") {
-        thisConsole.log("Whitelisting IP, '" + ipAddress + "' for " + minutesNum + " minutes.");
-        return starNetVerified("/whitelist_ip_temp " + ipToUse + " " + minutesNum, options, function (err, result) {
+  if (typeof cb == "function") {
+    if (ipAddress) {
+      var ipToUse = ipAddress.toString(); // This allows ipObj's to be fed in, and this should translate to an ip string.
+      if (minutes) {
+        var minutesNum = toNumIfPossible(minutes);
+        if (typeof minutesNum == "number") {
+          thisConsole.log("Whitelisting IP, '" + ipAddress + "' for " + minutesNum + " minutes.");
+          return starNetVerified("/whitelist_ip_temp " + ipToUse + " " + minutesNum, options, function (err, result) {
+            if (err) {
+              thisConsole.error("ERROR when attempting to whitelist IP, '" + ipToUse + "'!  Could not send command via StarNet.jar!");
+              return cb(err, result);
+            }
+            return cb(null, starNet.detectSuccess2(result));
+          });
+        } else { // invalid minutes given
+          return cb(new Error("Invalid minutes specified for ipWhitelist!"), null);
+        }
+      } else {
+        // no minutes provided, so perform a perm ban
+        thisConsole.log("Whitelisting IP, '" + ipAddress + "'!");
+        return starNetVerified("/whitelist_ip " + ipToUse, options, function (err, result) {
           if (err) {
-            thisConsole.error("ERROR when attempting to whitelist IP, '" + ipToUse + "'!  Could not send command via StarNet.jar!");
+            thisConsole.error("ERROR whitelisting ip: " + ipAddress);
             return cb(err, result);
           }
           return cb(null, starNet.detectSuccess2(result));
         });
-      } else { // invalid minutes given
-        return cb(new Error("Invalid minutes specified for ipWhitelist!"), null);
       }
     } else {
-      // no minutes provided, so perform a perm ban
-      thisConsole.log("Whitelisting IP, '" + ipAddress + "'!");
-      return starNetVerified("/whitelist_ip " + ipToUse, options, function (err, result) {
-        if (err) {
-          thisConsole.error("ERROR whitelisting ip: " + ipAddress);
-          return cb(err, result);
-        }
-        return cb(null, starNet.detectSuccess2(result));
-      });
-    }
+      return cb(new Error("No ipAddress given to function, 'ipWhitelist'!"), null);
+    }    
   } else {
-    return cb(new Error("No ipAddress given to function, 'ipWhitelist'!"), null);
+    return simplePromisifyIt(ipWhitelist,options,ipAddress,minutes);
   }
 };
-
-
 function ipBan(ipAddress, minutes, options, cb) { // minutes are optional.  A perm ban is applied if none provided. options are optional
-  if (ipAddress) {
-    var ipToUse = ipAddress.toString(); // This allows ipObj's to be fed in, and this should translate to an ip string.
-    if (minutes) {
-      var minutesNum = toNumIfPossible(minutes);
-      if (typeof minutesNum == "number") {
-        thisConsole.log("Banning IP, '" + ipAddress + "' for " + minutesNum + " minutes.");
-        return starNetVerified("/ban_ip_temp " + ipToUse + " " + minutesNum, options, function (err, result) {
+  if (typeof cb == "function") {
+    if (ipAddress) {
+      var ipToUse = ipAddress.toString(); // This allows ipObj's to be fed in, and this should translate to an ip string.
+      if (minutes) {
+        var minutesNum = toNumIfPossible(minutes);
+        if (typeof minutesNum == "number") {
+          thisConsole.log("Banning IP, '" + ipAddress + "' for " + minutesNum + " minutes.");
+          return starNetVerified("/ban_ip_temp " + ipToUse + " " + minutesNum, options, function (err, result) {
+            if (err) {
+              thisConsole.error("ERROR when attempting to ban IP, '" + ipToUse + "'!  Could not send command via StarNet.jar!");
+              return cb(err, result);
+            }
+            return cb(null, starNet.detectSuccess2(result));
+          });
+        } else { // invalid minutes given
+          return cb(new Error("Invalid minutes specified for ipBan!"), null);
+        }
+      } else {
+        // no minutes provided, so perform a perm ban
+        thisConsole.log("PERMANENT banning IP, '" + ipAddress + "'!");
+        return starNetVerified("/ban_ip " + ipToUse, options, function (err, result) {
           if (err) {
-            thisConsole.error("ERROR when attempting to ban IP, '" + ipToUse + "'!  Could not send command via StarNet.jar!");
+            thisConsole.error("ERROR banning ip: " + ipAddress);
             return cb(err, result);
           }
           return cb(null, starNet.detectSuccess2(result));
         });
-      } else { // invalid minutes given
-        return cb(new Error("Invalid minutes specified for ipBan!"), null);
       }
     } else {
-      // no minutes provided, so perform a perm ban
-      thisConsole.log("PERMANENT banning IP, '" + ipAddress + "'!");
-      return starNetVerified("/ban_ip " + ipToUse, options, function (err, result) {
+      return cb(new Error("No ipAddress given to function, 'ipBan'!"), null);
+    }
+  } else {
+    return simplePromisifyIt(ipBan,options,ipAddress,minutes);
+  }
+};
+function ipUnBan(ipAddress, options, cb) { // options are optional and should be an object.
+  if (typeof cb == "function") {
+    if (ipAddress) {
+      var ipToUse = ipAddress.toString(); // This allows ipObj's to be fed in, and this should translate to an ip string.
+      thisConsole.log("Unbanning IP: " + ipAddress);
+      return starNetVerified("/unban_ip " + ipToUse, options, function (err, result) {
         if (err) {
-          thisConsole.error("ERROR banning ip: " + ipAddress);
+          thisConsole.error();
           return cb(err, result);
         }
         return cb(null, starNet.detectSuccess2(result));
-      });
+      }); // This will return false if the ip is not found in the blacklist
+    } else {
+      return cb(new Error("No ipAddress given to function, 'ipUnBan'!"), null);
     }
   } else {
-    return cb(new Error("No ipAddress given to function, 'ipBan'!"), null);
-  }
-};
-
-function ipUnBan(ipAddress, options, cb) { // options are optional and should be an object.
-  if (ipAddress) {
-    var ipToUse = ipAddress.toString(); // This allows ipObj's to be fed in, and this should translate to an ip string.
-    thisConsole.log("Unbanning IP: " + ipAddress);
-    return starNetVerified("/unban_ip " + ipToUse, options, function (err, result) {
-      if (err) {
-        thisConsole.error();
-        return cb(err, result);
-      }
-      return cb(null, starNet.detectSuccess2(result));
-    }); // This will return false if the ip is not found in the blacklist
-  } else {
-    return cb(new Error("No ipAddress given to function, 'ipUnBan'!"), null);
+    return simplePromisifyIt(ipUnBan,options,ipAddress);
   }
 };
 
@@ -4246,7 +4255,6 @@ function createDateObjIfPossible(input) { // Takes either a date string that "ne
   }
   return false; // Returns false if no input given
 };
-
 function decodeChmodNum(num) { // runs as Sync
   // A number should be provided, but a number as a string should be coerced into a number.
   // This converts a chmod number value from a sql query to an array of strings, such as ["peace","protected","noindications"].  Values are always returned in an array, even if only a single protection is in the number.  A 0 number will return an empty array.
@@ -4278,35 +4286,37 @@ function decodeChmodNum(num) { // runs as Sync
     throw new Error("ERROR: Invalid input given to function, decodeChmodNum!  Expected a number!");
   }
 };
-
 function sectorSetChmod(coordsObj, chmodString, options, cb) { // Performs a single sectorChmod
   // Simple example:  sectorSetChmod(mySectorObj,"+ protected"); // This sets the sector number from mySectorObj to add protected, returning true or false depending on the success.
-  try {
-    var theCoordsObj = new CoordsObj(coordsObj); // Allows this to use any input a coordsObj can accept
-  } catch (err) {
-    thisConsole.error(new Error("Invalid input given to sectorSetChmod() for coordsObj!"));
-    return cb(err, null);
-  }
-  var theChmodString = toStringIfPossible(chmodString);
-  if (typeof theChmodString == "string") {
-    let coordsObjString = toStringIfPossible(theCoordsObj);
-    if (typeof coordsObjString == "string") {
-      theChmodString = theChmodString.toLowerCase();
-      let theCommand = "/sector_chmod " + coordsObj.toString() + " " + theChmodString;
-      return starNetVerified(theCommand, options, function (err, result) {
-        if (err) {
-          return cb(err, result);
-        }
-        return cb(null, starNet.detectSuccess(result)); // returns true/false based on success message
-      });
+  if (typeof cb == "function") {
+    try {
+      var theCoordsObj = new CoordsObj(coordsObj); // Allows this to use any input a coordsObj can accept
+    } catch (err) {
+      thisConsole.error(new Error("Invalid input given to sectorSetChmod() for coordsObj!"));
+      return cb(err, null);
+    }
+    var theChmodString = toStringIfPossible(chmodString);
+    if (typeof theChmodString == "string") {
+      let coordsObjString = toStringIfPossible(theCoordsObj);
+      if (typeof coordsObjString == "string") {
+        theChmodString = theChmodString.toLowerCase();
+        let theCommand = "/sector_chmod " + coordsObj.toString() + " " + theChmodString;
+        return starNetVerified(theCommand, options, function (err, result) {
+          if (err) {
+            return cb(err, result);
+          }
+          return cb(null, starNet.detectSuccess(result)); // returns true/false based on success message
+        });
+      } else {
+        return cb(new Error("Invalid input given to sectorSetChmod() for coordsObj!!"), null); // Redundant
+      }
     } else {
-      return cb(new Error("Invalid input given to sectorSetChmod() for coordsObj!!"), null); // Redundant
+      return cb(new Error("Invalid input given to sectorSetChmod() for chmodString!"), null);
     }
   } else {
-    return cb(new Error("Invalid input given to sectorSetChmod() for chmodString!"), null);
+    return simplePromisifyIt(sectorSetChmod,options,coordsObj,chmodString);
   }
 };
-
 function getChmodArrayFromNum(newChmodNum) { // This outputs the chmod values for a chmod number as an array, including values it should have and subtracting values it should NOT have
   // Example: [ "+ protected","+ peace","- nofploss","- noindications","- noexit","- noenter" ]
   // This kind of array can be fed directly to the sectorSetChmod function.
@@ -4321,7 +4331,6 @@ function getChmodArrayFromNum(newChmodNum) { // This outputs the chmod values fo
   }
   return outputArray;
 };
-
 function getProtectionsDifferentialString(currentProtectNum, newProtectNum) { // The current sector protection number and what the new number should be
   // Returns an array of strings to set and remove needed chmod values based on what the end result should be.
   var currentProtection = decodeChmodNum(currentProtectNum);
@@ -4338,12 +4347,10 @@ function getProtectionsDifferentialString(currentProtectNum, newProtectNum) { //
   }
   return outputArray; // An array of strings, ready for chmodding
 };
-
 function getInverseProtectionsArrayFromNum(num) {
   var array = decodeChmodNum(num);
   return getInverseProtectionsArrayFromArray(array);
 };
-
 function getInverseProtectionsArrayFromArray(arrayToInvert, baseProtectionsArray) { // baseProtectionsArray is optional.  This is used to whittle down based on pre-existing protections, scheduling for removal.
   var arrayToUse = [];
   if (baseProtectionsArray) {
@@ -4353,8 +4360,6 @@ function getInverseProtectionsArrayFromArray(arrayToInvert, baseProtectionsArray
   }
   return subArrayFromAnother(arrayToInvert, arrayToUse);
 };
-
-
 function returnEntityUIDList(coords, beginFilter, options, cb) {
   // TODO: Add an option to only return certain type(s). { "type":["one","or","more","types"]}
   // beginFilter can be a string or an array of strings
@@ -4374,237 +4379,240 @@ function returnEntityUIDList(coords, beginFilter, options, cb) {
   // returnEntityUIDList("2 2 2"); // Returns all entities in the sector
   // returnEntityUIDList("2 2 2","ENTITY_SHIP_"); // Returns only ships in the sector
   // returnEntityUIDList("2 2 2","ENTITY_SHIP_|ENTITY_SPACESTATION_"); // Returns ships and stations in the sector
-
-  var type = getOption(options, "type", "any"); // By default return any
-  // thisConsole.debug("Using type: " + type);
-  var theTypeArray = [];
-
-  if (type != "any") {
-    var typeArray = [];
-    if (Array.isArray(type)) {
-      typeArray = type;
-    } else {
-      typeArray.push(type);
-    }
-    // thisConsole.debug("typeArray: " + typeArray);
-    for (let i = 0;i < typeArray.length;i++) {
-      // More than 1 type can be included.  Any filter will be added to the END
-      if (typeArray[i] == "ship") {
-        theTypeArray.push("ENTITY_SHIP_");
-      } else if (typeArray[i] == "station") {
-        theTypeArray.push("ENTITY_SPACESTATION_");
-      } else if (typeArray[i] == "shop") {
-        theTypeArray.push("ENTITY_SHOP_");
-      } else if (typeArray[i] == "creature") {
-        theTypeArray.push("ENTITY_CREATURE_");
-      } else if (typeArray[i] == "asteroid") {
-        theTypeArray.push("ENTITY_FLOATINGROCK_");
-        theTypeArray.push("ENTITY_FLOATINGROCKMANAGED_");
-      } else if (typeArray[i] == "planet") {
-        theTypeArray.push("ENTITY_PLANET_");
-        theTypeArray.push("ENTITY_PLANETCORE_");
-      } else if (typeArray[i] == "player") {
-        theTypeArray.push("ENTITY_PLAYERCHARACTER_");
-        theTypeArray.push("ENTITY_PLAYERSTATE_");
-      }
-    }
-  }
-  // thisConsole.debug("theTypeArray: " + theTypeArray);
-  // thisConsole.debug("theTypeArray.length: " + theTypeArray.length);
-
-
-  try {
-    var theSector = new SectorObj(coords);
-    var theCoords = theSector.toString();
-  } catch (err) {
-    thisConsole.error(err);
-    throw new Error("Invalid input given to returnEntityUIDList as 'coords'!  (Expect coordinates!)");
-  }
-
-  var theReg = new RegExp("");
-  // thisConsole.debug("beginFilter: " + beginFilter);
-  // thisConsole.debug("typeof beginFilter: " + typeof beginFilter);
-  var filterArray = [];
-  if (typeof beginFilter == "string") {
-    filterArray.push(beginFilter);
-  } else if (Array.isArray(beginFilter)) {
-    filterArray = beginFilter;
-  } else if (typeof beginFilter != "undefined" && beginFilter !== null && beginFilter != "") {
-    throw new Error("Invalid input given to returnEntityUIDList as beginFilter!");
-  }
-
-
-  var finalFilterArray = [];
-  if (theTypeArray.length > 0) {
-    for (let i = 0;i < theTypeArray.length;i++) { // add types to the beginning of each filter.
-      if (filterArray.length > 0) {
-        for (let e = 0;e < filterArray.length;e++) {
-          finalFilterArray.push(theTypeArray[i] + filterArray[e]);
-        }
-      } else { // If no filters given, just push the type as the filter.
-        finalFilterArray.push(theTypeArray[i]);
-      }
-    }
-  } else { // No types were given, so just use the filter Array.
-    finalFilterArray = filterArray;
-  }
-  // thisConsole.debug("finalFilterArray:" + finalFilterArray);
-  var finalFilterRegArray = [];
-  var tempValue;
-  for (let i = 0;i < finalFilterArray.length;i++) {
-    tempValue = toStringIfPossible(finalFilterArray[i]);
-    if (typeof tempValue == "string") { // String check all the filters given and only add valid ones.
-      finalFilterRegArray.push(tempValue)
-    } else { // If not a string, discard it, with an error.
-      thisConsole.error("Invalid input given to returnEntityUIDList as beginFilter!  Skipping!");
-    }
-  }
-
-  if (finalFilterRegArray.length > 0) { // Build the uid filter
-    for (let i = 0;i < finalFilterRegArray.length;i++) {
-      finalFilterRegArray[i] = "uid=" + finalFilterRegArray[i] + "[^,]*";
-    }
-    theReg = new RegExp(finalFilterRegArray.join("|")); // Make it a regExp
-  } else { // No filters were given
-    theReg = new RegExp("uid=[^,]*");
-  }
-  thisConsole.debug("finalFilterRegArray: " + finalFilterRegArray);
-
-  // Check for options
-  var checkSpawner = getOption(options, "spawnerFilter", false);
-  if (checkSpawner !== false) {
-    var spawnerRegExp = new RegExp("spawner=" + options["spawnerFilter"] + ","); // It MUST end in a , so the filter is looking at the spawner full spawner data.  Partial matches will not be included.
-  }
-  var checkLastModifier = getOption(options, "lastModifierFilter", false);
-  if (checkLastModifier !== false) {
-    var lastModifierRegExp = new RegExp("lastModifier=" + options["lastModifierFilter"] + ",");
-  }
-  var checkUID = getOption(options, "uidFilter", false);
-  if (checkUID !== false) {
-    var uidRegExp = new RegExp("uid=" + options["uidFilter"] + ",");
-  }
-  var checkName = getOption(options, "nameFilter", false);
-  if (checkName !== false) {
-    var nameRegExp = new RegExp("realName=" + options["nameFilter"] + ",");
-  }
-  var checkFaction = getOption(options, "factionFilter", false);
-  if (checkFaction !== false) {
-    var factionRegExp = new RegExp("faction=" + options["factionFilter"] + ",");
-  }
-  var checkIfTouched = trueOrFalse(getOption(options, "touchedFilter", "false24352345345234534"));
-  if (checkIfTouched !== "false24352345345234534") {
-    var touchedRegExp;
-    if (checkIfTouched == true) {
-      touchedRegExp = new RegExp("touched=true,");
-    } else if (checkIfTouched == false) {
-      touchedRegExp = new RegExp("touched=false,");
-    }
-  }
-  var checkSpacialCoords = getOption(options, "betweenSpacialCoordsFilter", false);
-  if (checkSpacialCoords !== false) {
-    // Should be an array of values that can be made into CoordsObj (could be CoordsObj's)
-    if (Array.isArray(checkSpacialCoords)) {
-      if (checkSpacialCoords.length == 2) {
-        try {
-          var spacialCoordsFilterPointAObj = new CoordsObj(checkSpacialCoords[0]);
-          var spacialCoordsFilterPointBObj = new CoordsObj(checkSpacialCoords[1]);
-        } catch (err) {
-          throw new Error("Invalid option given to returnEntityUIDList as 'betweenSpacialCoordsFilter'!  Expected an Array containing two coordinates! (input was not coordinates!)");
-        }
-
-
+  if (typeof cb == "function") {
+    var type = getOption(options, "type", "any"); // By default return any
+    // thisConsole.debug("Using type: " + type);
+    var theTypeArray = [];
+  
+    if (type != "any") {
+      var typeArray = [];
+      if (Array.isArray(type)) {
+        typeArray = type;
       } else {
-        throw new Error("Invalid option given to returnEntityUIDList as 'betweenSpacialCoordsFilter'!  Expected an Array containing TWO coordinates! (Invalid number of inputs in array)");
+        typeArray.push(type);
       }
-    } else {
-      throw new Error("Invalid option given to returnEntityUIDList as 'betweenSpacialCoordsFilter'!  Expected an Array containing two coordinates! (non-array input given)");
-    }
-  }
-
-
-  if (typeof theCoords == "string") {
-    // This will return an array of entities within the sector
-    // Todo: Add an option to convert from full UID to hsql uid
-    var shipListResults = "";
-    return theSector.load(options, function (err, results) {
-      if (err) {
-        thisConsole.error("ERROR:  Could not load sector!");
-        return cb(err, results);
-      }
-      return starNetVerified("/sector_info " + theCoords, options, function (err, shipListResults) {
-        if (err) {
-          thisConsole.error("Error getting sector_info for sector: " + theCoords);
-          return cb(err, shipListResults);
+      // thisConsole.debug("typeArray: " + typeArray);
+      for (let i = 0;i < typeArray.length;i++) {
+        // More than 1 type can be included.  Any filter will be added to the END
+        if (typeArray[i] == "ship") {
+          theTypeArray.push("ENTITY_SHIP_");
+        } else if (typeArray[i] == "station") {
+          theTypeArray.push("ENTITY_SPACESTATION_");
+        } else if (typeArray[i] == "shop") {
+          theTypeArray.push("ENTITY_SHOP_");
+        } else if (typeArray[i] == "creature") {
+          theTypeArray.push("ENTITY_CREATURE_");
+        } else if (typeArray[i] == "asteroid") {
+          theTypeArray.push("ENTITY_FLOATINGROCK_");
+          theTypeArray.push("ENTITY_FLOATINGROCKMANAGED_");
+        } else if (typeArray[i] == "planet") {
+          theTypeArray.push("ENTITY_PLANET_");
+          theTypeArray.push("ENTITY_PLANETCORE_");
+        } else if (typeArray[i] == "player") {
+          theTypeArray.push("ENTITY_PLAYERCHARACTER_");
+          theTypeArray.push("ENTITY_PLAYERSTATE_");
         }
-        var resultsArray = shipListResults.split("\n");
-        resultsArray.pop(); // Remove "command execution ended" line
-        resultsArray.pop(); // Remove the sector info line
-        var returnResults = [];
-        var entityUID = {};
-
-
-        var proceed;
-        for (let i = 0;i < resultsArray.length;i++) { // If there were any results, cycle through them one by one
-          // example: RETURN: [SERVER, DatabaseEntry [uid=ENTITY_SHIP_TopolM_1526337858159, sectorPos=(2, 2, 2), type=5, seed=0, lastModifier=ENTITY_PLAYERSTATE_TopolM, spawner=ENTITY_PLAYERSTATE_TopolM, realName=TopolM_1526337858159, touched=true, faction=0, pos=(121.83931, 271.8866, -1257.7705), minPos=(-2, -2, -2), maxPos=(2, 2, 2), creatorID=0], 0]
-          entityUID = resultsArray[i].match(theReg);
-          if (entityUID) { // will be null if no match found on this line
-            proceed = true;
-            if (spawnerRegExp) {
-              if (!resultsArray[i].match(spawnerRegExp)) {
-                proceed = false;
-              }
-            }
-            if (lastModifierRegExp && proceed) {
-              if (!resultsArray[i].match(lastModifierRegExp)) {
-                proceed = false;
-              }
-            }
-            if (uidRegExp && proceed) {
-              if (!resultsArray[i].match(uidRegExp)) {
-                proceed = false;
-              }
-            }
-            if (nameRegExp && proceed) {
-              if (!resultsArray[i].match(nameRegExp)) {
-                proceed = false;
-              }
-            }
-            if (factionRegExp && proceed) {
-              if (!resultsArray[i].match(factionRegExp)) {
-                proceed = false;
-              }
-            }
-            if (touchedRegExp && proceed) {
-              if (!resultsArray[i].match(touchedRegExp)) {
-                proceed = false;
-              }
-            }
-            if (checkSpacialCoords !== false && proceed) {
-              // TODO: Create the function that can compare a set of floating point coordinates against a set
-              // Example (loaded and unloaded):
-              // pos=(121.83931, 271.8866, -1257.7705) // Can be an E type value, so make sure to convert during the check.
-              var posResult = resultsArray[i].match(/pos=[(][0-9, .E-][)]/)
-              if (posResult) { // This is redundant, there should ALWAYS be a match, but just in case..
-                var posString = posResult[0].replace(/^pos=[(]/, "").replace(/[)]$/, "");
-                var posCoordsObj = new CoordsObj(posString); // This converts any E numbers to floating point
-                if (!areCoordsBetween(posCoordsObj, spacialCoordsFilterPointAObj, spacialCoordsFilterPointBObj)) {
+      }
+    }
+    // thisConsole.debug("theTypeArray: " + theTypeArray);
+    // thisConsole.debug("theTypeArray.length: " + theTypeArray.length);
+  
+  
+    try {
+      var theSector = new SectorObj(coords);
+      var theCoords = theSector.toString();
+    } catch (err) {
+      thisConsole.error(err);
+      throw new Error("Invalid input given to returnEntityUIDList as 'coords'!  (Expect coordinates!)");
+    }
+  
+    var theReg = new RegExp("");
+    // thisConsole.debug("beginFilter: " + beginFilter);
+    // thisConsole.debug("typeof beginFilter: " + typeof beginFilter);
+    var filterArray = [];
+    if (typeof beginFilter == "string") {
+      filterArray.push(beginFilter);
+    } else if (Array.isArray(beginFilter)) {
+      filterArray = beginFilter;
+    } else if (typeof beginFilter != "undefined" && beginFilter !== null && beginFilter != "") {
+      throw new Error("Invalid input given to returnEntityUIDList as beginFilter!");
+    }
+  
+  
+    var finalFilterArray = [];
+    if (theTypeArray.length > 0) {
+      for (let i = 0;i < theTypeArray.length;i++) { // add types to the beginning of each filter.
+        if (filterArray.length > 0) {
+          for (let e = 0;e < filterArray.length;e++) {
+            finalFilterArray.push(theTypeArray[i] + filterArray[e]);
+          }
+        } else { // If no filters given, just push the type as the filter.
+          finalFilterArray.push(theTypeArray[i]);
+        }
+      }
+    } else { // No types were given, so just use the filter Array.
+      finalFilterArray = filterArray;
+    }
+    // thisConsole.debug("finalFilterArray:" + finalFilterArray);
+    var finalFilterRegArray = [];
+    var tempValue;
+    for (let i = 0;i < finalFilterArray.length;i++) {
+      tempValue = toStringIfPossible(finalFilterArray[i]);
+      if (typeof tempValue == "string") { // String check all the filters given and only add valid ones.
+        finalFilterRegArray.push(tempValue)
+      } else { // If not a string, discard it, with an error.
+        thisConsole.error("Invalid input given to returnEntityUIDList as beginFilter!  Skipping!");
+      }
+    }
+  
+    if (finalFilterRegArray.length > 0) { // Build the uid filter
+      for (let i = 0;i < finalFilterRegArray.length;i++) {
+        finalFilterRegArray[i] = "uid=" + finalFilterRegArray[i] + "[^,]*";
+      }
+      theReg = new RegExp(finalFilterRegArray.join("|")); // Make it a regExp
+    } else { // No filters were given
+      theReg = new RegExp("uid=[^,]*");
+    }
+    thisConsole.debug("finalFilterRegArray: " + finalFilterRegArray);
+  
+    // Check for options
+    var checkSpawner = getOption(options, "spawnerFilter", false);
+    if (checkSpawner !== false) {
+      var spawnerRegExp = new RegExp("spawner=" + options["spawnerFilter"] + ","); // It MUST end in a , so the filter is looking at the spawner full spawner data.  Partial matches will not be included.
+    }
+    var checkLastModifier = getOption(options, "lastModifierFilter", false);
+    if (checkLastModifier !== false) {
+      var lastModifierRegExp = new RegExp("lastModifier=" + options["lastModifierFilter"] + ",");
+    }
+    var checkUID = getOption(options, "uidFilter", false);
+    if (checkUID !== false) {
+      var uidRegExp = new RegExp("uid=" + options["uidFilter"] + ",");
+    }
+    var checkName = getOption(options, "nameFilter", false);
+    if (checkName !== false) {
+      var nameRegExp = new RegExp("realName=" + options["nameFilter"] + ",");
+    }
+    var checkFaction = getOption(options, "factionFilter", false);
+    if (checkFaction !== false) {
+      var factionRegExp = new RegExp("faction=" + options["factionFilter"] + ",");
+    }
+    var checkIfTouched = trueOrFalse(getOption(options, "touchedFilter", "false24352345345234534"));
+    if (checkIfTouched !== "false24352345345234534") {
+      var touchedRegExp;
+      if (checkIfTouched == true) {
+        touchedRegExp = new RegExp("touched=true,");
+      } else if (checkIfTouched == false) {
+        touchedRegExp = new RegExp("touched=false,");
+      }
+    }
+    var checkSpacialCoords = getOption(options, "betweenSpacialCoordsFilter", false);
+    if (checkSpacialCoords !== false) {
+      // Should be an array of values that can be made into CoordsObj (could be CoordsObj's)
+      if (Array.isArray(checkSpacialCoords)) {
+        if (checkSpacialCoords.length == 2) {
+          try {
+            var spacialCoordsFilterPointAObj = new CoordsObj(checkSpacialCoords[0]);
+            var spacialCoordsFilterPointBObj = new CoordsObj(checkSpacialCoords[1]);
+          } catch (err) {
+            throw new Error("Invalid option given to returnEntityUIDList as 'betweenSpacialCoordsFilter'!  Expected an Array containing two coordinates! (input was not coordinates!)");
+          }
+  
+  
+        } else {
+          throw new Error("Invalid option given to returnEntityUIDList as 'betweenSpacialCoordsFilter'!  Expected an Array containing TWO coordinates! (Invalid number of inputs in array)");
+        }
+      } else {
+        throw new Error("Invalid option given to returnEntityUIDList as 'betweenSpacialCoordsFilter'!  Expected an Array containing two coordinates! (non-array input given)");
+      }
+    }
+  
+  
+    if (typeof theCoords == "string") {
+      // This will return an array of entities within the sector
+      // Todo: Add an option to convert from full UID to hsql uid
+      var shipListResults = "";
+      return theSector.load(options, function (err, results) {
+        if (err) {
+          thisConsole.error("ERROR:  Could not load sector!");
+          return cb(err, results);
+        }
+        return starNetVerified("/sector_info " + theCoords, options, function (err, shipListResults) {
+          if (err) {
+            thisConsole.error("Error getting sector_info for sector: " + theCoords);
+            return cb(err, shipListResults);
+          }
+          var resultsArray = shipListResults.split("\n");
+          resultsArray.pop(); // Remove "command execution ended" line
+          resultsArray.pop(); // Remove the sector info line
+          var returnResults = [];
+          var entityUID = {};
+  
+  
+          var proceed;
+          for (let i = 0;i < resultsArray.length;i++) { // If there were any results, cycle through them one by one
+            // example: RETURN: [SERVER, DatabaseEntry [uid=ENTITY_SHIP_TopolM_1526337858159, sectorPos=(2, 2, 2), type=5, seed=0, lastModifier=ENTITY_PLAYERSTATE_TopolM, spawner=ENTITY_PLAYERSTATE_TopolM, realName=TopolM_1526337858159, touched=true, faction=0, pos=(121.83931, 271.8866, -1257.7705), minPos=(-2, -2, -2), maxPos=(2, 2, 2), creatorID=0], 0]
+            entityUID = resultsArray[i].match(theReg);
+            if (entityUID) { // will be null if no match found on this line
+              proceed = true;
+              if (spawnerRegExp) {
+                if (!resultsArray[i].match(spawnerRegExp)) {
                   proceed = false;
                 }
-              } else { // I guess the entity didn't have spacial coords somehow?
-                proceed = false;
               }
+              if (lastModifierRegExp && proceed) {
+                if (!resultsArray[i].match(lastModifierRegExp)) {
+                  proceed = false;
+                }
+              }
+              if (uidRegExp && proceed) {
+                if (!resultsArray[i].match(uidRegExp)) {
+                  proceed = false;
+                }
+              }
+              if (nameRegExp && proceed) {
+                if (!resultsArray[i].match(nameRegExp)) {
+                  proceed = false;
+                }
+              }
+              if (factionRegExp && proceed) {
+                if (!resultsArray[i].match(factionRegExp)) {
+                  proceed = false;
+                }
+              }
+              if (touchedRegExp && proceed) {
+                if (!resultsArray[i].match(touchedRegExp)) {
+                  proceed = false;
+                }
+              }
+              if (checkSpacialCoords !== false && proceed) {
+                // TODO: Create the function that can compare a set of floating point coordinates against a set
+                // Example (loaded and unloaded):
+                // pos=(121.83931, 271.8866, -1257.7705) // Can be an E type value, so make sure to convert during the check.
+                var posResult = resultsArray[i].match(/pos=[(][0-9, .E-][)]/)
+                if (posResult) { // This is redundant, there should ALWAYS be a match, but just in case..
+                  var posString = posResult[0].replace(/^pos=[(]/, "").replace(/[)]$/, "");
+                  var posCoordsObj = new CoordsObj(posString); // This converts any E numbers to floating point
+                  if (!areCoordsBetween(posCoordsObj, spacialCoordsFilterPointAObj, spacialCoordsFilterPointBObj)) {
+                    proceed = false;
+                  }
+                } else { // I guess the entity didn't have spacial coords somehow?
+                  proceed = false;
+                }
+              }
+              if (proceed) { // If all tests passed, then push the UID
+                returnResults.push(entityUID[0].replace(/^uid=/, "")); // Grab the first value from the match object created to get the string. Don't use .toString() because this doesn't work right when using | either/or type regex patterns on the uid filter
+              }
+  
             }
-            if (proceed) { // If all tests passed, then push the UID
-              returnResults.push(entityUID[0].replace(/^uid=/, "")); // Grab the first value from the match object created to get the string. Don't use .toString() because this doesn't work right when using | either/or type regex patterns on the uid filter
-            }
-
           }
-        }
-        return cb(null, returnResults); // Outputs an array of UIDs
+          return cb(null, returnResults); // Outputs an array of UIDs
+        });
       });
-    });
+    } else {
+      throw new Error("Invalid input given to returnEntityUIDList as Coords!");
+    }
   } else {
-    throw new Error("Invalid input given to returnEntityUIDList as Coords!");
+    return simplePromisifyIt(returnEntityUIDList,options,coords,beginFilter);
   }
 };
 // applyFunctionToArray(theArray,function(input){ return new PlayerObj(input) })
@@ -4692,65 +4700,47 @@ function makePlayerObj(input) {
 function getPlayerList(options, cb) { // Returns an array of player objects for all online players or false if the starNet command fails.
   // returns an array of all online players.  The array will be empty if nobody is online.
   // RETURN: [SERVER, [PL] Name: Benevolent27
-  var matchReg = /^RETURN: \[SERVER, \[PL\] Name: .*/;
-  var regExpToRem = /^RETURN: \[SERVER, \[PL\] Name: /;
-  var regExpToRem2 = /, 0]$/;
-  var theCommand = "/player_list";
-  var theFunctionToRunOnEachResult = makePlayerObj;
-  var theErrorMsg = "StarNet error running getPlayerList()!";
   if (typeof cb == "function") {
+    var matchReg = /^RETURN: \[SERVER, \[PL\] Name: .*/;
+    var regExpToRem = /^RETURN: \[SERVER, \[PL\] Name: /;
+    var regExpToRem2 = /, 0]$/;
+    var theCommand = "/player_list";
+    var theFunctionToRunOnEachResult = makePlayerObj;
+    var theErrorMsg = "StarNet error running getPlayerList()!";
     return splitHelper2CB(theCommand, options, matchReg, regExpToRem, regExpToRem2, theFunctionToRunOnEachResult, cb);
   } else {
-    try {
-      var result = starNetVerified(theCommand, options);
-      return splitHelper2(result, matchReg, regExpToRem, regExpToRem2, theFunctionToRunOnEachResult);
-    } catch (error) {
-      thisConsole.error(theErrorMsg);
-      throw error;
-    }
+    return simplePromisifyIt(getPlayerList,options);
   }
 }
 function getWhitelistedNameList(options, cb) {
   // /list_whitelist_name
   // RETURN: [SERVER, Whitelisted: {six, four, five}, 0]
-  var matchReg = /^RETURN: \[SERVER, Whitelisted: {.*/;
-  var regExpToRem = /^RETURN: \[SERVER, Whitelisted: {/;
-  var regExpToRem2 = /}, 0\]$/;
-  var theCommand = "/list_whitelist_name";
-  var theFunctionToRunOnEachResult = makePlayerObj;
-  var theErrorMsg = "StarNet error running getWhitelistedNameList()!";
   if (typeof cb == "function") {
+    var matchReg = /^RETURN: \[SERVER, Whitelisted: {.*/;
+    var regExpToRem = /^RETURN: \[SERVER, Whitelisted: {/;
+    var regExpToRem2 = /}, 0\]$/;
+    var theCommand = "/list_whitelist_name";
+    var theFunctionToRunOnEachResult = makePlayerObj;
+    var theErrorMsg = "StarNet error running getWhitelistedNameList()!";
     return splitHelper1CB(theCommand, options, matchReg, regExpToRem, regExpToRem2, theFunctionToRunOnEachResult, cb);
   } else {
-    try {
-      var result = starNetVerified(theCommand, options);
-      return splitHelper1(result, matchReg, regExpToRem, regExpToRem2, theFunctionToRunOnEachResult);
-    } catch (error) {
-      thisConsole.error(theErrorMsg);
-      throw error;
-    }
+    return simplePromisifyIt(getWhitelistedNameList,options);
   }
 }
 function getBannedNameList(options, cb) {
   // TODO:  Add {"fast":true} option to read directly from the blacklist.txt file.
   // /list_banned_name
   // RETURN: [SERVER, Banned: {six, four, five}, 0]
-  var matchReg = /^RETURN: \[SERVER, Banned: {.*/;
-  var regExpToRem = /^RETURN: \[SERVER, Banned: {/;
-  var regExpToRem2 = /}, 0\]$/;
-  var theCommand = "/list_banned_name";
-  var theFunctionToRunOnEachResult = makePlayerObj;
-  var theErrorMsg = "StarNet error running getBannedNameList()!";
   if (typeof cb == "function") {
+    var matchReg = /^RETURN: \[SERVER, Banned: {.*/;
+    var regExpToRem = /^RETURN: \[SERVER, Banned: {/;
+    var regExpToRem2 = /}, 0\]$/;
+    var theCommand = "/list_banned_name";
+    var theFunctionToRunOnEachResult = makePlayerObj;
+    var theErrorMsg = "StarNet error running getBannedNameList()!";
     return splitHelper1CB(theCommand, options, matchReg, regExpToRem, regExpToRem2, theFunctionToRunOnEachResult, cb);
   } else {
-    try {
-      var result = starNetVerified(theCommand, options);
-      return splitHelper1(result, matchReg, regExpToRem, regExpToRem2, theFunctionToRunOnEachResult);
-    } catch (error) {
-      thisConsole.error(theErrorMsg);
-      throw error;
-    }
+    return simplePromisifyIt(getBannedNameList,options);
   }
 }
 function getAdminsList(options, cb) { // TODO:  Test this.. there are 4 ways of doing things.
@@ -4760,177 +4750,228 @@ function getAdminsList(options, cb) { // TODO:  Test this.. there are 4 ways of 
   // RETURN: [SERVER, Admins: {thrace_vega=>thrace_vega, andyp=>andyp, weedle=>weedle, modr4de=>modr4de, melvin=>melvin, build_lonebluewolf=>build_lonebluewolf, arkwulff=>arkwulff, dukeofrealms=>dukeofrealms, borednl=>borednl, mod_lonebluewolf=>mod_lonebluewolf, mod_caribe=>mod_caribe, benevolent27=>benevolent27, pezz=>pezz, lancake=>lancake, nikodaemos=>nikodaemos, char_aznable=>char_aznable, mod_flagitious=>mod_flagitious, arbiter=>arbiter, benevolent37=>benevolent37, nastral=>nastral, benevolent327=>benevolent327}, 0]
   // options can be {"fast":true}, which will cause this scripting to read from the admins.txt file in the StarMade folder rather than run the command.
   // another option can be {"unrestricted":true}, which will only return admins that have no restrictions - note that this forces reading from the admins.txt file.
-  let unrestricted = trueOrFalse(getOption(options, "unrestricted", false));
-  let fast = trueOrFalse(getOption(options, "fast", false));
-  if (unrestricted) {
-    fast = true; // The fileread method MUST be used if showing only unrestricted admins
-  }
-  var theError = "ERROR:  Connection failed when attempting to get list of admins!";
-  var theReadError = "ERROR: Problem reading admins.txt file:"
-  var theReg = /^RETURN: \[SERVER, Admins: {.*/;
-  var remReg = /^RETURN: \[SERVER, Admins: {/;
-  var remReg2 = /}, 0\]$/;
-  var processLine;
-  var processArray = []; // Note:  I have no idea if this will work as a callback function converted to a promise with this sync in here.
-  var adminsTxtFile = path.join(serverObj.starMadeInstallFolder, "admins.txt");
-  var adminFileContentsArray = [];
-  var outputArray = [];
-  if (fast == true) { // Perform file read style
-    return fs.readFile(adminsTxtFile, "UTF-8", function (err, data) { // node.js documentation has 'utf8' as it's example.. maybe we should use that?
-      if (err) {
-        thisConsole.error(theReadError);
-        thisConsole.dir(err);
-        return cb(err, data);
-      } else {
-        var adminFileContents = data.replace(/\r/g, "");
-        if (adminFileContents) {
-          adminFileContentsArray = adminFileContents.split("\n");
-          for (let i = 0;i < adminFileContentsArray.length;i++) {
-            if (adminFileContentsArray[i].trim()) { // Test to see if the line is blank or not.  Only process it if there is text.
-              if (unrestricted) { // Only add the playerObj if it is an unrestricted admin
-                if (!(/#.*$/).test(adminFileContentsArray[i])) {
+  if (typeof cb == "function") {
+    let unrestricted = trueOrFalse(getOption(options, "unrestricted", false));
+    let fast = trueOrFalse(getOption(options, "fast", false));
+    if (unrestricted) {
+      fast = true; // The fileread method MUST be used if showing only unrestricted admins
+    }
+    var theError = "ERROR:  Connection failed when attempting to get list of admins!";
+    var theReadError = "ERROR: Problem reading admins.txt file:"
+    var theReg = /^RETURN: \[SERVER, Admins: {.*/;
+    var remReg = /^RETURN: \[SERVER, Admins: {/;
+    var remReg2 = /}, 0\]$/;
+    var processLine;
+    var processArray = []; // Note:  I have no idea if this will work as a callback function converted to a promise with this sync in here.
+    var adminsTxtFile = path.join(serverObj.starMadeInstallFolder, "admins.txt");
+    var adminFileContentsArray = [];
+    var outputArray = [];
+    if (fast == true) { // Perform file read style
+      return fs.readFile(adminsTxtFile, "UTF-8", function (err, data) { // node.js documentation has 'utf8' as it's example.. maybe we should use that?
+        if (err) {
+          thisConsole.error(theReadError);
+          thisConsole.dir(err);
+          return cb(err, data);
+        } else {
+          var adminFileContents = data.replace(/\r/g, "");
+          if (adminFileContents) {
+            adminFileContentsArray = adminFileContents.split("\n");
+            for (let i = 0;i < adminFileContentsArray.length;i++) {
+              if (adminFileContentsArray[i].trim()) { // Test to see if the line is blank or not.  Only process it if there is text.
+                if (unrestricted) { // Only add the playerObj if it is an unrestricted admin
+                  if (!(/#.*$/).test(adminFileContentsArray[i])) {
+                    outputArray.push(new PlayerObj(adminFileContentsArray[i].replace(/#.*$/g, "").trim()));
+                  }
+                } else {
                   outputArray.push(new PlayerObj(adminFileContentsArray[i].replace(/#.*$/g, "").trim()));
                 }
-              } else {
-                outputArray.push(new PlayerObj(adminFileContentsArray[i].replace(/#.*$/g, "").trim()));
               }
             }
           }
+          return cb(null, outputArray);
         }
-        return cb(null, outputArray);
-      }
-    });
-  } else { // Use StarNet to get admin list
-    return starNetVerified("/list_admins", options, function (err, result) {
-      if (err) {
-        thisConsole.error(theError);
-        return cb(err, result);
-      } else {
-        processLine = returnLineMatch(result, theReg, remReg, remReg2);
-        processArray = processLine.split(", ");
-        for (let i = 0;i < processArray.length;i++) {
-          outputArray.push(new PlayerObj(processArray[i].split("=>")[0]));
+      });
+    } else { // Use StarNet to get admin list
+      return starNetVerified("/list_admins", options, function (err, result) {
+        if (err) {
+          thisConsole.error(theError);
+          return cb(err, result);
+        } else {
+          processLine = returnLineMatch(result, theReg, remReg, remReg2);
+          processArray = processLine.split(", ");
+          for (let i = 0;i < processArray.length;i++) {
+            outputArray.push(new PlayerObj(processArray[i].split("=>")[0]));
+          }
+          return cb(null, outputArray);
         }
-        return cb(null, outputArray);
-      }
-    });
+      });
+    }    
+  } else {
+    return simplePromisifyIt(getAdminsList,options);
   }
 };
 function isPlayerOnline(name, options, cb) { // Expects a string or PlayerObj as input for name.  Returns true if the player is online, false if not.
-  return getPlayerList(options, function (err, resultArray) {
-    if (err) {
-      return cb(err, null);
-    } else {
-      return cb(null, compareToObjectArrayToString(resultArray, name));
-    }
-  });
+  if (typeof cb == "function") {
+    return getPlayerList(options, function (err, resultArray) {
+      if (err) {
+        return cb(err, null);
+      } else {
+        return cb(null, compareToObjectArrayToString(resultArray, name));
+      }
+    });
+  } else {
+    return simplePromisifyIt(isPlayerOnline,options,name);
+  }
 }
 function isPlayerAdmin(name, options, cb) {
-  return getAdminsList(options, function (err, result) {
-    if (err) {
-      return cb(err, result);
-    } else {
-      return cb(null, compareToObjectArrayToString(result, name));
-    }
-  });
+  if (typeof cb == "function") {
+    return getAdminsList(options, function (err, result) {
+      if (err) {
+        return cb(err, result);
+      } else {
+        return cb(null, compareToObjectArrayToString(result, name));
+      }
+    });
+  } else {
+    return simplePromisifyIt(isPlayerAdmin,options,name);
+  }
 }
 function isNameWhitelisted(name, options, cb) { // cb is optional
-  return getWhitelistedNameList(options, function (err, resultArray) {
-    if (err) {
-      return cb(err, null);
-    } else {
-      return cb(null, compareToObjectArrayToString(resultArray, name));
-    }
-  });
+  if (typeof cb == "function") {
+    return getWhitelistedNameList(options, function (err, resultArray) {
+      if (err) {
+        return cb(err, null);
+      } else {
+        return cb(null, compareToObjectArrayToString(resultArray, name));
+      }
+    });
+  } else {
+    return simplePromisifyIt(isNameWhitelisted,options,name);
+  }
 }
 function isNameBanned(name, options, cb) { //cb is optional.  Runs Sync if not given.  Options will be added to allow a "fast" option, which will read from the blacklist.txt file.
-  return getBannedNameList(options, function (err, resultArray) {
-    if (err) {
-      return cb(err, null); // Could not get Banned name list, so pass on the error
-    } else {
-      return cb(null, compareToObjectArrayToString(resultArray, name)); // isBanned is a Sync function.
-    }
-  });
+  if (typeof cb == "function") {
+    return getBannedNameList(options, function (err, resultArray) {
+      if (err) {
+        return cb(err, null); // Could not get Banned name list, so pass on the error
+      } else {
+        return cb(null, compareToObjectArrayToString(resultArray, name)); // isBanned is a Sync function.
+      }
+    });
+  } else {
+    return simplePromisifyIt(isNameBanned,options,name);
+  }
 }
 function makeSMNameObj(input) {
   return new SMNameObj(input);
 }
 function getBannedAccountsList(options, cb) { // Returns an array of SMNameObj
   // RETURN: [SERVER, Banned: {three, two, one}, 0]
-  var matchReg = /^RETURN: \[SERVER, Banned: {.*/;
-  var regExpToRem = /^RETURN: \[SERVER, Banned: {/;
-  var regExpToRem2 = /}, 0\]$/;
-  var theCommand = "/list_banned_accounts";
-  var theFunctionToRunOnEachResult = makeSMNameObj;
-  return splitHelper1CB(theCommand, options, matchReg, regExpToRem, regExpToRem2, theFunctionToRunOnEachResult, cb);
+  if (typeof cb == "function") {
+    var matchReg = /^RETURN: \[SERVER, Banned: {.*/;
+    var regExpToRem = /^RETURN: \[SERVER, Banned: {/;
+    var regExpToRem2 = /}, 0\]$/;
+    var theCommand = "/list_banned_accounts";
+    var theFunctionToRunOnEachResult = makeSMNameObj;
+    return splitHelper1CB(theCommand, options, matchReg, regExpToRem, regExpToRem2, theFunctionToRunOnEachResult, cb);
+  } else {
+    return simplePromisifyIt(getBannedAccountsList,options);
+  }
 }
 function getWhitelistedAccountsList(options, cb) { // Returns an array of SMNameObj
   // RETURN: [SERVER, Whitelisted: {three, two, one}, 0]
-  var matchReg = /^RETURN: \[SERVER, Whitelisted: {.*/;
-  var regExpToRem = /^RETURN: \[SERVER, Whitelisted: {/;
-  var regExpToRem2 = /}, 0\]$/;
-  var theCommand = "/list_whitelist_accounts";
-  var theFunctionToRunOnEachResult = makeSMNameObj;
-  return splitHelper1CB(theCommand, options, matchReg, regExpToRem, regExpToRem2, theFunctionToRunOnEachResult, cb);
+  if (typeof cb == "function") {
+    var matchReg = /^RETURN: \[SERVER, Whitelisted: {.*/;
+    var regExpToRem = /^RETURN: \[SERVER, Whitelisted: {/;
+    var regExpToRem2 = /}, 0\]$/;
+    var theCommand = "/list_whitelist_accounts";
+    var theFunctionToRunOnEachResult = makeSMNameObj;
+    return splitHelper1CB(theCommand, options, matchReg, regExpToRem, regExpToRem2, theFunctionToRunOnEachResult, cb);
+  } else {
+    return simplePromisifyIt(getWhitelistedAccountsList,options);
+  }
 }
 function isAccountWhitelisted(account, options, cb) {
-  return getWhitelistedAccountsList(options, function (err, resultArray) {
-    if (err) {
-      return cb(err, null);
-    } else {
-      return cb(null, compareToObjectArrayToString(resultArray, account));
-    }
-  });
+  if (typeof cb == "function") {
+    return getWhitelistedAccountsList(options, function (err, resultArray) {
+      if (err) {
+        return cb(err, null);
+      } else {
+        return cb(null, compareToObjectArrayToString(resultArray, account));
+      }
+    });
+  } else {
+    return simplePromisifyIt(isAccountWhitelisted,options,account);
+  }
 }
 function isAccountBanned(account, options, cb) {
-  return getBannedAccountsList(options, function (err, resultArray) {
-    if (err) {
-      return cb(err, null);
-    } else {
-      return cb(null, compareToObjectArrayToString(resultArray, account));
-    }
-  });
+  if (typeof cb == "function") {
+    return getBannedAccountsList(options, function (err, resultArray) {
+      if (err) {
+        return cb(err, null);
+      } else {
+        return cb(null, compareToObjectArrayToString(resultArray, account));
+      }
+    });
+  } else {
+    return simplePromisifyIt(isAccountBanned,options,account);
+  }
 }
 function makeIPObj(input) {
   return new IPObj(input);
 }
 function getWhitelistedIPList(options, cb) {
   // RETURN: [SERVER, Whitelisted: {1.2.3.6, 1.2.3.5, 1.2.3.4}, 0]
-  var matchReg = /^RETURN: \[SERVER, Whitelisted: {.*/;
-  var regExpToRem = /^RETURN: \[SERVER, Whitelisted: {/;
-  var regExpToRem2 = /}, 0\]$/;
-  var theCommand = "/list_whitelist_ip";
-  var theFunctionToRunOnEachResult = makeIPObj;
-  return splitHelper1CB(theCommand, options, matchReg, regExpToRem, regExpToRem2, theFunctionToRunOnEachResult, cb);
+  if (typeof cb == "function") {
+    var matchReg = /^RETURN: \[SERVER, Whitelisted: {.*/;
+    var regExpToRem = /^RETURN: \[SERVER, Whitelisted: {/;
+    var regExpToRem2 = /}, 0\]$/;
+    var theCommand = "/list_whitelist_ip";
+    var theFunctionToRunOnEachResult = makeIPObj;
+    return splitHelper1CB(theCommand, options, matchReg, regExpToRem, regExpToRem2, theFunctionToRunOnEachResult, cb);
+  } else {
+    return simplePromisifyIt(getWhitelistedIPList,options);
+  }
 }
 function getBannedIPList(options, cb) {
   // RETURN: [SERVER, Banned: {1.2.3.6, 1.2.3.5, 1.2.3.4}, 0]
-  var matchReg = /^RETURN: \[SERVER, Banned: {.*/;
-  var regExpToRem = /^RETURN: \[SERVER, Banned: {/;
-  var regExpToRem2 = /}, 0\]$/;
-  var theCommand = "/list_banned_ip";
-  var theFunctionToRunOnEachResult = makeIPObj;
-  return splitHelper1CB(theCommand, options, matchReg, regExpToRem, regExpToRem2, theFunctionToRunOnEachResult, cb);
+  if (typeof cb == "function") {
+    var matchReg = /^RETURN: \[SERVER, Banned: {.*/;
+    var regExpToRem = /^RETURN: \[SERVER, Banned: {/;
+    var regExpToRem2 = /}, 0\]$/;
+    var theCommand = "/list_banned_ip";
+    var theFunctionToRunOnEachResult = makeIPObj;
+    return splitHelper1CB(theCommand, options, matchReg, regExpToRem, regExpToRem2, theFunctionToRunOnEachResult, cb);
+  } else {
+    return simplePromisifyIt(getBannedIPList,options);
+  }
 }
 function isIPWhitelisted(ip, options, cb) {
-  return getWhitelistedIPList(options, function (err, resultArray) {
-    if (err) {
-      return cb(err, null);
-    } else {
-      return cb(null, compareToObjectArrayToString(resultArray, ip));
-    }
-  });
+  if (typeof cb == "function") {
+    return getWhitelistedIPList(options, function (err, resultArray) {
+      if (err) {
+        return cb(err, null);
+      } else {
+        return cb(null, compareToObjectArrayToString(resultArray, ip));
+      }
+    });
+  } else {
+    return simplePromisifyIt(isIPWhitelisted,options,ip);
+  }
 }
 function isIPBanned(ip, options, cb) {
-  return getBannedIPList(options, function (err, resultArray) {
-    if (err) {
-      return cb(err, null);
-    } else {
-      return cb(null, compareToObjectArrayToString(resultArray, ip));
-    }
-  });
+  if (typeof cb == "function") {
+    return getBannedIPList(options, function (err, resultArray) {
+      if (err) {
+        return cb(err, null);
+      } else {
+        return cb(null, compareToObjectArrayToString(resultArray, ip));
+      }
+    });
+  } else {
+    return simplePromisifyIt(isIPBanned,options,ip);
+  }
 }
-
 
 // TODO: Create a function that gives a specific protection a value based on the sectorProtections array.
 // TODO: Create a function that converts an array of protection names to a total number
@@ -4961,7 +5002,6 @@ split(", "); // Supports scientific e notation, which is used sometimes for spac
   // RETURN: [SERVER, [ADMINCOMMAND][SPAWN] Player not found, 0]
   return false; // The player must have been offline.
 }
-
 function getPlayerSpawnLocation(player, options, cb) {
   if (typeof cb == "function") {
     return starNetVerified("/player_get_spawn " + player, options, function (err, result) {
@@ -4974,16 +5014,11 @@ function getPlayerSpawnLocation(player, options, cb) {
   }
   return simplePromisifyIt(getPlayerSpawnLocation, options, player);
 }
-
-
-
-
 function convertSectorToSystem(sectorObj) {
   var sectorArray = sectorObj.toArray();
   var systemArray = convertSectorCoordsToSystem(sectorArray);
   return new SystemObj(systemArray);
 }
-
 function convertSectorCoordsToSystem(array) {
   if (Array.isArray(array)) {
     let outputArray = [];
@@ -4996,7 +5031,6 @@ function convertSectorCoordsToSystem(array) {
   }
   throw new Error("ERROR: Invalid input given to convertSectorCoordsToSystem! (Expects an array)");
 }
-
 function getSysCoordFromSector(input) {
   if (testIfInput(input)) {
     var theInput = toNumIfPossible(input);
@@ -5018,7 +5052,6 @@ function getSysCoordFromSector(input) {
   }
   throw new Error("Invalid input given to getSysCoordFromSector! (Cannot be empty)");
 }
-
 function getEntityPrefixFromPublicEntitiesTypeNumber(input) {
   if (input == 1) {
     return "ENTITY_SHOP_";
