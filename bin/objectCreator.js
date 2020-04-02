@@ -465,7 +465,8 @@ function CustomConsole(consoleName,options){
     }
   });
   if (!invincible){ // Only listen for the unload if it is not invincible
-    global.event.on("unloadListeners",function(){ // This will require the customConsole obj be recreated to be usable.
+    global.event.on("unloadMods",function(){ // This will require the customConsole obj be recreated to be usable.
+      // This is done to clear memory for mods that utilize a CustomConsole
       if (global["consoles"].hasOwnProperty(consoleName)){
         delete global["consoles"][consoleName];
       }
