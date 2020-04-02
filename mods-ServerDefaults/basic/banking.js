@@ -9,6 +9,24 @@
 // !withdraw [# of credits]
 // !transfer [# of credits] [Player to transfer to]
 // !bankTransfer [# of credits] [Player to transfer to]
+
+// TODO: Extend the PlayerObj with methods:
+// .bankBalance(); // Returns the balance of the player's bank account
+// .bankDeposit([# of credits]); // Deposits credits to the player's bank account from their inventory and returns the value banked
+// .bankWithdraw([# of credits]); // Withdraws credits from the player's bank account to their inventory
+// .bankTransfer([# of credits],[PlayerToTransferTo]) // Attempts a transfer of a certain number of credits to another player's bank account
+// .creditTransfer([# of credits],[PlayerToTransferTo]) // Transfers credits from one player's inventory to another's
+// .giveBankCredits([# of credits]) // Gives a player free credits to their bank account
+// .removeBankCredits([# of credits]) // Removes credits from a player's bank account
+// optional:
+// .totalBalance(); // Returns the total credits of a player's inventory + bank account
+// .removeAnyCredits([# of credits]); // Removes credits from a player's inventory and remaining amount from bank account if possible.
+
+// TODO: Extend the serverObj with methods:
+// .bankAccountsObj(); // Return the object of all bank accounts
+// .clearBankAccounts(); // Back up bank accounts file and clear all bank accounts (used for server resets)
+// .backupBankingFile(pathToFile); // Creates a backup of the banking file to a select location (used for pairing with world backups)
+
 const path=require('path');
 const objectHelper=global.objectHelper;
 var {toNumIfPossible}=objectHelper;
@@ -37,10 +55,27 @@ if (existsAndIsFile(bankingFilePath)){
 } else {
   writeBankingFile(); // Create the file if it does not exist
 }
-
-event.on("serverStart",function(theServerObj){
+event.on("start",function(theServerObj){
   serverObj=theServerObj;
   commandOperator=serverObj.settings.commandOperator;
+
+  // Require in the server objects file directly to ensure the objects are extended, since registered objects may not appear correctly yet.
+  // TODO: Move object registering to the installObj instead of the serverObj, so registering can occur during the init phase
+  var serverObjectsScript=require(path.resolve(__dirname,"..","default","serverObjects.js")); // temp
+  // Extend the serverObj
+  // var PlayerObj=serverObjectsScript.PlayerObj;
+  serverObjectsScript.PlayerObj.prototype.bankBalance=function(){ return getBankBalance(this.name) };
+// .bankDeposit([# of credits]); // Deposits credits to the player's bank account from their inventory and returns the value banked
+// .bankWithdraw([# of credits]); // Withdraws credits from the player's bank account to their inventory
+// .bankTransfer([# of credits],[PlayerToTransferTo]) // Attempts a transfer of a certain number of credits to another player's bank account
+// .creditTransfer([# of credits],[PlayerToTransferTo]) // Transfers credits from one player's inventory to another's
+// .giveBankCredits([# of credits]) // Gives a player free credits to their bank account
+// .removeBankCredits([# of credits]) // Removes credits from a player's bank account
+// optional:
+// .totalBalance(); // Returns the total credits of a player's inventory + bank account
+// .removeAnyCredits([# of credits]); // Removes credits from a player's inventory and remaining amount from bank account if possible.
+
+
 });
 
 event.on("commandStart",function(regCommand){
@@ -203,14 +238,17 @@ function transferHelp(player,options){
 
 
 async function balance(player, command, args, messageObj){
-  if (!bankingFileObj.hasOwnProperty(player.name)){ // If the player has no bank account, set it to 0.
-    bankingFileObj[player.name]=0;  
-  }
   var playerCredits=await player.credits().catch((err) => console.error(err));
   if (typeof playerCredits == "number"){
-    return player.botMsg(`Your bank account currently contains ${toNumberWithCommas(bankingFileObj[player.name])} credits and your player inventory has ${toNumberWithCommas(playerCredits)} credits.`,{fast:true}).catch((err) => console.error(err));
+    return player.botMsg(`Your bank account currently contains ${toNumberWithCommas(getBankBalance(player.name))} credits and your player inventory has ${toNumberWithCommas(playerCredits)} credits.`,{fast:true}).catch((err) => console.error(err));
   }
   return player.botMsg(`Error retreiving your inventory credit amount!  Please try again!`,{fast:true}).catch((err) => console.error(err));
+}
+function getBankBalance(playerNameStr){
+  if (!bankingFileObj.hasOwnProperty(playerNameStr)){ // If the player has no bank account, set it to 0.
+    bankingFileObj[playerNameStr]=0;  
+  }
+  return bankingFileObj[playerNameStr];
 }
 
 function convertNumShortcuts(inputNumber){ // this is for k,m, and b. Only ensures output is a number if no multiplier specified.
