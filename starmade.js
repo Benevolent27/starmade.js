@@ -1351,7 +1351,7 @@ function regServerObj(installPath, serverObj) {
     if (global["installObjects"].hasOwnProperty(installPath)) { // The installObjects object should have already been created at this point.
       if (typeof serverObj == "object") {
         global["installObjects"][installPath].serverObj = serverObj;
-        global["installObjects"][installPath].event.emit("start",serverObj);
+        // global["installObjects"][installPath].event.emit("start",serverObj); // I'll leave this to the starter.js script for the mod.
         mainConsole.log("Registered server object for install: " + installPath);
       } else {
         throw new Error("Invalid input given for 'serverObj' parameter invalid!  Requires a server object!  Usage: regInstall(installPath,serverObj)");
