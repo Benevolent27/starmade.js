@@ -869,82 +869,100 @@ process.stdin.on('data', function (text) { // This runs for any console
     // console.log("Seeing if the command exists: " + theCommand);
     // console.log("Wrapper command detected: " + theCommand)
     // console.log("Full: " + theText);
-    if (typeof theConsole == "object"){
-      if (theConsole.hasOwnProperty("commands")){
-        // console.log("Commands found!"); // temp
-        // Now we need to do a case insensitive search of the commands and get the corresponding command.
-        let theCommands=Object.keys(theConsole.commands);
-        for (let z=0;z<theCommands.length;z++){ // Find if any case insensitive match and then run the first one found.
-          if (i(theCommands[z],theCommand)){
-            theProperCommand=theCommands[z];
-            // console.log("Registered command found!  Running it!"); // temp
-            if (Array.isArray(theConsole.commands[theProperCommand])){
-              if (typeof theConsole.commands[theProperCommand][1] == "function"){
-                // console.log("Running command now!!"); // temp
-                return theConsole.commands[theProperCommand][1](theArguments); // Runs the function associated with the command, providing the arguments, terminating with it.  This allows commands to replace wrapper commands.
-              } else {
-                throw new Error("ERROR: command was not registered properly!  Invalid input given as function!"); // This should never happen
-              }
-            } else {
-              throw new Error("ERROR: command was not registered properly!  Expected an array!"); // This should never happen
-            }
-          }
-        }
-        console.log("No command found for install, checking global commands.."); // temp
-      }
+
+    // TODO: Change console commands to be event driven, like playerCommands are.
+
+    let commandResult=runConsoleCommand(theConsole,theCommand,theArguments,{}); // If no result, this will remain false. // Replaces below
+    if (!commandResult){
+      console.log("No command found for install, checking global commands.."); // temp
     }
+    // if (typeof theConsole == "object"){
+    //   if (theConsole.hasOwnProperty("commands")){
+    //     // console.log("Commands found!"); // temp
+    //     // Now we need to do a case insensitive search of the commands and get the corresponding command.
+    //     let theCommands=Object.keys(theConsole.commands);
+    //     for (let z=0;z<theCommands.length;z++){ // Find if any case insensitive match and then run the first one found.
+    //       if (i(theCommands[z],theCommand)){
+    //         theProperCommand=theCommands[z];
+    //         // console.log("Registered command found!  Running it!"); // temp
+    //         if (Array.isArray(theConsole.commands[theProperCommand])){
+    //           if (typeof theConsole.commands[theProperCommand][1] == "function"){
+    //             // console.log("Running command now!!"); // temp
+    //             return theConsole.commands[theProperCommand][1](theArguments); // Runs the function associated with the command, providing the arguments, terminating with it.  This allows commands to replace wrapper commands.
+    //           } else {
+    //             throw new Error("ERROR: command was not registered properly!  Invalid input given as function!"); // This should never happen
+    //           }
+    //         } else {
+    //           throw new Error("ERROR: command was not registered properly!  Expected an array!"); // This should never happen
+    //         }
+    //       }
+    //     }
+    //     console.log("No command found for install, checking global commands.."); // temp
+    //   }
+    // }
     if (i(theCommand, "help")) {
-      console.log("Here are the current console commands:");
-      if (typeof consoleCommands == "object"){ // This will be undefined if there were no commands for the console.
-        var outputObject={};;
-        var consoleCommandsArray=Object.keys(consoleCommands);
-        var commandCategory="";
-        if (consoleCommandsArray.length > 0){ // There is at least 1 command registered for this console.
-          console.log("-- Install Commands --");
-          for (let i=0;i<consoleCommandsArray.length;i++){
-            commandCategory=consoleCommands[consoleCommandsArray[i]][0];
-            if (outputObject.hasOwnProperty(commandCategory)){ // Reorganize by categories for output display
-              outputObject[commandCategory].push(consoleCommandsArray[i]);
-            } else {
-              outputObject[commandCategory]=[consoleCommandsArray[i]];
-            }
-          }
-          var outputObjectKeys=Object.keys(outputObject);
-          for (let e=0;e<outputObjectKeys.length;e++){ // Display everything based on category
-            console.log(`-- ${outputObjectKeys[e]} --`);
-            for (let f=0;f<outputObject[outputObjectKeys[e]].length;f++){ // This should be an array of all the commands in the category
-              console.log(` !${outputObject[outputObjectKeys[e]][f]}`); // Read from the array of commands listed under this category
-            }
-          }
-          console.log(" ");
+      var helpResult=false;
+      // Add "!help [command]" functionality
+      if (theArguments.length > 0){
+        if (typeof theArguments[0] == "string"){
+          let theCommandToRun=theArguments[0];
+          theArguments.pop();
+          helpResult=runConsoleCommand(theConsole,theCommandToRun,theArguments,{help:true}); // If no result, this will remain false.
         }
+      } else {
+        console.log("Here are the current console commands:");
+        if (typeof consoleCommands == "object"){ // This will be undefined if there were no commands for the console.
+          var outputObject={};;
+          var consoleCommandsArray=Object.keys(consoleCommands);
+          var commandCategory="";
+          if (consoleCommandsArray.length > 0){ // There is at least 1 command registered for this console.
+            console.log(" -=Install Specific Commands=-");
+            for (let i=0;i<consoleCommandsArray.length;i++){
+              commandCategory=consoleCommands[consoleCommandsArray[i]][0];
+              if (outputObject.hasOwnProperty(commandCategory)){ // Reorganize by categories for output display
+                outputObject[commandCategory].push(consoleCommandsArray[i]);
+              } else {
+                outputObject[commandCategory]=[consoleCommandsArray[i]];
+              }
+            }
+            var outputObjectKeys=Object.keys(outputObject);
+            for (let e=0;e<outputObjectKeys.length;e++){ // Display everything based on category
+              console.log(`-- ${outputObjectKeys[e]} --`);
+              for (let f=0;f<outputObject[outputObjectKeys[e]].length;f++){ // This should be an array of all the commands in the category
+                console.log(` !${outputObject[outputObjectKeys[e]][f]}`); // Read from the array of commands listed under this category
+              }
+            }
+            console.log(" ");
+          }
+        }
+  
+        // console.log(  "-- Server Commands --")
+        // console.log(" !status");
+        // console.log(" !start");
+        // console.log(" !stop");
+        // console.log(" !kill");
+        // console.log(" !forcekill");
+        // console.log(" ");
+        console.log(" -- Wrapper Commands --");
+        console.log(" !quit"); // Quits the wrapper, closing any sub-processes.
+        console.log(" !consoles");
+        console.log(" !console [console #]");
+        // console.log(" !stdout [on/off]");
+        // console.log(" !stderr [on/off]");
+        // console.log(" !stderrfilter RegExp");
+        // console.log(" !serverlog [on/off]");
+        console.log(" !debug [on/off]"); // Displays debug messages
+        // console.log(" !enumerateevents [on/off]");
+        console.log(" !reloadMods");
+        console.log(" !record (stop)");
+        console.log(" !showallevents [on/off]");
+        console.log(" !listObjectConstructors");
+        console.log(" !listObjectConstructorElements [ObjectName(parameters)]");
+        console.log(" !listGlobal");
+        console.log(" !settings");
+        console.log(" !changesetting [setting] [newvalue]");
       }
 
-      // console.log(  "-- Server Commands --")
-      // console.log(" !status");
-      // console.log(" !start");
-      // console.log(" !stop");
-      // console.log(" !kill");
-      // console.log(" !forcekill");
-      // console.log(" ");
-      console.log(" -- Wrapper Commands --");
-      console.log(" !quit"); // Quits the wrapper, closing any sub-processes.
-      console.log(" !consoles");
-      console.log(" !console [console #]");
-      // console.log(" !stdout [on/off]");
-      // console.log(" !stderr [on/off]");
-      // console.log(" !stderrfilter RegExp");
-      // console.log(" !serverlog [on/off]");
-      console.log(" !debug [on/off]"); // Displays debug messages
-      // console.log(" !enumerateevents [on/off]");
-      console.log(" !reloadMods");
-      console.log(" !record (stop)");
-      console.log(" !showallevents [on/off]");
-      console.log(" !listObjectConstructors");
-      console.log(" !listObjectConstructorElements [ObjectName(parameters)]");
-      console.log(" !listGlobal");
-      console.log(" !settings");
-      console.log(" !changesetting [setting] [newvalue]");
     } else if (i(theCommand, "consoles")) {
       let consoleKeys = Object.keys(global["consoles"]);
       let currentConsoleNumber=0;
@@ -1332,6 +1350,37 @@ process.stdin.on('data', function (text) { // This runs for any console
   return true; // This does nothing except to make ESLint happy.
 
 });
+
+function runConsoleCommand(theConsoleObj,theCommandStr,theArgumentsArray,options){ // options is used for help on specific commands.
+  // Example: runConsoleCommand(consoleObj,"whatever",["some","arguments"]);
+  // Example2: runConsoleCommand(consoleObj,"whatever",["some","arguments"],{help:true});
+  var theProperCommand="";
+  if (typeof theConsoleObj == "object"){
+    if (theConsoleObj.hasOwnProperty("commands")){
+      // console.log("Commands found!"); // temp
+      // Now we need to do a case insensitive search of the commands and get the corresponding command.
+      let theCommands=Object.keys(theConsoleObj.commands);
+      for (let z=0;z<theCommands.length;z++){ // Find if any case insensitive match and then run the first one found.
+        if (i(theCommands[z],theCommandStr)){
+          theProperCommand=theCommands[z];
+          // console.log("Registered command found!  Running it!"); // temp
+          if (Array.isArray(theConsoleObj.commands[theProperCommand])){
+            if (typeof theConsoleObj.commands[theProperCommand][1] == "function"){
+              // console.log("Running command now!!"); // temp
+              theConsoleObj.commands[theProperCommand][1](theProperCommand,theArgumentsArray,options); // Runs the function associated with the command, providing the arguments, terminating with it.  This allows commands to replace wrapper commands.
+              return true; // indicate that the command was ran.
+            } else {
+              throw new Error("ERROR: command was not registered properly!  Invalid input given as function!"); // This should never happen
+            }
+          } else {
+            throw new Error("ERROR: command was not registered properly!  Expected an array!"); // This should never happen
+          }
+        }
+      }
+    }
+  }
+  return false; // No command to run
+}
 
 // #####################
 // ###   EMITTERS   ####   These are registered ahead of time so when the time is ready, they call the associated functions.
