@@ -902,7 +902,7 @@ process.stdin.on('data', function (text) { // This runs for any console
     // }
     if (i(theCommand, "help")) {
       var helpResult=false;
-      // Add "!help [command]" functionality
+      // TODO: Add wrapper-level global command registering.
       if (theArguments.length > 0){
         if (typeof theArguments[0] == "string"){
           let theCommandToRun=theArguments[0];
