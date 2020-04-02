@@ -11,18 +11,18 @@ var thisServerObj={};
 event.on('start',function(theServerObj){
   thisServerObj=theServerObj;
   // #####  SERVER CONTROL  #####
-  thisConsole.regCommand("Start",start,"Server Controls");
-  thisConsole.regCommand("Stop",stop,"Server Controls");
-  thisConsole.regCommand("Install",install,"Server Controls");
-  thisConsole.regCommand("AutoRestart",autoRestart,"Server Controls");
+  thisConsole.regCommand("Start","Server Controls",start);
+  thisConsole.regCommand("Stop","Server Controls",stop);
+  thisConsole.regCommand("Install","Server Controls",install);
+  thisConsole.regCommand("AutoRestart","Server Controls",autoRestart);
   // #####  SERVER INFO  #####
-  thisConsole.regCommand("Status",currentStatus,"Server Info");
-  thisConsole.regCommand("Players",onlinePlayers,"Server Info");
+  thisConsole.regCommand("Status","Server Info",currentStatus);
+  thisConsole.regCommand("Players","Server Info",onlinePlayers);
   // #####  SERVER TEXT TO DISPLAY  #####
-  thisConsole.regCommand("ShowAllEvents",showAllEvents,"Server Text Display");
-  thisConsole.regCommand("Stdout",stdout,"Server Text Display");
-  thisConsole.regCommand("Stderr",stderr,"Server Text Display");
-  thisConsole.regCommand("StderrFilter",stderrFilter,"Server Text Display");
+  thisConsole.regCommand("ShowAllEvents","Server Text Display",showAllEvents);
+  thisConsole.regCommand("Stdout","Server Text Display",stdout);
+  thisConsole.regCommand("Stderr","Server Text Display",stderr);
+  thisConsole.regCommand("StderrFilter","Server Text Display",stderrFilter);
 
   
 });

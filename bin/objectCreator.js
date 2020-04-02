@@ -35,7 +35,8 @@ const miscHelpers          = require(path.join(binFolder,"miscHelpers.js"));
 const requireBin           = miscHelpers["requireBin"];
 const objectHelper         = requireBin("objectHelper.js");
 const installAndRequire    = requireBin("installAndRequire.js");
-const EventEmitter         = require('events');
+const EventEmitter         = require('events'); 
+EventEmitter.prototype._maxListeners = 400; // Was getting errors when more than 10 events registered. Solution From here: https://stackoverflow.com/questions/8313628/node-js-request-how-to-emitter-setmaxlisteners require('events').EventEmitter.prototype._maxListeners = 100;
 class Event extends EventEmitter {};
 
 // NPM installable requires
@@ -481,7 +482,7 @@ function CustomConsole(consoleName,options){
     global.consoleSelected = consoleName;
   }
   outputConsole.commands={};
-  outputConsole.regCommand=function(commandName,theFunction,category){ // Category is optional, default is "General". This is for registering commands that an admin types into the wrapper console.  These will show up when the player types "!help"
+  outputConsole.regCommand=function(commandName,category,theFunction){ // Category is optional, default is "General". This is for registering commands that an admin types into the wrapper console.  These will show up when the player types "!help"
     // category is used when the !help command is used, to separate out commands, such as "Server Commands" or "Settings Commands"
     var theCategory="General";
     if (typeof category == "string"){
