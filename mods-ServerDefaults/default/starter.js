@@ -10,15 +10,33 @@ var installPath=installObj.path;
 const thisConsole=installObj.console;
 var serverObj = {}; // This will be set after the "start" is given.
 event.on("init", function () { // Only start the server when the init is given, which is after all initial setup and installs have been done by starmade.js
-  thisConsole.log("Creating server object..");
-  serverObj = new ServerObj(installObj.path); // The ServerObj loads it's own settings, installs itself if needed, and starts the server if autoStart is set to true.
-  thisConsole.log("Registering server object..");
-  global.regServer(installObj.path, serverObj); // Registers the server to the global installObj and emits "start" which provides the serverObj
+  if (!installObj.hasOwnProperty("serverObj")){ // Only create and register the serverObj if it doesn't exist already.
+    thisConsole.log("Creating server object and registering it..");
+    global.regServer(installObj.path, new ServerObj(installObj.path)); // Registers the server to the global installObj
+  }
+  event.emit("start",installObj.serverObj);
 });
 
-// ####  Server restart code  ####
-// Simple restarter for unexpected shutdowns
+  // ##########################
+  // ####   AUTO-STARTER   ####  --- Starts the server when the wrapper starts if it's set to auto-start.
+  // ##########################
+event.on("start",function(theServerObj){
+  serverObj=theServerObj;
+  if (serverObj.settings.autoStart == true){
+    if (serverObj.spawnStatus != "started"){
+      thisConsole.log("Auto-start is on!  Starting server..");
+      global.log(`Server (${installPath}): Auto-starting server.`);
+      serverObj.start();
+    }
+  }
+});
+
+// #####################
+// ####  RESTARTER  #### --- Simple restarter for unexpected shutdowns
+// #####################
+
 event.on("serverStop",function(){ // This will catch errors as well
+  // This needs to NOT catch a .restart() command.
   if (serverObj.spawnStatusWanted == "started"){ // Only do something if the server SHOULD BE started
     if (serverObj.settings.autoRestart == true){ // Only restart it if set to autoRestart
       if (serverObj.spawnStatus == "errored"){
@@ -37,4 +55,15 @@ event.on("serverStop",function(){ // This will catch errors as well
       global.log(`Server (${installPath}) shut down unexpectedly, but not set to auto-restart, so doing nothing!`);
     }
   }
+});
+
+  // #############################
+  // ####   RELOADING MODS    ####
+  // #############################
+event.on("unloadMods",function(){ // Shut down the server and any pids, quickly.
+  // thisConsole.log("unloadMods event detected!  Killing all PIDs!");
+  // self.killAllPIDs();
+  // Unregister any constructors
+  thisConsole.log("Unregistering all constructors..");
+  serverObj.deregAllConstructors();
 });

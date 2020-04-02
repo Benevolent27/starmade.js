@@ -538,6 +538,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
   this.spawnStatusWanted = "stopped"; // This is the end result of what the current process should be, such as if the status is "stopping", the wanted status is "stopped"
   this.runSimpleCommand=runSimpleCommand;
   this.starNet=starNet;
+  this.starNetVerified=starNetVerified;
   this.sendDirectToServer=sendDirectToServer;
   
   this.start = function (options, cb) {
@@ -1590,26 +1591,6 @@ function ServerObj(options) { // If given it will load existing settings or crea
       return simplePromisifyIt(self.status, options);
     }
   }
-
-  // #####################
-  // ####   EVENTS    ####
-  // #####################
-  event.on("unloadMods",function(){ // Shut down the server and any pids, quickly.
-    thisConsole.log("unloadMods event detected!  Killing all PIDs!");
-    self.killAllPIDs();
-    // Unregister any constructors
-    thisConsole.log("Unregistering all constructors..");
-    self.deregAllConstructors();
-  });
-
-  // ######################
-  // ####   STARTER    ####
-  // ######################
-  if (self.settings.autoStart == true){
-    thisConsole.log("Auto-start is on!  Starting server..");
-    self.start();
-  }
-  self.spawnStatusWanted="started";
 
   // shutdown(seconds,"message") // message is optional.  If given, a countdown timer will be used and then a 1 second shutdown when it is set to expire.
   // ip
