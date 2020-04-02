@@ -4,7 +4,7 @@
 
 var installObj = global.getInstallObj(__dirname);
 var installPath=installObj.path;
-var {settings,event,reloadMods}=installObj;
+var {settings,event}=installObj;
 var thisConsole=installObj.console;
 var serverObj={};
 event.on("start",function(theServerObj){
@@ -33,8 +33,8 @@ function listeners (player,command,args,messageObj) { // Normally we would not u
 }
 
 function reloadModsCommand(player,command,args,messageObj){
-  player.botMsg("Reloading all mods!  This might take a few seconds.",{fast:true}).catch((err) => console.error(err));
-  reloadMods(); // This will emit a "unloadMods" event, which the serverObj is listening for
+  player.botMsg("Reloading non-default mods!  This might take a few seconds.",{fast:true}).catch((err) => console.error(err));
+  installObj.reloadMods(); // This will emit a "unloadMods" event, which the serverObj is listening for
   // event.emit("unloadMods");
   // TODO: I need to send a global command to remove the event listeners, this will not suffice.
   player.botMsg("Done!",{fast:true}); // This is syncronous

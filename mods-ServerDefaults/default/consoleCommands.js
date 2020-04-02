@@ -23,8 +23,6 @@ event.on('start',function(theServerObj){
   thisConsole.regCommand("Stdout","Server Text Display",stdout);
   thisConsole.regCommand("Stderr","Server Text Display",stderr);
   thisConsole.regCommand("StderrFilter","Server Text Display",stderrFilter);
-
-  
 });
 
 function showAllEvents(theArguments){
