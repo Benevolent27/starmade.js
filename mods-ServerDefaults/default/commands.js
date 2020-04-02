@@ -77,6 +77,30 @@ function removeCommands() {
   thisConsole.log("Removing any commands registered by mods..");
   serverObj["commands"] = {};
 };
+function getPlayerSpecialPermissionForCommand(playerName,commandName){ // commandName is case insensitive
+  // returns "neutral",true, or false based on whether the player has special permission to run a command or not.  
+  // "neutral" is a string and means they do not have a specific true or false value set for this command
+  if (typeof playerName == "string" && typeof commandName == "string"){
+    let lowerCaseCommand=commandName.toLowerCase();
+    let canPlayerRunCommand="neutral";
+    var commands=serverObj.commands;
+    // Check to see if there is a permission forbidding the player from running the command.
+    if (serverObj.commands[lowerCaseCommand].hasOwnProperty("playersObj")){
+      if (typeof commands[lowerCaseCommand]["playersObj"] == "object"){
+        if (commands[lowerCaseCommand]["playersObj"].hasOwnProperty(playerName)){
+          if (objectHelper.isFalse(commands[lowerCaseCommand]["playersObj"][playerName])){
+            canPlayerRunCommand=false;
+          } else if (objectHelper.isTrue(commands[lowerCaseCommand]["playersObj"][playerName])){
+            canPlayerRunCommand=true;
+          }
+        }
+      }
+    }
+    return canPlayerRunCommand;
+  }
+  throw new Error("Invalid input given to getPlayerSpecialPermissionForCommand function!  Expects two strings!");
+}
+
 async function message(messageObj) { // Handle messages sent from players
   // Expects message to be a message type object
 
@@ -94,29 +118,39 @@ async function message(messageObj) { // Handle messages sent from players
       var lowerCaseCommand = theCommand.toLowerCase();
       if (commands.hasOwnProperty(lowerCaseCommand)) { // If it is a valid command, it will have been registered.
         // Note:  the default "help" command can be replaced by a mod if desired.
-        let canPlayerRunCommand="neutral";
-        // Check to see if there is a permission forbidding the player from running the command.
-        if (commands[lowerCaseCommand].hasOwnProperty("playersObj")){
-          if (typeof commands[lowerCaseCommand]["playersObj"] == "object"){
-            if (commands[lowerCaseCommand]["playersObj"].hasOwnProperty(messageObj.sender.name)){
-              if (objectHelper.isFalse(commands[lowerCaseCommand]["playersObj"][messageObj.sender.name])){
-                canPlayerRunCommand=false;
-              } else if (objectHelper.isTrue(commands[lowerCaseCommand]["playersObj"][messageObj.sender.name])){
-                canPlayerRunCommand=true;
-              }
-            }
-          }
-        }
+
+        let canPlayerRunCommand=getPlayerSpecialPermissionForCommand(messageObj.sender.name,lowerCaseCommand); // Returns "neutral",true, or false
+        // // Below replaced by above
+        // let canPlayerRunCommand="neutral";
+        // // Check to see if there is a permission forbidding the player from running the command.
+        // if (commands[lowerCaseCommand].hasOwnProperty("playersObj")){
+        //   if (typeof commands[lowerCaseCommand]["playersObj"] == "object"){
+        //     if (commands[lowerCaseCommand]["playersObj"].hasOwnProperty(messageObj.sender.name)){
+        //       if (objectHelper.isFalse(commands[lowerCaseCommand]["playersObj"][messageObj.sender.name])){
+        //         canPlayerRunCommand=false;
+        //       } else if (objectHelper.isTrue(commands[lowerCaseCommand]["playersObj"][messageObj.sender.name])){
+        //         canPlayerRunCommand=true;
+        //       }
+        //     }
+        //   }
+        // }
         if (canPlayerRunCommand){ // if "neutral" or true
           let playerAdminCheck = true;
           if (commands[lowerCaseCommand].adminOnly) {
             playerAdminCheck = await messageObj.sender.isAdmin({"fast": true}).catch((err) => console.error(err)); // Fast makes it read from the file rather than perform a StarNet command.
           }
           if (playerAdminCheck || canPlayerRunCommand === true) { // If a player has been specifically set to "true" to run the command, they do not need to be an admin to run admin only commands!
-            event.emit('playerCommand', messageObj.sender, lowerCaseCommand, textArray, messageObj);
+            let optionsToSend={ // Providing the options given for this command.
+              adminOnly:commands[lowerCaseCommand].adminOnly, // Will be true or false
+              displayInHelp:commands[lowerCaseCommand].displayInHelp, // will be true or false
+              category:commands[lowerCaseCommand].category, // Should be a string
+              name:commands[lowerCaseCommand].name, // Should be a string.  Can include uppercase letters
+              playerPermission:canPlayerRunCommand // will be "neutral",true, or false
+            };
+            event.emit('playerCommand', messageObj.sender, lowerCaseCommand, textArray, messageObj,optionsToSend);
             if (commands[lowerCaseCommand].hasOwnProperty("functToRun")){ // If a function was provided when registering the command, run it.
               if (typeof commands[lowerCaseCommand]["functToRun"] == "function"){
-                commands[lowerCaseCommand]["functToRun"](messageObj.sender, lowerCaseCommand, textArray, messageObj);
+                commands[lowerCaseCommand]["functToRun"](messageObj.sender, lowerCaseCommand, textArray, messageObj, optionsToSend);
               }
             }
           } else {
@@ -144,15 +178,28 @@ async function message(messageObj) { // Handle messages sent from players
           var lowerCaseSubCommand = textArray[0].replace(settings["commandOperator"], "").toLowerCase();
           if (commands.hasOwnProperty(lowerCaseSubCommand)) {
             textArray.unshift("help");
-
+            // Switching to using options {help:true}
+            let optionsToSend={ // Providing the options given for this command.
+              adminOnly:commands[lowerCaseSubCommand].adminOnly, // Will be true or false
+              displayInHelp:commands[lowerCaseSubCommand].displayInHelp, // will be true or false
+              category:commands[lowerCaseSubCommand].category, // Should be a string
+              name:commands[lowerCaseSubCommand].name, // Should be a string.  Can include uppercase letters
+              playerPermission:getPlayerSpecialPermissionForCommand(messageObj.sender.name,lowerCaseSubCommand), // will be "neutral",true, or false
+              help:true // This is to indicate !help [command] was ran
+            };
             let playerAdminCheck = true;
             if (commands[lowerCaseSubCommand].adminOnly) {
               playerAdminCheck = await messageObj.sender.isAdmin({"fast": true}).catch((err) => console.error(err)); // Fast makes it read from the file rather than perform a StarNet command, which is much faster.
             }
             if (playerAdminCheck) {
-              event.emit('playerCommand', messageObj.sender, lowerCaseSubCommand, textArray, messageObj); // The messageObj is unchanged, so a mod can detect if it was ran with the !help command or "!command help" if needed for some reason.
+              event.emit('playerCommand', messageObj.sender, lowerCaseSubCommand, textArray, messageObj,optionsToSend); // The messageObj is unchanged, so a mod can detect if it was ran with the !help command or "!command help" if needed for some reason.
+              if (commands[lowerCaseSubCommand].hasOwnProperty("functToRun")){ // If a function was provided when registering the command, run it.
+                if (typeof commands[lowerCaseSubCommand]["functToRun"] == "function"){
+                  commands[lowerCaseSubCommand]["functToRun"](messageObj.sender, lowerCaseSubCommand, textArray, messageObj, optionsToSend);
+                }
+              }
             } else {
-              messageObj.sender.botMsg("Sorry, you cannot receive help on this command because it is admin-only, and you are not an admin!", {"fast": true}).catch((err) => console.error(err));
+              messageObj.sender.botMsg("Sorry, you cannot receive help on this command because it is admin-only and you are not an admin!", {"fast": true}).catch((err) => console.error(err));
             }
 
             // This expects the mod to handle any help request. If it doesn't process the help request, this is the mod creator's fault.  This cannot verify help exists for the command.
