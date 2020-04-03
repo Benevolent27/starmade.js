@@ -18,18 +18,22 @@ event.on('commandStart',function(regCommand){
 
 function listeners (player,command,args,messageObj) { // Normally we would not use the messageObj, but it's here if for some reason we want the command to operate differently depending on channel sent to
   player.botMsg("Displaying event listeners to the wrapper console..",{fast:true}).catch((err) => console.error(err));
-  thisConsole.log("command:");
-  thisConsole.dir(event.listeners('command'));
+  thisConsole.log("init:");
+  thisConsole.table(event.listeners('init'));
+  thisConsole.log("start:");
+  thisConsole.table(event.listeners('start'));
+  thisConsole.log("playerCommand:");
+  thisConsole.table(event.listeners('playerCommand'));
   thisConsole.log("playerSpawn:");
-  thisConsole.dir(event.listeners('playerSpawn'));
+  thisConsole.table(event.listeners('playerSpawn'));
   thisConsole.log("shipSpawn:");
-  thisConsole.dir(event.listeners('shipSpawn'));
+  thisConsole.table(event.listeners('shipSpawn'));
   thisConsole.log("baseSpawn:");
-  thisConsole.dir(event.listeners('baseSpawn'));
+  thisConsole.table(event.listeners('baseSpawn'));
   thisConsole.log("blueprintSpawn:");
-  thisConsole.dir(event.listeners('blueprintSpawn'));
+  thisConsole.table(event.listeners('blueprintSpawn'));
   thisConsole.log("reloadMods:");
-  thisConsole.dir(event.listeners('reloadMods'));
+  thisConsole.table(event.listeners('reloadMods'));
 }
 
 function reloadModsCommand(player,command,args,messageObj){
