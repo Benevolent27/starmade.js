@@ -66,8 +66,6 @@ function getSQLquery(query){ // This will preprocess a query so that it should w
     throw new Error("Invalid parameter given as query to getSQLquery function!");
   }
 }
-
-
 function simpleSqlQuery(sqlQuery,options,cb){ // Needs testing // Also the code here can be cleaned up since it's a bit wonky
   if (typeof cb=="function"){
     if (typeof sqlQuery == "string" && sqlQuery != ""){
