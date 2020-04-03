@@ -53,8 +53,9 @@ module.exports = { // Always put module.exports at the top so circular dependenc
 // Requires
 const fs = require('fs');
 const path = require('path');
-const EventEmitter = require('events');
-class Event extends EventEmitter {};
+// Events are no longer created or used here.
+// const EventEmitter = require('events');
+// class Event extends EventEmitter {};
 const prompt = global["prompt"]; // This creates sync prompts and can have auto-complete capabilties.
 // const events               = require('events');
 const mainFolder = path.dirname(require.main.filename); // This should be where the starmade.js is, unless this script is ran by itself for testing purposes.
@@ -220,34 +221,30 @@ SystemObj.prototype.toString = function () {
 // #### START ####
 // ###############
 var installObj=global.getInstallObj(__dirname);
-var {event,settings,log}=installObj; 
+var {settings,log,event}=installObj;
 const thisConsole=installObj.console;
 var serverObj = {};
-event.on("start", function (theServerObj) { // This event only happens AFTER the serverObj has been created
-  serverObj=theServerObj; // Get the serverObj up and running
-  // if (serverObj !== null) { // Only do stuff IF there is a server object, otherwise do nothing.
-  //   // Set up prototypes for constructors, such as replacing .toString() functionality with a default value.  Prototypes will not appear as a regular key.
-
-    // I'm not sure if below is the best way to go about this, but some of my scripting relies on it currently, so I'll leave it be.
-    // Register the constructors
-    serverObj.regConstructor(SquishedObj);
-    serverObj.regConstructor(BotObj);
-    serverObj.regConstructor(MessageObj);
-    serverObj.regConstructor(ChannelObj);
-    serverObj.regConstructor(IPObj);
-    serverObj.regConstructor(SMNameObj);
-    serverObj.regConstructor(PlayerObj);
-    serverObj.regConstructor(SystemObj);
-    serverObj.regConstructor(BlueprintObj);
-    serverObj.regConstructor(FactionObj);
-    serverObj.regConstructor(LocationObj);
-    serverObj.regConstructor(SectorObj);
-    serverObj.regConstructor(CoordsObj);
-    serverObj.regConstructor(CreatureObj);
-    serverObj.regConstructor(EntityObj);
-  //   }
+global["event"].on("init",function(){ // ONLY NECESSARY FOR DEFAULT MODS SINCE THEY DO NOT RELOAD ON MODRELOAD()
+  event.on("start", function (theServerObj) { // This event only happens AFTER the serverObj has been created
+    serverObj=theServerObj; // Get the serverObj up and running
+  });
+  // Register the constructors.  These are re-registered when mods are reloaded.
+  installObj.regConstructor(SquishedObj);
+  installObj.regConstructor(BotObj);
+  installObj.regConstructor(MessageObj);
+  installObj.regConstructor(ChannelObj);
+  installObj.regConstructor(IPObj);
+  installObj.regConstructor(SMNameObj);
+  installObj.regConstructor(PlayerObj);
+  installObj.regConstructor(SystemObj);
+  installObj.regConstructor(BlueprintObj);
+  installObj.regConstructor(FactionObj);
+  installObj.regConstructor(LocationObj);
+  installObj.regConstructor(SectorObj);
+  installObj.regConstructor(CoordsObj);
+  installObj.regConstructor(CreatureObj);
+  installObj.regConstructor(EntityObj);
 });
-
 
 function showResponseCallback(error, output) { // This is a helper function for testing purposes.  It shows any error or output when it's used as a callback function.
   if (error) {

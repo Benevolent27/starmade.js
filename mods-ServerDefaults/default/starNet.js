@@ -46,18 +46,22 @@ const {sleepPromise}=mySleep; // Less accurate but non-blocking - can only be us
 var serverObj={};
 module.debug=false;
 var thisConsole=console;
+var installObj={};
+var event={};
 if (global.hasOwnProperty("getInstallObj")){ // This is to allow this script to be ran from the command line.
-  var installObj=global.getInstallObj(__dirname);
-  var {event}=installObj; // These are events ONLY for this server.
+  installObj=global.getInstallObj(__dirname);
+  event=installObj.event; // These are events ONLY for this server.
   thisConsole=installObj.console;
-  event.on("start",function(theServerObj){ // the start event indicates that a serverObj has been created.
-    serverObj=theServerObj;
+  global["event"].on("init",function(){ // ONLY NECESSARY FOR DEFAULT MODS SINCE THEY DO NOT RELOAD ON MODRELOAD()
+    event.on("start",function(theServerObj){ // the start event indicates that a serverObj has been created.
+      serverObj=theServerObj;
+    });
   });
 }
 if (__filename == require.main.filename){ 
   // Only run the arguments IF this script is being run by itself and NOT as a require.
   // This script must be provided with the ip, port, and superadmin password.
-  // TODO: Make it so this script can look up the super admin password for the current server.
+  // TODO: Make it so this script can look up the super admin password for the current server.  This will require some config file to have the path to the starmade.js install, to then read the settings and grab the necessary info.
   // Usage: node starNet.js 127.0.0.1:4242 SuperAdminPassword /some_command and arguments here
   var theArgsArray=process.argv;
   if (theArgsArray[0]=='node'){
@@ -450,7 +454,7 @@ function getFactionObjFromName(name,options,cb){
           if (err){
             return cb(err,result);
           } else {
-            return cb(null,new serverObj.objects.FactionObj(result));
+            return cb(null,new installObj.objects.FactionObj(result));
           }
         });
       }

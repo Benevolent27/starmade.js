@@ -10,8 +10,10 @@ var installObj = global.getInstallObj(__dirname);
 var {settings,event}=installObj;
 var thisConsole=installObj.console;
 var serverObj = {}; // This will be set after the "start" is given.
-event.on("start", function (theServerObj) {
-  serverObj = theServerObj;
+global["event"].on("init",function(){ // ONLY NECESSARY FOR DEFAULT MODS SINCE THEY DO NOT RELOAD ON MODRELOAD()
+  event.on("start", function (theServerObj) {
+    serverObj = theServerObj;
+  });
 });
 
 const path = require('path');
@@ -79,7 +81,7 @@ function processDataInput(dataInput) { // This function is run on every single l
       // thisConsole.log("receiver: " + receiver);
       // thisConsole.log("receiverType: " + receiverType);
       // thisConsole.log("message: " + message);
-      event.emit('playerMessage', new serverObj.objects.MessageObj(sender, receiver, receiverType, message));
+      event.emit('playerMessage', new installObj.objects.MessageObj(sender, receiver, receiverType, message));
 
     } else if ((/^\[SERVER\]\[SPAWN\] SPAWNING NEW CHARACTER FOR/).test(dataInput)) {
 
@@ -107,10 +109,10 @@ function processDataInput(dataInput) { // This function is run on every single l
           }
           let theReg = new RegExp(("(?<=PlS\\[" + playerName + " \\[)[^\\]]+"));
           let playerSMName = toStringIfPossible(dataInput.match(theReg));
-          let playerObj = new serverObj.objects.PlayerObj(playerName);
+          let playerObj = new installObj.objects.PlayerObj(playerName);
           let playerSMNameObj;
           if (typeof playerSMName == "string") {
-            playerSMNameObj = new serverObj.objects.SMNameObj(playerSMName);
+            playerSMNameObj = new installObj.objects.SMNameObj(playerSMName);
           }
           playerObj["spawnTime"] = Math.floor((new Date()).getTime() / 1000);
           event.emit('playerSpawn', playerObj, playerSMNameObj);
@@ -202,27 +204,27 @@ function processDataInput(dataInput) { // This function is run on every single l
           if (err) {
             thisConsole.log("Error getting entity UID from name!", err);
           } else {
-            let entityObj = new serverObj.objects.EntityObj(result);
+            let entityObj = new installObj.objects.EntityObj(result);
             console.dir(entityObj);
             thisConsole.log("Creating new coordsObj with: " + coordsArray);
-            let coordsObj = new serverObj.objects.CoordsObj(coordsArray);
+            let coordsObj = new installObj.objects.CoordsObj(coordsArray);
             console.dir(coordsObj);
-            let sectorObj = new serverObj.objects.SectorObj(coordsObj.x, coordsObj.y, coordsObj.z);
+            let sectorObj = new installObj.objects.SectorObj(coordsObj.x, coordsObj.y, coordsObj.z);
             console.dir(sectorObj);
-            // let coordsObj=new serverObj.objects.CoordsObj(coordsArray[0],coordsArray[1],coordsArray[2]);
+            // let coordsObj=new installObj.objects.CoordsObj(coordsArray[0],coordsArray[1],coordsArray[2]);
 
             let playerObj;
             if (spawnType == "player") {
-              playerObj = new serverObj.objects.PlayerObj(theUser);
+              playerObj = new installObj.objects.PlayerObj(theUser);
               playerObj.msg("The playerObj was successful: " + shipName);
               // playerObj.msg("entityObj.loaded:" + entityObj.loaded);
             }
             console.dir(playerObj);
 
-            let blueprintObj = new serverObj.objects.BlueprintObj(bluePrintName);
+            let blueprintObj = new installObj.objects.BlueprintObj(bluePrintName);
             console.dir(blueprintObj);
 
-            let factionObj = new serverObj.objects.FactionObj(factionNumber);
+            let factionObj = new installObj.objects.FactionObj(factionNumber);
             console.dir(factionObj);
 
             event.emit('blueprintSpawn', spawnType, playerObj, blueprintObj, entityObj, sectorObj, factionObj); // playerObj will be undefined if the blueprint was spawned by admin or mass spawned
@@ -317,10 +319,10 @@ function processDataInput(dataInput) { // This function is run on every single l
         // thisConsole.log("Player SM Name:" + playerSMNameCaptured);
 
 
-        var startingCoords = new serverObj.objects.SectorObj(cleanCoordsArray[0]);
-        var endingCoords = new serverObj.objects.SectorObj(cleanCoordsArray[1]);
-        var player = new serverObj.objects.PlayerObj(playerNameCaptured);
-        var playerSMName = new serverObj.objects.SMNameObj(playerSMNameCaptured);
+        var startingCoords = new installObj.objects.SectorObj(cleanCoordsArray[0]);
+        var endingCoords = new installObj.objects.SectorObj(cleanCoordsArray[1]);
+        var player = new installObj.objects.PlayerObj(playerNameCaptured);
+        var playerSMName = new installObj.objects.SMNameObj(playerSMNameCaptured);
 
         // TODO:  Test this to see if it works
         thisConsole.log("Sector change detected for player, '" + player.toString() + "', with registry name, '" + playerSMName.toString() + "', from sector, '" + startingCoords.toString() + "', to sector, '" + endingCoords.toString() + "'.");
@@ -346,8 +348,8 @@ function processDataInput(dataInput) { // This function is run on every single l
         let name = theArguments[4];
         let factionID = toStringIfPossible(dataInput.match(/(?<=Faction \[id=)[-]{0,1}[0-9]+/));
         let factionNameString = toStringIfPossible(dataInput.match(/(?<=name=)[^,]+/));
-        let playerObj = new serverObj.objects.PlayerObj(name);
-        let factionObj = new serverObj.objects.FactionObj(factionID);
+        let playerObj = new installObj.objects.PlayerObj(name);
+        let factionObj = new installObj.objects.FactionObj(factionID);
         event.emit('playerFactionJoin', playerObj, factionObj, factionNameString);
       }
 
@@ -358,8 +360,8 @@ function processDataInput(dataInput) { // This function is run on every single l
         let name = theArguments[3];
         let factionID = toStringIfPossible(dataInput.match(/(?<=Faction \[id=)[-]{0,1}[0-9]+/));
         let factionName = toStringIfPossible(dataInput.match(/(?<=name=)[^,]+/));
-        let nameObj = new serverObj.objects.PlayerObj(name);
-        let factionObj = new serverObj.objects.FactionObj(factionID);
+        let nameObj = new installObj.objects.PlayerObj(name);
+        let factionObj = new installObj.objects.FactionObj(factionID);
         event.emit('playerFactionLeave', nameObj, factionObj, factionName);
       }
     } else if (theArguments[0] == "[SEND][SERVERMESSAGE]") { // player connect
@@ -374,8 +376,8 @@ function processDataInput(dataInput) { // This function is run on every single l
         if (playerSMName !== null) {
           playerSMName = playerSMName.toString();
         }
-        let playerObj = new serverObj.objects.PlayerObj(playerName);
-        let playerSmNameObj = new serverObj.objects.SMNameObj(playerSMName);
+        let playerObj = new installObj.objects.PlayerObj(playerName);
+        let playerSmNameObj = new installObj.objects.SMNameObj(playerSMName);
         event.emit('playerConnect', playerObj, playerSmNameObj);
       }
 
@@ -390,8 +392,8 @@ function processDataInput(dataInput) { // This function is run on every single l
       if (playerSMName !== null) {
         playerSMName = playerSMName.toString();
       }
-      let playerObj = new serverObj.objects.PlayerObj(playerName);
-      let playerSmNameObj = new serverObj.objects.SMNameObj(playerSMName);
+      let playerObj = new installObj.objects.PlayerObj(playerName);
+      let playerSmNameObj = new installObj.objects.SMNameObj(playerSMName);
       event.emit('playerDisconnect', playerObj, playerSmNameObj);
     } else if (dataInput.match(/^\[SERVER\] MAIN CORE STARTED DESTRUCTION/)) {
       // STDERR: [SERVER] MAIN CORE STARTED DESTRUCTION [ENTITY_SHIP_overheatingShip] (666, 666, 666) in 60 seconds - 
@@ -414,19 +416,19 @@ function processDataInput(dataInput) { // This function is run on every single l
       let thePlayerSmName = toStringIfPossible(dataInput.match(/(?<=PlS\[[^\]]+\[)[^\]]+/));
       console.debug("thePlayerSmName: " + thePlayerSmName);
 
-      let entityObj = new serverObj.objects.EntityObj(entityUID);
+      let entityObj = new installObj.objects.EntityObj(entityUID);
       return entityObj.exists("", function (err, result) {
         if (err) {
           return err;
         }
         if (result) {
-          let sectorObj = new serverObj.objects.SectorObj(...theCoordsArray);
+          let sectorObj = new installObj.objects.SectorObj(...theCoordsArray);
           // theSeconds
           if (typeof thePlayerString == "string") {
-            var playerObj = new serverObj.objects.PlayerObj(thePlayerString);
+            var playerObj = new installObj.objects.PlayerObj(thePlayerString);
           }
           if (typeof thePlayerSmName == "string") {
-            var playerSMNameObj = new serverObj.objects.SMNameObj(thePlayerSmName);
+            var playerSMNameObj = new installObj.objects.SMNameObj(thePlayerSmName);
           }
           return event.emit('entityOverheat', entityObj, sectorObj, playerObj, playerSMNameObj);
           // the playerObj and playerSMNameObj are of the player who caused the overheat to occur
@@ -456,7 +458,7 @@ function processDataInput(dataInput) { // This function is run on every single l
             }
             console.debug("ship theUID: " + theUID);
             if (testIfInput(theUID)) {
-              let theEntityObj = new serverObj.objects.EntityObj(theUID);
+              let theEntityObj = new installObj.objects.EntityObj(theUID);
               return event.emit("entityOverheatStopped", theEntityObj);
             }
             return false;
@@ -465,7 +467,7 @@ function processDataInput(dataInput) { // This function is run on every single l
           let theUID = toStringIfPossible(dataInput.match(/(?<=Server\(0\) SpaceStation\[)[^(]+/));
           console.debug("spacestation theUID: " + theUID);
           if (testIfInput(theUID)) {
-            let theEntityObj = new serverObj.objects.EntityObj(theUID)
+            let theEntityObj = new installObj.objects.EntityObj(theUID)
             return event.emit("entityOverheatStopped", theEntityObj);
           }
         } else {
@@ -531,7 +533,7 @@ function processServerlogDataInput(dataInput) { // This function is run on every
       // Event found!: [SERVER] Object Ship[Benevolent27_1523387756157](1447) didn't have a db entry yet. Creating entry!Arguments: 1
       thisConsole.log("Parsing possible ship or base spawn: " + theArguments.join(" ").toString());
       var playerName = theArguments[1];
-      var playerObj = new serverObj.objects.PlayerObj(playerName);
+      var playerObj = new installObj.objects.PlayerObj(playerName);
       console.dir(playerObj); // temp
       // var shipName=arguments[0].match(/spawned new ship: "[0-9a-zA-Z _-]*/);
       var shipName = arguments[0].match(/spawned new ship: ["][0-9a-zA-Z _-]*/);
@@ -544,7 +546,7 @@ function processServerlogDataInput(dataInput) { // This function is run on every
           if (err) {
             thisConsole.log("Error getting entity UID from name!", err);
           } else {
-            let entityObj = new serverObj.objects.EntityObj(result);
+            let entityObj = new installObj.objects.EntityObj(result);
             entityObj.spawnTime = Math.floor((new Date()).getTime() / 1000);
             console.dir(entityObj); // temp
             event.emit('shipSpawn', playerObj, entityObj);
@@ -562,7 +564,7 @@ function processServerlogDataInput(dataInput) { // This function is run on every
             if (err) {
               thisConsole.log("Error getting entity UID from name!", err);
             } else {
-              let entityObj = new serverObj.objects.EntityObj(result);
+              let entityObj = new installObj.objects.EntityObj(result);
               entityObj.spawnTime = Math.floor((new Date()).getTime() / 1000);
               event.emit('baseSpawn', playerObj, entityObj);
             }
@@ -583,7 +585,7 @@ function processServerlogDataInput(dataInput) { // This function is run on every
 
       var person = toStringIfPossible(dataInput.match(/(?<=\[DEATH\] )[^ ]+(?= has been killed by.*)/));
       if (person) {
-        var personObj = new serverObj.objects.PlayerObj(person);
+        var personObj = new installObj.objects.PlayerObj(person);
         var theCurrentDate = new Date();
         var theMonth;
         theMonth = theCurrentDate.getMonth() + 1;
@@ -726,10 +728,10 @@ function processServerlogDataInput(dataInput) { // This function is run on every
           }
         }
         if (killer) {
-          var killerObj = new serverObj.objects.PlayerObj(killer);
+          var killerObj = new installObj.objects.PlayerObj(killer);
         }
         if (responsibleEntity) {
-          var responsibleEntityObj = new serverObj.objects.EntityObj(responsibleEntity);
+          var responsibleEntityObj = new installObj.objects.EntityObj(responsibleEntity);
         }
         // Cannot create a faction object here since we only have the name to work with.  We have to run an async function to get that FactionObj at the time of emitting
 

@@ -11,8 +11,8 @@ var CoordsObj={};
 var installObj=global.getInstallObj(__dirname); // Get the install object
 var {event}=installObj;
 event.on('start',function(serverObj){
-  SectorObj=serverObj.objects.SectorObj;
-  CoordsObj=serverObj.objects.CoordsObj
+  SectorObj=installObj.objects.SectorObj; // these objects should exist already since they are registered during the "init" phase, which occurred before the "start" phase
+  CoordsObj=installObj.objects.CoordsObj
   SectorObj.prototype.distanceToSector=distanceToSector; // Add a new prototype to the SectorObj
   serverObj.distanceBetweenSectors=distanceBetweenSectors; // Add a helper to the serverObj
 });

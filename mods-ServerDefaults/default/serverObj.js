@@ -143,7 +143,7 @@ var {
 
 
 var installObj=global.getInstallObj(__dirname);
-var {event,settings,log,installPath}=installObj;
+var {settings,log,installPath,event}=installObj;
 var thisConsole=installObj.console;
 
 async function getSuperAdminPassword(starMadeInstallPath) { // This will grab the superadmin password, setting it up and enabling it if not already.
@@ -250,56 +250,56 @@ function ServerObj(options) { // If given it will load existing settings or crea
     return installObj.serverObj; // TODO: Test this.  I have no idea if this will work or not
   }
 
-  this.objects = {};
-  this.regConstructor = function (theFunction) {
-    if (typeof theFunction == "function") {
-      if (theFunction.hasOwnProperty("name")) {
-        var firstLetter = theFunction.name[0];
-        var letterTest = firstLetter.toLowerCase();
-        if (firstLetter === letterTest) {
-          throw new Error("Unable to register constructor! Constructor functions should have an uppercase first letter! '" + theFunction.name + "' does not have an uppercase first letter! -- Source Server: " + self.installFolder);
-        } else {
-          self.objects[theFunction.name] = theFunction;
-          thisConsole.log("Registered new Constructor, '" + theFunction.name + "', for server: " + self.installFolder); // This does not make it a constructor.
-          return true;
-        }
-      }
-      throw new Error("Unable to register unnamed constructor!  Please only attempt to register VALID constructors!  Server: " + self.installFolder);
-    }
-    return false;
-  }
-  this.deregConstructor = function (theFunction) {
-    var theFunctionTypeName = "";
-    if (typeof theFunction == "function") {
-      if (theFunction.hasOwnProperty("name")) {
-        theFunctionTypeName = theFunction.name;
-      } else {
-        throw new Error("Invalid input given to deregConstructor!  Expects a named function or string! Server: " + self.installFolder);
-      }
-    } else if (typeof theFunction == "string") {
-      theFunctionTypeName = theFunction;
-    } else {
-      throw new Error("Invalid input given to deregConstructor!  Expects a named function or string! Server: " + self.installFolder);
-    }
-    var deregged = false;
-    if (self.objects.hasOwnProperty(theFunctionTypeName)) {
-      deregged = true;
-      Reflect.deleteProperty(self.objects, theFunctionTypeName);
-    }
-    return deregged; // Returns true if successful, false if not found.
-  }
+  // Moving objects to the installObj so objects can be registered before the "start" event and be ready
+  // this.objects = {};
+  // this.regConstructor = function (theFunction) {
+  //   if (typeof theFunction == "function") {
+  //     if (theFunction.hasOwnProperty("name")) {
+  //       var firstLetter = theFunction.name[0];
+  //       var letterTest = firstLetter.toLowerCase();
+  //       if (firstLetter === letterTest) {
+  //         throw new Error("Unable to register constructor! Constructor functions should have an uppercase first letter! '" + theFunction.name + "' does not have an uppercase first letter! -- Source Server: " + self.installFolder);
+  //       } else {
+  //         self.objects[theFunction.name] = theFunction;
+  //         thisConsole.log("Registered new Constructor, '" + theFunction.name + "', for server: " + self.installFolder); // This does not make it a constructor.
+  //         return true;
+  //       }
+  //     }
+  //     throw new Error("Unable to register unnamed constructor!  Please only attempt to register VALID constructors!  Server: " + self.installFolder);
+  //   }
+  //   return false;
+  // }
+  // this.deregConstructor = function (theFunction) {
+  //   var theFunctionTypeName = "";
+  //   if (typeof theFunction == "function") {
+  //     if (theFunction.hasOwnProperty("name")) {
+  //       theFunctionTypeName = theFunction.name;
+  //     } else {
+  //       throw new Error("Invalid input given to deregConstructor!  Expects a named function or string! Server: " + self.installFolder);
+  //     }
+  //   } else if (typeof theFunction == "string") {
+  //     theFunctionTypeName = theFunction;
+  //   } else {
+  //     throw new Error("Invalid input given to deregConstructor!  Expects a named function or string! Server: " + self.installFolder);
+  //   }
+  //   var deregged = false;
+  //   if (self.objects.hasOwnProperty(theFunctionTypeName)) {
+  //     deregged = true;
+  //     Reflect.deleteProperty(self.objects, theFunctionTypeName);
+  //   }
+  //   return deregged; // Returns true if successful, false if not found.
+  // }
 
-  this.deregAllConstructors = function () {
-    var deregged = false;
-    const objectKeys = Object.keys(self.objects);
-    for (let i = 0;i < objectKeys.length;i++) {
-      if (self.deregConstructor(objectKeys[i])) { // If at least 1 constructor is deregistered, this will return true.
-        deregged = true;
-      }
-    }
-    return deregged; // Returns true if something was removed, false if not.
-  }
-  // this.event=new Event();  // This has been changed to being created in starmade.js so that the event listeners can be registered there and unregistered when mods are reloaded.
+  // this.deregAllConstructors = function () {
+  //   var deregged = false;
+  //   const objectKeys = Object.keys(self.objects);
+  //   for (let i = 0;i < objectKeys.length;i++) {
+  //     if (self.deregConstructor(objectKeys[i])) { // If at least 1 constructor is deregistered, this will return true.
+  //       deregged = true;
+  //     }
+  //   }
+  //   return deregged; // Returns true if something was removed, false if not.
+  // }
   this.event = event;
   global.settings.servers[self.installFolder] = self.settings; // Only update the settings to the global settings file IF the serverObj wasn't already set up.
   // Before we go any further, we should check to see if there are any previous PIDs associated with this server and kill them if necessary.

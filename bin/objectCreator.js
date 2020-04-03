@@ -300,12 +300,47 @@ function CustomEvent(options){
   var newEventCopy=objectHelper.copyObj(newEvent);
   newEventCopy["masterEvent"]=newEvent;
   newEventCopy["spawns"]=[]; // This will be an array of all spawns based on this customEvent
+
+  newEventCopy["emit"] = function () {
+    return newEvent.emit(...arguments);
+  }
+  newEventCopy["listeners"] = function () {
+    return newEvent.listeners(...arguments);
+  }
+  // newEventCopy["on"] = function (eventName, theFunction) {
+  //   return newEvent.on(eventName, theFunction);
+  // }
+  newEventCopy["on"] = newEvent.on;
+  newEventCopy["addListener"]=newEvent.addListener;
+  newEventCopy["once"] = function (eventName, theFunction) {
+    return newEvent.once(eventName, theFunction);
+  }
+  newEventCopy["prependListener"] = function (eventName, theFunction) {
+    return newEvent.prependListener(eventName, theFunction);
+  }
+  newEventCopy["prependOnceListener"] = function (eventName, theFunction) {
+    return newEvent.prependOnceListener(eventName, theFunction);
+  }
+  newEventCopy["removeListener"] = function (theName,theFunction) {
+    return newEvent.removeListener(theName,theFunction);
+  }
+  newEventCopy["off"]=newEventCopy["removeListener"];
   newEventCopy.removeAllListeners=function(theEventName){ // This is necessary to clear all the listener arrays for all spawns
     for (let i=0;i<newEventCopy["spawns"].length;i++){
       console.log("Removing all listeners for spawn # " + i + " type given: " + theEventName);
       newEventCopy["spawns"][i].removeAllListeners(theEventName);
     }
-    console.log("###########  Now running it on the actual newEvent!"); // temp
+    console.log("Removing listeners for customEvent.  typeof theEventName: " + theEventName); // temp
+    if (typeof theEventName == "undefined"){ // below is a workaround since removeAllListeners wasn't working to remove all listeners..
+      let emitterCopyNamesArray=newEventCopy.eventNames(); // No idea why, but using newEvent.eventNames does not work.
+      for (let i=0;i<emitterCopyNamesArray.length;i++){
+        console.log(`Removing event listener for '${emitterCopyNamesArray[i]}'`);
+        newEvent.removeAllListeners(emitterCopyNamesArray[i]);
+      }
+    }
+    // if (typeof theEventName == "undefined"){
+    //   return newEvent.removeAllListeners();  
+    // }
     return newEvent.removeAllListeners(theEventName);
   }
   var spawnID=0;
@@ -316,6 +351,7 @@ function CustomEvent(options){
       var theObj = {};
       theObj[eventName] = theFunction;
       eventListeners.push(theObj);
+      console.log(`Added event listener, '${eventName}' to eventListeners: ${eventListeners}`);
       return newEvent.on(eventName, theFunction);
     }
     spawnCopyEvent["addListener"]=spawnCopyEvent["on"];
@@ -345,7 +381,7 @@ function CustomEvent(options){
       eventListeners=eventListeners.filter(function(e){ // Remove this listener from the array
         for (let key in e){
           if (e.hasOwnProperty(key)){
-            if (key == theName && e[key] == theFunction){
+            if (key == theName && e[key] == theFunction){ // I don't know if functions can actually be compared like this.. TODO:  test this and fix it.
               return false;
             }
           }
@@ -362,7 +398,7 @@ function CustomEvent(options){
       var remove=false;
       console.log("Before:");
       console.table(eventListeners);
-    if (typeof theEventName == "string" || typeof theEventName == "undefined"){
+      if (typeof theEventName == "string" || typeof theEventName == "undefined"){
         for (let i = eventListeners.length-1;i>=0;i--){ // We work through the array backwards since we are removing values and don't want to work with an array that is shrinking as we move upward through it linearly
           for (let eventName in eventListeners[i]){
             if (eventListeners[i].hasOwnProperty(eventName)){
@@ -386,9 +422,7 @@ function CustomEvent(options){
       }
     }
     spawnCopyEvent["masterEvent"]=newEventCopy; // this lets us get the master event.  The original untouched event is never given.
-    
     newEventCopy["spawns"].push(spawnCopyEvent); // Add it to the master list of spawns
-
     spawnID++;
     spawnCopyEvent[spawnID]=Number(spawnID);
     spawnCopyEvent["unlink"]=function(){ // This unlinks this spawn as much as possible, but this does not delete it.  If any references exist still to this spawn, garbage collection will not eat it and clear the memory used.

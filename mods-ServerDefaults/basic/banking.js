@@ -29,7 +29,7 @@
 
 const path=require('path');
 const objectHelper=global.objectHelper;
-var {toNumIfPossible}=objectHelper;
+var {toNumIfPossible,getOption}=objectHelper;
 const miscHelpers=global.miscHelpers;
 var {writeJSONFileSync,getJSONFile,getJSONFileSync,existsAndIsFile,i,toNumberWithCommas}=miscHelpers;
 
@@ -42,9 +42,16 @@ const thisConsole=installObj.console;
 var serverObj={};
 var bankingFileObj={};
 var commandOperator="!";
-global.exitHook(() => { // This will handle sigint and sigterm exits, errors, and everything (except SIGKILL, of course).
+
+// This is being replaced by the "processExit" event, since this does not unload when mods are reloaded.
+// global.exitHook(() => { 
+//   writeBankingFile();
+// });
+
+event.on("processExit",function(){ // This will handle sigint and sigterm exits, errors, and everything (except SIGKILL, of course).
   writeBankingFile();
 });
+
 
 event.on("serverExit",function(){ // This isn't really necessary, because each transaction forces a write, but let's just do it for now in case a transaction is interrupted by an error or something.
   writeBankingFile();
@@ -88,10 +95,12 @@ event.on("commandStart",function(regCommand){
 });
 
 
-async function bankTransfer(player, command, args, messageObj){
+async function bankTransfer(player, command, args, messageObj, options){
   // Usage: !banktransfer [CreditAmount] [PlayerToTransferTo]
   thisConsole.log("bankTransfer command ran!");
-  if (args.length == 2){
+  if (getOption(options,"help") == true){
+    return bankTransferHelp(player,{fast:true});
+  } else if (args.length == 2){
     var creditAmountToTransfer=args[0];
     var playerNameToTransferTo=args[1];
     if (i(playerNameToTransferTo,player.name)){
@@ -156,7 +165,7 @@ function bankTransferHelp(player,options){
 }
 
 
-async function transfer(player, command, args, messageObj){
+async function transfer(player, command, args, messageObj, options){
   // Usage: !transfer [CreditAmount] [PlayerToTransferTo]
   thisConsole.log("transfer command ran!");
   if (args.length == 2){
@@ -237,7 +246,7 @@ function transferHelp(player,options){
 }
 
 
-async function balance(player, command, args, messageObj){
+async function balance(player, command, args, messageObj, options){
   var playerCredits=await player.credits().catch((err) => console.error(err));
   if (typeof playerCredits == "number"){
     return player.botMsg(`Your bank account currently contains ${toNumberWithCommas(getBankBalance(player.name))} credits and your player inventory has ${toNumberWithCommas(playerCredits)} credits.`,{fast:true}).catch((err) => console.error(err));
@@ -276,7 +285,7 @@ function convertNumShortcuts(inputNumber){ // this is for k,m, and b. Only ensur
   }
   return toNumIfPossible(outputNumber); // If the value cannot be converted to a number, the input is output untouched
 }
-async function withdraw(player, command, args, messageObj){
+async function withdraw(player, command, args, messageObj, options){
   // Expect
   thisConsole.log("Withdraw command ran!");
   if (args.length == 1){
@@ -344,7 +353,7 @@ function withdrawHelp(player,options){
   player.msg(`Example 3: ${commandOperator}withdraw 50k`,options).catch((err) => console.error(err));
 }
 
-async function deposit(player, command, args, messageObj){
+async function deposit(player, command, args, messageObj, options){
   // Expect
   thisConsole.log("Deposit command ran!");
   if (args.length == 1){

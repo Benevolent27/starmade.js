@@ -1,30 +1,31 @@
 // Updated to use installObj
 var installObj=global.getInstallObj(__dirname);
-var {event,settings,log}=installObj; // TODO: Add console back once it's working.
+var {settings,log,event}=installObj;
 const thisConsole=installObj.console;
 var {toNumIfPossible,toStringIfPossible,getOption}=global.objectHelper;
 var {i} = global.miscHelpers;
 var thisServerObj={};
 
 
-
-event.on('start',function(theServerObj){
-  thisServerObj=theServerObj;
-  // #####  SERVER CONTROL  #####
-  thisConsole.regCommand("Start","Server Controls",start);
-  thisConsole.regCommand("Stop","Server Controls",stop);
-  thisConsole.regCommand("Install","Server Controls",install);
-  thisConsole.regCommand("AutoRestart","Server Controls",autoRestart);
-  // #####  SERVER INFO  #####
-  thisConsole.regCommand("Status","Server Info",currentStatus);
-  thisConsole.regCommand("Players","Server Info",onlinePlayers);
-  // #####  SERVER TEXT TO DISPLAY  #####
-  thisConsole.regCommand("ShowAllEvents","Server Text Display",showAllEvents);
-  thisConsole.regCommand("Stdout","Server Text Display",stdout);
-  thisConsole.regCommand("Stderr","Server Text Display",stderr);
-  thisConsole.regCommand("StderrFilter","Server Text Display",stderrFilter);
-  thisConsole.regCommand("stdoutFilter","Server Text Display",stdoutFilter);
-  
+global["event"].on("init",function(){ // ONLY NECESSARY FOR DEFAULT MODS
+  event.on('start',function(theServerObj){
+    thisServerObj=theServerObj;
+    // #####  SERVER CONTROL  #####
+    thisConsole.regCommand("Start","Server Controls",start);
+    thisConsole.regCommand("Stop","Server Controls",stop);
+    thisConsole.regCommand("Install","Server Controls",install);
+    thisConsole.regCommand("AutoRestart","Server Controls",autoRestart);
+    // #####  SERVER INFO  #####
+    thisConsole.regCommand("Status","Server Info",currentStatus);
+    thisConsole.regCommand("Players","Server Info",onlinePlayers);
+    // #####  SERVER TEXT TO DISPLAY  #####
+    thisConsole.regCommand("ShowAllEvents","Server Text Display",showAllEvents);
+    thisConsole.regCommand("Stdout","Server Text Display",stdout);
+    thisConsole.regCommand("Stderr","Server Text Display",stderr);
+    thisConsole.regCommand("StderrFilter","Server Text Display",stderrFilter);
+    thisConsole.regCommand("stdoutFilter","Server Text Display",stdoutFilter);
+    
+  });
 });
 
 function showAllEvents(theProperCommand,theArguments,options){

@@ -36,10 +36,15 @@ var {settings,event} = installObj;
 const thisConsole=installObj.console;
 var serverObj = {}; // This will be set after the "start" is given.
 
-CommandObj.prototype.toString = function () {
-  return this.name
-};
-event.on('start', function (theServerObj) { // The serverObj has been created.
+global["event"].on("init",function(){
+  // We're using the global event here ONLY FOR DEFAULT MODS.  
+  // This is to force the event listeners to be re-initialized on mod reload. 
+  // For other mods, they are completely unloaded and then loaded again,
+  // but default mods are not loaded again.
+  event.on("unloadMods",function(){
+    deregCommands();
+  });
+  event.on('start', function (theServerObj) { // The serverObj has been created.
     serverObj=theServerObj;
     if (!serverObj.hasOwnProperty("commands")) { // Set up the global commands variable if it does not exist.
       serverObj.commands = {};
@@ -71,7 +76,12 @@ event.on('start', function (theServerObj) { // The serverObj has been created.
     serverObj.regCommand("helpCategorySuffix", "HiddenHelpers", true, false);
     serverObj.regCommand("reloadHelpSettings", "HiddenHelpers", true, false);
     serverObj.regCommand("saveHelpSettings", "HiddenHelpers", true, false);
+  });
 });
+
+CommandObj.prototype.toString = function () {
+  return this.name
+};
 
 function removeCommands() {
   thisConsole.log("Removing any commands registered by mods..");
@@ -516,6 +526,10 @@ function regCommand(name, category, adminOnly, displayInHelp, playersObj,functTo
   if (failure) {
     console.error("ERROR:  Could not register new command!  No name given!");
   }
+}
+function deregCommands(){ // This is used when mods get reloaded.
+  thisConsole.log("Deregistering all commands.");
+  serverObj.commands={};
 }
 
 function CommandObj(name, category, adminOnly, displayInHelp, playersObj, functToRun) { 

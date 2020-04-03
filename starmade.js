@@ -232,7 +232,7 @@ global["reloadWrapperMods"]=reloadWrapperMods;
 
 global["loadServerMods"]=loadAllServerMods;
 global["unloadServerMods"]=unloadServerMods;
-global["reloadServerMods"]=reloadServerMods;
+global["reloadServerMods"]=reloadAllServerMods;
 
 
 
@@ -501,6 +501,9 @@ function emitToAllInstalls(event) { // Instead of emitting on the global event e
   var installsArray = Object.keys(global["installObjects"]);
   for (let i = 0;i < installsArray.length;i++) {
     if (global["installObjects"][installsArray[i]].hasOwnProperty("event")) {
+      console.log("#############################");
+      console.log(`############  Emitting event, '${event}', to install: ${installsArray[i]}`);
+      console.log("#############################");
       global["installObjects"][installsArray[i]].event.emit(...arguments); // This will pass all arguments, including the event.
     }
   }
@@ -598,18 +601,32 @@ function unloadServerMods(theInputPath,options) {
   for (let i = 0;i < installFolders.length;i++) {
     if ((typeof inputPath == "string" && inputPath == installFolders[i]) || typeof inputPath == "undefined") {
       global["installObjects"][installFolders[i]].event.emit("unloadMods"); // This is for mods that need to do other cleanup when reloading
-      mainConsole.log("Removing all server and global event listeners..");
+      console.log("################################################################");
+      console.log("##### Removing all server and global event listeners for install: " + installFolders[i]);
+      console.log("################################################################");
+      // global["installObjects"][installFolders[i]].event.on("theTest",function(theMessage){ // temp
+      //   console.log("@#$@#$@#$ THE TEST WAS RUN @#$@#$@#$@#  Text:" + theMessage); // Temp
+      // }); // temp
+      // global["installObjects"][installFolders[i]].event.emit("theTest","Before clearing the listeners..");
       global["installObjects"][installFolders[i]].event.removeAllListeners();
+      // global["installObjects"][installFolders[i]].event.emit("theTest","AFTER clearing the listeners.. THIS SHOULD NOT DISPLAY!");
       global["installObjects"][installFolders[i]].globalEvent.removeAllListeners();
-      loadedModsArray = Object.keys(installFolders[i]["modRequires"]);
+      // console.log("@#$%@#$%@#$%#$% These should be blank:"); // temp
+      // console.table(global["installObjects"][installFolders[i]].event.listeners('playerSpawn')); // temp
+      // console.table(global["installObjects"][installFolders[i]].event.rawListeners('playerSpawn')); // temp
+      // console.table(global["installObjects"][installFolders[i]].globalEvent.listeners('init')); // temp
+
+
+      loadedModsArray = Object.keys(global["installObjects"][installFolders[i]]["modRequires"]);
       for (let e = 0;e < loadedModsArray.length;e++) {
         // Check if it is a default mod or not.
-        defaultDir=path.join(installFolders[i],"default");
+        defaultDir=path.join(installFolders[i],"mods","default");
         thisDir=path.dirname(loadedModsArray[e]);
+        mainConsole.debug(`Comparing ${defaultDir} to ${thisDir} and removing if not the same. unloadDefaultDir: ${unloadDefaultDir}`);
         if ((unloadDefaultDir == false && defaultDir != thisDir) || unloadDefaultDir == true){
           mainConsole.log("Unloading JS file: " + loadedModsArray[e]);
           Reflect.deleteProperty(global["installObjects"][installFolders[i]]["modRequires"], loadedModsArray[e]); // Delete the individual path entry for this require
-          Reflect.deleteProperty(require.cache, require.resolve(loadedModsArray[e])); // Remove the require entirely. Source: http://derpturkey.com/reload-module-with-node-js-require/ with some modification to use reflect.
+          Reflect.deleteProperty(require.cache, require.resolve(loadedModsArray[e])); // Remove the require cache. Source: http://derpturkey.com/reload-module-with-node-js-require/ with some modification to use reflect.
         } else {
           mainConsole.log("Skipping default mod file: " + loadedModsArray[e]);
         }
@@ -621,12 +638,61 @@ function unloadServerMods(theInputPath,options) {
     }
   }
 }
-function reloadServerMods(inputPath) { // This function is meant to reload ALL mods.  Specificity is not possible right now.
-  mainConsole.log("Unloading server mods..");
+function reloadAllServerMods(){ // This is invoked by the wrapper command line !reloadmods
+  let installObjectKeys=Object.keys(global["installObjects"]);
+  console.log("Reloading non-default mods for all servers..");
+  for (let i=0;i<installObjectKeys.length;i++){
+    console.log("Reloading mods for install: " + installObjectKeys[i]);
+    global["installObjects"][installObjectKeys[i]].reloadMods({noInit:true}); // We don't want to run the init when reloading each mod, because we want the global init ran first for default mods
+  }
+  console.log("#########################################");
+  console.log("####### EMITTING INIT for all servers on global and local events");
+  console.log("#########################################");
+
+  global["event"].emit("init"); // This is here because we only want it to emit once for all installs.
+  emitToAllInstalls("init"); // emits to the server event for each install  
+}
+
+function reloadServerMods(inputPath,options) { // This function is meant to reload ALL mods.  Specificity is not possible right now.
+  let noInit=getOption(options,"noInit",false);
+  console.log("#########################################");
+  console.log("####### RELOADING server mods for server: " + inputPath);
+  console.log("#########################################");
+  
+  console.log("#########################################");
+  console.log("####### DEREGISTERING CONSTRUCTORS for server: " + inputPath);
+  console.log("#########################################");
+  // if (global["installObjects"].hasOwnProperty(inputPath)){
+  //   console.log("######## It had the install path!! inputPath:" + inputPath);
+  //   console.dir(`global["installObjects"][${inputPath}]: ${global["installObjects"][inputPath]}`);
+  // } else {
+  //   console.log("######## It DID NOT have the install path!! inputPath: " + inputPath);
+  // }
+  global["installObjects"][inputPath].deregAllConstructors();
+
+  console.log("#########################################");
+  console.log("####### UNLOADING server mods for server: " + inputPath);
+  console.log("#########################################");
   unloadServerMods(inputPath);
-  mainConsole.log("Re-requiring the mods..");
+
+
+  // theThis.deregAllConstructors();
+  console.log("#########################################");
+  console.log("####### RE-REQUIRING server mods for server: " + inputPath);
+  console.log("#########################################");
   loadAllServerMods(inputPath); // This will load new ones if they exist.
+
   mainConsole.log("Done reloading mods!");
+  // Re-initialize all the scripts (including default mods)
+
+  if (noInit == false){
+    global["installObjects"][inputPath].event.emit("init");
+    console.log("#########################################");
+    console.log("####### EMITTING INIT for server: " + inputPath);
+    console.log("#########################################");
+  }
+  // emits to the global Event, including each globalEvent for each server.
+  // emitToAllInstalls("init"); // emits to the server event for each install
 }
 
 
@@ -668,7 +734,7 @@ function loadWrapperMods() { // No inputPath here because there is only one fold
 function unloadWrapperMods() { // This cycles through the list of wrapper modfiles and deletes their cache
   global["event"].emit("unloadWrapperMods"); // Gives wrapper mods a chance to do any extra cleanup they may need done before the reload
   mainConsole.log("Removing any global event listeners registered by Wrapper mods..");
-  global["event"].removeAllListeners();
+  global["event"].removeAllListeners(); // This needs to be redone, because default mods rely on it to reinitialize
   // unloadGlobalEventListeners(inputPath); // old method
   // TODO:  Wrapper level mods may very well emit to server mods, so these need to have their own record.. I guess I could put it on global["installObjects"][__dirname]
   objectCreator.deregAllConstructors();
@@ -1014,7 +1080,6 @@ process.stdin.on('data', function (text) { // This runs for any console
 
 
     } else if (i(theCommand, "reloadmods")) {
-      console.log("Reloading mods..");
       globalEventUnmodified.emit("reloadMods");
       global["reloadServerMods"]();
     } else if (i(theCommand, "listGlobal")) {
@@ -1603,6 +1668,9 @@ function preDownload(httpURL, fileToPlace) { // This function handles the pre-do
 exitHook(() => { // This will handle sigint and sigterm exits, errors, and everything.
   // Cleanup that needs to be done on the global scope should be done here.
   console.log("Global Exit event running using exitHook require..");
+  emitToAllInstalls("processExit"); // This emits to each individual installObj.event
+  // add global "processExit" emit
+  global["event"].emit("processExit"); // This will emit to all the installObj.globalEvent emitters
   writeSettings(); // Always make sure the settings get written before exit, so any changes are recorded.
   writeDataObjects(); // Write the data objects for every install, to ensure they are saved.
 });
@@ -1682,9 +1750,13 @@ function goReady(){ // This is called when the "ready" event is emitted globally
       "globalEvent": global["event"].spawn(), // This should be used by mods instead of global["event"].emit.  This will catch global["event"].emit's and any emits from any other install or sub-spawn of this custom event object.
       "settings": global["settings"].servers[serverKeys[i]], // This is redundant, to make it easier to pull the info.
       "dataObj":{},
+      "objects":{}, // Objects the server might use, such as PlayerObj.  These must be registered during the init phase, so they are ready by the start phase.
+      "regConstructor":function(theConstructor){ return regConstructor(this.path,theConstructor) }, // Example: installObj.regObject("PlayerObj",PlayerObj)
+      "deregConstructor":function(theConstructor){ return deregConstructor(this.path,theConstructor) },
+      "deregAllConstructors":function(){ return deregAllConstructors(this.path) },
       "readDataObj":function(){ return readDataObj(path.join(serverKeys[i],dataObjName)) },
       "writeDataObj":function(options){ return writeJSONFileSync(path.join(serverKeys[i],dataObjName),global["installObjects"][serverKeys[i]]["dataObj"],options) },
-      "reloadMods": function(){ return reloadServerMods(this.path) } // Reloads the listeners and mods
+      "reloadMods": function(options){ return reloadServerMods(this.path,options) } // Reloads the listeners and mods
       // "serverObj":theServerObj // This should be added by the starter mod for the install.
 
       // Each mod is responsible for setting up extra settings, installation, and starting the server.
@@ -1699,6 +1771,60 @@ function goReady(){ // This is called when the "ready" event is emitted globally
   emitToAllInstalls("init"); // emits to the server event for each install
   // On init, there is a default mod that will create a serverObj and emit "start" on it's own server event emitter, providing the serverObj.  This is so other mods can then initialize with the serverObj.
 };
+
+function regConstructor (installPath,theFunction) { // Overwrites any previously registered constructors by the same name
+  if (typeof theFunction == "function") {
+    if (theFunction.hasOwnProperty("name")) {
+      var firstLetter = theFunction.name[0];
+      var letterTest = firstLetter.toLowerCase();
+      if (firstLetter === letterTest) {
+        throw new Error("Unable to register constructor! Constructor functions should have an uppercase first letter! '" + theFunction.name + "' does not have an uppercase first letter! -- Source Server: " + installPath);
+      } else {
+        global["installObjects"][installPath].objects[theFunction.name] = theFunction;
+        global["installObjects"][installPath].console.log(`Registered new Constructor, '${theFunction.name}'.`); // This does not make it a constructor.
+        return true;
+      }
+    }
+    throw new Error("Unable to register unnamed constructor!  Please only attempt to register VALID constructors!  Server: " + installPath);
+  }
+  throw new Error("Unable to register non-function constructor! typeof input given as theFunction: " + typeof theFunction);
+}
+
+function deregConstructor (installPath,theFunction) {
+  var theFunctionTypeName = "";
+  if (typeof theFunction == "function") {
+    if (theFunction.hasOwnProperty("name")) {
+      theFunctionTypeName = theFunction.name;
+    } else {
+      throw new Error("Invalid input given to deregConstructor!  Expects a named function or string! Server: " + installPath);
+    }
+  } else if (typeof theFunction == "string") {
+    theFunctionTypeName = theFunction;
+  } else {
+    throw new Error("Invalid input given to deregConstructor!  Expects a named function or string! Server: " + installPath);
+  }
+  var deregged = false;
+  if (global["installObjects"][installPath].objects.hasOwnProperty(theFunctionTypeName)) {
+    deregged = true;
+    global["installObjects"][installPath].log(`Deregistering object '${theFunctionTypeName}' for install: ${installPath}`);
+    Reflect.deleteProperty(global["installObjects"][installPath].objects, theFunctionTypeName);
+  }
+  return deregged; // Returns true if successful, false if not found.
+}
+
+function deregAllConstructors(installPath) {
+  global["installObjects"][installPath].console.log("Deregistering all constructors.."); // temp
+  var deregged = false;
+  const objectKeys = Object.keys(global["installObjects"][installPath].objects);
+  for (let i = 0;i < objectKeys.length;i++) {
+    if (global["installObjects"][installPath].deregConstructor(objectKeys[i])) { // If at least 1 constructor is deregistered, this will return true.
+      deregged = true;
+    }
+  }
+  return deregged; // Returns true if something was removed, false if not.
+}
+
+
 global["writeDataObjects"]=writeDataObjects;
 function writeDataObjects(){  // This will write all the data objects for all installs.  This is intended to be ran on exit.
   var installKeys=Object.keys(global["installObjects"]);
