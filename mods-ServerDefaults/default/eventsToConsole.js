@@ -5,11 +5,11 @@
 
 
 var installObj=global.getInstallObj(__dirname);
-var {settings,log,event}=installObj;
+var {settings,log,event,defaultGlobalEvent}=installObj;
 const thisConsole=installObj.console;
 var {toStringIfPossible}=global.objectHelper;
 // var serverObj={};
-global["event"].on("init",function(){ // ONLY NECESSARY FOR DEFAULT MODS SINCE THEY DO NOT RELOAD ON MODRELOAD()
+defaultGlobalEvent.on("init",function(){ // ONLY NECESSARY FOR DEFAULT MODS SINCE THEY DO NOT RELOAD ON MODRELOAD()
   event.on('commandStart',function(){
     thisConsole.log("Event (commandStart) emitted.");
     event.on('playerCommand', function(playerObj, commandStr, argumentsArray, messageObj) { // Handle messages sent from players

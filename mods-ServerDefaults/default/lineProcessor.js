@@ -7,10 +7,10 @@ module.exports = { // IMPORTANT: These cannot be used until the serverObj has be
 
 // This script needs to read from the server settings, so it needs the installObj
 var installObj = global.getInstallObj(__dirname);
-var {settings,event}=installObj;
+var {settings,event,defaultGlobalEvent}=installObj;
 var thisConsole=installObj.console;
 var serverObj = {}; // This will be set after the "start" is given.
-global["event"].on("init",function(){ // ONLY NECESSARY FOR DEFAULT MODS SINCE THEY DO NOT RELOAD ON MODRELOAD()
+defaultGlobalEvent.on("init",function(){ // ONLY NECESSARY FOR DEFAULT MODS SINCE THEY DO NOT RELOAD ON MODRELOAD()
   event.on("start", function (theServerObj) {
     serverObj = theServerObj;
   });

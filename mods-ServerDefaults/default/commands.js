@@ -32,16 +32,12 @@ var commands = {};
 var commandOperator;
 
 var installObj = global.getInstallObj(__dirname);
-var {settings,event} = installObj;
+var {settings,defaultEvent,defaultGlobalEvent,event} = installObj;
 const thisConsole=installObj.console;
 var serverObj = {}; // This will be set after the "start" is given.
 
-global["event"].on("init",function(){
-  // We're using the global event here ONLY FOR DEFAULT MODS.  
-  // This is to force the event listeners to be re-initialized on mod reload. 
-  // For other mods, they are completely unloaded and then loaded again,
-  // but default mods are not loaded again.
-  event.on("unloadMods",function(){
+defaultGlobalEvent.on("init",function(){ // The defaultEvent does not get unloaded, but it does repeat inits
+  event.on("unloadMods",function(){ // So we still want to register event listeners on the regular event, upon init
     deregCommands();
   });
   event.on('start', function (theServerObj) { // The serverObj has been created.
@@ -54,18 +50,17 @@ global["event"].on("init",function(){
     importSettingsFile();
     verifySettings();
     // console.dir(defaultSettings);
-
+  
     // Extenders - These will only be guaranteed available after the "init" event is triggered.
     // objectCreator["CommandObj"]=CommandObj;
     // serverObj.regConstructor(CommandObj);
     serverObj["regCommand"] = regCommand; // Extend the serverObj
     serverObj["commandSettings"] = defaultSettings;
     event.on("reloadMods", removeCommands);
-    // event.on("init", init);
     event.on('playerCommand', command);
     event.on('playerMessage', message);
     event.emit('commandStart', regCommand); // This signals that other mods can register their commands since the serverObj should have the needed methods.
-
+  
     // Register the commands associated with this object
     serverObj.regCommand("changeHelpWidth", "HiddenHelpers", true, false);
     serverObj.regCommand("togglehide", "HiddenHelpers", true, false);
@@ -78,6 +73,8 @@ global["event"].on("init",function(){
     serverObj.regCommand("saveHelpSettings", "HiddenHelpers", true, false);
   });
 });
+
+
 
 CommandObj.prototype.toString = function () {
   return this.name

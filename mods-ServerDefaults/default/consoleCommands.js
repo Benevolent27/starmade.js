@@ -1,13 +1,13 @@
 // Updated to use installObj
 var installObj=global.getInstallObj(__dirname);
-var {settings,log,event}=installObj;
+var {settings,log,event,defaultGlobalEvent}=installObj;
 const thisConsole=installObj.console;
 var {toNumIfPossible,toStringIfPossible,getOption}=global.objectHelper;
 var {i} = global.miscHelpers;
 var thisServerObj={};
 
 
-global["event"].on("init",function(){ // ONLY NECESSARY FOR DEFAULT MODS
+defaultGlobalEvent.on("init",function(){ // ONLY NECESSARY FOR DEFAULT MODS
   event.on('start',function(theServerObj){
     thisServerObj=theServerObj;
     // #####  SERVER CONTROL  #####

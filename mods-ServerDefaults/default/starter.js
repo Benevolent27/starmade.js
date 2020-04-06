@@ -5,12 +5,12 @@ var serverObjJs = require(path.join(__dirname,"serverObj.js"));
 var {ServerObj} = serverObjJs;
 // var serverPath=global.getServerPath(__dirname);
 var installObj = global.getInstallObj(__dirname);
-var {event}=installObj;
+var {event,defaultGlobalEvent}=installObj;
 var installPath=installObj.path;
 const thisConsole=installObj.console;
 var serverObj = {}; // This will be set after the "start" is given.
 
-global["event"].on("init",function(){ // ONLY NECESSARY FOR DEFAULT MODS SINCE THEY DO NOT RELOAD ON MODRELOAD()
+defaultGlobalEvent.on("init",function(){ // ONLY NECESSARY FOR DEFAULT MODS SINCE THEY DO NOT RELOAD ON MODRELOAD()
   // Only start the server when the init is given, which is after all initial setup and installs have been done by starmade.js
   if (!installObj.hasOwnProperty("serverObj")){ // Only create and register the serverObj if it doesn't exist already.
     thisConsole.log("Creating server object and registering it..");

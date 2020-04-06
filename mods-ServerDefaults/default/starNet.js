@@ -48,11 +48,13 @@ module.debug=false;
 var thisConsole=console;
 var installObj={};
 var event={};
+var defaultGlobalEvent={};
 if (global.hasOwnProperty("getInstallObj")){ // This is to allow this script to be ran from the command line.
   installObj=global.getInstallObj(__dirname);
   event=installObj.event; // These are events ONLY for this server.
+  defaultGlobalEvent=installObj.defaultGlobalEvent;
   thisConsole=installObj.console;
-  global["event"].on("init",function(){ // ONLY NECESSARY FOR DEFAULT MODS SINCE THEY DO NOT RELOAD ON MODRELOAD()
+  defaultGlobalEvent.on("init",function(){ // ONLY NECESSARY FOR DEFAULT MODS SINCE THEY DO NOT RELOAD ON MODRELOAD()
     event.on("start",function(theServerObj){ // the start event indicates that a serverObj has been created.
       serverObj=theServerObj;
     });
