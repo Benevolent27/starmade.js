@@ -1746,8 +1746,8 @@ function goReady(){ // This is called when the "ready" event is emitted globally
       "path": serverKeys[i],
       "log": new CustomLog(serverKeys[i]),
       "console": new CustomConsole(serverKeys[i],{invincible: true}), // This is a console that only displays when mods for this install use it.  It is "invincible", so it will not be unloaded if the unloadListeners event happens.  This is also used for registering commands for the wrapper.
-      "event": new CustomEvent(), // Each install gets it's own modified event listener.  Prior to scripts being reloaded, event listeners should be removed using .removeAllListeners()
-      "globalEvent": global["event"].spawn(), // This should be used by mods instead of global["event"].emit.  This will catch global["event"].emit's and any emits from any other install or sub-spawn of this custom event object.
+      "defaultEvent": new CustomEvent(), // This event does not reload on .reloadmods().  This should only be used for default mods, which also do not reload.
+      "defaultGlobalEvent": global["event"].spawn(), // This should be used by mods instead of global["event"].emit.  This will catch global["event"].emit's and any emits from any other install or sub-spawn of this custom event object.
       "settings": global["settings"].servers[serverKeys[i]], // This is redundant, to make it easier to pull the info.
       "dataObj":{},
       "objects":{}, // Objects the server might use, such as PlayerObj.  These must be registered during the init phase, so they are ready by the start phase.
@@ -1761,7 +1761,11 @@ function goReady(){ // This is called when the "ready" event is emitted globally
 
       // Each mod is responsible for setting up extra settings, installation, and starting the server.
     };
-    global["installObjects"][serverKeys[i]]["readDataObj"](); // Loads the dataObj or creates a new one if needed.  This is needed for the requireServerMods function.
+    global["installObjects"][serverKeys[i]]["event"]=global["installObjects"][serverKeys[i]]["defaultEvent"].spawn(); // Each install gets it's own modified event listener.  Prior to scripts being reloaded, event listeners should be removed using .removeAllListeners()
+    global["installObjects"][serverKeys[i]]["globalEvent"]=global["installObjects"][serverKeys[i]]["defaultGlobalEvent"].spawn(); // These are events that are broadcast globally, accross all servers and wrapper.  Prior to scripts being reloaded, event listeners should be removed using .removeAllListeners()
+    // Load the dataObj or create a new one if needed.  This is needed for the requireServerMods function.
+    global["installObjects"][serverKeys[i]]["readDataObj"]();
+    // Require in the mods for this install
     global["installObjects"][serverKeys[i]]["modRequires"]=requireServerMods(serverKeys[i]); //  This loads in the mods.  This is used when reloading the mods to be able to delete the cache and then re-require each file.
     mainConsole.log(`Finished Install object for install: ${serverKeys[i]}!`);
   }
