@@ -22,6 +22,7 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   writeJSONFile,
   getSimpleDate,
   getSimpleTime,
+  convertSecondsToReadableTimeframe, // takes seconds number.  Converts to human readable values, like "17 hours, 5 minutes, and 3 seconds"
   convertSectorCoordsToSystem,
   getEntityPrefixFromPublicEntitiesTypeNumber,
   toNumberWithCommas, // Converts a number to one with commas
@@ -420,6 +421,44 @@ function deleteFile (fileToDelete,options){ // options can be:  {"quiet":true/fa
 
 function touch (file){ // This creates an empty file quickly.
   fs.closeSync(fs.openSync(file, 'w'));
+}
+
+function convertSecondsToReadableTimeframe(seconds){
+  var theSeconds = toNumIfPossible(seconds);
+  if (typeof theSeconds == "number"){
+    var d = Math.floor(theSeconds / (3600*24));
+    var h = Math.floor(theSeconds % (3600*24) / 3600);
+    var m = Math.floor(theSeconds % 3600 / 60);
+    var s = Math.floor(theSeconds % 60);
+    var dDisplay = d > 0 ? d + (d == 1 ? " day" : " days") : "";
+    var hDisplay = h > 0 ? h + (h == 1 ? " hour" : " hours") : "";
+    var mDisplay = m > 0 ? m + (m == 1 ? " minute" : " minutes") : "";
+    var sDisplay = s > 0 ? s + (s == 1 ? " second" : " seconds") : "";
+    var resultsArray=[];
+    if (dDisplay){
+      resultsArray.push(dDisplay);
+    }
+    if (hDisplay){
+      resultsArray.push(hDisplay);
+    }
+    if (mDisplay){
+      resultsArray.push(mDisplay);
+    }
+    if (sDisplay){
+      resultsArray.push(sDisplay);
+    }
+    if (resultsArray.length > 1){
+      let lastNum=resultsArray.length-1;
+      resultsArray[lastNum]=`and ${resultsArray[lastNum]}`;
+    }
+    // return dDisplay + hDisplay + mDisplay + sDisplay;
+    if (resultsArray.length > 2){
+      return resultsArray.join(", ");
+    } else {
+      return resultsArray.join(" ");
+    }
+  }
+  throw new Error("Invalid input given to convertSecondsToReadableTimeframe as 'seconds' input!");
 }
 
 function getSimpleDate(input){
