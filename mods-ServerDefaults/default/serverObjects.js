@@ -931,6 +931,29 @@ function PlayerObj(name) { // cb/promises/squish compliant // "Player" must be a
       }
       return simplePromisifyIt(self.kick, options, reason);
     }
+    this.getFactionRank = async function (options,cb){
+      if (typeof cb == "function"){
+        var playerFaction=await self.faction();
+        //  /faction_list_members 10000
+        // Result:
+        // RETURN: [SERVER, [ADMIN COMMAND] [SUCCESS] The_Rebuilders: {Benevolent27=>FactionPermission [playerUID=Benevolent27, roleID=4], BoredNL=>FactionPermission [playerUID=BoredNL, roleID=4], Nikodaemos=>FactionPermission [playerUID=Nikodaemos, roleID=4]}, 0]
+        return playerFaction.listMembers("",function(err,playerList){
+          if (err){
+            return cb(err,null);
+          }
+          if (Array.isArray(playerList)){
+            for (let i=0;i<playerList.length;i++){
+              if (playerList[i].name == self.name){
+                return cb(null,playerList[i].rankRetrieved); // Returns a number, 1-5.  5 is founder.
+              }
+            }
+          }
+          // This next line should never happen normally
+          return cb(null,null); // Player was not in their own faction or results was not an array?  Did they exit the faction between the command to get their command and then list the members?
+        });
+      }
+      return simplePromisifyIt(self.getFactionRank,options);
+    }
     self.setFactionRank = function (number, options, cb) { // expects a number 1-5.  5 is founder, 1 is lowest rank.
       if (typeof cb == "function") {
         if (isNum(number)) {
@@ -1420,7 +1443,7 @@ function PlayerObj(name) { // cb/promises/squish compliant // "Player" must be a
             if (factionLine) {
               returnObj["faction"] = new FactionObj(factionLine.match(/^id=[-]{0,1}[0-9]+/).toString().replace(/^id=/, ""));
             } else {
-              returnObj["faction"] = null; // Player was not in a faction
+              returnObj["faction"] = null; // Player was not in a faction or could not obtain the value (if player is offline)
             }
             return cb(null, returnObj);
           }
@@ -1523,7 +1546,7 @@ function PlayerObj(name) { // cb/promises/squish compliant // "Player" must be a
     self.faction = function (options, cb) { // Returns a player's credits held, whether online or offline.
       var valToLookFor = "faction";
       if (typeof cb == "function") {
-        return returnValFromPlayerInfo(self.info, valToLookFor, options, cb);
+        return returnValFromPlayerInfo(self.info, valToLookFor, options, cb); // returns FactionObj or False
       } else {
         return simplePromisifyIt(self[valToLookFor], options);
       }
@@ -2717,12 +2740,17 @@ function FactionObj(number) { // cb/promises/squish compliant
   }
   this.listMembers = function (options, cb) {
     if (typeof cb == "function") {
+      // Returns an array of playerObj.  
+      // Each playerName contains a special value "rankRetrieved", which is only available here.  This is the only way I know of currently to get a player's faction rank.
+      // Note: 0 is the lowest rank, 4 is founder
+
       //RETURN: [SERVER, [ADMIN COMMAND] [SUCCESS] Merc Dragon: {Lightspeed12=>FactionPermission [playerUID=Lightspeed12, roleID=2], Nosajimiki=>FactionPermission [playerUID=Nosajimiki, roleID=4]}, 0]
       // TODO: Add an option to return an array of pairs, player and role number.
       return starNetVerified("/faction_list_members " + self.number, options, function (err, result) {
         if (err) {
           return cb(err, result);
         }
+        var thePlayerObj={};
         let regMatch = /^RETURN: \[SERVER, \[ADMIN COMMAND\] \[SUCCESS\]/;
         let regRem1 = /^RETURN: \[SERVER, \[ADMIN COMMAND\] \[SUCCESS\] [^:]*: {/
         let regRem2 = /}, 0\]$/
@@ -2730,8 +2758,16 @@ function FactionObj(number) { // cb/promises/squish compliant
         if (typeof theList == "string") {
           var theArray = theList.split('], ');
           var outputArray = [];
+          var tempNum=Number();
           for (let i = 0;i < theArray.length;i++) {
-            outputArray.push(new PlayerObj(theArray[i].match(/^[^=]*/).toString()));
+            thePlayerObj=new PlayerObj(theArray[i].match(/^[^=]*/).toString());
+            tempNum=toNumIfPossible(theArray[i].match(/(?<=roleID=)[0-9]+$/).toString());
+            // 0 = rank 4
+            // 4 = Founder
+            // We need to add a number here because /faction_mod_member takes 1-5 with 5 being founder
+            tempNum+=1;
+            thePlayerObj.rankRetrieved=Number(tempNum);
+            outputArray.push(thePlayerObj);
           }
           return cb(null, outputArray); // I'm guessing if a faction exists but has no members, this will output an empty array.
         }
