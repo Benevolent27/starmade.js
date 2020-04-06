@@ -42,6 +42,7 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   isArray, // This returns true if an array, even if it is empty.
   returnLineMatch,
   repeatString,
+  capitalizeFirstLetter, // Capitalizes the first letter and sets rest to lowercase
   getRandomAlphaNumericString,
   arrayMinus, // Usage: arrayMinus(inputArray,valToRemove) -- Returns a new array of all values except the valToRemove
   removeOneFromArray, // Usage: removeOneFromArray(inputArray,valToRemove) -- Returns a new array of all values, minus the first instance of valToRemove
@@ -266,6 +267,21 @@ function isAlphaNumeric(testString){ // Only accepts string inputs
   return false;
 }
 
+function capitalizeFirstLetter(inputStr){
+  // returns the string back with the first letter capitalized and the rest lowercase.
+  if (typeof inputStr == "string"){
+    var returnVal=inputStr;
+    var tempArray=[];
+    if (inputStr.length > 0){
+      returnVal=returnVal.toLowerCase();
+      tempArray=returnVal.split("");
+      tempArray[0]=tempArray[0].toUpperCase();
+      returnVal=tempArray.join("");
+    }
+    return returnVal;
+  }
+  throw new Error("Invalid input given to function, capitalizeFirstLetter, as 'inputStr'!  Please provide a string!");
+}
 function repeatString(inputStr,repeatCount){ // This repeats a string a number of times
   if (typeof inputStr == "string" && typeof repeatCount=="number"){
     var outputString="";
