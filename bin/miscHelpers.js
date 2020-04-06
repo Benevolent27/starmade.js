@@ -430,7 +430,14 @@ function getSimpleDate(input){
     theDate=new Date();
   }
   let theMonth=theDate.getMonth() + 1;
-  let output=theMonth + "-" + theDate.getDate() + "-" + theDate.getFullYear();
+  if (theMonth < 10){
+    theMonth="0" + theMonth;
+  }
+  let theDay=theDate.getDate();
+  if (theDay < 10){
+    theDay="0" + theDay;
+  }
+  let output=theMonth + "-" + theDay + "-" + theDate.getFullYear();
   return output;
 }
 function getSimpleTime(input){
@@ -450,7 +457,14 @@ function getSimpleTime(input){
   } else if (hours==24){
     hours=12;
   }
-  let output=hours + ":" + theDate.getMinutes() + " " + amPM;
+  if (hours < 10){
+    hours="0" + hours;
+  }
+  let minutes=theDate.getMinutes();
+  if (minutes < 10){
+    minutes="0" + hours;
+  }
+  let output=hours + ":" + minutes + " " + amPM;
   return output;
 }
 var logFileName=getSimpleDate() + ".log";
