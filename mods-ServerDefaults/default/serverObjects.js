@@ -2751,7 +2751,7 @@ function FactionObj(number) { // cb/promises/squish compliant
           return cb(err, result);
         }
         var thePlayerObj={};
-        let regMatch = /^RETURN: \[SERVER, \[ADMIN COMMAND\] \[SUCCESS\]/;
+        let regMatch = /^RETURN: \[SERVER, \[ADMIN COMMAND\] \[SUCCESS\].*/;
         let regRem1 = /^RETURN: \[SERVER, \[ADMIN COMMAND\] \[SUCCESS\] [^:]*: {/
         let regRem2 = /}, 0\]$/
         var theList = returnLineMatch(result, regMatch, regRem1, regRem2);
@@ -2761,7 +2761,8 @@ function FactionObj(number) { // cb/promises/squish compliant
           var tempNum=Number();
           for (let i = 0;i < theArray.length;i++) {
             thePlayerObj=new PlayerObj(theArray[i].match(/^[^=]*/).toString());
-            tempNum=toNumIfPossible(theArray[i].match(/(?<=roleID=)[0-9]+$/).toString());
+            let rankNumberFound=theArray[i].match(/(?<=roleID=)[0-9]+/);
+            tempNum=toNumIfPossible(toStringIfPossible(rankNumberFound));
             // 0 = rank 4
             // 4 = Founder
             // We need to add a number here because /faction_mod_member takes 1-5 with 5 being founder
