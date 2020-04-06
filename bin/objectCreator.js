@@ -351,7 +351,7 @@ function CustomEvent(options){
       var theObj = {};
       theObj[eventName] = theFunction;
       eventListeners.push(theObj);
-      console.log(`Added event listener, '${eventName}' to eventListeners: ${eventListeners}`);
+      console.debug(`Added event listener, '${eventName}' to eventListeners`);
       return newEvent.on(eventName, theFunction);
     }
     spawnCopyEvent["addListener"]=spawnCopyEvent["on"];
@@ -359,18 +359,21 @@ function CustomEvent(options){
       var theObj = {};
       theObj[eventName] = theFunction;
       eventListeners.push(theObj);
+      console.debug(`Added 'once' event listener, '${eventName}' to eventListeners`);
       return newEvent.once(eventName, theFunction);
     }
     spawnCopyEvent["prependListener"] = function (eventName, theFunction) {
       var theObj = {};
       theObj[eventName] = theFunction;
       eventListeners.push(theObj);
+      console.debug(`Prepended event listener, '${eventName}' to eventListeners`);
       return newEvent.prependListener(eventName, theFunction);
     }
     spawnCopyEvent["prependOnceListener"] = function (eventName, theFunction) {
       var theObj = {};
       theObj[eventName] = theFunction;
       eventListeners.push(theObj);
+      console.debug(`Prepended 'once' event listener, '${eventName}' to eventListeners`);
       return newEvent.prependOnceListener(eventName, theFunction);
     }
     spawnCopyEvent["removeListener"] = function (theName,theFunction) {
