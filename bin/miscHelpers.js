@@ -25,7 +25,7 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   convertSectorCoordsToSystem,
   getEntityPrefixFromPublicEntitiesTypeNumber,
   toNumberWithCommas, // Converts a number to one with commas
-  i // Does a simple case insensitive comparison on two strings, returning true if two strings match
+  i // Does a simple case insensitive comparison on two or more strings, returning true if two strings match.  If more than 2 given, then it will check the first value to all others and return true if any matched.
 };
 
 
@@ -42,7 +42,7 @@ const objectHelper      = requireBin("objectHelper.js");
 ensureFolderExists(logFolder); // Let's just do this once the helper being loaded.
 
 // Set up aliases
-const {getOption,trueOrFalse,simplePromisifyIt,testIfInput,toNumIfPossible,toArrayIfPossible}       = objectHelper;
+const {getOption,trueOrFalse,simplePromisifyIt,testIfInput,toNumIfPossible,toArrayIfPossible,toStringIfPossible} = objectHelper;
 
 // TESTING BEGIN
 if (__filename == require.main.filename){ // Only run the arguments IF this script is being run by itself and NOT as a require.
@@ -76,8 +76,23 @@ function toNumberWithCommas(x) {
 }
 
 function i(input, input2) { // I use this to do easy case insensitive matching for commands since javascript is case sensitive
-  if (typeof input == "string" && typeof input2 == "string") {
-    return input.toLowerCase() === input2.toLowerCase();
+  var temp1=toStringIfPossible(input);
+  var temp2="";
+  if (typeof temp1 == "string" && typeof input2 == "string") {
+    temp1=temp1.toLowerCase();
+    if (arguments.length == 2){
+      return input.toLowerCase() === input2.toLowerCase();
+    } else {
+      for (let i=1;i<arguments.length;i++){ // Cycle through the arguments, starting with the second one for comparison.
+        temp2=toStringIfPossible(arguments[i]);
+        if (typeof temp2 == "string"){
+          if (temp1 === temp2){
+            return true; // If any of them match, return true.
+          }
+        }
+      }
+      return false; // No matches, so return false.
+    }
   } else {
     return false;
   }
