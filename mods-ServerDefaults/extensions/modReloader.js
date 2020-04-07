@@ -41,5 +41,5 @@ function reloadModsCommand(player,command,args,messageObj){
   installObj.reloadMods(); // This will emit a "unloadMods" event, which the serverObj is listening for
   // event.emit("unloadMods");
   // TODO: I need to send a global command to remove the event listeners, this will not suffice.
-  player.botMsg("Done!",{fast:true}); // This is syncronous
+  // player.botMsg("Done!",{fast:true}); // This is syncronous
 }
