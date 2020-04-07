@@ -132,7 +132,7 @@ function starNetCb(command,options,cb){ // If no CB given, returns a promise.
             thisConsole.error(theError);
             return cb(theError,null);
           }
-          thisConsole.log(`About to run: 'java ${theParameters}' within the current working directory of: ${mainBinFolder}`);
+          thisConsole.debug(`About to run: 'java ${theParameters}' within the current working directory of: ${mainBinFolder}`);
           return child.execFile("java",theParameters,{"cwd":mainBinFolder},function(error,stdout,stderr){
             var stdOutArray=[];
             var stdErrArray=[];
