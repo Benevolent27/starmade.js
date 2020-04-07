@@ -1810,7 +1810,7 @@ function deregConstructor (installPath,theFunction) {
   var deregged = false;
   if (global["installObjects"][installPath].objects.hasOwnProperty(theFunctionTypeName)) {
     deregged = true;
-    global["installObjects"][installPath].console.log(`Deregistering object '${theFunctionTypeName}' for install: ${installPath}`);
+    global["installObjects"][installPath].console.log(`Deregistering object: '${theFunctionTypeName}'`);
     Reflect.deleteProperty(global["installObjects"][installPath].objects, theFunctionTypeName);
   }
   return deregged; // Returns true if successful, false if not found.
