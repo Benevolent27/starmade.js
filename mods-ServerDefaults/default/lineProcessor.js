@@ -1,4 +1,4 @@
-// Updated to use installObj
+// Emits events based on pattern matching
 
 module.exports = { // IMPORTANT: These cannot be used until the serverObj has been created for the install
   processDataInput,
@@ -7,7 +7,7 @@ module.exports = { // IMPORTANT: These cannot be used until the serverObj has be
 
 // This script needs to read from the server settings, so it needs the installObj
 var installObj = global.getInstallObj(__dirname);
-var {settings,event,defaultGlobalEvent}=installObj;
+var {settings,event,defaultEvent,defaultGlobalEvent}=installObj;
 var thisConsole=installObj.console;
 var serverObj = {}; // This will be set after the "start" is given.
 defaultGlobalEvent.on("init",function(){ // ONLY NECESSARY FOR DEFAULT MODS SINCE THEY DO NOT RELOAD ON MODRELOAD()
@@ -52,6 +52,21 @@ var {
   listObjectMethods,
   getParamNames
 } = objectHelper;
+
+
+defaultEvent.on("playerFactionLeave",function(nameObj, factionObj, factionNameStr){
+  // Check if the faction still exists or not, and if not, emit a factionDisbanded event
+  return factionObj.exists("",function(err,result){
+    if (err){
+      return console.error(err);
+    }
+    if (result === false){
+      event.emit("factionDisbanded",factionObj,factionNameStr);
+      return true;
+    }
+    return false;
+  });
+});
 
 function processDataInput(dataInput) { // This function is run on every single line that is output by the server console.
   if (testMatch(dataInput)) { // Check to see if the message fits any of the regex patterns
