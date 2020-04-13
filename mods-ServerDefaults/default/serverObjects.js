@@ -708,7 +708,7 @@ function PlayerObj(name) { // cb/promises/squish compliant // "Player" must be a
       // The return result will be true or false depending on success or failure.
       // An error is thrown if failed connection. 
       if (typeof cb == "function") {
-        var msgType = getOption(options, "type", "plain").toLowerCase(); // This does not throw an error if invalid options are specified.
+        var msgType = getOption(options, "type", "plain").toLowerCase(); // Note: This does not throw an error if invalid options are specified.
         var msgToUse = toStringIfPossible(message);
         if (typeof msgToUse == "string") {
           return runSimpleCommand("/server_message_to " + msgType + " " + self.name + "'" + message.toString().trim() + "'", options, cb);
@@ -5059,7 +5059,7 @@ function convertSectorCoordsToSystem(array) {
     for (let i = 0;i < array.length;i++) {
       outputArray.push(getSysCoordFromSector(array[i]));
     }
-    thisConsole.log("Sector: " + array + "  System: " + outputArray);
+    // thisConsole.log("Sector: " + array + "  System: " + outputArray);
 
     return outputArray;
   }
