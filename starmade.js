@@ -527,7 +527,8 @@ function requireServerMods(inputPath) { // Requires the path to the install
   }
   var modsFolder = path.join(inputPath, "mods");
   var returnObj={};
-  var tempFolderName="";
+  // Obsoleted - TODO:  Remove the below commented section
+  // var tempFolderName="";
   if (existsAndIsDirectory(modsFolder)) {
     var modFolders = getDirectories(modsFolder);
     if (modFolders.length > 0) {
@@ -547,11 +548,12 @@ function requireServerMods(inputPath) { // Requires the path to the install
             }
           }
         }
-        // Set up the dataObj for each individual mod folder.
-        tempFolderName=path.basename(modFolders[i]);
-        if (!global["installObjects"][inputPath]["dataObj"].hasOwnProperty(tempFolderName)){ // If an object for the mod folder doesn't exist..
-          global["installObjects"][inputPath]["dataObj"][tempFolderName]={}; // ..set a blank object for it using the folder name only.
-        }
+        // Obsoleted - TODO:  Remove the below commented section
+        // // Set up the dataObj for each individual mod folder.
+        // tempFolderName=path.basename(modFolders[i]);
+        // if (!global["installObjects"][inputPath]["dataObj"].hasOwnProperty(tempFolderName)){ // If an object for the mod folder doesn't exist..
+        //   global["installObjects"][inputPath]["dataObj"][tempFolderName]={}; // ..set a blank object for it using the folder name only.
+        // }
       }
     } else {
       mainConsole.log("Cannot load any mods. Mods folder contained no mods.  Server Path: " + inputPath);
@@ -1748,17 +1750,22 @@ function goReady(){ // This is called when the "ready" event is emitted globally
       "defaultEvent": new CustomEvent(), // This event does not reload on .reloadmods().  This should only be used for default mods, which also do not reload.
       "defaultGlobalEvent": global["event"].spawn(), // This should be used by mods instead of global["event"].emit.  This will catch global["event"].emit's and any emits from any other install or sub-spawn of this custom event object.
       "settings": global["settings"].servers[serverKeys[i]], // This is redundant, to make it easier to pull the info.
-      "dataObj":{},
+      // Obsoleted - TODO:  Remove the below commented section
+      // "dataObj":{},
       "objects":{}, // Objects the server might use, such as PlayerObj.  These must be registered during the init phase, so they are ready by the start phase.
       "regConstructor":function(theConstructor){ return regConstructor(this.path,theConstructor) }, // Example: installObj.regObject("PlayerObj",PlayerObj)
       "deregConstructor":function(theConstructor){ return deregConstructor(this.path,theConstructor) },
       "deregAllConstructors":function(){ return deregAllConstructors(this.path) },
-      "readDataObj":function(){ return readDataObj(path.join(serverKeys[i],dataObjName)) },
-      "writeDataObj":function(options){ return writeJSONFileSync(path.join(serverKeys[i],dataObjName),global["installObjects"][serverKeys[i]]["dataObj"],options) },
+      // Obsoleted - TODO:  Remove the below commented section
+      // "readDataObj":function(){ return readDataObj(path.join(serverKeys[i],dataObjName)) },
+      // "writeDataObj":function(options){ return writeJSONFileSync(path.join(serverKeys[i],dataObjName),global["installObjects"][serverKeys[i]]["dataObj"],options) },
       "reloadMods": function(options){ return reloadServerMods(this.path,options) }, // Reloads the listeners and mods
-      "JSONFileCache": {},
-      "getJSON": function(modDirPath,nameOfJSONFile){ return getJSON(this.path,modDirPath,nameOfJSONFile) }, // Example of code in a mod: installObj.getJSON(__dirname,"whatever")
-      "writeJSON": function(modDirPath,nameOfJSONFile){ return writeJSON(this.path,modDirPath,nameOfJSONFile) }, // Example of code in a mod:  installObj.writeJSON(__dirname, "whatever")
+      "JSONFileCache": {}, // Used for managing JSON files for mods
+      "getJSON": function(modDirPath,nameOfJSONFile){ return getJSON(this.path,modDirPath,nameOfJSONFile) }, 
+      // Example of code in a mod: installObj.getJSON(__dirname,"whatever")
+      // If __dirname and name of the file is not provided, it will load the global.json file, which is shared amongst mods
+      "writeJSON": function(modDirPath,nameOfJSONFile){ return writeJSON(this.path,modDirPath,nameOfJSONFile) }, 
+      // Example of code in a mod:  installObj.writeJSON(__dirname, "whatever")
       "writeJSONFiles": function(){ return writeJSONs(this.path) } // Example: installObj.writeJSONFiles()
       // "serverObj":theServerObj // This should be added by the starter mod for the install.
 
@@ -1767,7 +1774,7 @@ function goReady(){ // This is called when the "ready" event is emitted globally
     global["installObjects"][serverKeys[i]]["event"]=global["installObjects"][serverKeys[i]]["defaultEvent"].spawn(); // Each install gets it's own modified event listener.  Prior to scripts being reloaded, event listeners should be removed using .removeAllListeners()
     global["installObjects"][serverKeys[i]]["globalEvent"]=global["installObjects"][serverKeys[i]]["defaultGlobalEvent"].spawn(); // These are events that are broadcast globally, accross all servers and wrapper.  Prior to scripts being reloaded, event listeners should be removed using .removeAllListeners()
     // Load the dataObj or create a new one if needed.  This is needed for the requireServerMods function.
-    global["installObjects"][serverKeys[i]]["readDataObj"]();
+    // global["installObjects"][serverKeys[i]]["readDataObj"]();
     // Require in the mods for this install
     global["installObjects"][serverKeys[i]]["modRequires"]=requireServerMods(serverKeys[i]); //  This loads in the mods.  This is used when reloading the mods to be able to delete the cache and then re-require each file.
     mainConsole.log(`Finished Install object for install: ${serverKeys[i]}!`);
@@ -1781,8 +1788,14 @@ function goReady(){ // This is called when the "ready" event is emitted globally
       
     });
     // Write config file with path to starmade.js to the wrapper folder so mod scripting can find their way back to the config files or bin folder if ran independently (such as with starnet.js).
-    writeJSONFileSync(path.join(serverKeys[i],"wrapperInfo.json"),{"wrapperPath":__dirname});
+    writeJSONFileSync(path.join(serverKeys[i],"wrapperInfo.json"),{"path":__dirname});
+
+    if (serverKeys.length == 1){ // if there is only one install, then switch to this console, otherwise stay on main.
+      mainConsole.log("Only one install found, so switching to console for it.");
+      global["installObjects"][serverKeys[i]].console.switchTo();
+    }
   }
+
     
   // Now that all mods are loaded, let's emot init.  This indicates to mods that all other mods have been loaded, so if some mods need each other, now is the time to initialize
   global["event"].emit("init"); // emits to the global Event, including each globalEvent for each server.
@@ -1792,20 +1805,34 @@ function goReady(){ // This is called when the "ready" event is emitted globally
 
 // TODO:  Create system for reading and writing JSON files from the /installPath/data folder.
 
-function getJSON(installPath,modPath,nameOfFile){
+function getJSON(installPath,modPath,nameOfFile){ // installPath should always be given, modPath and nameOfFile are optional
   // For use with the installObj
-  let theFileName=nameOfFile.replace(/\.json$/i,"") + ".json"; // Standardize the filename so it is predictable under linux
-  let theFolderPath=resolveFromTwoPaths(installPath,"modsData",modPath);
+  // If modPath and nameOfFile are not given, will return a global.json file object
+  var theFolderPath="";
+  var theFileName="data.json"; // This will be used if no nameOfFile given
+  var modsDataFolderName="modsData";
+  if (typeof modPath == "undefined" || modPath == "" || modPath === null){  // if no modpath specified
+    theFolderPath=path.join(installPath,modsDataFolderName); // set path to modsData folder.
+    if (typeof nameOfFile !== "string" || nameOfFile == "" || nameOfFile === null){
+      theFileName="global.json"; // if no filename given (typical), use the default
+    }
+  } else { // If mods folder given, resolve the modsData folderPath.
+    theFolderPath=resolveFromTwoPaths(installPath,"modsData",modPath);
+    // Example of resolution:  "/path/to/install/mods/MyMod" translates to "/path/to/install/modsData/MyMod"
+  }
+  if (typeof nameOfFile == "string"){ // Whether a global file or individual mod file, standardize the filename (this is important for linux)
+    theFileName=nameOfFile.replace(/\.json$/i,"") + ".json";
+  }
+
+  var theFilePath=path.join(theFolderPath,theFileName);
   miscHelpers.ensureFolderExists(theFolderPath);
-  let theFilePath=path.join(theFolderPath,theFileName);
-  var returnVal={};
+
   if (global["installObjects"][installPath]["JSONFileCache"].hasOwnProperty(theFilePath)){ // If cached,
     return global["installObjects"][installPath]["JSONFileCache"][theFilePath]; // Return the cached object
   }
   if (existsAndIsFile(theFilePath)){ // If the file exists, load it, cache it, and return it.
     global["installObjects"][installPath]["JSONFileCache"][theFilePath]=getJSONFileSync(theFilePath);
-  } else {
-    // if it doesn't exist, then write a blank JSON file and return a blank object.
+  } else { // if it doesn't exist, then write a blank JSON file and return a blank object.
     writeJSONFileSync(theFilePath,{});
     global["installObjects"][installPath]["JSONFileCache"][theFilePath]={};
   }
@@ -1814,10 +1841,39 @@ function getJSON(installPath,modPath,nameOfFile){
 
 function writeJSON(installPath,modPath,nameOfFile){
   // Helper function for use with installObj.  Saves an individual JSON file.
-  let theFileName=nameOfFile.replace(/\.json$/i,"") + ".json"; // Standardize the filename so it is predictable under linux
-  let theFolderPath=resolveFromTwoPaths(installPath,"modsData",modPath);
+  // installPath should always be given, modPath and nameOfFile are optional
+  // If modPath and nameOfFile are not given, will save the global.json file
+
+  // Obsoleted - todo: remove commented section below
+  // var theFolderPath="";
+  // var theFileName="";
+  // var modsDataFolderName="modsData";
+  // if (typeof modPath == "undefined"){ // Set the global.json
+  //   theFolderPath=path.join(installPath,modsDataFolderName); // write to the modsData folder root.
+  //   theFileName="global.json";
+  // } else {
+  //   theFolderPath=resolveFromTwoPaths(installPath,modsDataFolderName,modPath);
+  //   theFileName=nameOfFile.replace(/\.json$/i,"") + ".json"; // Standardize the filename so it is predictable under linux
+  // }
+
+  var theFolderPath="";
+  var theFileName="data.json"; // This will be used if no nameOfFile given
+  var modsDataFolderName="modsData";
+  if (typeof modPath == "undefined" || modPath == "" || modPath === null){  // if no modpath specified
+    theFolderPath=path.join(installPath,modsDataFolderName); // set path to modsData folder.
+    if (typeof nameOfFile !== "string" || nameOfFile == "" || nameOfFile === null){
+      theFileName="global.json"; // if no filename given (typical), use the default
+    }
+  } else { // If mods folder given, resolve the modsData folderPath.
+    theFolderPath=resolveFromTwoPaths(installPath,"modsData",modPath);
+    // Example of resolution:  "/path/to/install/mods/MyMod" translates to "/path/to/install/modsData/MyMod"
+  }
+  if (typeof nameOfFile == "string"){ // Whether a global file or individual mod file, standardize the filename (this is important for linux)
+    theFileName=nameOfFile.replace(/\.json$/i,"") + ".json";
+  }
+
   miscHelpers.ensureFolderExists(theFolderPath);
-  let theFilePath=path.join(theFolderPath,theFileName);
+  var theFilePath=path.join(theFolderPath,theFileName);
   if (!global["installObjects"][installPath]["JSONFileCache"].hasOwnProperty(theFilePath)){ // If not cached,
     global["installObjects"][installPath]["JSONFileCache"][theFilePath]={}; // set blank Obj to write
   }
@@ -1826,7 +1882,7 @@ function writeJSON(installPath,modPath,nameOfFile){
 }
 
 function writeJSONs(installPath){
-  // Saves all cached JSON files for each individual mod
+  // Saves all cached JSON files for each individual mod and the global.json if it was retrieved before.
   let theKeys=Object.keys(global["installObjects"][installPath]["JSONFileCache"]); // each key is a full path to the file
   for (let i=0;i<theKeys.length;i++){
     console.log(`Writing file: ${theKeys[i]}`);
@@ -1909,21 +1965,23 @@ global["writeDataObjects"]=writeDataObjects;
 function writeDataObjects(){  // This will write all the data objects for all installs.  This is intended to be ran on exit.
   var installKeys=Object.keys(global["installObjects"]);
   for (let i=0;i<installKeys.length;i++){ // For each install..
-    mainConsole.log("Writing data object to hard drive for install: " + installKeys[i]);
-    global["installObjects"][installKeys[i]]["writeDataObj"](); // Write the data object (shared file amongst mods)
-    global["installObjects"][installKeys[i]]["writeJSONFiles"](); // Write the individual JSON files for each mod
+    mainConsole.log("Writing data objects to hard drive for install: " + installKeys[i]);
+    // Obsoleted - TODO:  Remove the below commented section
+    // global["installObjects"][installKeys[i]]["writeDataObj"](); // Write the data object (shared file amongst mods)
+    global["installObjects"][installKeys[i]]["writeJSONFiles"](); // Write the global and mod specific jsons
   }
 }
 
-function readDataObj(inputPath){ // requires the full path to the data object
-  var installPath=path.dirname(inputPath);
-  if (existsAndIsFile(inputPath)){
-    global["installObjects"][installPath]["dataObj"]=getJSONFileSync(inputPath);
-    mainConsole.log("Loaded data json file: " + inputPath);
-  } else {
-    global["installObjects"][installPath]["dataObj"]={};
-    writeJSONFileSync(inputPath,{});
-    mainConsole.log("Created data json file: " + inputPath);
-  }
-  return global["installObjects"][installPath]["dataObj"];
-}
+// Obsoleted - TODO:  Remove the below commented section
+// function readDataObj(inputPath){ // requires the full path to the data object
+//   var installPath=path.dirname(inputPath);
+//   if (existsAndIsFile(inputPath)){
+//     global["installObjects"][installPath]["dataObj"]=getJSONFileSync(inputPath);
+//     mainConsole.log("Loaded data json file: " + inputPath);
+//   } else {
+//     global["installObjects"][installPath]["dataObj"]={};
+//     writeJSONFileSync(inputPath,{});
+//     mainConsole.log("Created data json file: " + inputPath);
+//   }
+//   return global["installObjects"][installPath]["dataObj"];
+// }
