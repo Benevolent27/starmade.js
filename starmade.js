@@ -97,7 +97,6 @@ const _ = installAndRequire("lodash", "^4.17.15"); // Useful javascript shortcut
 global["prompt"] = prompt;
 global["fsExtra"] = fsExtra;
 global["treeKill"] = treeKill;
-global["prompt"] = prompt;
 global["Tail"] = Tail;
 global["exitHook"] = exitHook;
 global['sqlite3'] = sqlite3;
@@ -1026,7 +1025,7 @@ process.stdin.on('data', function (text) { // This runs for any console
         console.log(" !showallevents [on/off]");
         console.log(" !listObjectConstructors");
         console.log(" !listObjectConstructorElements [ObjectName(parameters)]");
-        console.log(" !listGlobal");
+        // console.log(" !listGlobal");
         console.log(" !settings");
         console.log(" !changesetting [setting] [newvalue]");
       }
@@ -1084,55 +1083,57 @@ process.stdin.on('data', function (text) { // This runs for any console
     } else if (i(theCommand, "reloadmods")) {
       globalEventUnmodified.emit("reloadMods");
       global["reloadServerMods"]();
-    } else if (i(theCommand, "listGlobal")) {
-      let params;
-      console.log("Enumerating elements from the global object:");
-      var keyArray = [];
-      for (let key in global) {
-        if (global.hasOwnProperty(key)) {
-          keyArray.push(key);
-        }
-      }
-      keyArray = keyArray.sort(); // Alphabetize the list
-      for (let i = 0;i < keyArray.length;i++) {
-        if (typeof global[keyArray[i]] == "function") {
-          params = getParamNames(global[keyArray[i]]);
-          if (getParamNames.length > 0) {
-            console.log(" (" + typeof global[keyArray[i]] + ") \tglobal." + keyArray[i] + "(" + params + ")");
-          } else {
-            console.log(" (" + typeof global[keyArray[i]] + ") \tglobal." + keyArray[i] + "()");
-          }
-        } else if (typeof global[keyArray[i]] == "object") {
-          if (global[keyArray[i]] instanceof Array) {
-            console.log(" (Array) \tglobal." + keyArray[i]);
-          } else if (global[keyArray[i]] instanceof Map) {
-            console.log(" (Map " + typeof global[keyArray[i]] + ") \tglobal." + keyArray[i]);
-          } else if (global[keyArray[i]] instanceof Date) {
-            console.log(" (Date " + typeof global[keyArray[i]] + ") \tglobal." + keyArray[i]);
-          } else {
-            console.log(" (" + typeof global[keyArray[i]] + ") \tglobal." + keyArray[i]);
-          }
-        } else {
-          console.log(" (" + typeof global[keyArray[i]] + ") \tglobal." + keyArray[i]);
-        }
-      }
 
 
-      // for (let key in global){
-      //   if (global.hasOwnProperty(key)){
-      //     if (typeof global[key] == "function"){
-      //       params=getParamNames(global[key]);
-      //       if (getParamNames.length > 0){
-      //           console.log(" (" + typeof global[key] + ") \t" + key + "(" + params + ")");
-      //       } else {
-      //         console.log(" (" + typeof global[key] + ") \t" + key + "()");
-      //       }
-      //     } else {
-      //       console.log(" (" + typeof global[key] + ") \t" + key);
-      //     }
-      //   }
-      // }
-      console.log(" ");
+    // } else if (i(theCommand, "listGlobal")) {
+    //   let params;
+    //   console.log("Enumerating elements from the global object:");
+    //   var keyArray = [];
+    //   for (let key in global) {
+    //     if (global.hasOwnProperty(key)) {
+    //       keyArray.push(key);
+    //     }
+    //   }
+    //   keyArray = keyArray.sort(); // Alphabetize the list
+    //   for (let i = 0;i < keyArray.length;i++) {
+    //     if (typeof global[keyArray[i]] == "function") {
+    //       params = getParamNames(global[keyArray[i]]);
+    //       if (getParamNames.length > 0) {
+    //         console.log(" (" + typeof global[keyArray[i]] + ") \tglobal." + keyArray[i] + "(" + params + ")");
+    //       } else {
+    //         console.log(" (" + typeof global[keyArray[i]] + ") \tglobal." + keyArray[i] + "()");
+    //       }
+    //     } else if (typeof global[keyArray[i]] == "object") {
+    //       if (global[keyArray[i]] instanceof Array) {
+    //         console.log(" (Array) \tglobal." + keyArray[i]);
+    //       } else if (global[keyArray[i]] instanceof Map) {
+    //         console.log(" (Map " + typeof global[keyArray[i]] + ") \tglobal." + keyArray[i]);
+    //       } else if (global[keyArray[i]] instanceof Date) {
+    //         console.log(" (Date " + typeof global[keyArray[i]] + ") \tglobal." + keyArray[i]);
+    //       } else {
+    //         console.log(" (" + typeof global[keyArray[i]] + ") \tglobal." + keyArray[i]);
+    //       }
+    //     } else {
+    //       console.log(" (" + typeof global[keyArray[i]] + ") \tglobal." + keyArray[i]);
+    //     }
+    //   }
+
+
+    //   // for (let key in global){
+    //   //   if (global.hasOwnProperty(key)){
+    //   //     if (typeof global[key] == "function"){
+    //   //       params=getParamNames(global[key]);
+    //   //       if (getParamNames.length > 0){
+    //   //           console.log(" (" + typeof global[key] + ") \t" + key + "(" + params + ")");
+    //   //       } else {
+    //   //         console.log(" (" + typeof global[key] + ") \t" + key + "()");
+    //   //       }
+    //   //     } else {
+    //   //       console.log(" (" + typeof global[key] + ") \t" + key);
+    //   //     }
+    //   //   }
+    //   // }
+    //   console.log(" ");
 
     } else if (i(theCommand, "listObjectConstructors")) {
       let keyArray;
@@ -1674,7 +1675,7 @@ exitHook(() => { // This will handle sigint and sigterm exits, errors, and every
   // add global "processExit" emit
   global["event"].emit("processExit"); // This will emit to all the installObj.globalEvent emitters
   writeSettings(); // Always make sure the settings get written before exit, so any changes are recorded.
-  writeDataObjects(); // Write the data objects for every install, to ensure they are saved.
+  writeAllJSONs(); // Write the data objects for every install, to ensure they are saved.
 });
 
 // ##############################
@@ -1683,6 +1684,7 @@ exitHook(() => { // This will handle sigint and sigterm exits, errors, and every
 
 
 // Load any wrapper mods now that basic wrapper stuff is loaded in.
+mainConsole.log("Loading any wrapper mods..");
 loadWrapperMods();
 
 // ###################################
@@ -1750,22 +1752,14 @@ function goReady(){ // This is called when the "ready" event is emitted globally
       "defaultEvent": new CustomEvent(), // This event does not reload on .reloadmods().  This should only be used for default mods, which also do not reload.
       "defaultGlobalEvent": global["event"].spawn(), // This should be used by mods instead of global["event"].emit.  This will catch global["event"].emit's and any emits from any other install or sub-spawn of this custom event object.
       "settings": global["settings"].servers[serverKeys[i]], // This is redundant, to make it easier to pull the info.
-      // Obsoleted - TODO:  Remove the below commented section
-      // "dataObj":{},
       "objects":{}, // Objects the server might use, such as PlayerObj.  These must be registered during the init phase, so they are ready by the start phase.
       "regConstructor":function(theConstructor){ return regConstructor(this.path,theConstructor) }, // Example: installObj.regObject("PlayerObj",PlayerObj)
       "deregConstructor":function(theConstructor){ return deregConstructor(this.path,theConstructor) },
       "deregAllConstructors":function(){ return deregAllConstructors(this.path) },
-      // Obsoleted - TODO:  Remove the below commented section
-      // "readDataObj":function(){ return readDataObj(path.join(serverKeys[i],dataObjName)) },
-      // "writeDataObj":function(options){ return writeJSONFileSync(path.join(serverKeys[i],dataObjName),global["installObjects"][serverKeys[i]]["dataObj"],options) },
       "reloadMods": function(options){ return reloadServerMods(this.path,options) }, // Reloads the listeners and mods
       "JSONFileCache": {}, // Used for managing JSON files for mods
-      "getJSON": function(modDirPath,nameOfJSONFile){ return getJSON(this.path,modDirPath,nameOfJSONFile) }, 
-      // Example of code in a mod: installObj.getJSON(__dirname,"whatever")
-      // If __dirname and name of the file is not provided, it will load the global.json file, which is shared amongst mods
-      "writeJSON": function(modDirPath,nameOfJSONFile){ return writeJSON(this.path,modDirPath,nameOfJSONFile) }, 
-      // Example of code in a mod:  installObj.writeJSON(__dirname, "whatever")
+      "getJSON": function(modDirPath,nameOfJSONFile){ return getJSON(this.path,modDirPath,nameOfJSONFile) },  // Example of code in a mod: installObj.getJSON(__dirname,"whatever")
+      "writeJSON": function(modDirPath,nameOfJSONFile){ return writeJSON(this.path,modDirPath,nameOfJSONFile) },  // Example of code in a mod:  installObj.writeJSON(__dirname, "whatever")
       "writeJSONFiles": function(){ return writeJSONs(this.path) } // Example: installObj.writeJSONFiles()
       // "serverObj":theServerObj // This should be added by the starter mod for the install.
 
@@ -1795,7 +1789,6 @@ function goReady(){ // This is called when the "ready" event is emitted globally
       global["installObjects"][serverKeys[i]].console.switchTo();
     }
   }
-
     
   // Now that all mods are loaded, let's emot init.  This indicates to mods that all other mods have been loaded, so if some mods need each other, now is the time to initialize
   global["event"].emit("init"); // emits to the global Event, including each globalEvent for each server.
@@ -1960,28 +1953,11 @@ function deregAllConstructors(installPath) {
   return deregged; // Returns true if something was removed, false if not.
 }
 
-
-global["writeDataObjects"]=writeDataObjects;
-function writeDataObjects(){  // This will write all the data objects for all installs.  This is intended to be ran on exit.
+global["writeJSONFiles"]=writeAllJSONs;
+function writeAllJSONs(){  // This will write all the JSON files for ALL installs.  This is intended to be ran on exit.
   var installKeys=Object.keys(global["installObjects"]);
   for (let i=0;i<installKeys.length;i++){ // For each install..
     mainConsole.log("Writing data objects to hard drive for install: " + installKeys[i]);
-    // Obsoleted - TODO:  Remove the below commented section
-    // global["installObjects"][installKeys[i]]["writeDataObj"](); // Write the data object (shared file amongst mods)
     global["installObjects"][installKeys[i]]["writeJSONFiles"](); // Write the global and mod specific jsons
   }
 }
-
-// Obsoleted - TODO:  Remove the below commented section
-// function readDataObj(inputPath){ // requires the full path to the data object
-//   var installPath=path.dirname(inputPath);
-//   if (existsAndIsFile(inputPath)){
-//     global["installObjects"][installPath]["dataObj"]=getJSONFileSync(inputPath);
-//     mainConsole.log("Loaded data json file: " + inputPath);
-//   } else {
-//     global["installObjects"][installPath]["dataObj"]={};
-//     writeJSONFileSync(inputPath,{});
-//     mainConsole.log("Created data json file: " + inputPath);
-//   }
-//   return global["installObjects"][installPath]["dataObj"];
-// }
