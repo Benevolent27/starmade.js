@@ -27,41 +27,35 @@
 // .clearBankAccounts(); // Back up bank accounts file and clear all bank accounts (used for server resets)
 // .backupBankingFile(pathToFile); // Creates a backup of the banking file to a select location (used for pairing with world backups)
 
+// These can be changed, but should not be unless there is good reason to do so.
+const bankingFileName="playerBanking"; // .json will get added to it.
+const maxCreditsAstronautCanHold=2147483647; // This is a java limitation in StarMade
+
+// Do not change anything below.
 const path=require('path');
 const objectHelper=global.objectHelper;
 var {toNumIfPossible,getOption}=objectHelper;
 const miscHelpers=global.miscHelpers;
-var {writeJSONFileSync,getJSONFile,getJSONFileSync,existsAndIsFile,i,toNumberWithCommas}=miscHelpers;
+var {i,toNumberWithCommas}=miscHelpers;
 
 const installObj=global.getInstallObj(__dirname); // Get the install object
-const installPath=installObj.path;
-const bankingFilePath=path.join(installPath,"banking.json");
-const maxCreditsAstronautCanHold=2147483647; // This is a java limitation in StarMade
+
 const {event,log}=installObj;
 const thisConsole=installObj.console;
 var serverObj={};
-var bankingFileObj={};
+// var bankingFileObj={};
 var commandOperator="!";
 
-// This is being replaced by the "processExit" event, since this does not unload when mods are reloaded.
-// global.exitHook(() => { 
-//   writeBankingFile();
-// });
+// Load the banking file.  Any changes are auto-saved on process exit.  The object is kept in a cache and linked.
+var bankingFileObj=installObj.getJSON(__dirname,bankingFileName); 
 
-event.on("processExit",function(){ // This will handle sigint and sigterm exits, errors, and everything (except SIGKILL, of course).
-  writeBankingFile();
-});
-
-
-event.on("serverExit",function(){ // This isn't really necessary, because each transaction forces a write, but let's just do it for now in case a transaction is interrupted by an error or something.
-  writeBankingFile();
-});
-
-if (existsAndIsFile(bankingFilePath)){
-  bankingFileObj=getJSONFileSync(bankingFilePath)
-} else {
-  writeBankingFile(); // Create the file if it does not exist
+function writeBankingFile(){ // Used when deposits are made.
+  thisConsole.log("Writing banking file..");
+  // Uses the installObj JSON writer to keep files organized separately from the mod files themselves.
+  // This is important for editing or deleting the data files (such as when a server reset happens)
+  installObj.writeJSON(__dirname,bankingFileName); // We do not need to provide the object itself, because it writes from the cache.
 }
+
 event.on("start",function(theServerObj){
   serverObj=theServerObj;
   commandOperator=serverObj.settings.commandOperator;
@@ -418,7 +412,4 @@ function depositHelp(player,options){
   player.msg(`Example 2: ${commandOperator}deposit 50000`,options).catch((err) => console.error(err));
   player.msg(`Example 3: ${commandOperator}deposit 50k`,options).catch((err) => console.error(err));
 }
-function writeBankingFile(){
-  thisConsole.log("Writing to banking file: " + bankingFilePath);
-  return writeJSONFileSync(bankingFilePath,bankingFileObj);
-}
+
