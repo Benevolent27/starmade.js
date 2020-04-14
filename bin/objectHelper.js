@@ -140,15 +140,16 @@ function listObjectMethods(obj) { // This lists the methods/data available on an
 var STRIP_COMMENTS = /(\/\/.*$)|(\/\*[\s\S]*?\*\/)|(\s*=[^,)]*(('(?:\\'|[^'\r\n])*')|("(?:\\"|[^"\r\n])*"))|(\s*=[^,)]*))/mg;
 var ARGUMENT_NAMES = /([^\s,]+)/g;
 function getParamNames(func) {
-    var fnStr = func.toString().replace(STRIP_COMMENTS, '');
-    var result = fnStr.slice(fnStr.indexOf('(')+1, fnStr.indexOf(')')).match(ARGUMENT_NAMES);
-    var returnArray=[];
-    if(result !== null){
-      result=result.toString();
-      returnArray=result.split(",");
-    }
-    return returnArray;
-    // Source: https://stackoverflow.com/questions/1007981/how-to-get-function-parameter-names-values-dynamically
+  // Returns the arguments from a function as an array
+  var fnStr = func.toString().replace(STRIP_COMMENTS, '');
+  var result = fnStr.slice(fnStr.indexOf('(')+1, fnStr.indexOf(')')).match(ARGUMENT_NAMES);
+  var returnArray=[];
+  if(result !== null){
+    result=result.toString();
+    returnArray=result.split(",");
+  }
+  return returnArray;
+  // Source: https://stackoverflow.com/questions/1007981/how-to-get-function-parameter-names-values-dynamically
 }
 
 
