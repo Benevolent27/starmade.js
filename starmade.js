@@ -234,6 +234,8 @@ global["unloadServerMods"]=unloadServerMods;
 global["reloadServerMods"]=reloadAllServerMods;
 
 
+var mainConsole=new CustomConsole("main", {invincible: true}); // This is a console that only displays if the "main" console is currently selected.  It is "invincible", so it will not be unloaded if the unloadListeners event happens.
+global["mainConsole"] = mainConsole;
 
 global["settingsFilePath"] = path.join(mainFolder, "settings.json");
 global["settings"] = getSettings({ // These values will be overwritten by any existing settings.json file
@@ -307,9 +309,6 @@ function dumpToRecordFile(options, cb) {
   return simplePromisifyIt(dumpToRecordFile, options);
 }
 
-var mainConsole=new CustomConsole("main", {invincible: true}); // This is a console that only displays if the "main" console is currently selected.  It is "invincible", so it will not be unloaded if the unloadListeners event happens.
-global["mainConsole"] = mainConsole;
-// global["consoleSelected"]="main"; // Not needed anymore.  The CustomConsole will set to main by default.
 log("starmade.js launched.");
 
 // ######################
