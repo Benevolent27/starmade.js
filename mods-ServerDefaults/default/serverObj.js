@@ -448,7 +448,6 @@ function ServerObj(options) {
           // install failed
           return cb(new Error(`Install failed for server: ${installObj.path}`,false));
         }
-
       });
     }
     return simplePromisifyIt(self.install, options);
@@ -559,7 +558,7 @@ function ServerObj(options) {
       self.spawn.on('disconnect', function () {
         thisConsole.log("###### SPAWN STATUS SET TO:  disconnect");
         self.spawnStatus = "disconnected";
-        self.event.emit("serverDisconnect",self.spawn);
+        event.emit("serverDisconnect",self.spawn);
         if (self.hasOwnProperty("spawnStatusCode")) {
           Reflect.deleteProperty(self, "spawnStatusCode");
         }
@@ -568,7 +567,7 @@ function ServerObj(options) {
         // Note:  This does not mean the spawn has exited, but it is possible that it did.  We will rely on the 'exit' event to remove the PID from the lock
         thisConsole.log("###### SPAWN STATUS SET TO:  error");
         self.spawnStatus = "serverError";
-        self.event.emit("error",data);
+        event.emit("error",data);
         if (self.hasOwnProperty("spawnStatusCode")) {
           Reflect.deleteProperty(self, "spawnStatusCode");
         }
@@ -576,7 +575,7 @@ function ServerObj(options) {
       self.spawn.on('exit', function (code) { // I'm guessing if a non-zero code is given, it means the server errored out.
         thisConsole.log("###### SPAWN STATUS SET TO:  exited");
         self.spawnStatus = "stopped";
-        self.event.emit("serverStop",code);
+        event.emit("serverStop",code);
         self.removeLockPID(self.spawn.pid);
         thisConsole.log("Removed PID, '" + self.spawn.pid + "' from lockPIDs.");
         if (typeof toStringIfPossible(code) == "string") {
@@ -691,7 +690,7 @@ function ServerObj(options) {
     if (typeof cb == "function") {
       if (self.spawnStatus=="started"){
         thisConsole.log(`Stop function ran with duration: ${duration}  and message: ${message}`);
-        self.event.emit("serverStopping");
+        event.emit("serverStopping");
         self.spawnStatus = "stopping";
         self.spawnStatusWanted="stopped";
         var theDuration = 10;
