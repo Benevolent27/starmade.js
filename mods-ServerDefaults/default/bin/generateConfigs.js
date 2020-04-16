@@ -26,15 +26,15 @@ var createConfigFilesSpawn;
 
 if (__filename == require.main.filename){ 
   // Only run the arguments IF this script is being run by itself and NOT as a require.
-  // This script must be provided with the ip, port, and superadmin password.
-  // TODO: Make it so this script can look up the super admin password for the current server.  This will require some config file to have the path to the starmade.js install, to then read the settings and grab the necessary info.
-  // Usage: node starNet.js 127.0.0.1:4242 SuperAdminPassword /some_command and arguments here
+  
+  // Example: node generateConfigs.js "C:\coding\temp1\starmade.js\starmade\StarMade"
   var theArgsArray=process.argv;
-  if (typeof theArgsArray[0]=="string"){
+  if (typeof theArgsArray[2]=="string"){
     console.log("Generating config files..");
-    generateConfigFiles(theArgsArray[0]);
+    generateConfigFiles(theArgsArray[2]);
   } else {
     console.log("ERROR: Please provide the path to the StarMade install!");
+    process.exit(1);
   }
 }
 
@@ -47,15 +47,16 @@ function generateConfigFiles (pathToSMInstall){
     throw new Error("No path to SM install provided!  Cannot generate config files!");  // This is a bit harsh, but hey we will need to ensure the config files are generated.
   }
   var starMadeJarFile=path.join(pathToUse,"StarMade.jar");
+  console.log("Path to StarMade.jar: " + starMadeJarFile);
   console.log("Generating config files..");
   var commandLineParametersArray=parametersNeededForAllOS;
   if (process.platform=="win32"){
     commandLineParametersArray=commandLineParametersArray.concat(windowsSpecificJavaArguments);
   }
   // Add the rest of the command line parameters
-  commandLineParametersArray.concat(["-jar",starMadeJarFile,"-nonsense4534"]);
-
-  createConfigFilesSpawn=child.spawn("java",commandLineParametersArray,{"cwd": pathToUse});
+  commandLineParametersArray=commandLineParametersArray.concat(["-jar",starMadeJarFile,"-nonsense4534"]);
+  console.log("commandLineParametersArray:" + commandLineParametersArray);
+  createConfigFilesSpawn=child.spawn("java",commandLineParametersArray,{"cwd": v});
   createConfigFilesSpawn.stdout.on('data',processData);
   createConfigFilesSpawn.stderr.on('data',processData);
   createConfigFilesSpawn.on('exit',finish);
@@ -73,9 +74,10 @@ function finish(){ // This is redundant
 }
 
 function processData(theText){
-  console.log(theText);
+  console.log(String(theText));
   // When the text displays, kill the process.
   if (theLineToLookFor.test(theText)){
+    console.log("Found end text!  Killing process!");
     createConfigFilesSpawn.kill('SIGINT'); // SIGTERM would probably be fine, but some programs seem to treat them differently, so let's simulate a user shutdown instead of a TERM
     return finish();
   }
