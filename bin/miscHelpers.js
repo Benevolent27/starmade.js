@@ -3,6 +3,7 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   requireBin,
   isPidAlive,
   smartSpawnSync, // This allows executing a jar file or .exe file with the same spawn command, specifying arguments to use and ignoring any java arguments provided if it's not a jar file.
+  smartSpawn,
   ensureFolderExists,
   waitAndThenKill,
   deleteFile,
@@ -274,7 +275,39 @@ function ensureFolderExists (folderPath){ // Returns true if the folder exists o
   }
 }
 
-function smartSpawnSync(executible,argumentsArray,optionsObject,javaArgumentsArray){
+function smartSpawn(executible,argumentsArray,javaArgumentsArray,options){
+  // This is used for running the starmade installer, which might be a .jar file or an .exe file, but can be repurposed for other uses.
+  // Returns a child.spawn object.
+
+  // Example Usage:  smartSpawn("/path/to/folder/installer.exe",["-nogui"])
+  // Example Usage2: smartSpawn("/path/to/folder/installer.jar",["-nogui"],["-Xincgc","-Xshare:off"])
+
+  // "executible" should be the full path to an executible file that can be ran.  This function does NOT ensure it exists or not, it just tries to run it.
+  // "argumentsArray" must be an array of values that will be given to the executible as arguments
+  // "javaOptions" are only used if it's a jar file.  These are inserted BEFORE the -jar argument, to provide arguments to the java runtime rather than to a jar file being ran
+  // "options" is given to child.spawn as options, such as {cwd:"/whatever"}.
+  var argumentsToUse=[];
+
+  if (Array.isArray(argumentsArray)){
+    argumentsToUse=argumentsArray;
+  } else if (argumentsArray) {
+    throw new Error("ERROR: Non-Array value given as argumentsArray for smartSpawn function: " + argumentsArray);
+  }
+  if ((/[.]jar$/i).test(executible)){ // Run with java
+    argumentsToUse=["-jar",executible].concat(argumentsToUse); // Add the "-jar [executible]"" to the beginning of the arguments to use
+    if (Array.isArray(javaArgumentsArray)){
+      // If java arguments given, put them BEFORE the -jar [executible]
+      argumentsToUse=javaArgumentsArray.concat(argumentsToUse); // If java arguments array given, insert BEFORE the -jar arguments
+    } else if (javaArgumentsArray) { // invalid input given, such as a non-empty string or object
+      throw new Error("Non array value given as argumentsArray for smartSpawn function: " + javaArgumentsArray);
+    }
+    return require('child_process').spawn("java",argumentsToUse,options);
+  } else { // Run directly.  Ignore any javaArgumentsArray values given.
+    return require('child_process').spawn(executible,argumentsToUse,options);
+  }
+}
+
+function smartSpawnSync(executible,argumentsArray,javaArgumentsArray,options){
   // This script will run a .jar file with java, and anything else directly
 
   // "executible" should be the full path to an executible file that can be ran.  This function does NOT ensure it exists or not, it just tries to run it.
@@ -283,9 +316,9 @@ function smartSpawnSync(executible,argumentsArray,optionsObject,javaArgumentsArr
   // "javaOptions" are only used if it's a jar file.  These are inserted BEFORE the -jar argument, to provide arguments to the java runtime rather than to a jar file being ran
   var argumentsToUse=[];
   var optionsToUse={};
-  if (typeof optionsObject == "object"){ // I don't really have a way of testing to ensure the RIGHT type of object is provided, so this will have to do for now.
-    optionsToUse=optionsObject;
-  } else if (optionsObject){
+  if (typeof options == "object"){ // I don't really have a way of testing to ensure the RIGHT type of object is provided, so this will have to do for now.
+    optionsToUse=options;
+  } else if (options){
     throw new Error("Invalid values given as optionsObject for smartSpawnSync function!");
   }
   if (argumentsArray){ // We need to ensure a value was actually provided first, otherwise pulling the constructor name would throw an error
