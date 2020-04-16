@@ -430,7 +430,7 @@ function ServerObj(options) {
         return cb(null,false);
       }
       // TODO:  Switch to using asychronous methods only
-      return spawnStarMadeInstallTo(self.installFolder,global["starMadeInstallerFilePath"],function(err,result){
+      return spawnStarMadeInstallTo(self.installFolder,global["starMadeInstallerFilePath"],options,function(err,result){
         // No need to verify the install, the installer will generate configs.
         if (err){
           return cb(err,false);
