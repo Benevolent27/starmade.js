@@ -60,7 +60,35 @@ function spawnStarMadeInstallTo(pathToInstall,installerExec){  // This always re
       // exitNow(35); // Exit the main script, since we cannot run a wrapper without an install.
     } else {
       console.log("Spawned StarMade install successfully to: " + starMadeInstallFolder);
-      generateConfigFiles(starMadeInstallFolder); // After every install, we should generate config files/folders.  We don't verify the install because the installation itself should have produced a verified install.
+      // Run the helper script, which will run StarMade.jar with invalid options and then kill it once it displays the error.
+      // This runaround is currently needed because an update to changed the behavior of StarMade.jar.  Now instead of exiting with an error, it hangs forever.
+
+      generateConfigFiles(starMadeInstallFolder);
+      // generateConfigFiles(starMadeInstallFolder); // After every install, we should generate config files/folders.  We don't verify the install because the installation itself should have produced a verified install.
+    }
+  }
+}
+
+function generateConfigFiles(starMadeInstallFolder){
+  let theBinFolder=path.join(__dirname,"bin");
+  let generateConfigsScript=path.join(theBinFolder,"generateConfigs.js");
+  console.log("Generating configs..");
+  var theResult=child.spawnSync("node",[generateConfigsScript,starMadeInstallFolder],{"cwd": theBinFolder});
+
+  // Check to ensure it did not exit with a code, otherwise this means the process failed to start.  This should not happen normally.
+  if (typeof theResult.status == "number"){
+    if (theResult.status > 0){
+      console.log("ERROR: Could not start the StarMade.jar file to generate configs!");
+      if (theResult.stdout){
+        console.log(theResult.stdout);
+      }
+      if (theResult.stderr){
+        console.log(theResult.stderr);
+      }
+      if (theResult.error){
+        console.dir(theResult.error);
+      }
+      process.exit(1); // Keep in mind, this should never happen.
     }
   }
 }
@@ -77,11 +105,12 @@ function verifyInstall (pathToSMInstall){
   if (fs.existsSync(starMadeServerCfg)){ // Right now our "verification" is pretty simple.  Just check for the server.cfg file.  This can be expanded on later if needed to verify all preloaded configs and needed folders exist.
     console.log("server.cfg file found..")
   } else { // If the install does not verify, then we'll need to repair it.
-    generateConfigFiles(pathToUse); // Right now the "repair" is just to generate config files, but later if we have checks to actually verify the install and it's missing things like the StarMade.jar file, we'll need to run a repair install
+    generateConfigFiles(pathToUse);
+    // generateConfigFiles(pathToUse); // Right now the "repair" is just to generate config files, but later if we have checks to actually verify the install and it's missing things like the StarMade.jar file, we'll need to run a repair install
   }
 }
 
-function generateConfigFiles (pathToSMInstall){
+function generateConfigFilesOld (pathToSMInstall){
   // If StarMAde install files and folders don't exist, we can actually run the StarMade.jar file with an invalid argument and it will generate config files/folders and then exit.
   // IMPORTANT:  This method may not be future-proof!
   try {
