@@ -14,7 +14,7 @@ defaultGlobalEvent.on("init",function(){ // ONLY NECESSARY FOR DEFAULT MODS SINC
   // Only start the server when the init is given, which is after all initial setup and installs have been done by starmade.js
   if (!installObj.hasOwnProperty("serverObj")){ // Only create and register the serverObj if it doesn't exist already.
     thisConsole.log("Creating server object and registering it..");
-    serverObj=new ServerObj(installObj.path);
+    serverObj=new ServerObj(installObj.path); // This only sets up the object, it does not install nor start the server
     global.regServer(installObj.path, serverObj); // Registers the server to the global installObj
     // The constructor will resolve issues if a prior server was already running and not stopped (such as if the starmade.js script was SIGKILLed)
   }
