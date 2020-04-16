@@ -12,6 +12,7 @@ temp*
 */old/*
 /old/*
 *.old
+*.*.old
 !mods-ServerDefaults/default/*
 !mods-ServerDefaults/default/*/*
 !mods-ServerDefaults/exampleMods/*
@@ -30,4 +31,3 @@ temp*
 /bin/old
 /bin/old/*
 *.log
-
