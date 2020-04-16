@@ -50,7 +50,7 @@ const path = require('path'); // This is needed to build file and directory path
 console.log("Setting main vars..");
 var mainFolder = path.dirname(require.main.filename); // This is where the starmade.js is.  I use this method instead of __filename because starmade.js might load itself or be started from another script
 var binFolder = path.join(mainFolder, "bin");
-var modsFolder = path.join(mainFolder, "mods");
+var modsFolder = path.join(mainFolder, "mods-ServerDefaults"); // These are the mods used for new installs
 global["mainFolder"] = mainFolder;
 global["binFolder"] = binFolder;
 global["modsFolder"] = modsFolder;
@@ -493,7 +493,9 @@ function setupNewServer() {
   global["settings"]["servers"][serverFolder] = {"installFolder": serverFolder}; // This is just a bare bones directory of where to put the mods.  There are no default settings, because we leave this to the server to set these if they so choose.
   // copy the default mods over // If someone wants to install mods for a different server type, they can delete the mods and replace them.  If I grow support for other game types in the future, I'll change this behavior.
   // @ts-ignore
-  fsExtra.copySync(path.join(__dirname,"mods-ServerDefaults"),path.join(serverFolder,"mods")); // This creates the folder if it doesn't exist
+
+  // obsoleting in favor of self-healing mods folder
+  // fsExtra.copySync(path.join(__dirname,"mods-ServerDefaults"),path.join(serverFolder,"mods")); // This creates the folder if it doesn't exist
 
 }
 function emitToAllInstalls(event) { // Instead of emitting on the global event emitter, this will emit to each individual server.  This is to make it so that mods do not need to listen to the global event emitter.
@@ -1741,7 +1743,20 @@ function goReady(){ // This is called when the "ready" event is emitted globally
   var tempEvent={};
   var tempModRequires={}
   var dataObjName="data.json";
+  var modsFolder="";
   for (let i = 0;i < serverKeys.length;i++) {
+    //check to see if a mods folder exists, and if not, copy the mods from the root folder over.  This will happen on new install and is self-healing
+    modsFolder=path.join(serverKeys[i],"mods");
+    if (!existsAndIsDirectory(modsFolder)) { 
+      try {
+        fsExtra.copySync(global["modsFolder"], modsFolder); // This creates the folder if it doesn't exist
+        mainConsole.log("Copied mods folder from wrapper folder to starmade install folder: " + modsFolder);
+      } catch (err){ // This should only happen is trying to install to a folder they don't have write permissions to, or maybe a failing hard drive or something?
+        console.log("ERROR:  Could not copy mods folder over to install!  Does starmade.js have write permissions to the folder?  Folder: " + modsFolder);
+        throw err;
+      }
+    }
+
     mainConsole.log("Creating Install Object for server: " + serverKeys[i]);
     // tempConsole=new CustomConsole(serverKeys[i],{invincible: true}); // This needs to be fixed before I can use it.
     global["installObjects"][serverKeys[i]] = {
@@ -1761,15 +1776,15 @@ function goReady(){ // This is called when the "ready" event is emitted globally
       "writeJSON": function(modDirPath,nameOfJSONFile){ return writeJSON(this.path,modDirPath,nameOfJSONFile) },  // Example of code in a mod:  installObj.writeJSON(__dirname, "whatever")
       "writeJSONFiles": function(){ return writeJSONs(this.path) } // Example: installObj.writeJSONFiles()
       // "serverObj":theServerObj // This should be added by the starter mod for the install.
-
-      // Each mod is responsible for setting up extra settings, installation, and starting the server.
     };
     global["installObjects"][serverKeys[i]]["event"]=global["installObjects"][serverKeys[i]]["defaultEvent"].spawn(); // Each install gets it's own modified event listener.  Prior to scripts being reloaded, event listeners should be removed using .removeAllListeners()
     global["installObjects"][serverKeys[i]]["globalEvent"]=global["installObjects"][serverKeys[i]]["defaultGlobalEvent"].spawn(); // These are events that are broadcast globally, accross all servers and wrapper.  Prior to scripts being reloaded, event listeners should be removed using .removeAllListeners()
-    // Load the dataObj or create a new one if needed.  This is needed for the requireServerMods function.
-    // global["installObjects"][serverKeys[i]]["readDataObj"]();
-    // Require in the mods for this install
-    global["installObjects"][serverKeys[i]]["modRequires"]=requireServerMods(serverKeys[i]); //  This loads in the mods.  This is used when reloading the mods to be able to delete the cache and then re-require each file.
+
+    // Write config file with path to starmade.js to the wrapper folder so mod scripting can find their way back to the config files or bin folder if ran independently (such as with starnet.js).
+    writeJSONFileSync(path.join(serverKeys[i],"wrapperInfo.json"),{"path":__dirname});
+
+    global["installObjects"][serverKeys[i]]["modRequires"]=requireServerMods(serverKeys[i]); //  This loads in the mods.  This object is used when reloading the mods to be able to delete the cache and then re-require each file.
+    // The mods are responsible for installation of the server, setting up extra settings, and starting the server.
     mainConsole.log(`Finished Install object for install: ${serverKeys[i]}!`);
 
     // ### Listeners for reloading basic structures of installObj
@@ -1778,10 +1793,7 @@ function goReady(){ // This is called when the "ready" event is emitted globally
       console.log("Resetting the data file cache for installObj's..");
       global["installObjects"][serverKeys[i]].writeJSONFiles(); // Write the cache to the hard drive
       global["installObjects"][serverKeys[i]].JSONFileCache={}; // delete the cache
-      
     });
-    // Write config file with path to starmade.js to the wrapper folder so mod scripting can find their way back to the config files or bin folder if ran independently (such as with starnet.js).
-    writeJSONFileSync(path.join(serverKeys[i],"wrapperInfo.json"),{"path":__dirname});
 
     if (serverKeys.length == 1){ // if there is only one install, then switch to this console, otherwise stay on main.
       mainConsole.log("Only one install found, so switching to console for it.");

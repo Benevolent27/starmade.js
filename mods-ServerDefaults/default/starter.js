@@ -14,7 +14,9 @@ defaultGlobalEvent.on("init",function(){ // ONLY NECESSARY FOR DEFAULT MODS SINC
   // Only start the server when the init is given, which is after all initial setup and installs have been done by starmade.js
   if (!installObj.hasOwnProperty("serverObj")){ // Only create and register the serverObj if it doesn't exist already.
     thisConsole.log("Creating server object and registering it..");
-    global.regServer(installObj.path, new ServerObj(installObj.path)); // Registers the server to the global installObj
+    serverObj=new ServerObj(installObj.path);
+    global.regServer(installObj.path, serverObj); // Registers the server to the global installObj
+    // The constructor will resolve issues if a prior server was already running and not stopped (such as if the starmade.js script was SIGKILLed)
   }
 
   // Register all the listeners - this happens again if the reloadmods() occurs.
@@ -22,7 +24,7 @@ defaultGlobalEvent.on("init",function(){ // ONLY NECESSARY FOR DEFAULT MODS SINC
   // ####   AUTO-STARTER   ####  --- Starts the server when the wrapper starts if it's set to auto-start.
   // ##########################
   event.on("start",function(theServerObj){
-    serverObj=theServerObj;
+    // serverObj=theServerObj; Not necessary since this should have already been set when the ServerObj was created
     if (serverObj.settings.autoStart == true){
       if (serverObj.spawnStatus != "started"){
         thisConsole.log("Auto-start is on!  Starting server..");
@@ -58,8 +60,38 @@ defaultGlobalEvent.on("init",function(){ // ONLY NECESSARY FOR DEFAULT MODS SINC
     }
   });
 
-  // Finally emit the start, AFTER other listeners are registered.
-  event.emit("start",installObj.serverObj);
+  //  ####################################
+  //  ### INSTALL VERIFIER AND EMITTER ### - Check to ensure the server is installed and install it if not
+  //  ####################################
+  return serverObj.isInstalled("",function(err,result){
+    if (err){
+      console.log("ERROR: Could not check if server was installed!  Do you have read permission to the install folder?");
+      throw err;
+    }
+    if (result == true){ // INSTALLED - verify the config files exist
+      return serverObj.verifyInstall("",function(err,result){ // This generates the configs if they don't exist
+        if (err){
+          throw err;
+        }
+        if (result == true){ // is installed and configs exist
+          return event.emit("start",installObj.serverObj);
+        }
+        throw new Error("Could not verify install: " + installObj.path); // This should never happen
+      });
+    } else { // NOT INSTALLED - install the server first, then emit the object
+      return serverObj.install("",function(err,result){ // This also generates configs
+        if (err){
+          console.log("Unable to install the StarMade server!  Do you have write permission to the folder??");
+        }
+        if (result == true){ // During install routine, configs are generated, so no need to check.
+          thisConsole.log("StarMade server installed successfully!");
+          return event.emit("start",installObj.serverObj); // The event listener above for "start" will start the server if autoStart is on.
+        } else {
+          console.log("StarMade install failed!  Cannot continue!"); // This should never happen
+          throw new Error("StarMade server install failed!");
+        }
+      });
+    }
+  });
 });
-
 

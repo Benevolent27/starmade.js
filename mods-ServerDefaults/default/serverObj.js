@@ -37,6 +37,9 @@ const sqlQueryJs = require(path.join(__dirname, "sqlQuery.js"));
 const starNetJs = require(path.join(__dirname, "starNet.js"));
 const serverObjects = require(path.join(__dirname, "serverObjects.js"));
 const smInstallHelpers = require(path.join(modBinFolder, "smInstallHelpers.js"));
+const {spawnStarMadeInstallTo,verifyInstall,generateConfigFiles,isInstalled}=smInstallHelpers;
+
+
 const lineProcessor = require(path.resolve(__dirname, "lineProcessor.js"));
 const {
   processDataInput,
@@ -71,9 +74,7 @@ const {
   toStringIfPossible,
   subArrayFromAnother,
   findSameFromTwoArrays,
-  isInArray
-} = objectHelper;
-const {
+  isInArray,
   testIfInput,
   trueOrFalse,
   isTrueOrFalse,
@@ -83,9 +84,7 @@ const {
   returnLineMatch,
   applyFunctionToArray,
   simplePromisifyIt,
-  toTrueOrFalseIfPossible
-} = objectHelper;
-const {
+  toTrueOrFalseIfPossible,
   isTrue,
   isFalse,
   getOption,
@@ -229,6 +228,12 @@ function ServerObj(options) { // If given it will load existing settings or crea
   //   addionalJavaArgs:["-jvm blah blah","-more options"], // optional
   //   additionalSMJarArgs:["-more options","-if any exist"] // optional
   // }
+
+  if (installObj.hasOwnProperty("serverObj")) { // Check to see if this serverObj has already been created, returning that object if so.
+    thisConsole.error("Server already initialized!  Ignoring any settings you may have set and using the existing server object!");
+    return installObj.serverObj; // TODO: Test this.  I have no idea if this will work or not
+  }
+
   var forceStart = getOption(options, "forceStart", false);
   var ignoreLockFile = getOption(options, "ignoreLockFile", false);;
 
@@ -238,71 +243,22 @@ function ServerObj(options) { // If given it will load existing settings or crea
   // this.console = new CustomConsole(self.serverName); // This is to output text only when the user has switched to the console for this server.  It's a fully operational Console object.
   this.console = installObj.console; // redundant
   // Paths
-  installObj.settings=setSettings(installObj.settings); // Set up any missing settings
+  //  #####################
+  //  ### SETTINGS SETUP ## - Set up any missing settings.  This is synchronous and uses prompt currently
+  //  #####################   This includes RAM usage, bot name, command operator, etc.
+  installObj.settings=setSettings(installObj.settings);
   global.writeSettings();
 
   this.settings = installObj.settings; // Complete any missing settings.  If a starMadeFolder argument was given, this will be used as the install path.  This includes the starmade folder, min and max java settings, etc.
   thisConsole.log("installObj.settings: " + installObj.settings);
   this.installFolder = self.settings["installFolder"];
   // We have to do the below check AFTER the settings were set up because we don't know what the starmade folder will be if none was provided to the object
-  if (installObj.hasOwnProperty("serverObj")) { // Check to see if this serverObj has already been created, returning that object if so.
-    thisConsole.error("Server already initialized!  Ignoring any settings you may have set and using the existing server object!");
-    return installObj.serverObj; // TODO: Test this.  I have no idea if this will work or not
-  }
-
-  // Moving objects to the installObj so objects can be registered before the "start" event and be ready
-  // this.objects = {};
-  // this.regConstructor = function (theFunction) {
-  //   if (typeof theFunction == "function") {
-  //     if (theFunction.hasOwnProperty("name")) {
-  //       var firstLetter = theFunction.name[0];
-  //       var letterTest = firstLetter.toLowerCase();
-  //       if (firstLetter === letterTest) {
-  //         throw new Error("Unable to register constructor! Constructor functions should have an uppercase first letter! '" + theFunction.name + "' does not have an uppercase first letter! -- Source Server: " + self.installFolder);
-  //       } else {
-  //         self.objects[theFunction.name] = theFunction;
-  //         thisConsole.log("Registered new Constructor, '" + theFunction.name + "', for server: " + self.installFolder); // This does not make it a constructor.
-  //         return true;
-  //       }
-  //     }
-  //     throw new Error("Unable to register unnamed constructor!  Please only attempt to register VALID constructors!  Server: " + self.installFolder);
-  //   }
-  //   return false;
-  // }
-  // this.deregConstructor = function (theFunction) {
-  //   var theFunctionTypeName = "";
-  //   if (typeof theFunction == "function") {
-  //     if (theFunction.hasOwnProperty("name")) {
-  //       theFunctionTypeName = theFunction.name;
-  //     } else {
-  //       throw new Error("Invalid input given to deregConstructor!  Expects a named function or string! Server: " + self.installFolder);
-  //     }
-  //   } else if (typeof theFunction == "string") {
-  //     theFunctionTypeName = theFunction;
-  //   } else {
-  //     throw new Error("Invalid input given to deregConstructor!  Expects a named function or string! Server: " + self.installFolder);
-  //   }
-  //   var deregged = false;
-  //   if (self.objects.hasOwnProperty(theFunctionTypeName)) {
-  //     deregged = true;
-  //     Reflect.deleteProperty(self.objects, theFunctionTypeName);
-  //   }
-  //   return deregged; // Returns true if successful, false if not found.
-  // }
-
-  // this.deregAllConstructors = function () {
-  //   var deregged = false;
-  //   const objectKeys = Object.keys(self.objects);
-  //   for (let i = 0;i < objectKeys.length;i++) {
-  //     if (self.deregConstructor(objectKeys[i])) { // If at least 1 constructor is deregistered, this will return true.
-  //       deregged = true;
-  //     }
-  //   }
-  //   return deregged; // Returns true if something was removed, false if not.
-  // }
-  this.event = event;
-  global.settings.servers[self.installFolder] = self.settings; // Only update the settings to the global settings file IF the serverObj wasn't already set up.
+  // this.event = event; // This should be obsoleted, because it will cause confusion
+  global.settings.servers[self.installFolder] = self.settings;
   // Before we go any further, we should check to see if there are any previous PIDs associated with this server and kill them if necessary.
+  // ###################
+  // ###  SMART LOCK ###
+  // ###################
   if (self.settings.hasOwnProperty("lockPIDs")) {
     var lockPIDs = [];
     if (self.settings.lockPIDs.length > 0 && ignoreLockFile == false) {
@@ -318,9 +274,9 @@ function ServerObj(options) { // If given it will load existing settings or crea
           }
           if (response == "yes") {
             thisConsole.log("TREE KILLING WITH EXTREME BURNINATION!");
-            treeKill(lockPIDs[i], 'SIGTERM');
+            treeKill(lockPIDs[i], 'SIGTERM'); // TODO: resolve an error happening here by using only waitAndThenKill
             // We should initiate a loop giving up to 5 minutes for it to shut down before sending a sig-kill.
-            waitAndThenKill(300000, lockPIDs[i]);
+            waitAndThenKill(300000, lockPIDs[i]); // MaxTimeToWait/PID -- This uses SIGKILL
             sleepSync(1000); // Give the sigKILL time to complete if it was necessary.
             self.settings.lockPIDs = arrayMinus(self.settings.lockPIDs, lockPIDs[i]); // PID was killed, so remove it from the settings.json file.
           } else {
@@ -354,7 +310,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
     self.settings.lockPIDs = [];
   }
   this.lockPIDS = self.settings.lockPIDs;
-  global.writeSettings(); // Write the global settings.json to the hard drive
+  global.writeSettings(); // Write the global settings.json to the hard drive in case the lockPIDs were updated
   this.addLockPID = function (PID) { // Only adds the PID if it wasn't already in the array.  Always returns true whether it added the PID or not
     var thePID = toNumIfPossible(PID);
     if (typeof thePID == "number") {
@@ -389,28 +345,19 @@ function ServerObj(options) { // If given it will load existing settings or crea
     }
   }
 
+  // this.log=installObj["log"]; // Obsoleteing to avoid confusion
+  // ####################
+  // ### FOLDER SETUP ###  - Set up any folders needed
+  // ####################
 
-  // Set up any folders needed
   ensureFolderExists(self.installFolder);
   this.starMadeInstallFolder = path.join(self.installFolder, "StarMade");
-  ensureFolderExists(self.starMadeInstallFolder);
+  // ensureFolderExists(self.starMadeInstallFolder); // Obsoleting.  We should leave it to the StarMade installer to create the folder
   this.logsFolder = path.join(self.installFolder, "logs");
-  this.log=installObj["log"]; // redundant
   this.starMadeLogFolder = path.join(self.starMadeInstallFolder, "logs"); // This is added because we have to parse the serverlog.0.log file for ship spawns
-  var serverLogFile = path.join(self.starMadeLogFolder, "serverlog.0.log");
   this.starMadeJar = path.join(self.starMadeInstallFolder, "StarMade.jar");
-  // Ensure the mods folder exists, and copy over mods from the root install folder if it doesn't exist yet.
   this.modsFolder = path.join(installObj.path, "mods"); 
-  // ensureFolderExists(self.modsFolder); // This isn't needed if fsExtra creates the folder.  TODO: Test this
-  if (!existsAndIsDirectory(self.modsFolder)) { //check to see if a mods folder exists, and if not, copy the mods from the root folder over.
-    fsExtra.copy(global["modsFolder"], self.installFolder, function (err) {
-      if (err) {
-        throw err;
-      }
-      thisConsole.log("Copied mods folder from wrapper folder to starmade install folder: " + self.modsFolder);
-    })
-  }
-
+    
   this.starMadeInstallerFilePath = global["starMadeInstallerFilePath"];
   this.serverCfgFilePath = path.join(self.starMadeInstallFolder, "server.cfg");
   
@@ -479,33 +426,39 @@ function ServerObj(options) { // If given it will load existing settings or crea
         thisConsole.log("Server is already installed and started!  Aborting!");
         return cb(null,false);
       }
-      try {
-        smInstallHelpers.spawnStarMadeInstallTo(self.installFolder, global["starMadeInstallerFilePath"]); // Does not create config files upon install.
-        smInstallHelpers.verifyInstall(self.installFolder); // Creates config files if they don't exist
-        var testCfgFile = self.getServerCfgAsIniObj();
-        if (testCfgFile === null) {
-          console.error("ERROR: Could not retrieve server.cfg file.  Was there an error during install?  Please try the install again!");
-          return cb(null, false);
+      // TODO:  Switch to using asychronous methods only
+      return spawnStarMadeInstallTo(self.installFolder,global["starMadeInstallerFilePath"],function(err,result){
+        // No need to verify the install, the installer will generate configs.
+        if (err){
+          return cb(err,false);
         }
-        self.getSuperAdminPassword();
-      } catch (error) {
-        return cb(error, null);
-      }
-      return cb(null, true); // This means the install was a success
+        if (result == true){
+          var testCfgFile = self.getServerCfgAsIniObj();
+          if (testCfgFile === null) { // This should never happen
+            thisConsole.error("ERROR: Could not retrieve server.cfg file.  Was there an error during install?  Please try the install again!");
+            return cb(new Error("Could not retreive server.cfg file.  Install corrupted?"), false);
+          }
+          self.getSuperAdminPassword(); // Set the super admin password
+          return cb(null,true); // Install success!
+        }
+
+      });
     }
     return simplePromisifyIt(self.install, options);
   }
-  // Check if the install exists or not and install it if needed
-  if (!existsAndIsFile(self.serverCfgFilePath)) { // Right now we are only using the server.cfg file to check if it was installed or not.
-    self.install("", function (err) {
-      if (err) {
-        throw err;
-      }
-      console.log("Install successful to folder: " + self.installFolder);
-    });
+  this.verifyInstall = function(options,cb){ // Generates config files if they don't exist
+    if (typeof cb == "function"){
+      return verifyInstall(self.installFolder,options,cb);
+    }
+    return simplePromisifyIt(self.verifyInstall,options);
   }
-  // This may not exist yet if the StarMade install hasn't been performed yet.  Need the install routine put in here, so a check can be made and if not installed, install first.
-  this.bot = new BotObj(installObj.settings["botName"]);
+  this.isInstalled = function(options,cb){ // Returns true/false if installed
+    if (typeof cb == "function"){
+      return isInstalled(self.installFolder,options,cb);
+    }
+    return simplePromisifyIt(self.isInstalled,options);
+  }
+  this.bot = new BotObj(installObj.settings["botName"]); // Only has a few methods right now, but could be expanded on later to include the discord bot.
 
   // #### Settings
   this.ignoreLockFile = false;
