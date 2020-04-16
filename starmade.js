@@ -222,7 +222,8 @@ var dummySettings = {
     }
   }
 }
-
+global["installObjects"] = {}; // Will be filled later
+  
 global["asyncOperation"]=asyncOperation; // Allows wrapper mods to do async setup.
 
 global["loadWrapperMods"]=loadWrapperMods;
@@ -1725,7 +1726,6 @@ function goReady(){ // This is called when the "ready" event is emitted globally
     mainConsole.log("No server has been set up before!  Let's set one up!");
     setupNewServer();
   }
-  global["installObjects"] = {}; // I'm using install objects instead of inititializing these on the serverObj because that created a chicken and the egg problem with initializing mods
   // global["installObjects"]={
   //   "/some/path/here":{
   //     event:new EventEmitter(),
