@@ -37,7 +37,7 @@ function spawnStarMadeInstallTo(pathToInstall,installerExec,options,cb){  // Thi
   // Returns true if an install was completed successfully, an error if there was a problem, and false if no install was needed
   // TODO:  We need to add pre/dev options here.
   if (typeof cb == "function"){
-    var branch=getOption(options,"branch","normal"); // accepts pre or dev
+    var branch=getOption(options,"branch","normal"); // accepts normal,pre, or dev
     branch=branch.toLowerCase();
     try {
       var starMadeInstallFolder=getSMInstallPath(pathToInstall);
