@@ -392,7 +392,8 @@ function ServerObj(options) {
     if (typeof superAdminPasswordEnabled == "string") { // Only perform .toLowerCase() if the value exists to avoid crashing the script.
       superAdminPasswordEnabled = superAdminPasswordEnabled.toLowerCase();
     }
-    if (superAdminPassword == "mypassword" || !superAdminPassword) { // "mypassword" is the default value upon install.  We do not want to keep this since it'd be a major security vulnerability.
+    // It seems the newest version of starmade is setting it to "mypassword34!"
+    if ((/^mypassword.*/).test(superAdminPassword) || !superAdminPassword) { // "mypassword" is the default value upon install.  We do not want to keep this since it'd be a major security vulnerability.
       console.log("\nThe 'SuperAdminPassword' has not been set up yet!  This is needed for StarNet.jar to connect to the server.");
       console.log("You can set a custom alphanumeric password OR just press [ENTER] to have a long, randomized one set for you. (Recommended)")
       let newSuperAdminPassword = "";
