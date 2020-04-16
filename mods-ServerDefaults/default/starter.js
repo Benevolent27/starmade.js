@@ -74,18 +74,19 @@ defaultGlobalEvent.on("init",function(){ // ONLY NECESSARY FOR DEFAULT MODS SINC
           throw err;
         }
         if (result == true){ // is installed and configs exist
-          return event.emit("start",installObj.serverObj);
+
+          return start();
         }
         throw new Error("Could not verify install: " + installObj.path); // This should never happen
       });
     } else { // NOT INSTALLED - install the server first, then emit the object
-      return serverObj.install("",function(err,result){ // This also generates configs
+      return serverObj.install({branch:serverObj.buildBranch},function(err,result){ // This also generates configs
         if (err){
           console.log("Unable to install the StarMade server!  Do you have write permission to the folder??");
         }
         if (result == true){ // During install routine, configs are generated, so no need to check.
           thisConsole.log("StarMade server installed successfully!");
-          return event.emit("start",installObj.serverObj); // The event listener above for "start" will start the server if autoStart is on.
+          return start();
         } else {
           console.log("StarMade install failed!  Cannot continue!"); // This should never happen
           throw new Error("StarMade server install failed!");
@@ -94,4 +95,8 @@ defaultGlobalEvent.on("init",function(){ // ONLY NECESSARY FOR DEFAULT MODS SINC
     }
   });
 });
-
+function start(){
+  // this is used to force the super admin password and server.cfg file to be loaded.
+  serverObj.getSuperAdminPassword(); // Forces the user to update the super admin password if it is still the defaults (or if it is not set)
+  return event.emit("start",installObj.serverObj);
+}
