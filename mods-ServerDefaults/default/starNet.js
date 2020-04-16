@@ -1,4 +1,6 @@
-// Updated to use installObj
+// TODO: read from the wrapperInfo.json file to get the path to the main folder,
+// then get import the server.cfg file to get the superadminpassword and use the 
+// StarNet.jar in the /bin folder
 
 // Combined starNet with starNetHelpers - 01-09-20 - needs testing
 // Note:  The StarNet will not function if called before a serverObj exists for this server.
