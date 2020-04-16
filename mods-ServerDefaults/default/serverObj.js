@@ -213,11 +213,11 @@ var recordFileName = "record";
 var recordingCounter = 1;
 var recordingFile = getRecordFileName();
 
-function ServerObj(options) { // If given it will load existing settings or create new ones if needed. // cb/promises/squish compliant 
-  // This object is set up so that there can only be 1 per install.  If a new one is attempted, it will just return the original one.
+function ServerObj(options) { 
   // This us used to run server commands or gather specific information regarding the server.
-  // TODO:  Make it so the server is actually spawned when this object is created.
-  // TODO: Add sections with information on the parameters used for the server, the path to the jar file ran, etc.
+  
+  // This object is set up so that there can only be 1 per install.  If a new one is attempted, it will just return the original serverObj.
+  
   // Takes a settings object, which specifies the following, as an example:
   // {
   //   commandOperator:"!",
@@ -351,12 +351,15 @@ function ServerObj(options) { // If given it will load existing settings or crea
   // ####################
 
   ensureFolderExists(self.installFolder);
-  this.starMadeInstallFolder = path.join(self.installFolder, "StarMade");
   // ensureFolderExists(self.starMadeInstallFolder); // Obsoleting.  We should leave it to the StarMade installer to create the folder
+  // ### Install folders
   this.logsFolder = path.join(self.installFolder, "logs");
+  this.modsFolder = path.join(installObj.path, "mods"); 
+  this.starMadeInstallFolder = path.join(self.installFolder, "StarMade");
+  // ### StarMade subfolders and files
   this.starMadeLogFolder = path.join(self.starMadeInstallFolder, "logs"); // This is added because we have to parse the serverlog.0.log file for ship spawns
   this.starMadeJar = path.join(self.starMadeInstallFolder, "StarMade.jar");
-  this.modsFolder = path.join(installObj.path, "mods"); 
+
     
   this.starMadeInstallerFilePath = global["starMadeInstallerFilePath"];
   this.serverCfgFilePath = path.join(self.starMadeInstallFolder, "server.cfg");
@@ -464,24 +467,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
   this.ignoreLockFile = false;
   this.forceStart = false;
 
-  this.buildBranch = installObj.settings["buildBranch"].toLowerCase().trim(); // Should be normal/dev/pre
-  var baseJavaArgs = ["-Xms" + installObj.settings["javaMin"], "-Xmx" + installObj.settings["javaMax"], "-jar"]; // These run on any OS.  TODO: Add support for JVM arguments
-  if (installObj.settings.hasOwnProperty("addionalJavaArgs")) {
-    baseJavaArgs = installObj.settings.addionalJavaArgs.concat(baseJavaArgs);
-  }
-  var baseJavaArgsWindows = ["-Xincgc", "-Xshare:off"]; // These will run on windows only
-  var baseSMJarArgs = [self.starMadeJar, "-server", "-port:" + installObj.settings["port"]];
-  if (self.buildBranch == "pre") {
-    baseSMJarArgs.push("-pre");
-  } else if (self.buildBranch == "dev") {
-    baseSMJarArgs.push("-dev");
-  }
-  if (process.platform == "win32") {
-    this.spawnArgs = baseJavaArgs.concat(baseJavaArgsWindows).concat(baseSMJarArgs);
-  } else {
-    this.spawnArgs = baseJavaArgs.concat(baseSMJarArgs);
-  }
-  thisConsole.log("Set spawnArgs: " + self.spawnArgs);
+  this.buildBranch = installObj.settings["buildBranch"].toLowerCase().trim(); // Should be normal/dev/pre.  This value does not change if the setting is updated in memory till the server is restarted
 
   // Todo:  add stop(), kill(), forceKill(), isResponsive(), etc.
   // This might be useful for spawning:  this.spawn=spawn("java",this.javaArgs,{"cwd": this.settings["starMadeInstallFolder"]});
@@ -496,8 +482,32 @@ function ServerObj(options) { // If given it will load existing settings or crea
   
   this.start = function (options, cb) {
     if (typeof cb == "function") {
+      // Set up the spawn arguments based on current settings
+      // TODO: Add support for JVM arguments
+
+      var baseJavaArgs = ["-Xms" + installObj.settings["javaMin"], "-Xmx" + installObj.settings["javaMax"], "-jar"]; // These run on any OS.  
+      if (installObj.settings.hasOwnProperty("addionalJavaArgs")) { // If certain custom java args are used, such as modifying the way java garbage collection happens
+        baseJavaArgs = installObj.settings.addionalJavaArgs.concat(baseJavaArgs);
+      }
+      var baseJavaArgsWindows = ["-Xincgc", "-Xshare:off"]; // These will run on windows only
+      var baseSMJarArgs = [self.starMadeJar, "-server", "-port:" + installObj.settings["port"]];
+      // TODO:  Remove the below commented section
+      // I have no idea why I thought pre and dev were needed here.  That is only used for installs and updates..
+      // if (self.buildBranch == "pre") {
+      //   baseSMJarArgs.push("-pre");
+      // } else if (self.buildBranch == "dev") {
+      //   baseSMJarArgs.push("-dev");
+      // }
+      if (process.platform == "win32") {
+        self.spawnArgs = baseJavaArgs.concat(baseJavaArgsWindows).concat(baseSMJarArgs);
+      } else {
+        self.spawnArgs = baseJavaArgs.concat(baseSMJarArgs);
+      }
+      // Will run like this java [spawnArgs]
+      // [spawnArgs] includes [java arguments] -jar [starmade.jar arguments]
+
       // First check to see if the process already exists or not.
-      if (self.hasOwnProperty("spawn")) {
+      if (self.hasOwnProperty("spawn")) { // If a spawn object has already been created, let's verify if it is running or not
         thisConsole.log("Attempting to start the server.."); // temp
         if (self.spawnStatus == "started") {
           thisConsole.log("ERROR: Cannot start server.  It is already started!");
@@ -511,7 +521,7 @@ function ServerObj(options) { // If given it will load existing settings or crea
       self.spawn = spawn("java", self.spawnArgs, {"cwd": self.starMadeInstallFolder}); // Spawn the server
       self.spawnStatus = "started";
       self.spawnStatusWanted= "started"; // This tells us if the server crashes or something, we know it should be restarted.
-      self.event.emit("serverStart",self); // Provides the serverObj
+      event.emit("serverStart",self); // Provides the serverObj
       // global["servers"][self.installFolder]=self.spawn; // Old method, plus no need to add the spawn, since this adds it to the ServerObj
       self.addLockPID(self.spawn.pid);
 
