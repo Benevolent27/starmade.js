@@ -521,6 +521,8 @@ function ServerObj(options) {
           return cb(null, false);
         }
       }
+      // Before starting the server, make sure the superAdminPassword has been set up correctly.
+      self.getSuperAdminPassword(); // This also reloads the ini file for server.cfg
       thisConsole.log("Starting the server..");
       self.spawn = spawn("java", self.spawnArgs, {"cwd": self.starMadeInstallFolder}); // Spawn the server
       self.spawnStatus = "started";
