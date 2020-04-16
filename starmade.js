@@ -73,7 +73,6 @@ const sleepPromise = requireBin("mySleep.js").sleepPromise;
 const ini = requireBin("iniHelper.js"); // This will replace the current functionality of ini by wrapping it and modifying the ini package so that it works correctly for starmade config files and ini files that use # characters.
 const objectHelper = requireBin("objectHelper.js"); // This includes assistance handling of custom objects and conversions
 const regExpHelper = requireBin("regExpHelper.js"); // Contains common patterns, arrays, and pattern functions needed for the wrapper.
-// const smInstallHelpers = requireBin("smInstallHelpers.js");
 global["objectCreator"] = objectCreator;
 global["installAndRequire"] = installAndRequire;
 global["sleep"] = sleepPromise;
