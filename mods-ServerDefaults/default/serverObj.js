@@ -765,7 +765,7 @@ function ServerObj(options) {
             });
           }
         } else {
-          thisConsole.log("Using failsafe shutdown option..");
+          thisConsole.log("Shutting down immediately!");
           return runSimpleCommand("/shutdown 1", options, cb);
         }
       } else if (self.spawnStatusWanted=="stopping"){
