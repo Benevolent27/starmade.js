@@ -12,7 +12,7 @@ const path  = require('path');
 const fs    = require('fs');
 const child = require('child_process');
 
-const miscHelpers = global["miscHelpers"]
+const miscHelpers = global["miscHelpers"];
 const {smartSpawn}=miscHelpers;
 const objectHelper = global["objectHelper"];
 const {simplePromisifyIt,getOption}=objectHelper;
@@ -28,6 +28,8 @@ if (process.platform=="win32"){ // If running on windows, include the windows Sp
 // This is for creating config files.  Right now this is a temporary workaround method.  Run StarMade.jar with invalid parameters. This generates the needed configs, displays an error code, and stays loaded, so we have to kill it.
 const theLineToLookFor=/java.lang.IllegalStateException: Sorry, it doesn't work this way!/;
 var createConfigFilesSpawn;
+var generateConfigsProcessKilled; // Used to ensure there are not duplicate callbacks returned
+
 
 function showData(input){
   console.log(String(input));
@@ -95,7 +97,6 @@ function spawnStarMadeInstallTo(pathToInstall,installerExec,options,cb){  // Thi
   return simplePromisifyIt(spawnStarMadeInstallTo,options,pathToInstall,installerExec);
 }
 
-var generateConfigsProcessKilled; // Used to ensure there are not duplicate callbacks returned
 function generateConfigFiles (pathToSMInstall,options,cb){
   // If StarMAde install files and folders don't exist, we can actually run the StarMade.jar file with an invalid argument and it will generate config files/folders and then exit.
   // IMPORTANT:  This method may not be future-proof!
@@ -111,14 +112,14 @@ function generateConfigFiles (pathToSMInstall,options,cb){
 
     var tempArgumentsArray=argumentsNeededForStarMadeJar.concat(["-jar",starMadeJarFile,"-nonsense4534"]);
     console.log("commandLineParametersArray:" + tempArgumentsArray);
-    var createConfigFilesSpawn=child.spawn("java",tempArgumentsArray,{"cwd": pathToUse});
+    createConfigFilesSpawn=child.spawn("java",tempArgumentsArray,{"cwd": pathToUse});
     createConfigFilesSpawn.stdout.on('data',processData); // These next few lines will kill the process if the error message is found
     createConfigFilesSpawn.stderr.on('data',processData);
     createConfigFilesSpawn.on('exit',function(){
       // This sparks on any exit.
       if (typeof generateConfigsProcessKilled == "undefined" || generateConfigsProcessKilled === true){ 
         // The process died on it's own OR was killed by our helper function.  Let's assume it was successful.
-        console.log("Configs created!");
+        console.log("Configs created! generateConfigsProcessKilled: " + generateConfigsProcessKilled);
         return cb(null,true);
       }
       return false;
@@ -130,8 +131,10 @@ function generateConfigFiles (pathToSMInstall,options,cb){
       generateConfigsProcessKilled=false;
       return cb(err,false);
     });
+    return false; // this is to make ESLint happy
+  } else {
+    return simplePromisifyIt(generateConfigFiles,options,pathToSMInstall);
   }
-  return simplePromisifyIt(generateConfigFiles,options,pathToSMInstall);
 }
 function processData(theText){
   // Helper function for generateConfigFiles function
