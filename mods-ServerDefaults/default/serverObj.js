@@ -436,6 +436,7 @@ function ServerObj(options) {
           return cb(err,false);
         }
         if (result == true){
+          // install succeeded
           var testCfgFile = self.getServerCfgAsIniObj();
           if (testCfgFile === null) { // This should never happen
             thisConsole.error("ERROR: Could not retrieve server.cfg file.  Was there an error during install?  Please try the install again!");
@@ -443,6 +444,9 @@ function ServerObj(options) {
           }
           self.getSuperAdminPassword(); // Set the super admin password
           return cb(null,true); // Install success!
+        } else {
+          // install failed
+          return cb(new Error(`Install failed for server: ${installObj.path}`,false));
         }
 
       });
