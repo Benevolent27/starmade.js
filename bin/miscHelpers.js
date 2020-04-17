@@ -373,7 +373,7 @@ async function waitAndThenKill(mSeconds,thePID,options,cb){ // options are optio
     var sigType=getOption(options,"sigType","SIGKILL");
     if (mSeconds && thePID){
       if (isPidAlive(thePID)){
-        thisConsole("Waiting for process to die.");
+        thisConsole.log("Waiting for process to die.");
         while (isPidAlive(thePID) && mSecondsCount < mSeconds){
           // eslint-disable-next-line no-await-in-loop
           await sleepPromise(intervalVar);
