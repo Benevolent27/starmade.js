@@ -5,6 +5,7 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   smartSpawnSync, // This allows executing a jar file or .exe file with the same spawn command, specifying arguments to use and ignoring any java arguments provided if it's not a jar file.
   smartSpawn,
   ensureFolderExists,
+  waitAndThenKillSync,
   waitAndThenKill,
   deleteFile,
   touch,
@@ -40,6 +41,7 @@ const logFolder         = path.resolve(mainFolder,"logs/");
 const installAndRequire = requireBin("installAndRequire");
 const makeDir           = installAndRequire('make-dir','^3.0.0'); // https://www.npmjs.com/package/make-dir This allows creating folders recursively if they do not exist, with either async or sync functionality.
 const sleep             = requireBin("mySleep.js").softSleep;
+const {sleepPromise}    = requireBin("mySleep.js");
 const objectHelper      = requireBin("objectHelper.js");
 ensureFolderExists(logFolder); // Let's just do this once the helper being loaded.
 
@@ -356,13 +358,61 @@ function isPidAlive(thePID){
   }
 }
 
-function waitAndThenKill(mSeconds,thePID,options){ // options are optional.  This can be used on any PID as a sync function
+
+async function waitAndThenKill(mSeconds,thePID,options,cb){ // options are optional.  This can be used on any PID as a sync function
   // By default this will send a SIGKILL signal to the PID if it has not ended within the specified timeout
   // options example:
   // {
   //    interval:'2',
   //    sigType:'SIGTERM'
   // }
+  if (typeof cb == "function"){
+    var thisConsole=getOption(options,"console",console); // allows a mod to provide it's own console
+    var mSecondsCount=0; 
+    var intervalVar=getOption(options,"interval",1000);
+    var sigType=getOption(options,"sigType","SIGKILL");
+    if (mSeconds && thePID){
+      if (isPidAlive(thePID)){
+        thisConsole("Waiting for process to die.");
+        while (isPidAlive(thePID) && mSecondsCount < mSeconds){
+          // eslint-disable-next-line no-await-in-loop
+          await sleepPromise(intervalVar);
+          process.stdout.write(".");
+          mSecondsCount+=intervalVar;
+        }
+        process.stdout.write("\n");
+        if (isPidAlive(thePID)){
+          thisConsole.log("PID (" + thePID + ") still alive after waiting " + mSecondsCount + " milliseconds!  Killing it with: " + sigType);
+          process.kill(thePID,sigType);
+        } else if (mSecondsCount>0){
+          thisConsole.log("PID (" + thePID + ") died of natural causes after " + mSecondsCount + " milliseconds.  No need to send a " + sigType + " signal to it.  Phew!");
+        } else {
+          thisConsole.log("PID (" + thePID + ") died of natural causes.  No need to send a " + sigType + " signal to it.  Phew!");
+        }
+      } else {
+        thisConsole.log("Process already died on it's own!  GREAT!  :D");
+      }
+      if (isPidAlive(thePID)){
+        return cb(null,false); // This won't happen normally unless a different signal was provided through options because a SIGKILL should have ended the process.
+      } else {
+        return cb(null,true); // The process should be dead
+      }
+    } else {
+      return cb(new Error("Insufficient parameters given to waitAndThenSigKill function!"),false);
+    }
+  } else {
+    return simplePromisifyIt(waitAndThenKill,options,mSeconds,thePID);
+  }
+}
+
+function waitAndThenKillSync(mSeconds,thePID,options){ // options are optional.  This can be used on any PID as a sync function
+  // By default this will send a SIGKILL signal to the PID if it has not ended within the specified timeout
+  // options example:
+  // {
+  //    interval:'2',
+  //    sigType:'SIGTERM'
+  // }
+  var thisConsole=getOption(options,"console",console); // allows a mod to provide it's own console
   var mSecondsCount=0; 
   var intervalVar=getOption(options,"interval",1000);
   var sigType=getOption(options,"sigType","SIGKILL");
@@ -376,15 +426,15 @@ function waitAndThenKill(mSeconds,thePID,options){ // options are optional.  Thi
       }
       process.stdout.write("\n");
       if (isPidAlive(thePID)){
-        console.log("PID (" + thePID + ") still alive after waiting " + mSecondsCount + " milliseconds!  Killing it with: " + sigType);
+        thisConsole.log("PID (" + thePID + ") still alive after waiting " + mSecondsCount + " milliseconds!  Killing it with: " + sigType);
         process.kill(thePID,sigType);
       } else if (mSecondsCount>0){
-          console.log("PID (" + thePID + ") died of natural causes after " + mSecondsCount + " milliseconds.  No need to send a " + sigType + " signal to it.  Phew!");
+        thisConsole.log("PID (" + thePID + ") died of natural causes after " + mSecondsCount + " milliseconds.  No need to send a " + sigType + " signal to it.  Phew!");
       } else {
-        console.log("PID (" + thePID + ") died of natural causes.  No need to send a " + sigType + " signal to it.  Phew!");
+        thisConsole.log("PID (" + thePID + ") died of natural causes.  No need to send a " + sigType + " signal to it.  Phew!");
       }
     } else {
-      console.log("Process already died on it's own!  GREAT!  :D");
+      thisConsole.log("Process already died on it's own!  GREAT!  :D");
     }
   } else {
     throw new Error("Insufficient parameters given to waitAndThenSigKill function!");
