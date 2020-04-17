@@ -1,7 +1,7 @@
 // Updated to use installObj
 var installObj=global.getInstallObj(__dirname);
 var {settings,log,event,defaultGlobalEvent}=installObj;
-
+var commandOperator = "!"; // Right now this is unchangeable, but that might change in the future.
 const thisConsole=installObj.console;
 var {toNumIfPossible,toStringIfPossible,getOption,getParamNames,simplePromisifyIt}=global.objectHelper;
 var {i} = global.miscHelpers;
@@ -14,7 +14,7 @@ event.on('start',function(theServerObj){
   // #####  wrapper info  #####
   thisConsole.regCommand("ListGlobal","Wrapper Info",listGlobal);
   thisConsole.regCommand("ListObjects","Wrapper Info",listObjects);
-  thisConsole.regCommand("EnumerateObject","Wrapper Info",enumerateObject);
+  thisConsole.regCommand("SelectObject","Wrapper Info",selectObject);
   thisConsole.regCommand("TestObject","Wrapper Info",testObject);
 });
 
@@ -41,7 +41,6 @@ async function testObject(theProperCommand,theArguments,options){
 
       if (enumeratedObj.hasOwnProperty(theElementName)){
         if (typeof enumeratedObj[theElementName] == "function"){
-
           // Add routine for filling in the arguments
           let theElementArgumentsArray=getParamNames(enumeratedObj[theElementName]);
           var parametersToUseArray=[];
@@ -107,6 +106,9 @@ async function testObject(theProperCommand,theArguments,options){
       thisConsole.log(" This command requires the element to test.  Example: !testObject name");
       thisConsole.log(" The currently loaded test object has the following elements:");
       enumerateAnObject(enumeratedObj,"testObj");
+      thisConsole.log(" ");
+      thisConsole.log(" To run a test one one of the elements of this object, type !TestObject [elementName]");
+      thisConsole.log(" Example: !TestObject msg");
     }
 
   } else {
@@ -115,37 +117,43 @@ async function testObject(theProperCommand,theArguments,options){
   return false;
 }
 
-function enumerateObject(theProperCommand,theArguments,options){
+function selectObject(theProperCommand,theArguments,options){
   if (theArguments.length >= 1){
     var theObjectNumber=toNumIfPossible(theArguments[0]);
     var theObjectTypeName;
     if (typeof theObjectNumber == "number"){
-      theObjectNumber-=1;
-      var theKeys=Object.keys(installObj.objects);
-      theKeys=theKeys.sort();
-      if (theKeys.length >= theObjectNumber){
-        theObjectTypeName=theKeys[theObjectNumber];
-        thisConsole.log(`Selected object type '${theObjectTypeName}'.`);
-        let paramsArray = getParamNames(installObj.objects[theObjectTypeName]);
-        var inputArray=[];
-        for (let e=0;e<paramsArray.length;e++){
-          // collect inputs to use to create the object
-          inputArray.push(global["prompt"](`What to use for (${paramsArray[e]}):`)); // if no input given, will be undefined.
-        }
-        var testObj=new installObj.objects[theObjectTypeName](...inputArray);
-        enumeratedObj=testObj; // For use with !testObject
-        thisConsole.log(`Enumerating elements for object (${theObjectTypeName}):`);
-        enumerateAnObject(testObj,theObjectTypeName);
-        
+      if (theObjectNumber == 0){ // 0 is always the serverObj
+        enumeratedObj=installObj.serverObj;
+        theObjectTypeName="ServerObj";
       } else {
-        thisConsole.log("Invalid number selected!  To see a list of objects available, type !listObjects");
+        theObjectNumber-=1;
+        var theKeys=Object.keys(installObj.objects);
+        theKeys=theKeys.sort();
+        if (theKeys.length >= theObjectNumber){
+          theObjectTypeName=theKeys[theObjectNumber];
+          thisConsole.log(`Selected object type '${theObjectTypeName}'.`);
+          let paramsArray = getParamNames(installObj.objects[theObjectTypeName]);
+          var inputArray=[];
+          for (let e=0;e<paramsArray.length;e++){
+            // collect inputs to use to create the object
+            inputArray.push(global["prompt"](`What to use for (${paramsArray[e]}):`)); // if no input given, will be undefined.
+          }
+          enumeratedObj=new installObj.objects[theObjectTypeName](...inputArray); // For use with !TestObject
+        } else {
+          return thisConsole.log("Invalid number selected!  To see a list of objects available, type !listObjects");
+        }
       }
+      thisConsole.log(`Enumerating elements for object (${theObjectTypeName}):`);
+      enumerateAnObject(enumeratedObj,theObjectTypeName);
+      thisConsole.log(" ");
+      thisConsole.log(" To run a test one one of the elements of this object, type !testObject [elementName]");
+      thisConsole.log(" Example: !TestObject msg");
     }
   } else {
     thisConsole.log("Need to provide the number of the object you'd like to enumerate!");
-    thisConsole.log("To see a list of objects available, type !listObjects");
-
+    thisConsole.log(`To see a list of objects available, type ${commandOperator}listObjects`);
   }
+  return true; // Just making ESLINT happy
 }
 
 function listObjects(){
@@ -153,12 +161,14 @@ function listObjects(){
     thisConsole.log("Enumerating objects:")
     var theKeys=Object.keys(installObj.objects);
     theKeys=theKeys.sort();
+    // first display the serverObj as the main object, which will always be 0
+    thisConsole.log(` -[0]-  ServerObj()`);
     for (let counter=1,i=0;i<theKeys.length;counter++,i++){
       let params = getParamNames(installObj.objects[theKeys[i]]);
       thisConsole.log(` -[${counter}]-  ${theKeys[i]}(${params})`);
     }
     thisConsole.log(" ");
-    thisConsole.log("To enumerate an object, type: !enumerateObject #");
+    thisConsole.log("To enumerate an object, type: !SelectObject #");
   }
 }
 
