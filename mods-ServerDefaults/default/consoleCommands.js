@@ -17,6 +17,7 @@ defaultGlobalEvent.on("init",function(){ // ONLY NECESSARY FOR DEFAULT MODS
     // #####  SERVER CONTROL  #####
     thisConsole.regCommand("Start","Server Controls",start);
     thisConsole.regCommand("Stop","Server Controls",stop);
+    thisConsole.regCommand("ForceStop","Server Controls",forcestop);
     thisConsole.regCommand("Install","Server Controls",install);
     thisConsole.regCommand("AutoRestart","Server Controls",autoRestart);
     // #####  SERVER INFO  #####
@@ -325,9 +326,17 @@ function forcestop(theProperCommand,theArguments,options){ // Any arguments give
     thisConsole.log(`Usage:  !${theProperCommand}`);
   } else {
     // duration, message
-    return thisServerObj.forceStop();
+    return thisServerObj.forceStop("",function(err,result){
+      if (err){
+        thisConsole.error("ERROR:  Could not force stop server!");
+        console.dir(err);
+      }
+      if (result == true){
+        thisConsole.log("Server force stopped successfully!");
+      } else {
+        thisConsole.log("ERROR:  Force stop of server failed!  Is it still running?");
+      }
+    });
   }
   return true;
 }
-
-
