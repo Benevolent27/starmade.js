@@ -27,8 +27,8 @@ const regExpHelper = requireBin("regExpHelper.js");
 const ini = requireBin("iniHelper.js");
 const installAndRequire = requireBin("installAndRequire.js");
 const sleep = requireBin("mySleep.js").softSleep;
+const {sleepPromise}=requireBin("mySleep.js");
 const sleepSync = global["sleepSync"];
-const sleepPromise = requireBin("mySleep.js").sleepPromise;
 
 // TODO:  Below needs to be fixed, because they require a serverObj to initialize correctly
 const modBinFolder = path.join(__dirname, "bin");
@@ -104,7 +104,8 @@ const {
   writeJSONFileSync,
   getSimpleDate,
   getSimpleTime,
-  waitAndThenKill
+  waitAndThenKill,
+  waitAndThenKillSync
 } = miscHelpers;
 // const {CustomConsole} = objectCreator; // This is now created by starmade.js and placed on the installObj
 
@@ -257,7 +258,7 @@ function ServerObj(options) {
   global.settings.servers[self.installFolder] = self.settings;
   // Before we go any further, we should check to see if there are any previous PIDs associated with this server and kill them if necessary.
   // ###################
-  // ###  SMART LOCK ###
+  // ###  SMART LOCK ### // TODO: Move this to the starter.js and make it asynchronous
   // ###################
   if (self.settings.hasOwnProperty("lockPIDs")) {
     var lockPIDs = [];
@@ -274,9 +275,9 @@ function ServerObj(options) {
           }
           if (response == "yes") {
             thisConsole.log("TREE KILLING WITH EXTREME BURNINATION!");
-            treeKill(lockPIDs[i], 'SIGTERM'); // TODO: resolve an error happening here by using only waitAndThenKill
+            treeKill(lockPIDs[i], 'SIGTERM'); // TODO: resolve an error happening here
             // We should initiate a loop giving up to 5 minutes for it to shut down before sending a sig-kill.
-            waitAndThenKill(300000, lockPIDs[i]); // MaxTimeToWait/PID -- This uses SIGKILL
+            waitAndThenKillSync(300000, lockPIDs[i],{"console":thisConsole}); // MaxTimeToWait/PID/Options -- This uses SIGKILL
             sleepSync(1000); // Give the sigKILL time to complete if it was necessary.
             self.settings.lockPIDs = arrayMinus(self.settings.lockPIDs, lockPIDs[i]); // PID was killed, so remove it from the settings.json file.
           } else {
@@ -335,14 +336,30 @@ function ServerObj(options) {
     }
     throw new Error("Non-Number input given to removeLockPID!  Please provide a number!");
   }
-  this.killAllPIDs = function(){ // This will kill any PIDs associated with this server, first with sigTERM, then with sigKILL after 5 minutes.
-    thisConsole.log("Killing all PIDs..");
+  this.forceStop = function(options,cb){ // This will kill any PIDs associated with this server, first with sigTERM, then with sigKILL after 5 minutes.
+    // Note:  This does not even attempt a /shutdown command and may be unsafe.
+    thisConsole.log("Force stopping the server and any associated PIDs..");
+    var pidsArray=[];
     for (let i=self.lockPIDs.length-1;i<=0;i--){
       thisConsole.log("DIE PID: " + self.lockPIDs[i]);
-      treeKill(self.lockPIDs[i], 'SIGTERM');
-      waitAndThenKill(300000, self.lockPIDs[i]); // We should initiate a loop giving up to 5 minutes for it to shut down before sending a sig-kill.
-      self.removeLockPID(self.lockPIDs[i]);
+      treeKill(self.lockPIDs[i], 'SIGTERM'); // We don't really need to do a tree kill, since this should only kill the main process.
+      pidsArray.push(waitAndThenKill(300000, self.lockPIDs[i], {"console":thisConsole}).catch((err) => thisConsole.error(err)));
     }
+    return Promise.all(pidsArray).then(function(resultsArray){ // once all PIDs should be dead.. make sure of the results
+      var allDead=true;
+      for (let i=0;i<resultsArray.length;i++){
+        if (resultsArray[i] == true){
+          self.removeLockPID(self.lockPIDs[i]);
+        } else {
+          allDead=false;
+        }
+      }
+      if (allDead){
+        return cb(null,true);
+      } else {
+        return cb(null,false); // This should never happen
+      }
+    });
   }
 
   // this.log=installObj["log"]; // Obsoleteing to avoid confusion
