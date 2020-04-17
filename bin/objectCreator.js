@@ -522,10 +522,12 @@ function CustomConsole(consoleName,options){
   outputConsole.commands={};
   outputConsole.regCommand=function(commandName,category,theFunction){ // Category is optional, default is "General". This is for registering commands that an admin types into the wrapper console.  These will show up when the player types "!help"
     // category is used when the !help command is used, to separate out commands, such as "Server Commands" or "Settings Commands"
-    var theCategory="General";
-    if (typeof category == "string"){
-      theCategory=category;
-    }
+    
+    var theCategory=typeof category == "string" ? category : "General";
+    // var theCategory="General"; // TODO:  Remove this
+    // if (typeof category == "string"){
+    //   theCategory=category;
+    // }
     if (typeof commandName == "string" && typeof theFunction == "function"){
       // Check for an existing command, using a case insensitive search
 
@@ -536,17 +538,24 @@ function CustomConsole(consoleName,options){
           delete outputConsole.commands[outputConsoleCommandKeys[y]];
         }
       }
-      console.log(`Registering wrapper command, ${commandName}, under category, ${theCategory}..`);
+      outputConsole.log(`Registering wrapper command, ${commandName}, under category, ${theCategory}..`);
       outputConsole.commands[commandName]=[theCategory,theFunction];
     } else {
       let theMessage="ERROR:  Could not register wrapper command!  Invalid input given!  ConsoleName: " + consoleName;
-      console.error(theMessage);
+      outputConsole.error(theMessage);
       throw new Error(theMessage);
     }
   }
+  outputConsole.deregCommands=function(){
+    var theKeys=Object.keys(outputConsole.commands);
+    for (let i=0;i<theKeys.length;i++){ // Instead of replacing the object, deleting each elements leaves prototypes untouched
+      outputConsole.log(`Unregistering wrapper command: ${theKeys[i]}`);
+      delete outputConsole.commands[theKeys[i]];
+    }
+  }
   outputConsole.debug=function () { // Replaces console.debug because normally in node.js there is no reason to use console.debug; it is the same as console.log.  This comes from browsers, which shows debug messages in a different color, but node does not.
-    if (global["debug"]==true){
-      console.log(arguments);
+    if (global["debug"]==true){ // Only display this text if debug mode is on
+      outputConsole.log(arguments);
     }
   }
 
