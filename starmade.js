@@ -1022,13 +1022,13 @@ process.stdin.on('data', function (text) { // This runs for any console
         console.log(" !debug [on/off]"); // Displays debug messages
         // console.log(" !enumerateevents [on/off]");
         console.log(" !reloadMods");
-        console.log(" !record (stop)");
-        console.log(" !showallevents [on/off]");
-        console.log(" !listObjectConstructors");
-        console.log(" !listObjectConstructorElements [ObjectName(parameters)]");
+        // console.log(" !record (stop)");
+        // console.log(" !showallevents [on/off]");
+        // console.log(" !listObjectConstructors");
+        // console.log(" !listObjectConstructorElements [ObjectName(parameters)]");
         // console.log(" !listGlobal");
-        console.log(" !settings");
-        console.log(" !changesetting [setting] [newvalue]");
+        // console.log(" !settings");
+        // console.log(" !changesetting [setting] [newvalue]");
       }
 
     } else if (i(theCommand, "consoles")) {
@@ -1136,7 +1136,7 @@ process.stdin.on('data', function (text) { // This runs for any console
     //   // }
     //   console.log(" ");
 
-    } else if (i(theCommand, "listObjectConstructors")) {
+    } else if (i(theCommand, "listWrapperObjects")) {
       let keyArray;
       let keyUpperCase;
       console.log("Listing constructor objects:");
@@ -1212,59 +1212,7 @@ process.stdin.on('data', function (text) { // This runs for any console
       }
     } else if (i(theCommand, "quit")) {
       console.log("Exiting wrapper..");
-      process.exit();
-      // } else if (i(theCommand,"status")) {
-      //   if (global["server"].spawn){
-      //     console.log("Server status: " + global["server"].spawnStatus);
-      //     if (global["server"].spawn.hasOwnProperty("pid")){
-      //       console.log("Stored PID:" + global["server"].spawn.pid);
-      //     } else {
-      //       console.log("No 'pid' element found on spawn object.");
-      //     }
-
-      //     if (global["server"].spawn.hasOwnProperty("killed")){
-      //       console.log("Process killed status:" + global["server"].spawn.killed);
-      //     } else {
-      //       console.log("No 'killed' element found on spawn object.");
-      //     }
-      //     if (global["server"].spawn.hasOwnProperty("pid")){
-      //       console.log("Is pid alive?: " + isPidAlive(global["server"].spawn.pid));
-      //     } else {
-      //       console.log("No PID found associated with spawn.");
-      //     }
-
-      //   } else {
-      //     console.log("Server does not appear to be running!");
-      //   }
-      // } else if (i(theCommand,"start")) {
-      //     console.log("Starting server..");
-      //     global["server"].start();
-      // } else if (i(theCommand,"stop")) {
-      //   if (global["server"].spawn){
-      //     console.log("Initiating server shutdown..");
-      //     let theTime=theArguments.shift();
-      //     let theArgumentsToUse=theArguments.join(" ");
-      //     return global["server"].stop(theTime,theArgumentsToUse);
-      //   } else {
-      //     console.error("ERROR: Cannot stop server. Server does not appear to be running!");
-      //     return false;
-      //   }
-      // } else if (i(theCommand,"kill")) {
-      //   if (global["server"].spawn){
-      //     console.log("Initiating server kill (SIGTERM)..");
-      //     return global["server"].kill();
-      //   } else {
-      //     console.error("ERROR: Cannot kill server! Server does not appear to be running!");
-      //     return false;
-      //   }
-      // } else if (i(theCommand,"forcekill")) {
-      //   if (global["server"].spawn){
-      //     console.log("Initiating server kill (SIGKILL)..");
-      //     return global["server"].forcekill();
-      //   } else {
-      //     console.error("ERROR: Cannot kill server! Server does not appear to be running!");
-      //     return false;
-      //   }
+      process.exit(); // Any listeners for the server exit will fire before the wrapper actually stops. 
 
     } else if (i(theCommand, "record")) { // Change this so it records whatever is output to the screen, so that it will work across servers (if possible).
       if (!theArguments[0] || i(theArguments[0], "start")) {
