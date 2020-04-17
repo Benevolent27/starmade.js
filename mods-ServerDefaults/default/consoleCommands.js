@@ -8,6 +8,10 @@ var thisServerObj={};
 
 
 defaultGlobalEvent.on("init",function(){ // ONLY NECESSARY FOR DEFAULT MODS
+  event.on('unloadMods',function(){ // All commands should be reregistered when loaded again
+    return thisConsole.deregCommands();
+  });
+
   event.on('start',function(theServerObj){
     thisServerObj=theServerObj;
     // #####  SERVER CONTROL  #####
@@ -27,6 +31,24 @@ defaultGlobalEvent.on("init",function(){ // ONLY NECESSARY FOR DEFAULT MODS
     
   });
 });
+
+      // } else if (i(theCommand,"kill")) {
+      //   if (global["server"].spawn){
+      //     console.log("Initiating server kill (SIGTERM)..");
+      //     return global["server"].kill();
+      //   } else {
+      //     console.error("ERROR: Cannot kill server! Server does not appear to be running!");
+      //     return false;
+      //   }
+      // } else if (i(theCommand,"forcekill")) {
+      //   if (global["server"].spawn){
+      //     console.log("Initiating server kill (SIGKILL)..");
+      //     return global["server"].forcekill();
+      //   } else {
+      //     console.error("ERROR: Cannot kill server! Server does not appear to be running!");
+      //     return false;
+      //   }
+
 
 function showAllEvents(theProperCommand,theArguments,options){
   if (getOption(options,"help") == true){
@@ -297,3 +319,15 @@ function install(theProperCommand,theArguments,options){
   }
   return true;
 }
+function forcestop(theProperCommand,theArguments,options){ // Any arguments given to the command should be given as arguments here.
+  if (getOption(options,"help") == true){
+    thisConsole.log("This command force stops the server immediately with a SIGTERM signal.  It will do nothing if the server is already stopped.");
+    thisConsole.log(`Usage:  !${theProperCommand}`);
+  } else {
+    // duration, message
+    return thisServerObj.forceStop();
+  }
+  return true;
+}
+
+
