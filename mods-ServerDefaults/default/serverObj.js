@@ -336,31 +336,7 @@ function ServerObj(options) {
     }
     throw new Error("Non-Number input given to removeLockPID!  Please provide a number!");
   }
-  this.forceStop = function(options,cb){ // This will kill any PIDs associated with this server, first with sigTERM, then with sigKILL after 5 minutes.
-    // Note:  This does not even attempt a /shutdown command and may be unsafe.
-    thisConsole.log("Force stopping the server and any associated PIDs..");
-    var pidsArray=[];
-    for (let i=self.lockPIDs.length-1;i<=0;i--){
-      thisConsole.log("DIE PID: " + self.lockPIDs[i]);
-      treeKill(self.lockPIDs[i], 'SIGTERM'); // We don't really need to do a tree kill, since this should only kill the main process.
-      pidsArray.push(waitAndThenKill(300000, self.lockPIDs[i], {"console":thisConsole}).catch((err) => thisConsole.error(err)));
-    }
-    return Promise.all(pidsArray).then(function(resultsArray){ // once all PIDs should be dead.. make sure of the results
-      var allDead=true;
-      for (let i=0;i<resultsArray.length;i++){
-        if (resultsArray[i] == true){
-          self.removeLockPID(self.lockPIDs[i]);
-        } else {
-          allDead=false;
-        }
-      }
-      if (allDead){
-        return cb(null,true);
-      } else {
-        return cb(null,false); // This should never happen
-      }
-    });
-  }
+
 
   // this.log=installObj["log"]; // Obsoleteing to avoid confusion
   // ####################
@@ -797,7 +773,6 @@ function ServerObj(options) {
       } else if (self.spawnStatusWanted=="errored"){
         thisConsole.log("Server Stop attempted while server in error state!");
         // This should determine if the server has, in fact been shut down or not.
-
         return cb(null,false);
       }
       return cb(null,null);
@@ -805,10 +780,57 @@ function ServerObj(options) {
       return simplePromisifyIt(self.stop, options, duration, message);
     }
   }
+  this.forceStop = function(options,cb){ 
+    // This will guarantee a shutdown but may take up to 5 minutes to complete
+    // This will kill any PIDs associated with this server, first with sigTERM, then with sigKILL after 5 minutes.
+    // Note:  This does not attempt a /shutdown command and may be unsafe.
+    if (typeof cb == "function"){
+      if (self.spawnStatus == "stopped"){
+        thisConsole.log("Server already stopped! Nothing to do!");
+        return cb(null,false); // Returns false because there was nothing to stop
+      }
+      if (self.lockPIDs.length>0){
+        thisConsole.log("Force stopping the server and any associated PIDs..");
+        event.emit("serverStopping");
+        self.spawnStatus = "forceStopping";
+        self.spawnStatusWanted="stopped";
+        var pidsArray=[];
+        for (let i=self.lockPIDs.length-1;i>=0;i--){
+          thisConsole.log(`KILLING PID #${i}: ${self.lockPIDs[i]}`);
+          treeKill(self.lockPIDs[i], 'SIGTERM'); // We don't really need to do a tree kill, since this should only kill the main process.
+          pidsArray.push(waitAndThenKill(300000, self.lockPIDs[i], {"console":thisConsole}).catch((err) => thisConsole.error(err)));
+        }
+        return Promise.all(pidsArray).then(function(resultsArray){ // once all PIDs should be dead.. make sure of the results
+          var allDead=true;
+          for (let i=0;i<resultsArray.length;i++){
+            if (resultsArray[i] == true){
+              self.removeLockPID(self.lockPIDs[i]);
+            } else {
+              allDead=false;
+            }
+          }
+          if (allDead){
+            return cb(null,true);
+          } else {
+            return cb(null,false); // This should never happen, but if it does, the spawnStatus will be "forceStopping" forever
+          }
+        });
+      } else {
+        // No lockpids to kill.  Is the server running?
+        thisConsole.log("ERROR:  Cannot force stop server, No lock pids to kill!");
+        return cb(null,false);
+      }
+
+    }
+    return self.forceStop(options);
+  }
   this.kill = function (options, cb) {
+    // only kills the server PID, not any others registered under the PIDs
+    // This does NOT guarantee the process it shuts down, even if true is returned.
+
     // Returns (ErrorObject,null) if there is an error when attempting to send the kill signal to the PID
-    // Returns (false,false) if the spawn previously was ran, but the PID is no longer active
-    // returns (null,null) if the spawn object has no PID associated with it
+    // Returns (null,false) if the spawn previously was ran, but the PID is no longer active
+    // returns (null,false) if the spawn object has no PID associated with it
     if (typeof cb == "function") {
       if (self.spawn.hasOwnProperty("pid")) {
         if (isPidAlive(self.spawn.pid)) {
@@ -821,20 +843,21 @@ function ServerObj(options) {
           }
         } else {
           thisConsole.log(`Spawn PID (${self.spawn.pid}) was not alive!  Cannot kill it!`);
-          return cb(false, false);
+          return cb(null, false);
         }
       } else {
         thisConsole.log("Cannot kill spawn.  There is no PID associated with it!");
-        return cb(new Error(null, null));
+        return cb(null, false);
       }
     } else {
       return simplePromisifyIt(self.kill, options);
     }
   }
   this.forcekill = function (options, cb) {
+    // This is dangerous and will send a KILL signal to the process to immediately shut it down.
     // Returns (ErrorObject,null) if there is an error when attempting to send the kill signal to the PID
-    // Returns (false,false) if the spawn previously was ran, but the PID is no longer active
-    // returns (null,null) if the spawn object has no PID associated with it
+    // Returns (null,false) if the spawn previously was ran, but the PID is no longer active
+    // returns (null,false) if the spawn object has no PID associated with it
     if (typeof cb == "function") {
       if (self.spawn.hasOwnProperty("pid")) {
         if (isPidAlive(self.spawn.pid)) {
@@ -847,11 +870,11 @@ function ServerObj(options) {
           }
         } else {
           thisConsole.log(`Spawn PID (${self.spawn.pid}) was not alive!  Cannot kill it!`);
-          return cb(false, false);
+          return cb(null, false);
         }
       } else {
         thisConsole.log("Cannot kill spawn.  There is no PID associated with it!");
-        return cb(new Error(null, null));
+        return cb(new Error(null, false));
       }
     } else {
       return simplePromisifyIt(self.kill, options);
