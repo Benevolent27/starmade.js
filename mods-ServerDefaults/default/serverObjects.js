@@ -570,11 +570,11 @@ function IPObj(address, date) { // cb/promises/squish compliant
       return simplePromisifyIt(self.ban, options, minutes);
     }
   };
-  this.unban = function (options, cb) {
+  this.unBan = function (options, cb) {
     if (typeof cb == "function") {
       return ipUnBan(self.address, options, cb)
     } else {
-      return simplePromisifyIt(self.unban, options);
+      return simplePromisifyIt(self.unBan, options);
     }
   };
 
@@ -648,12 +648,19 @@ function SMNameObj(name) { // cb/promises/squish compliant
       } else if (testIfInput(timeToBan)) {
         return cb(new Error("Invalid input given to SMNameObj.ban as 'timeToBan'!"), null);
       } else { // permban
-        thisConsole.log("Banning player account: " + self.name);
+        thisConsole.log("PERMANETNLY Banning player Registry Account: " + self.name);
         return runSimpleCommand("/ban_account " + self.name, options, cb);
       }
     } else {
       return simplePromisifyIt(self.ban, options, timeToBan);
     }
+  }
+  this.unban = function (options, cb) {
+    if (typeof cb == "function") {
+      return runSimpleCommand("/unban_account " + self.name, options, cb);
+      // Note that this does not unban their ip or smname
+    }
+    return simplePromisifyIt(self.unban, options);
   }
   this.whitelist = function (timeToWhitelist, options, cb) { // timeToWhitelist is optional.  If no number given, it will be a perm whitelist.  Options can be {"fast":true}
     if (typeof cb == "function") {
@@ -1173,7 +1180,7 @@ function PlayerObj(name) { // cb/promises/squish compliant // "Player" must be a
       }
       return simplePromisifyIt(self.unban, options);
     }
-    self.ban = function (toKick, reason, time, options, cb) { // No value is mandatory, but toKick will be true by default if not specified.  toKick should be true/false. Time is in minutes.
+    self.ban = function (toKick, reason, minutes, options, cb) { // No value is mandatory, but toKick will be true by default if not specified.  toKick should be true/false. Time is in minutes.
       // Note that a player MUST BE ONLINE in order for the kick to work.
       // Note that no reason is given to the player if they are not kicked.
       // Also note that this ban does not apear to actually work.  It will kick the player, but then they can just rejoin.  An IP ban or ban via SMNameObj will actually be effective.
@@ -1189,19 +1196,195 @@ function PlayerObj(name) { // cb/promises/squish compliant // "Player" must be a
         } else {
           banArray.push(true); // By default the command will kick the player. But this will lead to "false" being returned if they are offline
         }
-        if (testIfInput(reason)) {
+        if (typeof reason == "string") {
           banArray.push("'" + reason + "'");
         } else {
           banArray.push("''");
         }
-        if (isNum(time)) {
-          banArray.push(time);
+        if (isNum(minutes)) {
+          banArray.push(minutes);
         }
         var banString = banArray.join(" ");
         thisConsole.log("Banning player with string: " + banString);
         return runSimpleCommand(banString, options, cb);
       }
-      return simplePromisifyIt(self.ban, options, toKick, reason, time);
+      return simplePromisifyIt(self.ban, options, toKick, reason, minutes);
+    }
+    self.ipBan = async function (toKick, reason, minutes, options, cb){
+      if (typeof cb == "function"){
+        let toKickVal=true;
+        if (isTrueOrFalse(toKick)){
+          toKickVal=toKick;
+        }
+        let theIPObj=await self.ip().catch(showErr);
+        if (theIPObj){
+          if (typeof theIPObj == "object"){
+            let banResult=await theIPObj.ban(minutes,options).catch(showErr);
+            if (banResult == true){ // only kick if the ban succeeded
+              thisConsole.log("IP BAN: Banned IP: " + theIPObj.toString());
+              if (toKickVal){
+                if (await self.isOnline().catch(showErr) == true){ // Only attempt to kick the player if online
+                  let theKick=await self.kick(reason, options).catch(showErr);
+                  if (theKick == true){
+                    thisConsole.log("IPBAN: Kicked player: " + self.name);
+                  }
+                }
+              }
+              return cb(null,true);
+            } else {
+              thisConsole.log("IPBAN FAIL: Could not ban IP: " + theIPObj.toString());
+              return cb(null,false);
+            }
+          } else {
+            thisConsole.log("IPBAN ERROR: Invalid IP information retrieved for player: " + self.name);
+            return cb(new Error("IPBAN ERROR: Invalid IP information retrieved for player: " + self.name),null);
+          }
+        } else {
+          thisConsole.log("IPBAN ERROR: Could not find IP for player: " + self.name);
+          return cb(new Error("IPBAN ERROR: Could not find IP for player: " + self.name),null);
+        }
+      } else {
+        return simplePromisifyIt(self.ipBan, options, toKick, reason, minutes);
+      }
+    }
+    self.ipUnban = async function(options,cb){
+      // This MUST unban all IP's for the player since the method ip() uses cannot work with the player offline.
+      if (typeof cb == "function"){
+        let theIPObj=await self.ip().catch(showErr);
+        if (typeof theIPObj == "object"){
+          return theIPObj.unBan(options,cb);
+        } else {
+          return cb(new Error("IPUNBAN ERROR:  Could not retrieve IP for player: " + self.name),null);
+        }
+      } else {
+        return simplePromisifyIt(self.ipUnban,options);
+      }
+    }
+    self.ipBanAll = async function (toKick, reason, minutes, options, cb){ // Bans all recorded IP's for this user
+      if (typeof cb == "function"){
+        let toKickVal=true;
+        if (isTrueOrFalse(toKick)){
+          toKickVal=toKick;
+        }
+        let theIPsArray=await self.ips().catch(showErr);
+        if (Array.isArray(theIPsArray)){
+          var banResultsArray=[];
+          for (let e=0;e<theIPsArray.length;e++){
+            banResultsArray.push(theIPsArray[e].ban(minutes,options).catch(showErr));
+          }
+          var theFinalResultsArray=await Promise.all(banResultsArray);
+          var allSucceeded=true;
+          var someSucceeded=false;
+          for (let e=0;e<theFinalResultsArray.length;e++){
+            if (theFinalResultsArray[e] == true){
+              thisConsole.log("IP BAN (ALL): Banned IP: " + theIPsArray[e].toString());
+              someSucceeded=true;
+            } else { // Will be null or false, whether an error or a failure of command
+              thisConsole.log("IP BAN (ALL) FAILED for ip: " + theIPsArray[e].toString());
+              allSucceeded=false;
+            }
+          }
+          if (someSucceeded && toKickVal){ // Only kick if at least one of the IP bans succeeded.
+            if (await self.isOnline().catch(showErr) == true){ // Only attempt to kick the player if online
+              let theKick=await self.kick(reason, options).catch(showErr);
+              if (theKick == true){
+                thisConsole.log("IPBAN (ALL): Kicked player: " + self.name);
+              }
+            }
+          }
+          if (!allSucceeded && someSucceeded){
+            return cb(null,"some"); // Returns "some" some succeeded and some failed.
+          } else {
+            return cb(null,allSucceeded); // Returns true all succeeded, false if all failed.
+          }
+        } else {
+          return cb(new Error("IPBAN (ALL) ERROR: Could not find IPs for player: " + self.name),null);
+        }
+      } else {
+        return simplePromisifyIt(self.ipBanAll, options, toKick, reason, minutes);
+      }
+    }
+    self.ipUnbanAll = async function (options, cb){ // Bans all recorded IP's for this user
+    if (typeof cb == "function"){
+      let theIPsArray=await self.ips().catch(showErr);
+      if (Array.isArray(theIPsArray)){
+        var unbanResultsArray=[];
+        for (let e=0;e<theIPsArray.length;e++){
+          unbanResultsArray.push(theIPsArray[e].unBan(options).catch(showErr));
+        }
+        var theFinalResultsArray=await Promise.all(unbanResultsArray);
+        var allSucceeded=true;
+        var someSucceeded=false;
+        for (let e=0;e<theFinalResultsArray.length;e++){
+          if (theFinalResultsArray[e] == true){
+            thisConsole.log("IP UNBAN (ALL): Unbanned IP: " + theIPsArray[e].toString());
+            someSucceeded=true;
+          } else { // Will be null or false, whether an error or a failure of command
+            thisConsole.log("IP UNBAN (ALL) FAILED for ip: " + theIPsArray[e].toString());
+            allSucceeded=false;
+          }
+        }
+        if (!allSucceeded && someSucceeded){
+          return cb(null,"some"); // Returns "some" some succeeded and some failed.
+        } else {
+          return cb(null,allSucceeded); // Returns true all succeeded, false if all failed.
+        }
+      } else {
+        return cb(new Error("IPUNBAN (ALL) ERROR: Could not find IPs for player: " + self.name),null);
+      }
+    } else {
+      return simplePromisifyIt(self.ipUnbanAll, options);
+    }
+    }
+    self.smNameBan = async function (toKick, reason, minutes, options, cb){
+      if (typeof cb == "function"){
+        let toKickVal=true;
+        if (isTrueOrFalse(toKick)){
+          toKickVal=toKick;
+        }
+        let theSMNameObj=await self.smName().catch(showErr);
+        if (theSMNameObj){
+          if (typeof theSMNameObj == "object"){
+            let banResult=await theSMNameObj.ban(minutes,options).catch(showErr);
+            if (banResult == true){ // only kick if the ban succeeded
+              thisConsole.log("SMNAME BAN: Banned Registry Account Name: " + theSMNameObj.toString());
+              if (toKickVal){
+                if (await self.isOnline().catch(showErr) == true){ // Only attempt to kick the player if online
+                  let theKick=await self.kick(reason, options).catch(showErr);
+                  if (theKick == true){
+                    thisConsole.log("SMNAME BAN: Kicked Registry Account Name: " + self.name);
+                  }
+                }
+              }
+              return cb(null,true);
+            } else {
+              thisConsole.log("SMNAME BAN FAIL: Could not ban Registry Account Name: " + theSMNameObj.toString());
+              return cb(null,false);
+            }
+          } else {
+            thisConsole.log("SMNAME BAN ERROR: Invalid Registry Account Name retrieved for player: " + self.name);
+            return cb(new Error("SMNAME BAN ERROR: Invalid Registry Account Name retrieved for player: " + self.name),null);
+          }
+        } else {
+          thisConsole.log("SMNAME BAN ERROR: Could not find Registry Account Name for player: " + self.name);
+          return cb(new Error("SMNAME BAN ERROR: Could not find Registry Account Name for player: " + self.name),null);
+        }
+      } else {
+        return simplePromisifyIt(self.smNameBan, options, toKick, reason, minutes);
+      }
+    }
+    self.smNameUnban = async function(options,cb){
+      // This MUST unban all IP's for the player since the method ip() uses cannot work with the player offline.
+      if (typeof cb == "function"){
+        let theSMNameObj=await self.smName().catch(showErr);
+        if (typeof theSMNameObj == "object"){
+          return theSMNameObj.unBan(options,cb);
+        } else {
+          return cb(new Error("SMNAME UNBAN ERROR:  Could not retrieve Registry Account Name for player: " + self.name),null);
+        }
+      } else {
+        return simplePromisifyIt(self.smNameUnban,options);
+      }
     }
     self.whitelist = function (timeToWhitelist, options, cb) { // timeToWhitelist is optional.  If no number given, it will be a perm whitelist.  Options can be {"fast":true}
       if (typeof cb == "function") {
@@ -1502,15 +1685,63 @@ function PlayerObj(name) { // cb/promises/squish compliant // "Player" must be a
       if (typeof cb == "function") {
         return returnValFromPlayerInfo(self.info, valToLookFor, options, cb);
       } else {
-        return simplePromisifyIt(self[valToLookFor], options);
+        return simplePromisifyIt(self.smName, options);
       }
     }
-    self.ip = function (options, cb) { // Returns a player's ip, but only if online.  Returns false if offline.
-      var valToLookFor = "ip";
+    self.ip = async function (options, cb) { // Returns the last IP for the player.
+      // var valToLookFor = "ip";
       if (typeof cb == "function") {
-        return returnValFromPlayerInfo(self.info, valToLookFor, options, cb);
+        // return returnValFromPlayerInfo(self.info, valToLookFor, options, cb); // This method doesn't work if the player is offline.
+        var theIPs=await self.ips(options).catch(showErr);
+        if (Array.isArray(theIPs)){
+          return cb(null,theIPs[theIPs.length -1]); // Returns only the last IP
+        } else {
+          return cb(new Error("playerObj.ip ERROR: Could not obtain IP!"),null)
+        }
       } else {
-        return simplePromisifyIt(self[valToLookFor], options);
+        return simplePromisifyIt(self.ip, options);
+      }
+    }
+    self.ips = function (options, cb) { // Returns an array of IPObj of a user as returned by /player_info
+      // Note:  By default it will only return unique IP's, but an option can be specified to return them all, which includes the timestamp of the login from the IP
+      if (typeof cb == "function") {
+        var unique = getOption(options, "unique", true); // By default only return unique IP's
+        return starNetVerified("/player_info " + self.name, options, function (err, result) {
+          if (err) {
+            thisConsole.error("StarNet command failed when attempting to get the ips for player: " + self.name);
+            return cb(err, result);
+          }
+          var resultArray = returnMatchingLinesAsArray(result, /^RETURN: \[SERVER, \[PL\] LOGIN: \[time=.*/);
+          var outputArray = [];
+          var ipTemp;
+          var ipDateTemp;
+          var ipDateObj = {};
+          var ipTrackerArray = [];
+          for (var i = 0;i < resultArray.length;i++) {
+            ipDateTemp = resultArray[i].match(/\[time=[^,]*/);
+            if (ipDateTemp) {
+              ipDateTemp = ipDateTemp.toString().replace(/^\[time=/, "");
+              ipDateObj = new Date(ipDateTemp); // This was tested to be working correctly
+              ipTemp = resultArray[i].match(/ip=[^,]*/);
+              if (ipTemp) {
+                ipTemp = ipTemp.toString().replace(/^ip=\//, "");
+                // This does not filter based on unique IP's since there is a date associated with each IP login
+                // TODO:  Make it so the default is to filter only unique IP's but give an option not to
+                if (unique) { // If only pushing unique IP's
+                  if (!isInArray(ipTrackerArray, ipTemp)) {
+                    outputArray.push(new IPObj(ipTemp, ipDateObj));
+                    ipTrackerArray.push(ipTemp); // Record the unique IP so it isn't added to the resultArray again
+                  }
+                } else {
+                  outputArray.push(new IPObj(ipTemp, ipDateObj));
+                }
+              }
+            }
+          }
+          return cb(null, outputArray); // Array is empty if no results found
+        });
+      } else {
+        return simplePromisifyIt(self.ips, options);
       }
     }
     self.personalTestSector = function (options, cb) { // Returns a player's personal sector, whether online or offline.
@@ -1603,53 +1834,11 @@ function PlayerObj(name) { // cb/promises/squish compliant // "Player" must be a
               return cb(null, new EntityObj(currentEntityResult));
             }
           }
-          return cb(null, Boolean(false)); // Player does not exist or is offline
+          return cb(null, Boolean(false)); // Player is not in an entity, Player does not exist or is offline
           // NOTE: This will always return false if the player is in an asteroid.. so be careful with self.
         });
       } else {
         return simplePromisifyIt(self.currentEntity, options);
-      }
-    }
-    self.ips = function (options, cb) { // Returns an array of IPObj of a user as returned by /player_info
-      // Note:  By default it will only return unique IP's, but an option can be specified to return them all, which includes the timestamp of the login from the IP
-      if (typeof cb == "function") {
-        var unique = getOption(options, "unique", true); // By default only return unique IP's
-        return starNetVerified("/player_info " + this.name, options, function (err, result) {
-          if (err) {
-            thisConsole.error("StarNet command failed when attempting to get the ips for player: " + self.name);
-            return cb(err, result);
-          }
-          var resultArray = returnMatchingLinesAsArray(result, /^RETURN: \[SERVER, \[PL\] LOGIN: \[time=.*/);
-          var outputArray = [];
-          var ipTemp;
-          var ipDateTemp;
-          var ipDateObj = {};
-          var ipTrackerArray = [];
-          for (var i = 0;i < resultArray.length;i++) {
-            ipDateTemp = resultArray[i].match(/\[time=[^,]*/);
-            if (ipDateTemp) {
-              ipDateTemp = ipDateTemp.toString().replace(/^\[time=/, "");
-              ipDateObj = new Date(ipDateTemp); // This was tested to be working correctly
-              ipTemp = resultArray[i].match(/ip=[^,]*/);
-              if (ipTemp) {
-                ipTemp = ipTemp.toString().replace(/^ip=\//, "");
-                // This does not filter based on unique IP's since there is a date associated with each IP login
-                // TODO:  Make it so the default is to filter only unique IP's but give an option not to
-                if (unique) { // If only pushing unique IP's
-                  if (!isInArray(ipTrackerArray, ipTemp)) {
-                    outputArray.push(new IPObj(ipTemp, ipDateObj));
-                    ipTrackerArray.push(ipTemp); // Record the unique IP so it isn't added to the resultArray again
-                  }
-                } else {
-                  outputArray.push(new IPObj(ipTemp, ipDateObj));
-                }
-              }
-            }
-          }
-          return cb(null, outputArray); // Array is empty if no results found
-        });
-      } else {
-        return simplePromisifyIt(self.ips, options);
       }
     }
     self.inventory = function (options, cb) { // Returns a player's inventory as an array of objects - Broken right now because it returns the currently open inventory, which could be the personal inventory, cargo, or creative
@@ -1882,8 +2071,7 @@ function PlayerObj(name) { // cb/promises/squish compliant // "Player" must be a
 
 function returnValFromPlayerInfo(selfInfoFunc, valToGet, options, cb) {
   // Assists with returning individual values from a PlayerObj.info() result.
-  let theFunc = selfInfoFunc;
-  return theFunc(options, function (err, result) {
+  return selfInfoFunc(options, function (err, result) {
     if (err) {
       return cb(err, null)
     }
@@ -3459,7 +3647,7 @@ function EntityObj(fullUID) { // cb/promises/squish compliant
 
   if (fullUIDToUse) {
     // thisConsole.log("Creating a new entity.  fullUID: " + fullUID + " shipName: " + shipName);
-    self.UID = stripFullUIDtoUID(fullUIDToUse); // Returns the UID as used with SQL queries, without the "ENTITY_SHIP_" whatever stuff.
+    this.UID = stripFullUIDtoUID(fullUIDToUse); // Returns the UID as used with SQL queries, without the "ENTITY_SHIP_" whatever stuff.
     this.fullUID = fullUIDToUse;
 
     // Needs testing below:
@@ -3742,6 +3930,24 @@ function EntityObj(fullUID) { // cb/promises/squish compliant
       // WARNING: If a station has a shop on it, it will be restocked incorrectly to include even illegal items that should never be found in a shop, such as gold bars and green dirt.
       return runSimpleCommand("/shop_restock_uid \"" + self.fullUID + "\"", options, cb); // handles promises
     }
+
+    // destroy - Destroys the ship, leaving docked entities (using /destroy_uid)
+    // destroyDocked - Destroys the ship and all docked entities (using /destroy_uid_docked)
+    self.destroy = function (options, cb) { // despawns an entity as though it were destroyed, till the sector is reloaded.
+      // WARNING: if an entity has docked entities on it and it is soft-despawns, I believe this causes them to undock.
+      return runSimpleCommand("/destroy_uid \"" + self.fullUID + "\"", options, cb);
+    }
+    self.destroyDock = function (options, cb) { // despawns an entity (and all docked entities) as though it were destroyed, till the sector is reloaded.
+      return runSimpleCommand("/destroy_uid_docked \"" + self.fullUID + "\"", options, cb);
+    }
+    self.destroyOnlyDocked = function (options, cb) { // despawns an entity (and all docked entities) as though it were destroyed, till the sector is reloaded.
+      return runSimpleCommand("/destroy_uid_only_docked \"" + self.fullUID + "\"", options, cb);
+    }
+
+
+    
+
+
     self.softDespawn = function (options, cb) { // despawns an entity as though it were destroyed, till the sector is reloaded.
       // WARNING: if an entity has docked entities on it and it is soft-despawns, I believe this causes them to undock.
       return runSimpleCommand("/soft_despawn \"" + self.fullUID + "\"", options, cb);
@@ -4076,14 +4282,18 @@ function EntityObj(fullUID) { // cb/promises/squish compliant
           if (result.length > 0) {
             if (result != "-1") {
               var dockedTo = result[0]["DOCKED_TO"];
-              return simpleSqlQuery(`SELECT UID,TYPE FROM PUBLIC.ENTITIES WHERE ID='${dockedTo}'`, options, function (err, result) {
-                if (err) {
-                  return cb(err, result);
-                }
-                let entityPrefix = getEntityPrefixFromPublicEntitiesTypeNumber(result[0]["TYPE"]);
-                let fullUID = entityPrefix + result[0]["UID"];
-                return cb(null, new EntityObj(fullUID)); // There should only ever be 1 result, if the system is claimed.
-              });
+              if (dockedTo == "-1"){
+                return (null,null); // entity is not docked
+              } else {
+                return simpleSqlQuery(`SELECT UID,TYPE FROM PUBLIC.ENTITIES WHERE ID='${dockedTo}'`, options, function (err, result) {
+                  if (err) {
+                    return cb(err, result);
+                  }
+                  let entityPrefix = getEntityPrefixFromPublicEntitiesTypeNumber(result[0]["TYPE"]);
+                  let fullUID = entityPrefix + result[0]["UID"];
+                  return cb(null, new EntityObj(fullUID)); // There should only ever be 1 result, if the system is claimed.
+                });
+              }
 
             }
             return cb(null, null); // entity is not docked
@@ -4107,14 +4317,18 @@ function EntityObj(fullUID) { // cb/promises/squish compliant
           if (result.length > 0) {
             if (result != "-1") {
               var dockedTo = result[0]["DOCKED_ROOT"];
-              return simpleSqlQuery(`SELECT UID,TYPE FROM PUBLIC.ENTITIES WHERE ID='${dockedTo}'`, options, function (err, result) {
-                if (err) {
-                  return cb(err, result);
-                }
-                let entityPrefix = getEntityPrefixFromPublicEntitiesTypeNumber(result[0]["TYPE"]);
-                let fullUID = entityPrefix + result[0]["UID"];
-                return cb(null, new EntityObj(fullUID)); // There should only ever be 1 result, if the system is claimed.
-              });
+              if (dockedTo == "-1"){
+                return cb(null,null); // Entity is not docked
+              } else {
+                return simpleSqlQuery(`SELECT UID,TYPE FROM PUBLIC.ENTITIES WHERE ID='${dockedTo}'`, options, function (err, result) {
+                  if (err) {
+                    return cb(err, result);
+                  }
+                  let entityPrefix = getEntityPrefixFromPublicEntitiesTypeNumber(result[0]["TYPE"]);
+                  let fullUID = entityPrefix + result[0]["UID"];
+                  return cb(null, new EntityObj(fullUID)); // There should only ever be 1 result, if the system is claimed.
+                });
+              }
             }
             return cb(null, null); // entity is not docked
 
@@ -4123,8 +4337,45 @@ function EntityObj(fullUID) { // cb/promises/squish compliant
           }
         });
       }
-      return simplePromisifyIt(self.dockedTo, options);
+      return simplePromisifyIt(self.dockedToRoot, options);
     }
+    this.dockedEntities = function (options, cb) {
+      // Returns an EntityObj of the root entity this entity is docked to.  
+      // Returns null if not docked
+      // Returns undefined if not in the world file yet.
+      if (typeof cb == "function") {
+        
+        return simpleSqlQuery(`SELECT ID,DOCKED_ROOT FROM PUBLIC.ENTITIES WHERE UID='${self.UID}';`, options, function (err, result) {
+          if (err) {
+            return cb(err, result);
+          }
+          if (result.length > 0) {
+            var entityID=result[0]["ID"];
+            var dockedTo = result[0]["DOCKED_ROOT"];
+            if (dockedTo != "-1"){
+              // The ship is docked, so use the root entity ID instead
+              entityID=result[0]["DOCKED_ROOT"];
+            }
+            return simpleSqlQuery(`SELECT UID,TYPE FROM PUBLIC.ENTITIES WHERE DOCKED_ROOT='${entityID}'`, options, function (err, result) {
+              if (err) {
+                return cb(err, result);
+              }
+              var returnArray=[];
+              for (let e=0;e<result.length;e++){
+                let entityPrefix = getEntityPrefixFromPublicEntitiesTypeNumber(result[e]["TYPE"]);
+                let fullUID = entityPrefix + result[e]["UID"];
+                returnArray.push(new EntityObj(fullUID));
+              }
+              return cb(null, returnArray); // Returns an array of all the entities attached
+            });
+          } else {
+            return cb(null,null); // If no result, the entity does not exist in the world file yet or the UID is invalid.  This will be undefined.
+          }
+        });
+      }
+      return simplePromisifyIt(self.dockedEntities, options);
+    }
+
 
 
     self.load = function (options, cb) {
@@ -4159,8 +4410,6 @@ function EntityObj(fullUID) { // cb/promises/squish compliant
 
     // Action methods:
     // changeSector("[X],[Y],[Z]", SectorObj, or CoordsObj) - Teleports the entity (by UID) to a specific sector
-    // destroy - Destroys the ship, leaving docked entities (using /destroy_uid)
-    // destroyDocked - Destroys the ship and all docked entities (using /destroy_uid_docked)
     // saveBlueprint(BlueprintNameString) - Saves the current entity as a blueprint name, returning a BlueprintObj.  Note:  There is currently NO WAY to delete blueprints in-game!  Also the BlueprintObj will likely only be valid once the save actually completes.
 
     // shopRestock - Runs a /shop_restock_uid on the UID of the entity.  Only works if the entity IS a shop or has a shop module on it.  WARNING: It is recommended to ONLY use this on stick shops because base entities with shops on them get restocked with ALL items currently, including custom and depreciated blocks like gold bars and green dirt, etc.
@@ -4215,11 +4464,10 @@ function ipWhitelist(ipAddress, minutes, options, cb) { // minutes are optional.
 };
 function ipBan(ipAddress, minutes, options, cb) { // minutes are optional.  A perm ban is applied if none provided. options are optional
   if (typeof cb == "function") {
-    if (ipAddress) {
-      var ipToUse = ipAddress.toString(); // This allows ipObj's to be fed in, and this should translate to an ip string.
-      if (minutes) {
-        var minutesNum = toNumIfPossible(minutes);
-        if (typeof minutesNum == "number") {
+    var ipToUse = toStringIfPossible(ipAddress); // This allows ipObj's to be fed in, and this should translate to an ip string.
+    if (typeof ipAddress == "string"){
+      var minutesNum = toNumIfPossible(minutes);
+      if (typeof minutes == "number") {
           thisConsole.log("Banning IP, '" + ipAddress + "' for " + minutesNum + " minutes.");
           return starNetVerified("/ban_ip_temp " + ipToUse + " " + minutesNum, options, function (err, result) {
             if (err) {
@@ -4228,10 +4476,7 @@ function ipBan(ipAddress, minutes, options, cb) { // minutes are optional.  A pe
             }
             return cb(null, starNet.detectSuccess2(result));
           });
-        } else { // invalid minutes given
-          return cb(new Error("Invalid minutes specified for ipBan!"), null);
-        }
-      } else {
+      } else if (typeof minutes == "undefined" || minutes == "") {
         // no minutes provided, so perform a perm ban
         thisConsole.log("PERMANENT banning IP, '" + ipAddress + "'!");
         return starNetVerified("/ban_ip " + ipToUse, options, function (err, result) {
@@ -4241,6 +4486,8 @@ function ipBan(ipAddress, minutes, options, cb) { // minutes are optional.  A pe
           }
           return cb(null, starNet.detectSuccess2(result));
         });
+      } else { // invalid minutes input given
+        return cb(new Error("Invalid minutes specified for ipBan!"), null);
       }
     } else {
       return cb(new Error("No ipAddress given to function, 'ipBan'!"), null);
@@ -4251,13 +4498,12 @@ function ipBan(ipAddress, minutes, options, cb) { // minutes are optional.  A pe
 };
 function ipUnBan(ipAddress, options, cb) { // options are optional and should be an object.
   if (typeof cb == "function") {
-    if (ipAddress) {
-      var ipToUse = ipAddress.toString(); // This allows ipObj's to be fed in, and this should translate to an ip string.
+    var ipToUse = toStringIfPossible(ipAddress); // This allows ipObj's to be fed in, and this should translate to an ip string.
+    if (typeof ipAddress == "string") {
       thisConsole.log("Unbanning IP: " + ipAddress);
       return starNetVerified("/unban_ip " + ipToUse, options, function (err, result) {
         if (err) {
-          thisConsole.error();
-          return cb(err, result);
+          return cb(err, null);
         }
         return cb(null, starNet.detectSuccess2(result));
       }); // This will return false if the ip is not found in the blacklist
@@ -5101,4 +5347,10 @@ function getEntityPrefixFromPublicEntitiesTypeNumber(input) {
     return "ENTITY_FLOATINGROCKMANAGED_";
   }
   throw new Error("Invalid input given to getEntityPrefixFromPublicEntitiesTypeNumber!  (Needs number 1-6)");
+}
+
+function showErr(err){
+  if (err){
+    console.log(err)
+  }
 }
