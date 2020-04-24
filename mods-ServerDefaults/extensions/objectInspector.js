@@ -1,4 +1,5 @@
 // Updated to use installObj
+const util=require('util');
 var installObj=global.getInstallObj(__dirname);
 var {settings,log,event,defaultGlobalEvent}=installObj;
 var commandOperator = "!"; // Right now this is unchangeable, but that might change in the future.
@@ -16,7 +17,55 @@ event.on('start',function(theServerObj){
   thisConsole.regCommand("ListObjects","Wrapper Info",listObjects);
   thisConsole.regCommand("SelectObject","Wrapper Info",selectObject);
   thisConsole.regCommand("TestObject","Wrapper Info",testObject);
+  // TODO:  Make it so it remembers the inputs for future printouts
+  thisConsole.regCommand("printObjects","Wrapper Info",printObjects); // Creates examples for every object type and prints out their functions to a file
+  // thisConsole.regCommand("clearValues","Wrapper Info",printObjects); // Creates examples for every object type and prints out their functions to a file
+
 });
+var objectsInfoFileName="theMethods";
+var writingObjectsInfoFile=installObj.getJSON(__dirname,objectsInfoFileName); 
+
+function writeObjectsFile(){ // Used when deposits are made.
+  thisConsole.log("Writing Objects Info file..");
+  // Uses the installObj JSON writer to keep files organized separately from the mod files themselves.
+  // This is important for editing or deleting the data files (such as when a server reset happens)
+  installObj.writeJSON(__dirname,objectsInfoFileName); // We do not need to provide the object itself, because it writes from the cache.
+}
+
+
+
+function printObjects(theProperCommand,theArguments,options){
+  // Clear the objects file 
+  // writingObjectsInfoFile={};
+  // clear the writingObjectsInfoFile object
+  var writingObjectsInfoFileKeys=Object.keys(writingObjectsInfoFile);
+  for (let i=0;i<writingObjectsInfoFileKeys.length;i++){
+    delete writingObjectsInfoFile[writingObjectsInfoFileKeys[i]];
+  }
+  // Build the objects file
+  thisConsole.log("Writing ServerObj..");
+  writingObjectsInfoFile["ServerObj"]=enumerateAnObjectThenReturnObject(installObj.serverObj,"ServerObj");
+  var theKeys=Object.keys(installObj.objects);
+  theKeys=theKeys.sort();
+  var yesNo="";
+  for (let c=1,e=0;e<theKeys.length;e++,c++){
+    yesNo=global["prompt"](`"Should we enumerate the '${theKeys[e]}' object? [Yes]`);
+    if (i(yesNo,"n","no")){
+      thisConsole.log("Skipping..");
+    } else {
+      selectObject("",[c]); // Places the example object into enumeratedObj;
+      writingObjectsInfoFile[theKeys[e]]=enumerateAnObjectThenReturnObject(enumeratedObj,theKeys[e]);
+    }
+
+  }
+  // Write the objects file
+  thisConsole.log("Finished with all objects..");
+  console.log(util.inspect(writingObjectsInfoFile,{colors:true, depth: Infinity,compact: true,maxArrayLength: null}));
+  // console.log(util.inspect(writingObjectsInfoFile, false, null, true /* enable colors */))
+  // console.dir(writingObjectsInfoFile);
+  writeObjectsFile();
+}
+
 
 function testObjectCBHandler(err,theResult){  // for use by the testObject function only
   thisConsole.log("Here are the results!");
@@ -148,6 +197,10 @@ function selectObject(theProperCommand,theArguments,options){
       thisConsole.log(" ");
       thisConsole.log(" To run a test one one of the elements of this object, type !testObject [elementName]");
       thisConsole.log(" Example: !TestObject msg");
+    } else {
+      thisConsole.log("ERROR: Please provide the NUMBER corresponding to the object you would like to select!");
+      thisConsole.log(`To see a list of objects, type ${commandOperator}listObjects`);
+      thisConsole.log(" ");
     }
   } else {
     thisConsole.log("Need to provide the number of the object you'd like to enumerate!");
@@ -205,4 +258,64 @@ function enumerateAnObject(theObject,objectName){
       thisConsole.log(` (${typeof theObject[keyArray[i]]}) \t${objectName}.${keyArray[i]}`);
     }
   }
+}
+function enumerateAnObjectThenReturnObject(theObject,objectName){
+  // requires an Object.
+  // used by more than 1 command to list the contents of an object in a uniform way.
+  var keyArray=Object.keys(theObject);
+  var theReturnObj={};
+  keyArray = keyArray.sort(); // Alphabetize the list
+  for (let i = 0,params=[];i < keyArray.length;i++) {
+    if (typeof theObject[keyArray[i]] == "function") {
+      params = getParamNames(theObject[keyArray[i]]);
+      if (params.length > 0) {
+        // theReturnObj[keyArray[i]]=`(${typeof theObject[keyArray[i]]}) \t${objectName}.${keyArray[i]}(${params})`;
+        theReturnObj[keyArray[i]]={
+          "type":typeof theObject[keyArray[i]],
+          "parameters":params,
+          "usage":`${objectName}.${keyArray[i]}(${params})`
+        }
+      } else {
+        // theReturnObj[keyArray[i]]=`(${typeof theObject[keyArray[i]]}) \t${objectName}.${keyArray[i]}()`;
+        theReturnObj[keyArray[i]]={
+          "Type":typeof theObject[keyArray[i]],
+          "parameters":[],
+          "Usage":`${objectName}.${keyArray[i]}()`
+        }
+      }
+    } else if (typeof theObject[keyArray[i]] == "object") {
+      if (theObject[keyArray[i]] instanceof Array) {
+        // theReturnObj[keyArray[i]]=`(Array) \t${objectName}.${keyArray[i]}`;
+        theReturnObj[keyArray[i]]={
+          "Type":"Array",
+          "Usage":`${objectName}.${keyArray[i]}`
+        }
+      } else if (theObject[keyArray[i]] instanceof Map) {
+        // theReturnObj[keyArray[i]]=`(Map ${typeof theObject[keyArray[i]]}) \t${objectName}.${keyArray[i]}`;
+        theReturnObj[keyArray[i]]={
+          "Type":`Map ${typeof theObject[keyArray[i]]}`,
+          "Usage":`${objectName}.${keyArray[i]}`
+        }
+      } else if (theObject[keyArray[i]] instanceof Date) {
+        // theReturnObj[keyArray[i]]=`(Date ${typeof theObject[keyArray[i]]}) \t${objectName}.${keyArray[i]}`;
+        theReturnObj[keyArray[i]]={
+          "Type":`Date ${typeof theObject[keyArray[i]]}`,
+          "Usage":`${objectName}.${keyArray[i]}`
+        }
+      } else {
+        // theReturnObj[keyArray[i]]=`(${typeof theObject[keyArray[i]]}) \t${objectName}.${keyArray[i]}`;
+        theReturnObj[keyArray[i]]={
+          "Type":`${typeof theObject[keyArray[i]]}`,
+          "Usage":`${objectName}.${keyArray[i]}`
+        }
+      }
+    } else {
+      // theReturnObj[keyArray[i]]=`(${typeof theObject[keyArray[i]]}) \t${objectName}.${keyArray[i]}`;
+      theReturnObj[keyArray[i]]={
+        "Type":`${typeof theObject[keyArray[i]]}`,
+        "Usage":`${objectName}.${keyArray[i]}`
+      }
+  }
+  }
+  return theReturnObj;
 }
