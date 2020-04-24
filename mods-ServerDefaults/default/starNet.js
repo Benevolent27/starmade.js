@@ -1147,12 +1147,12 @@ function runSimpleCommand(theCommand, options, cb) { // cb/promises compliant
         } else if (checkForLine(msgResult, msgTestFail) || checkForLine(msgResult, msgTestFail2)) { // The player was offline, did not exist, or other parameters were incorrect.
           thisConsole.debug("Command connection succeeded, but command failed. Returning a false value.");
           thisConsole.debug("msgResult: " + msgResult);
-          return cb(err, Boolean(false)); // err will be null
+          return cb(null, Boolean(false)); // err will be null
         } else { // The command appears to have not failed, so let's assume it succeeded.
           // thisConsole.log("Returning an true on success.");
           thisConsole.debug("Command connection succeeded and command succeeded. Returning a true value.");
           thisConsole.debug("msgResult: " + msgResult);
-          return cb(err, Boolean(true)); // Err will be null
+          return cb(null, Boolean(true)); // Err will be null
         }
       });
     } else {
