@@ -1829,6 +1829,7 @@ function writeJSON(installPath,modPath,nameOfFile){
     global["installObjects"][installPath]["JSONFileCache"][theFilePath]={}; // set blank Obj to write
   }
   console.log(`Writing file: ${theFilePath}`);
+  // console.debug(global["installObjects"][installPath]["JSONFileCache"][theFilePath]); // temp
   return writeJSONFileSync(theFilePath,global["installObjects"][installPath]["JSONFileCache"][theFilePath]);
 }
 
