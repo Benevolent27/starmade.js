@@ -353,7 +353,7 @@ function toNumIfPossible(input){ // This also converts numbers from scientific n
     if (typeof input == "string"){
       output=input.replace(",","");
     }
-    output=Number(output);
+    output=Number(output); // Not using parseInt because it would cut of letters, like 123abc would become 123, which is not desired.
     if (isNaN(output)){
       return input;
     } else {
