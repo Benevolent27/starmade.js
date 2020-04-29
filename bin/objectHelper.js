@@ -184,44 +184,51 @@ function simplePromisifyIt(cbFunctionToCall,options){
   // ie: simplePromisifyIt(self.msg,options,message)
 
   // Any additional parameters given are added to the BEGINNING of the this.whatever method, since the callback should always be at the end, and options should always be second from last.
-
   if (typeof cbFunctionToCall == "function"){
-    // console.log("Running with arguments: ");
-    // console.dir(arguments);
     var args=Array.from(arguments);
-    // console.log("arguments as an array: " + args);
-    var theFunctionToCall=cbFunctionToCall;
-    args.splice(0,2); // Splicing while making the array doesn't seem to work properly
-    // console.log("args spliced: ");
-    // console.dir(args);
-    if (args.length<0){ // arguments were used
-      return new Promise(function(resolve,reject){
-        // console.log("promise created WITHOUT parameter");
-        theFunctionToCall(options,function(err,result){
-          if (err){
-            reject(err);
-          } else {
-            resolve(result);
-          }
-        });
+    args.splice(0,2); // Splicing while making the array doesn't work
+    args.push(options); // This way options is always the 2nd from last input given to the cb function
+    return new Promise(function(resolve,reject){
+      return cbFunctionToCall(...args,function(err,result){
+        if (err){
+          reject(err);
+        } else {
+          resolve(result);
+        }
       });
-    } else { // No arguments were used, so we should not expand them
-      return new Promise(function(resolve,reject){
-        // console.log("promise created WITH parameter(s)");
-        theFunctionToCall(...args,options,function(err,result){
-          // console.log("This is the err: " + err); //temp
-          // console.log("This is the result: " + result); //temp
-          if (err){
-            reject(err);
-          } else {
-            resolve(result);
-          }
-        });
-      });
-    }
+    });
   }
   throw new Error("Invalid input given to simplePromisifyIt as functionToCall!");
 }
+//  Unnecessarily complicated code.  Replace when above is confirmed working.
+//   if (typeof cbFunctionToCall == "function"){
+//     var args=Array.from(arguments);
+//     var theFunctionToCall=cbFunctionToCall;
+//     args.splice(0,2); // Splicing while making the array doesn't seem to work properly
+//     if (args.length<0){ // arguments were not used
+//       return new Promise(function(resolve,reject){
+//         return theFunctionToCall(options,function(err,result){
+//           if (err){
+//             reject(err);
+//           } else {
+//             resolve(result);
+//           }
+//         });
+//       });
+//     } else { // Arguments were used, so we should expand them
+//       return new Promise(function(resolve,reject){
+//         theFunctionToCall(...args,options,function(err,result){
+//           if (err){
+//             reject(err);
+//           } else {
+//             resolve(result);
+//           }
+//         });
+//       });
+//     }
+//   }
+//   throw new Error("Invalid input given to simplePromisifyIt as functionToCall!");
+// }
 
 function applyFunctionToArray(arrayInput,functionToRun){
   // cycles through an array, running a function on each value, replacing the original value.
@@ -324,7 +331,7 @@ function mapToJson(map) {
 function jsonToMap(jsonStr) {
     return new Map(JSON.parse(jsonStr));
 }
-function strMapToObj(strMap) {
+function strMapToObj(strMap) { // Must only be used on map objects with keys that can be used as object elements
     let obj = Object.create(null);
     for (let [k,v] of strMap) {
         // We don’t escape the key '__proto__'
@@ -341,8 +348,9 @@ function objToStrMap(obj) {
     return strMap;
 }
 function toBoolean(input){ // The main purpose of this function is to convert strings of "false" to literal false, rather than them being returned as truthy.
-  if (input){ // First try a truthy
-    return input=="false" ? false : Boolean(input); // Interpret a "false" string as false, otherwise convert to Boolean.  This will convert ANY input to true.
+  var inputVal=toNumIfPossible(input); // Convert to a number if possible, so "0" will return false;
+  if (inputVal){ // First try a truthy
+    return (/^false$/i).test(inputVal) ? false : Boolean(inputVal); // Interpret a "false" string as false, otherwise convert to Boolean.  This will convert ANY input to true.
   } else { // any falsey gets turned to false
     return false;
   }
@@ -351,7 +359,7 @@ function toNumIfPossible(input){ // This also converts numbers from scientific n
   if (typeof input != "undefined" && input != ""){ // This check is necessary since Number will create a 0 number using them
     var output=input;
     if (typeof input == "string"){
-      output=input.replace(",","");
+      output=input.replace(",",""); // To remove the comma in numbers over 1,000, like "2,000"
     }
     output=Number(output); // Not using parseInt because it would cut of letters, like 123abc would become 123, which is not desired.
     if (isNaN(output)){
@@ -372,7 +380,6 @@ function toStringIfPossible(input,options){ // This also converts numbers from s
     if (typeof output == "string"){
       return output;
     }
-    return input;
   }
   return input;
 }
@@ -387,7 +394,7 @@ function isNum(input){ // This checks if the input is a number, either as a stri
 }
 
 function getObjType(theObj){ // This will return the name of the constructor function that created the object
-  if (typeof theObj == "object"){
+  if (typeof theObj == "object"){ // This holds true for arrays
     return theObj.constructor.name; // This is apparently a flawed method, but fuck it, it works for now.  Source:  https://stackoverflow.com/questions/332422/how-do-i-get-the-name-of-an-objects-type-in-javascript
   } else { // If it is NOT an object, then we should just return whatever type it is.
     return typeof theObj;
