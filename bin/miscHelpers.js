@@ -1,5 +1,6 @@
 module.exports={ // Always put module.exports at the top so circular dependencies work correctly.
   log, // This should only ever be used from the global object or from starmade.js directly, so we don't open multiple write streams to the log file.
+  asyncPrompt, // My own version of promptSync, but using await.
   requireBin,
   isPidAlive,
   smartSpawnSync, // This allows executing a jar file or .exe file with the same spawn command, specifying arguments to use and ignoring any java arguments provided if it's not a jar file.
@@ -191,7 +192,13 @@ function writeJSONFileSync(pathToJSONFile,data,options){ // options are passed t
 }
 function writeJSONFile(pathToJSONFile,data,options,cb){ // options are passed to fs.writeFile
   if (typeof cb=="function"){
-    return fs.writeFile(pathToJSONFile,data,options,function (err,result){
+    var theData;
+    if (typeof data == "string"){ // If a string is input, we want to parse it back to an object so we can stringify it in a uniform manner
+      theData=JSON.parse(data); // Convert to an object first, we then turn it back to a string to write it, but with formatting options.
+    } else {
+      theData=data;
+    }
+    return fs.writeFile(pathToJSONFile,JSON.stringify(theData, null, 4),options,function (err,result){
       if (err){
         return cb(err,result);
       }
@@ -611,3 +618,27 @@ function log (logMsg){ // Writes to a log file with the current date into the /l
     console.error("ERROR:  Invalid input given to log function!  Expects a string!");
   }
 }
+function asyncPrompt(text,options,cb){
+  // Example usage: var name=await asyncPrompt("What is your name? ");
+  if (typeof cb == "function"){
+    var force=false;
+    if (typeof options == "object"){
+      if (options.hasOwnProperty("force")){
+        if (options.force == true || (/^true$/i).test(options.force)){ // allows a "true" string of any caps or Boolean
+          force=true;
+        }
+      }
+    }
+    var rl=require("readline").createInterface({input: process.stdin, output: process.stdout});
+    return rl.question(text,function(input){
+      rl.close();
+      if (force == true && input == ""){
+        return asyncPrompt(text,options,cb); // if blank, ask again!
+      } else {
+        return cb(null,input);
+      }
+    });
+  }
+  return simplePromisifyIt(asyncPrompt,options,text);
+}
+
