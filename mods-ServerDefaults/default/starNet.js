@@ -30,20 +30,29 @@ module.exports={
   sendDirectToServer,
   runSimpleCommand
 }
+var defaultPassword; // This can be changed to the superAdminPassword from the server.cfg to make it faster and do less disk reads
+var defaultIP; // This can be set to "127.0.0.1" if the intention is to have this connect to the local machine server
+var defaultPort; // This can be set to avoid disk reads if intending to run this as part of another script or from the command line.
 
+var starNetJarURL = "http://files.star-made.org/StarNet.jar";
 const path=require('path');
 const child=require('child_process');
+const fs=require('fs');
+var mainFolder=path.dirname(require.main.filename); // This should be where the starmade.js is, unless this script is ran by itself.
+var mainBinFolder=path.join(mainFolder,"bin");
+var starNetJarFileName="StarNet.jar";
+var starNetJarPath=path.join(mainBinFolder,starNetJarFileName); // Translates to the current folder/bin if ran by itself
 
-const mainFolder=path.dirname(require.main.filename); // This should be where the starmade.js is, unless this script is ran by itself.
-const mainBinFolder=path.join(mainFolder,"bin");
-var starNetJar=path.join(mainBinFolder,"StarNet.jar");
-
-var ini=require(path.join(mainBinFolder,"iniHelper.js"));
-var objectHelper=require(path.join(mainBinFolder,"objectHelper.js"));
-var {getOption,testIfInput,simplePromisifyIt,toStringIfPossible,getObjType,toNumIfPossible,toBoolean}=objectHelper;
-const mySleep=require(path.join(mainBinFolder,"mySleep.js"));
-const sleep = mySleep.softSleep; // Only accurate for 100ms or higher wait times.
-const {sleepPromise}=mySleep; // Less accurate but non-blocking - can only be used in async functions!
+var ini={ // This is ONLY used IF ran by the command line, otherwise replaced by the dependency from starmade.js, which should be superior
+  getVal(inputObj,variable){
+    var output;
+    if (inputObj.hasOwnProperty(variable)){
+      output=inputObj[variable];
+    }
+    return output;
+  }
+  // example ini.getVal(theServerCfgFile,"SERVER_LISTEN_IP");
+}
 
 var serverObj={};
 module.debug=false;
@@ -52,6 +61,7 @@ var installObj={};
 var event={};
 var defaultGlobalEvent={};
 if (global.hasOwnProperty("getInstallObj")){ // This is to allow this script to be ran from the command line.
+  ini=require(path.join(mainBinFolder,"iniHelper.js")); // replace the command line functionality with this, which should be superior
   installObj=global.getInstallObj(__dirname);
   event=installObj.event; // These are events ONLY for this server.
   defaultGlobalEvent=installObj.defaultGlobalEvent;
@@ -61,34 +71,256 @@ if (global.hasOwnProperty("getInstallObj")){ // This is to allow this script to 
       serverObj=theServerObj;
     });
   });
-}
-if (__filename == require.main.filename){ 
-  // Only run the arguments IF this script is being run by itself and NOT as a require.
-  // This script must be provided with the ip, port, and superadmin password.
-  // TODO: Make it so this script can look up the super admin password for the current server.  This will require some config file to have the path to the starmade.js install, to then read the settings and grab the necessary info.
-  // Usage: node starNet.js 127.0.0.1:4242 SuperAdminPassword /some_command and arguments here
-  var theArgsArray=process.argv;
-  if (theArgsArray[0]=='node'){
-    theArgsArray.shift();
-  }
-  theArgsArray.shift();
-  var theIP=toStringIfPossible(theArgsArray[0].match(/^[^:]*/));
-  var thePort=toStringIfPossible(theArgsArray[0].match(/[^:]*$/));
-  var superAdminPassword=theArgsArray[1];
-  theArgsArray.shift();
-  theArgsArray.shift();
-  var theCommand=theArgsArray.join(" ");
-  starNetCb(theCommand,{"ip":theIP,"port":thePort,"superAdminPassword":superAdminPassword},function(err,result){
-    if (err){
-      throw err;
+} else { // This is required in by another script OR is being ran from the command line.
+  // defaultPassword
+  // defaultIP
+  // defaultPort;
+  // ### Load the server.cfg file if it exists
+  var theServerCfg;
+  var paramsObject;
+  var serverCfgFileName="server.cfg";
+  var serverCfgPath=path.join(__dirname,serverCfgFileName);
+  if (!existsAndIsFile(serverCfgPath)){
+    serverCfgPath=path.join("..",serverCfgFileName);
+    if (!existsAndIsFile(serverCfgPath)){
+      serverCfgPath=path.join(__dirname,"..","..","StarMade",serverCfgFileName); // This is where it will be if starNet.js is located in a mod folder for an install by starmade.js
     }
-    thisConsole.log(result);
-  });
+  }
+  if (existsAndIsFile(serverCfgPath)){
+    theServerCfg=convertArrayPairToObj(getIniFileSync(serverCfgPath));
+  } // If the server.cfg file doesn't exist, that is ok, we just move on.
+
+  // ### Load the starNetConfig.json file, if it exists.  This may contain the port.
+  var starNetConfig;
+  var starNetConfigPath=path.join(__dirname,"starNetConfig.json");
+  if (existsAndIsFile(starNetConfigPath)){
+    starNetConfig=require(starNetConfigPath);
+  }
+  
+  // ### Load the starmade.js settings.json if it exists and pull the port number from it.
+  var wrapperInfoPath=path.join(__dirname,"..","..","wrapperInfo.json");
+  if (!existsAndIsFile(wrapperInfoPath)){
+    wrapperInfoPath=path.join(__dirname,"..","wrapperInfo.json"); // Maybe it was copied into the StarMade folder for a starmade.js install.
+  }
+  if (existsAndIsFile(wrapperInfoPath)){
+    var wrapperInfo=require(wrapperInfoPath);
+    if (typeof wrapperInfo=="object"){
+      if (wrapperInfo.hasOwnProperty("path")){
+        var starmadejsSettingsFile=path.join(wrapperInfo["path"],"settings.json");
+        // If we can track back to starmade.js, then we know where the StarNet.jar file should be.
+        mainFolder=wrapperInfo["path"];
+        mainBinFolder=path.join(wrapperInfo["path"],"bin");
+        starNetJarPath=path.join(wrapperInfo["path"],"bin",starNetJarFileName);
+        if (existsAndIsFile(starmadejsSettingsFile)){
+          var starmadejsSettings=require(starmadejsSettingsFile);
+          if (typeof starmadejsSettings=="object"){
+            if (starmadejsSettings.hasOwnProperty("servers")){
+              var thisInstallPath=path.join(__dirname,"..","..");
+              if (process.platform == "win32"){
+                thisInstallPath=thisInstallPath.toLowerCase(); // C:\ is capitalizing here for some reason causing the compare to be thrown off
+              }
+              if (!starmadejsSettings.servers.hasOwnProperty(thisInstallPath)){
+                thisInstallPath=path.join(__dirname,".."); // This might have been copied to the starmade install folder for a starmade.js server
+                if (process.platform == "win32"){
+                  thisInstallPath=thisInstallPath.toLowerCase();
+                }
+              }
+              if (starmadejsSettings.servers.hasOwnProperty(thisInstallPath)){
+                var thisInstallSettings=starmadejsSettings.servers[thisInstallPath];
+                if (thisInstallSettings.hasOwnProperty("port")){
+                  var starmadeJsSettingsPort=thisInstallSettings.port;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  // If we cannot locate the bin folder for starmade.js, change the bin folder to be the current path.
+  if (!existsAndIsDirectory(mainBinFolder)){
+    mainBinFolder=__dirname;
+    starNetJarPath=path.join(mainBinFolder,starNetJarFileName);
+  }
+  if (__filename == require.main.filename){  // If running from the command line, process any arguments given.
+    // eslint-disable-next-line consistent-return
+    var theArgsArray=process.argv;
+    if ((/node\.exe$|node$/).test(theArgsArray[0])){ // needed to determine whether the script was ran directly or with the node command line
+      theArgsArray.shift();
+    }
+    theArgsArray.shift(); // gets rid of the "starNet.js" value
+    if (theArgsArray.length == 0 && starNetConfig){ // If IP, port, or superAdminPassword have no sources, set up the starNetConfig.json file.
+      // If config has already been set up, then display this, otherwise let things continue so it can fill in any gaps that might exist.
+      console.log("ERROR: starNet.js requires at least 1 parameter!  To display help for this script, type: node starNet.js -help");
+      console.log("Note: If you would like to reset the ip, port, or password starNet.js is using, you can either..");
+      console.log("  A. Edit the 'starNetConfig.json' file to update these values");
+      console.log("  B. Delete the 'starNetConfig.json' file and then run starNet.js again with no parameters.");
+      process.exit();
+    } else if ((/^-?help$/i).test(theArgsArray[0])){
+      showCommandLineHelp();
+      process.exit();
+    }
+    // Find if any of the values for IP, port, or superadminpassword were given
+    paramsObject=theArgsArray.reduce((theObj,valStr) => {
+      var theVal;
+      if (valStr.match(/^-ip[:=]/)){
+        theVal=valStr.match(/(?<=-ip[:=]).*$/i);
+        if (theVal){ // Discard empty parameters
+          console.log("@#$!@#$!@#$ Set ip to: " + theVal.toString());
+          theObj["ip"]=theVal.toString();
+        }
+      } else if (valStr.match(/^-port[:=]/)){
+        theVal=valStr.match(/(?<=-port[:=]).*$/i);
+        if (theVal){ // Discord empty
+          theObj["port"]=theVal.toString();
+        }
+      } else if (valStr.match(/^-password[:=]/)){
+        theVal=valStr.match(/(?<=-password[:=]).*$/i);
+        if (theVal){
+          theObj["password"]=theVal.toString();
+        }
+      } else if (theObj.hasOwnProperty("commandString")){ // Add anything that isn't a parameter to the commandString
+          theObj["commandString"]+=" " + valStr;
+      } else {
+        theObj["commandString"]=valStr;
+      }
+      theVal="";
+      return theObj;
+    },{});
+  }
+  // Now, whether this is a require or ran from the command line, fill in any missing blanks
+  // ### Establish the IP    
+  if (!paramsObject.hasOwnProperty("ip") && starNetConfig){ // Prefer starNetConfig.json settings
+    if (starNetConfig.hasOwnProperty("ip")){
+      paramsObject["ip"]=starNetConfig["ip"]; // Use this value if it exists, otherwise move on
+    }
+  }
+  if (!paramsObject.hasOwnProperty("ip") && theServerCfg){
+    if (theServerCfg.hasOwnProperty("SERVER_LISTEN_IP")){
+      if ((/all|any/i).test(theServerCfg["SERVER_LISTEN_IP"])){
+        paramsObject["ip"]="127.0.0.1"; // Should be able to connect on this IP
+      } else {
+        paramsObject["ip"]=theServerCfg["SERVER_LISTEN_IP"]; // This is needed for servers that have multiple IP's and StarMade is only running on one of them.
+      }
+    }
+  }
+  // ### Establish the Port
+  if (!paramsObject.hasOwnProperty("port") && starNetConfig){
+    if (starNetConfig.hasOwnProperty("port")){
+      paramsObject["port"]=starNetConfig["port"]; // Use this value if it exists, otherwise move on
+    }
+  } // Note there is no port value in the server.cfg file.
+  if (!paramsObject.hasOwnProperty("port") && starmadeJsSettingsPort){ // Traced back from the settings.json file for starmade.js for this install.
+    paramsObject["port"]=starmadeJsSettingsPort;
+  }
+  // ### Establish the Super Admin Password
+  if (!paramsObject.hasOwnProperty("password") && starNetConfig){ // Prefer starNetConfig.json settings
+    if (starNetConfig.hasOwnProperty("password")){
+      paramsObject["password"]=starNetConfig["password"]; // Use this value if it exists, otherwise move on
+    }
+  }
+  if (!paramsObject.hasOwnProperty("password") && theServerCfg){
+    if (theServerCfg.hasOwnProperty("SUPER_ADMIN_PASSWORD")){
+        paramsObject["password"]=theServerCfg["SUPER_ADMIN_PASSWORD"]; // Pull from the server.cfg file
+    }
+  }
+  (async function(){ // We run asynchronously so we can have convenient formatting for prompting for text later
+    var changesMade=false; // We will only write to the config if changes were made to values
+    if (!paramsObject.hasOwnProperty("ip")){
+      console.log("What is the IP of the StarMade server? (Use 127.0.0.1) if ran on this machine.");
+      paramsObject["ip"]=await asyncPrompt(" IP to use: ",{force:true});
+      changesMade=true;
+    }
+    if (!paramsObject.hasOwnProperty("port")){
+      paramsObject["port"]=await asyncPrompt(" What port should we use? ",{force:true});
+      changesMade=true;
+    }
+    if (!paramsObject.hasOwnProperty("password")){
+      console.log("What is the SUPER_ADMIN_PASSWORD of the StarMade server? (This can be found in the server.cfg file)");
+      paramsObject["password"]=await asyncPrompt(" Super Admin Password: ",{force:true});
+      changesMade=true;
+    }    
+    // ### Write the starNetConfig.json file -- Don't write the password unless necessary.  This is for security reasons.
+    if (changesMade && theServerCfg){
+      if (theServerCfg.hasOwnProperty("SUPER_ADMIN_PASSWORD")){
+        await writeJSONFile(starNetConfigPath,{ip:paramsObject.ip, port:paramsObject.port}); 
+      } else {
+        await writeJSONFile(starNetConfigPath,paramsObject);
+      }
+    } else if (changesMade){
+      await writeJSONFile(starNetConfigPath,paramsObject); 
+    }
+    // If this is being run from the command line, then we should now run the command.
+    if (__filename == require.main.filename){ 
+      // ### Run the command
+      if (paramsObject.hasOwnProperty("commandString")){
+        // ensure the StarNet.jar file exists and if not, download it first.
+        // If this script is within a mod subfolder, there should be a "wrapperInfo.json" file left by the wrapper pointing back to it.  This should allow us to determine the location of the starNet.jar file.
+        if (!existsAndIsFile(starNetJarPath)){
+          await download(starNetJarURL,starNetJarPath).catch((err) => {
+            console.log("StarNet.jar did not exist and could not download it!  Exiting!");
+            console.log(err);
+            process.exit();
+          });
+        }
+        
+        return starNetCb(paramsObject.commandString,{"ip":paramsObject.ip,"port":paramsObject.port,"superAdminPassword":paramsObject.password},function(err,result){
+          if (err){
+            throw err;
+          }
+          console.log(result);
+          process.exit();
+        });
+      } else if (changesMade){ // Show that the config file was created
+        console.log("Config file created: " + starNetConfigPath);
+        console.log("You can now run commands with this script and it will use those settings.");
+        console.log("Example:  node starNet.js /status");
+        console.log("For more help on this script, type:  node starNet.js -help");
+        process.exit();
+      } else { // No config file created and no command given.
+        console.log("ERROR: You must provide a command to send to the server!");
+        console.log("For help with this script, type:  node starNet.js -help");
+        process.exit();
+      }
+    }
+    return true; // added to make ESLint happy
+  }());
+}
+
+
+function showCommandLineHelp(){
+  console.log("This script is used to send a command to a StarMade server and then view the results.");
+  console.log("If placed in the StarMade directory, or one directory above, it can look up the server IP and SuperAdminPassword, but not the port.");
+  console.log("If unable to look up the information, it will ask for whatever is needed and generate a config file (starNetConfig.json).  It will then use this config for future commands if not given different parameters.");
+  console.log("Example Usage:  node starNet.js /status");
+  console.log(" ");
+  console.log(" Optional Parameters:");
+  console.log(" -port:[Number]  Example: -port:4242");
+  console.log(" -ip:[Number]  Example: -ip:127.0.0.1");
+  console.log(" -password:[alphaNumericPassword]  Example: -password:thisIsMySuperAdminPassword");
+  console.log(" ");
+  console.log(" Note: If the config has an old super admin password or other information, you can simply edit the starNetConfig.json file or delete it to recreate the file.");
+  console.log(" ");
 }
 
 function getSuperAdminPassword(){
   if (serverObj.hasOwnProperty("getSuperAdminPassword")){
     return serverObj.getSuperAdminPassword();
+  }
+  return null;
+}
+function getIpToUse(){ // We're using a latch variable setter and retreiver so that when this script is required in, BEFORE the server config has been created, it won't error out, but instead nothing happens.
+  if (serverObj.hasOwnProperty("serverCfgFile")){
+    var ipToUse="";
+    var theServerCfgFile=serverObj.serverCfgFile;
+    if (!isObjEmpty(theServerCfgFile)){
+      ipToUse=ini.getVal(theServerCfgFile,"SERVER_LISTEN_IP");
+      if ((/^all$/i).test(ipToUse.trim())){ // If "all" is used, then sending it to the localhost should work fine.
+        ipToUse="127.0.0.1";
+      }
+      return ipToUse;
+    }
+    return "127.0.0.1"; // I'm guessing if this field is left blank, starmade will revert to using "any".  But if not, then it should crash, so this doesn't matter then.
   }
   return null;
 }
@@ -101,6 +333,7 @@ function getPort(){
   return null;
 }
 function starNetCb(command,options,cb){ // If no CB given, returns a promise.
+  // {"ip":paramsObject.ip,"port":paramsObject.port,"superAdminPassword":paramsObject.password}
   if (typeof cb=="function"){
     var processArray=[];
     if (testIfInput(command)){
@@ -115,26 +348,26 @@ function starNetCb(command,options,cb){ // If no CB given, returns a promise.
 
         if (typeof theSuperAdminPassword == "string"){
           if (simulateProblem == "none"){
-            theParameters=["-jar",starNetJar,theIP + ":" + thePort,theSuperAdminPassword,command];
+            theParameters=["-jar",starNetJarPath,theIP + ":" + thePort,theSuperAdminPassword,command];
           } else if (simulateProblem=="wrongip"){ // Destination unreachable
             thisConsole.log("### Simulating wrong ip -- destination unreachable ###");
-            theParameters=["-jar",starNetJar,"128.0.0.1:" + thePort,theSuperAdminPassword,command];
+            theParameters=["-jar",starNetJarPath,"128.0.0.1:" + thePort,theSuperAdminPassword,command];
           } else if (simulateProblem=="wrongport"){ // Refused connection
             thisConsole.log("### Simulating wrong port -- refused connection ###");
-            theParameters=["-jar",starNetJar,theIP + ":" + 6767,theSuperAdminPassword,command];
+            theParameters=["-jar",starNetJarPath,theIP + ":" + 6767,theSuperAdminPassword,command];
           } else if (simulateProblem=="wrongsuperadminpassword"){
             thisConsole.log("### Simulating wrong super admin password ###");
-            theParameters=["-jar",starNetJar,theIP + ":" + thePort,"This is wrong",command];
+            theParameters=["-jar",starNetJarPath,theIP + ":" + thePort,"This is wrong",command];
           } else if (simulateProblem=="wrongparameters"){
             // invalid parameters
             thisConsole.log("### Simulating bad parameters ###");
-            theParameters=["-jar",starNetJar,"This is wrong",command];
+            theParameters=["-jar",starNetJarPath,"This is wrong",command];
           } else {
             var theError=new Error("Invalid problem given to simpulate!");
             thisConsole.error(theError);
             return cb(theError,null);
           }
-          thisConsole.debug(`About to run: 'java ${theParameters}' within the current working directory of: ${mainBinFolder}`);
+          // console.log(`About to run: 'java ${theParameters}' within the current working directory of: ${mainBinFolder}`);
           return child.execFile("java",theParameters,{"cwd":mainBinFolder},function(error,stdout,stderr){
             var stdOutArray=[];
             var stdErrArray=[];
@@ -191,7 +424,7 @@ function starNetSync(command,options){ // This should never be used.  Use the CB
   var debug=false;
   if (module.debug){
     debug=true;
-  } else if (objectHelper.isObjHasPropAndEquals(options,"debug",true)){ // checks if any value was passed as an object, if it has a property "debug", and if that property strictly equals true
+  } else if (isObjHasPropAndEquals(options,"debug",true)){ // checks if any value was passed as an object, if it has a property "debug", and if that property strictly equals true
     debug=true
   }
   // thisConsole.dir(options);
@@ -205,16 +438,16 @@ function starNetSync(command,options){ // This should never be used.  Use the CB
     if (typeof theSuperAdminPassword == "string"){
       var results;
       if (simulateProblem == "none"){
-        results=child.spawnSync("java",["-jar",starNetJar,theIP + ":" + thePort,theSuperAdminPassword,command],{"cwd":mainBinFolder});
+        results=child.spawnSync("java",["-jar",starNetJarPath,theIP + ":" + thePort,theSuperAdminPassword,command],{"cwd":mainBinFolder});
       } else if (simulateProblem=="wrongip"){ // Destination unreachable
-        results=child.spawnSync("java",["-jar",starNetJar,"128.0.0.1:" + thePort,theSuperAdminPassword,command],{"cwd":mainBinFolder});
+        results=child.spawnSync("java",["-jar",starNetJarPath,"128.0.0.1:" + thePort,theSuperAdminPassword,command],{"cwd":mainBinFolder});
       } else if (simulateProblem=="wrongport"){
-        results=child.spawnSync("java",["-jar",starNetJar,theIP + ":" + 6767,theSuperAdminPassword,command],{"cwd":mainBinFolder});
+        results=child.spawnSync("java",["-jar",starNetJarPath,theIP + ":" + 6767,theSuperAdminPassword,command],{"cwd":mainBinFolder});
       } else if (simulateProblem=="wrongsuperAdminPassword"){
-        results=child.spawnSync("java",["-jar",starNetJar,theIP + ":" + thePort,"This is wrong",command],{"cwd":mainBinFolder});
+        results=child.spawnSync("java",["-jar",starNetJarPath,theIP + ":" + thePort,"This is wrong",command],{"cwd":mainBinFolder});
       } else if (simulateProblem=="wrongparameters"){
       // invalid parameters
-        results=child.spawnSync("java",["-jar",starNetJar,"This is wrong",command],{"cwd":mainBinFolder});
+        results=child.spawnSync("java",["-jar",starNetJarPath,"This is wrong",command],{"cwd":mainBinFolder});
       } else {
         thisConsole.error("Invalid problem to simulate, so doing nothing!");
       }
@@ -225,21 +458,6 @@ function starNetSync(command,options){ // This should never be used.  Use the CB
     thisConsole.error("No super admin password established yet!  Can't do anything!");
   }
   return false;
-}
-function getIpToUse(){ // We're using a latch variable setter and retreiver so that when this script is required in, BEFORE the server config has been created, it won't error out, but instead nothing happens.
-  if (serverObj.hasOwnProperty("serverCfgFile")){
-    var ipToUse="";
-    var theServerCfgFile=serverObj.serverCfgFile;
-    if (!objectHelper.isObjEmpty(theServerCfgFile)){
-      ipToUse=ini.getVal(theServerCfgFile,"SERVER_LISTEN_IP");
-      if ((/^all$/i).test(ipToUse.trim())){ // If "all" is used, then sending it to the localhost should work fine.
-        ipToUse="127.0.0.1";
-      }
-      return ipToUse;
-    }
-    return "127.0.0.1"; // I'm guessing if this field is left blank, starmade will revert to using "any".  But if not, then it should crash, so this doesn't matter then.
-  }
-  return null;
 }
 // start starNetHelper.js
 var nameMap={ // This is for mapping LOADED values to DatabaseEntry values, since these values can be safely pulled instead of having to load the sector the entity is in.
@@ -278,10 +496,10 @@ function mapifyDatabaseEntry(databaseEntryStr){ // This will always return a map
         }
         return tempMap;
       } else {
-        throw new Error("ERROR: String data given to function, serializeDatabaseEntry, was NOT a DatabaseEntry string!");
+        throw new Error("ERROR: String data given to function, mapifyDatabaseEntry, was NOT a DatabaseEntry string!");
       }
     } else {
-      throw new Error("ERROR: Invalid data given to function, serializeDatabaseEntry!");
+      throw new Error("ERROR: Invalid data given to function, mapifyDatabaseEntry!");
     }
 }
 function cleanRegularValue(inputStr){
@@ -319,12 +537,12 @@ function getCoordsAndReturnNumArray(inputStr,numsExpected){ // If no
         }
       }
       patternString+="(?=[)]$)"; // The lookahead "?" operator here will only match to the number set if it is at the END of the string and ends with a ")" character.
-      var patternRegExp=new RegExp(patternString);
-      tempStr=inputStr.match(patternRegExp);
+      // var patternRegExp=new RegExp(patternString);
+      tempStr=inputStr.match(new RegExp(patternString));
       if (tempStr){ // tempStr will be null if no match was found.
         returnArray=tempStr.toString().split(", "); // match returns an object, so we set it to a string first, then split it for the desired array.
         for (let i=0;i<returnArray.length;i++){ // Convert all strings and any E values to decimal before we return the array
-          returnArray[i]=objectHelper.toNumIfPossible(returnArray[i]);
+          returnArray[i]=toNumIfPossible(returnArray[i]); // The Number method used by toNumIfPossible will convert e numbers, like 10e3 becomes 10000
         }
         return returnArray;
       } else {
@@ -371,7 +589,7 @@ function mapifyShipInfoUIDString(responseStr,options){ // options are optional. 
       for (let i=0;i<results.length;i++){
         thisConsole.debug("Working on result: " + results[i]);
         if (/^RETURN: \[SERVER, Loaded: [a-zA-Z]+/.test(results[i])){ // This is treated specially because it's the only value that should be a boolean
-          let loadedVal=objectHelper.toBoolean(cleanRegularValue(results[i]).replace(/^Loaded: /,"").toString());
+          let loadedVal=toBoolean(cleanRegularValue(results[i]).replace(/^Loaded: /,"").toString());
           returnMap.set("loaded",loadedVal);
           if (loadedVal == true){
             returnMap.set("exists",true);
@@ -391,7 +609,7 @@ function mapifyShipInfoUIDString(responseStr,options){ // options are optional. 
   
         } else if (/^RETURN: \[SERVER, DatabaseEntry \[/.test(results[i])){  // This is only for the DatabaseEntry line, which needs to be treated specially to produce a DatabaseEntry map
           if (returnType == "object"){
-            returnMap.set("DatabaseEntry", objectHelper.strMapToObj(mapifyDatabaseEntry(results[i]))); // Coerce into an object if return value is set to an object
+            returnMap.set("DatabaseEntry", strMapToObj(mapifyDatabaseEntry(results[i]))); // Coerce into an object if return value is set to an object
           } else {
             returnMap.set("DatabaseEntry", mapifyDatabaseEntry(results[i]));
           }
@@ -426,7 +644,7 @@ function mapifyShipInfoUIDString(responseStr,options){ // options are optional. 
         }
       }
       if (returnType == "object"){
-        return objectHelper.strMapToObj(returnMap); // Coerce into an object
+        return strMapToObj(returnMap); // Coerce into an object
       } else {
         return returnMap; // Returns undefined if no value was present.
       }
@@ -700,7 +918,7 @@ function getEntityValue(uidOrShipObj,valueString,options,cb){
           if (valueString == "faction"){
             returnVal=resultMap.get("DatabaseEntry").get("faction"); // This is a special exception since it can only be found here.
           } else if (valueString == "DatabaseEntry" && returnType == "object"){
-            returnVal=objectHelper.strMapToObj(returnVal); // A special exception needs to be made for DatabaseEntry, because we will either return it in it's native form as a map, or turn it into an object if directed to do so.
+            returnVal=strMapToObj(returnVal); // A special exception needs to be made for DatabaseEntry, because we will either return it in it's native form as a map, or turn it into an object if directed to do so.
           } else {
             returnVal=resultMap.get(valueString);
           }
@@ -797,7 +1015,7 @@ function getEntityValueSync(uidOrShipObj,valueString,options){ // Options are op
           returnVal=resultMap.get(valueString);
           // A special exception needs to be made for DatabaseEntry, because we will either return it in it's native form as a map, or turn it into an object if directed to do so.
           if (valueString == "DatabaseEntry" && returnType == "object"){
-            returnVal=objectHelper.strMapToObj(returnVal);
+            returnVal=strMapToObj(returnVal);
           }
         }
         // If no value existed, this will be returned as undefined.
@@ -966,7 +1184,7 @@ function starNetVerifiedCB(string,options,cb){ // Takes a string command.  Optio
           if (optionsToUse.retryOnConnectionProblem && connectionProblem && optionsToUse.starNetVerifiedCBTryCount < optionsToUse.maxRetriesOnConnectionProblem && optionsToUse.starNetVerifiedCBtimeToRetryTill > timeStamp){ // Only sleep and then continue to loop IF there was a connection problem.
             // Neither the max time nor max count has been reached yet
             thisConsole.error("Trying again in " + optionsToUse.retryOnConnectionProblemMs + " ms.  (Retry " + optionsToUse.starNetVerifiedCBTryCount + "/" + optionsToUse.maxRetriesOnConnectionProblem + ")  Giving up in " + starNetVerifiedRetrySecondsLeft + " seconds.");
-            await sleepPromise(optionsToUse.retryOnConnectionProblemMs); // TODO: Test this.  I made this sub-function async, base function async, and starNetCB async.  How will this affect CB functionality?  Will it still be able to access the variables from the function it's running under?
+            await sleep(optionsToUse.retryOnConnectionProblemMs); // TODO: Test this.  I made this sub-function async, base function async, and starNetCB async.  How will this affect CB functionality?  Will it still be able to access the variables from the function it's running under?
             optionsToUse.starNetVerifiedCBTryCount++;
   
             return starNetVerifiedCB(string,optionsToUse,cb); // Try again
@@ -996,63 +1214,6 @@ function starNetVerified(string,options,cb){ // Takes a string command.  Options
     }
 }
   
-function starNetVerifiedSync(string,options){ // This runs syncronously.  It should NEVER be used, since it WILL hold up the main thread.  I am only leaving it here for posterity, it will not be updated.
-        
-    // If retry is enabled, this will still throw an error if a different kind of problem occurs, such as a buffer overflow (which is a response that is too long for StarNet.jar to handle)
-    var retryOnConnectionProblem=getOption(options,"retryOnConnectionProblem",false); // by default we do not want the sync version to retry, since this holds up the main thread while it is retrying.
-    var retryOnConnectionProblemMs=getOption(options,"retryOnConnectionProblemMs",1000);
-    var maxRetriesOnConnectionProblem=getOption(options,"maxRetriesOnConnectionProblem",60); // This is the maximum amount of retries
-    var maxTimeToRetry=getOption(options,"maxTimeToRetry",60000); // This is to keep trying for a certain number of MS.
-
-
-    var retrySecondsLeft=0;
-    var keepGoing=true; // Don't change this.
-    var starNetResult;
-    if (typeof string == "string"){
-    var retryCount=0;
-    var timeToRetryTill=new Date().getTime() + maxTimeToRetry; // The time right now in ms
-    var timeStamp;
-    while (keepGoing){ // Loop forever till a return value is given or error thrown.
-        starNetResult=starNetSync(string,options);
-        if (verifyResponse(starNetResult)){
-        keepGoing=false; // This is just to make ESLint happy.. returning a value would break the while loop..
-        return starNetResult;
-        } else {
-        var theCode=99; // This is an unknown error
-        var getCode=getStarNetErrorType(starNetResult,{"returnNum":true});
-        if (getCode){
-            theCode=getCode;
-        }
-
-        var connectionProblem=false;
-        if (theCode==1 || theCode==2){
-            connectionProblem=true;
-        }
-        timeStamp=new Date().getTime();
-        // This method of retrying might work ok, but it holds up the entire wrapper..  I might need to rethink the structure of the wrapper to use callbacks for everything.
-        if (retryOnConnectionProblem && connectionProblem && retryCount < maxRetriesOnConnectionProblem && timeToRetryTill > timeStamp){ // Only sleep and then continue to loop IF there was a connection problem.
-            // When a connection error happens,
-            retrySecondsLeft=Math.ceil((timeToRetryTill-timeStamp)/1000);
-            retryCount++;
-            thisConsole.error("ERROR:  Connection problem to server when attempting command: " + string);
-            thisConsole.error("Trying again in " + retryOnConnectionProblemMs + " seconds.  (Retry " + retryCount + "/" + maxRetriesOnConnectionProblem + ")  Giving up in " + retrySecondsLeft + " seconds.");
-            sleep(retryOnConnectionProblemMs);
-        } else {
-            // Only throw an error IF retryOnConnectionProblem was falsey.
-            var theError=new Error("Could not verify StarNet command ran successfully: " + string);
-            theError["code"]=theCode; // Some kind of connection or overflow error.  TODO:  Separate out errors, since a buffer overflow SHOULD NOT be treated the same as a connection problem.
-            throw theError;
-        }
-        }
-    }
-    return false; // This will never happen.  This is just to make ESlint happy.
-    } else {
-    throw new Error("Invalid parameters given to starNetVerified function!");
-    // no code given because this is not a connection problem.
-    }
-    // Returns the result of the command if it verifies, meaning it ran AND there were no java errors.  
-    // This does not guarantee the command was successful, like when a person gives an invalid amount of parameters, so the output still needs to be further processed to determine success/fail/warning
-}
 function getStarNetErrorType(input,options){ // parses through a starNet.jar string return to detect StarNet.jar errors.
     // Usage:  getStarNetErrorType(input,{"returnNum":true})
   
@@ -1279,3 +1440,310 @@ function runSimpleCommand(theCommand, options, cb) { // cb/promises compliant
 
 // Invalid parameters
 // usage: <host:port> <password> <commandParam> <commandParam> ...
+
+//  ### IMPORTED FUNCTIONS FROM HELPERS -- THESE NEED TO BE HERE SO THIS SCRIPT CAN BE SELF-SUFFICIENT.
+function sleep(ms) { // Returns a promise.  Ideal usage is within async functions.  Example: await Sleep(300)
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+function getOption(options,optionToLookFor,whatToUseIfNoOption){ // This is used to parse options given to a command.
+  if (typeof options == "object"){
+    if (options.hasOwnProperty(optionToLookFor)){ // This is redundant
+      if (testIfInput(options[optionToLookFor])){ // This ensures the value is not empty
+        return options[optionToLookFor]; // Perhaps this should validate that the entry can be converted to a string and is not an object or array, but meh.
+      }
+    }
+  }
+  return whatToUseIfNoOption;
+}
+function testIfInput(input){
+  // This is to test if an input is given.  A "false" boolean value will cause true to be returned, because it was an input.  Empty objects will return false.
+  if (typeof input === 'undefined' || input===null || input==="" || (typeof input=="number" && isNaN(input)) ) { // "" needs to be === otherwise it will trigger under a boolean false
+    return false;
+  } else if (typeof input == "boolean" || input == "0" || input === 0){ // boolean cannot be empty and numbers are input
+    return true;
+  } else if (typeof input == "object"){ // objects, arrays, and maps are more complicated.  False will be returned if the object is empty.
+    if (input instanceof Array){
+      if (input.length){ // Array cannot have a 0 length
+        return true;
+      }
+      return false;
+    } else if (input instanceof Map){ // This check must be done before checking for an instanceof Object, since maps seem to hold true for that too.
+      if (input.size){ // Map object cannot be empty
+        return true;
+      }
+      return false;
+    } else if (input instanceof RegExp){ // This will handle RegExp objects.
+      var inputToString=input.toString();
+      if (inputToString == "/(?:)/" || inputToString == "" || typeof inputToString == 'undefined'){
+        return false;
+      }
+      return true;
+    } else if (input instanceof Object){ // This will handle custom objects the same.
+      for(var key in input) {
+        if (input.hasOwnProperty(key)){ // If there are any properties, then it is not empty.
+          return true;
+        }
+      }
+      return false;
+    }
+  }
+  // This covers strings and other numbers with a general truthy check.  It's also a catchall for any other circumstance I might not have thought of to check above.
+  if (input){ // This check is just a catch-all, it should always be true at this point.
+    return true;
+  }
+  return false; // This is to cover any other non-true value that I somehow didn't catch.
+};
+function simplePromisifyIt(cbFunctionToCall,options){ // This is used to turn callback functions into promises. "options" is mandatory.
+  if (typeof cbFunctionToCall == "function"){
+    var args=Array.from(arguments);
+    args.splice(0,2); // Splicing while making the array doesn't work
+    args.push(options); // This way options is always the 2nd from last input given to the cb function
+    return new Promise(function(resolve,reject){
+      return cbFunctionToCall(...args,function(err,result){
+        if (err){
+          reject(err);
+        } else {
+          resolve(result);
+        }
+      });
+    });
+  }
+  throw new Error("Invalid input given to simplePromisifyIt as functionToCall!");
+}
+function toStringIfPossible(input,options){ // This also converts numbers from scientific notation to floating point
+  if (typeof input !== "undefined" && input !== ""){ // This check is necessary since Number will create a 0 number using them
+    try {
+      var output=input.toString(options); // Sometimes the .toString() prototype will take options, such as for LocationObj
+    } catch (err){
+      return input;
+    }
+    if (typeof output == "string"){
+      return output;
+    }
+  }
+  return input;
+}
+function getObjType(theObj){ // This will return the name of the constructor function that created the object
+  if (typeof theObj == "object"){ // This holds true for arrays
+    return theObj.constructor.name; // Source:  https://stackoverflow.com/questions/332422/how-do-i-get-the-name-of-an-objects-type-in-javascript
+  } else { // If it is NOT an object, then we should just return whatever type it is.
+    return typeof theObj;
+  }
+}
+function toNumIfPossible(input){ // This also converts numbers from scientific notation to floating point
+  if (typeof input != "undefined" && input != ""){ // This check is necessary since Number will create a 0 number using them
+    var output=input;
+    if (typeof input == "string"){
+      output=input.replace(",",""); // To remove the comma in numbers over 1,000, like "2,000"
+    }
+    output=Number(output); // Not using parseInt because it would cut of letters, like 123abc would become 123, which is not desired.
+    if (isNaN(output)){
+      return input;
+    } else {
+      return output;
+    }
+  }
+  return input;
+}
+function toBoolean(input){ // The main purpose of this function is to convert strings of "false" to literal false, rather than them being returned as truthy.
+  var inputVal=toNumIfPossible(input); // Convert to a number if possible, so "0" will return false;
+  if (inputVal){ // First try a truthy
+    return (/^false$/i).test(inputVal) ? false : Boolean(inputVal); // Interpret a "false" string as false, otherwise convert to Boolean.  This will convert ANY input to true.
+  } else { // any falsey gets turned to false
+    return false;
+  }
+}
+function isObjHasPropAndEquals(obj,property,valueCheck){
+  if (typeof obj == "object"){
+    return objHasPropAndEquals(obj,property,valueCheck);
+  }
+  return false;
+}
+function objHasPropAndEquals(obj,property,valueCheck){
+  if (obj.hasOwnProperty(property)){
+    if (obj[property] === valueCheck){
+      return true;
+    }
+  }
+  return false;
+}
+function isObjEmpty(obj) {
+  for(var key in obj) {
+      if (obj.hasOwnProperty(key)){
+        return false;
+      }
+  }
+  return true;
+}
+function strMapToObj(strMap) { // Must only be used on map objects with keys that can be used as object elements
+  let obj = Object.create(null);
+  for (let [k,v] of strMap) {
+      // We don’t escape the key '__proto__'
+      // which can cause problems on older engines
+      obj[k] = v;
+  }
+  return obj;
+}
+function existsAndIsFile(pathToFile){ // This returns false if the path is to a directory
+  if (isSeen(pathToFile)){
+    if (isFile(pathToFile)){
+      return true;
+    }
+  }
+  return false;
+}
+function existsAndIsDirectory(pathToDirectory){ // This returns false if the path is to a directory
+  if (isSeen(pathToDirectory)){
+    if (isDirectory(pathToDirectory)){
+      return true;
+    }
+  }
+  return false;
+}
+function isSeen(thePath){ // This checks to see if a file/folder/symlink/whatever can simply be seen.
+  try {
+    fs.accessSync(thePath,fs.constants.F_OK);
+    return true;
+  } catch (error){
+    return false;
+  }
+}
+function isFile(source) { 
+  return fs.lstatSync(source).isFile(); 
+};
+function isDirectory(source) { 
+  return fs.lstatSync(source).isDirectory(); 
+};
+function getIniFileSync(inputFilePath){ // Reads a basic ini file and loads it as an array of [key,value] pairs.
+  if (existsAndIsFile(inputFilePath)){
+    var fileContents=fs.readFileSync(inputFilePath,'utf8');
+    fileContents=fileContents.toString().replace(/[\r]+/g,"").trim();
+    var fileContentsArray=fileContents.split("\n");
+    return fileContentsArray.reduce((theArr,val) => {
+      if (typeof val != "undefined" && val != ""){ // if blank, skip
+        let valTrimmed=val.replace(/\/\/.*$/g,"").trim();
+        if (valTrimmed != ""){ // If not whitespace
+          var theVar=valTrimmed.match(/^.+?(?==)/); // Shortest match, must have equals symbol
+          if (theVar){ // Will be null if no match found
+            var theVal=valTrimmed.match(/(?<==).+$/); // longest match, even if it contains a = character
+            if (theVal){ // Will be null if no value given.  We will not include undefined values
+              let theVarTrimmed=theVar.toString().trim();
+              let theValTrimmed=theVal.toString().trim();
+              if (theVarTrimmed != "" && theValTrimmed != ""){ // We don't want whitespace variables or values..
+                theArr.push([theVarTrimmed,theValTrimmed]);
+              }
+            }
+          }
+        }
+      }
+      return theArr;
+    },[]);
+  }
+  throw new Error("File does not exist: " + inputFilePath);
+}
+function convertArrayPairToObj(arr){ // expects an array of arrays, like [["name","steve"],["age",23]]
+  return arr.reduce((theObj,arrVal) => {
+    if (Array.isArray(arrVal)){
+      if (arrVal.length == 2){
+        theObj[arrVal[0]]=arrVal[1].trim(); // Overwrites any existing key pairs
+      }
+    }
+    return theObj;
+  },{});
+}
+function asyncPrompt(text,options,cb){
+  if (typeof cb == "function"){
+    var force=false;
+    if (typeof options == "object"){
+      if (options.hasOwnProperty("force")){
+        if (options.force == true){
+          force=true;
+        }
+      }
+    }
+    var rl=require("readline").createInterface({input: process.stdin, output: process.stdout});
+    return rl.question(text,function(input){
+      rl.close();
+      if (force == true && input == ""){
+        return asyncPrompt(text,options,cb);
+      } else {
+        return cb(null,input);
+      }
+    });
+  }
+  return simplePromisifyIt(asyncPrompt,options,text);
+}
+function writeJSONFile(pathToJSONFile,data,options,cb){ // options are passed to fs.writeFile
+  if (typeof cb=="function"){
+    var theData;
+    if (typeof data == "string"){ // If a string is input, we want to parse it back to an object so we can stringify it in a uniform manner
+      theData=JSON.parse(data); // Convert to an object first, we then turn it back to a string to write it, but with formatting options.
+    } else {
+      theData=data;
+    }
+    return fs.writeFile(pathToJSONFile,JSON.stringify(theData, null, 4),options,function (err,result){
+      if (err){
+        return cb(err,result);
+      }
+      return cb(null,true);
+    });
+  }
+  return simplePromisifyIt(writeJSONFile,options,pathToJSONFile,data);
+}
+function download(httpURL, fileToPlace, options, cb) { // This function handles the pre-downloading of files, such as StarNet.jar.  When all downloads are finished, the StarMade server is started by emitting the event signal, "ready".
+  // Code adapted from: https://stackoverflow.com/questions/11944932/how-to-download-a-file-with-node-js-without-using-third-party-libraries
+  if (typeof cb == "function"){
+    let tempFileToPlace = path.resolve(__dirname, fileToPlace + ".tmp");
+    quietDelete(tempFileToPlace);
+    let resolvedFileToPlace = path.resolve(__dirname, fileToPlace);
+    let baseFileToPlace = path.basename(resolvedFileToPlace);
+  
+    // Check to see if the file already exists or not.  If it does exist, then we can end this operation.
+    // fs.accessSync(resolvedFileToPlace),fs.constants.F_OK); // Supposed to check if the file can be seen but it was not working for me for some reason.
+    if (fs.existsSync(resolvedFileToPlace)) { // We can see that a file, directory, or symlink exists at the target path
+      if (fs.statSync(resolvedFileToPlace).isFile()) {
+        // File already existed.  This will only download the file if it does not exist.
+        return cb(null,Boolean(false)); // Indicate false so we know the download did not happen, but there was no error.
+      } else if (fs.statSync(resolvedFileToPlace).isDirectory()) {
+        return cb(new Error(`Cannot download file: ${resolvedFileToPlace}\nDirectory already exists with the name!  Please remove this directory and run this script again!`),null);
+      } else {
+        return cb(new Error(`ERROR: Cannot download file: ${resolvedFileToPlace}\nPath already exists with the name!  Please rectify this and then run this script again!`),null);
+      }
+    } else { // If the file does not exist, let's download it.
+      var file = fs.createWriteStream(tempFileToPlace); // Open up a write stream to the temporary file.  We are using a temporary file to ensure the file will only exist at the target IF the download is a success and the file write finishes.
+      try {
+        var request = require('http').get(httpURL, function (response) {
+          if (response.statusCode == 200) {
+            response.pipe(file);
+          } else {
+            console.error(`Error downloading file, '${baseFileToPlace}'!  HTTP Code: ${response.statusCode}`);
+            return cb(new Error(`Response from HTTP server: ${response.statusMessage}`),null);
+          };
+          return true;
+        });
+        request.on('error', (e) => cb(new Error(`problem with request: ${e.message}`),null));
+      } catch (err) { // If there was any trouble connecting to the server, then hopefully this will catch those errors and exit the wrapper.
+        return cb(err,null);
+      }
+      file.on('finish', function () {
+        file.close();
+        return fs.rename(tempFileToPlace, resolvedFileToPlace, (err) => {
+          if (err) {
+            return cb(err,null);
+          }
+          return cb(null,Boolean(true)); // SUCCESS
+        });
+      });
+    }
+    return true;
+  }
+  return simplePromisifyIt(download,options,httpURL,fileToPlace);
+}
+// ### Required Support Functions
+function quietDelete (fileToDelete){ // Requires full path to the file.  Throws error if it has problems deleting it, true if it deleted it, and false if nothing to delete
+  if (fs.existsSync(fileToDelete)){
+    fs.unlinkSync(fileToDelete);
+    return true;
+  }
+  return false;
+}
