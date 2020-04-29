@@ -310,7 +310,7 @@ function ServerObj(options) {
     // No lockPIDs set up for this server, so set it to an empty array.
     self.settings.lockPIDs = [];
   }
-  this.lockPIDS = self.settings.lockPIDs;
+  this.lockPIDS = installObj.settings.lockPIDs;
   global.writeSettings(); // Write the global settings.json to the hard drive in case the lockPIDs were updated
   this.addLockPID = function (PID) { // Only adds the PID if it wasn't already in the array.  Always returns true whether it added the PID or not
     var thePID = toNumIfPossible(PID);
@@ -746,7 +746,7 @@ function ServerObj(options) {
                   }
                   if (result){ // Should be true if the command succeeded.  The spawn.on("exit") will change the spawnStatus to stopped
                     return cb(null,result);
-                  } else {
+                  } else { // This should never happen
                     thisConsole.error("Shutdown command failed due to connection error!");
                     self.spawnStatus = "started";
                     return cb(new Error("Shutdown command failed due to connection error!"),null);
@@ -764,7 +764,7 @@ function ServerObj(options) {
           thisConsole.log("Shutting down immediately!");
           return runSimpleCommand("/shutdown 1", options, cb);
         }
-      } else if (self.spawnStatusWanted=="stopping"){
+      } else if (self.spawnStatusWanted=="stopping" || self.spawnStatusWanted=="forceStopping"){
         thisConsole.log("Server Stop attempted, but server is already stopping!  Please allow stop attempt to complete!");
         return cb(null,false);
       } else if (self.spawnStatusWanted=="stopped"){
@@ -778,6 +778,31 @@ function ServerObj(options) {
       return cb(null,null);
     } else {
       return simplePromisifyIt(self.stop, options, duration, message);
+    }
+  }
+  this.restart = function(duration,message,options,cb){
+    if (typeof cb == "function"){
+      return self.stop(duration,message,options,function(err,result){
+        if (err){
+          return cb(new Error("ERROR when attempting to stop server on restart!"),false);
+        }
+        if (result == true){
+          return self.start(options,function(err,result){
+            if (err){
+              return cb(new Error("ERROR starting server on restart!"),false);
+            }
+            if (result == true){
+              return cb(null,true);
+            } else {
+              return cb(null,false); //
+            }
+          });
+        } else {
+          return cb(new Error("Server failed to stop on restart!"),false);
+        }
+      });
+    } else {
+      return simplePromisifyIt(self.restart,options,duration,message);
     }
   }
   this.forceStop = function(options,cb){ 
@@ -795,16 +820,18 @@ function ServerObj(options) {
         self.spawnStatus = "forceStopping";
         self.spawnStatusWanted="stopped";
         var pidsArray=[];
-        for (let i=self.lockPIDs.length-1;i>=0;i--){
-          thisConsole.log(`KILLING PID #${i}: ${self.lockPIDs[i]}`);
-          treeKill(self.lockPIDs[i], 'SIGTERM'); // We don't really need to do a tree kill, since this should only kill the main process.
-          pidsArray.push(waitAndThenKill(300000, self.lockPIDs[i], {"console":thisConsole}).catch((err) => thisConsole.error(err)));
+        var lockPidsArrayCopy=copyArray(self.lockPIDs); // We use a copy because the main PID is removed if it dies
+        for (let i=lockPidsArrayCopy.length-1;i>=0;i--){
+          thisConsole.log(`KILLING PID #${i}: ${lockPidsArrayCopy[i]}`);
+          treeKill(lockPidsArrayCopy[i], 'SIGTERM'); // Tree kill is overkill right now since the server doesn't spawn more than 1 PID, but hey maybe in the future it will.
+          // Ensure the PID is killed, waiting up to 5 minutes before force killing it.
+          pidsArray.push(waitAndThenKill(300000, lockPidsArrayCopy[i], {"console":thisConsole}).catch((err) => thisConsole.error(err)));
         }
         return Promise.all(pidsArray).then(function(resultsArray){ // once all PIDs should be dead.. make sure of the results
           var allDead=true;
           for (let i=0;i<resultsArray.length;i++){
             if (resultsArray[i] == true){
-              self.removeLockPID(self.lockPIDs[i]);
+              self.removeLockPID(lockPidsArrayCopy[i]);
             } else {
               allDead=false;
             }
@@ -1213,7 +1240,7 @@ function ServerObj(options) {
       thisConsole.log("Running force save..");
       return runSimpleCommand("/force_save", options, cb);
     } else {
-      return simplePromisifyIt(self.forceSave, options, trueOrFalse);
+      return simplePromisifyIt(self.forceSave, options);
     }
   }
   this.activateWhitelist = function (trueOrFalse, options, cb) { //  activates the whitelist, so only players listed in the whitelist.txt file can join the server.
@@ -1600,7 +1627,13 @@ function ServerObj(options) {
       return simplePromisifyIt(self.status, options);
     }
   }
-
+  this.sqlQuery = function (theQueryString,options,cb){
+    if (typeof cb == "function"){
+      return simpleSqlQuery(theQueryString,options,cb);
+    } else {
+      return self.sqlQuery(options,theQueryString);
+    }
+  }
   // shutdown(seconds,"message") // message is optional.  If given, a countdown timer will be used and then a 1 second shutdown when it is set to expire.
   // ip
   //
