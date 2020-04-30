@@ -72,9 +72,6 @@ if (global.hasOwnProperty("getInstallObj")){ // This is to allow this script to 
     });
   });
 } else { // This is required in by another script OR is being ran from the command line.
-  // defaultPassword
-  // defaultIP
-  // defaultPort;
   // ### Load the server.cfg file if it exists
   var theServerCfg;
   var paramsObject;
@@ -142,52 +139,6 @@ if (global.hasOwnProperty("getInstallObj")){ // This is to allow this script to 
     mainBinFolder=__dirname;
     starNetJarPath=path.join(mainBinFolder,starNetJarFileName);
   }
-  if (__filename == require.main.filename){  // If running from the command line, process any arguments given.
-    // eslint-disable-next-line consistent-return
-    var theArgsArray=process.argv;
-    if ((/node\.exe$|node$/).test(theArgsArray[0])){ // needed to determine whether the script was ran directly or with the node command line
-      theArgsArray.shift();
-    }
-    theArgsArray.shift(); // gets rid of the "starNet.js" value
-    if (theArgsArray.length == 0 && starNetConfig){ // If IP, port, or superAdminPassword have no sources, set up the starNetConfig.json file.
-      // If config has already been set up, then display this, otherwise let things continue so it can fill in any gaps that might exist.
-      console.log("ERROR: starNet.js requires at least 1 parameter!  To display help for this script, type: node starNet.js -help");
-      console.log("Note: If you would like to reset the ip, port, or password starNet.js is using, you can either..");
-      console.log("  A. Edit the 'starNetConfig.json' file to update these values");
-      console.log("  B. Delete the 'starNetConfig.json' file and then run starNet.js again with no parameters.");
-      process.exit();
-    } else if ((/^-?help$/i).test(theArgsArray[0])){
-      showCommandLineHelp();
-      process.exit();
-    }
-    // Find if any of the values for IP, port, or superadminpassword were given
-    paramsObject=theArgsArray.reduce((theObj,valStr) => {
-      var theVal;
-      if (valStr.match(/^-ip[:=]/)){
-        theVal=valStr.match(/(?<=-ip[:=]).*$/i);
-        if (theVal){ // Discard empty parameters
-          console.log("@#$!@#$!@#$ Set ip to: " + theVal.toString());
-          theObj["ip"]=theVal.toString();
-        }
-      } else if (valStr.match(/^-port[:=]/)){
-        theVal=valStr.match(/(?<=-port[:=]).*$/i);
-        if (theVal){ // Discord empty
-          theObj["port"]=theVal.toString();
-        }
-      } else if (valStr.match(/^-password[:=]/)){
-        theVal=valStr.match(/(?<=-password[:=]).*$/i);
-        if (theVal){
-          theObj["password"]=theVal.toString();
-        }
-      } else if (theObj.hasOwnProperty("commandString")){ // Add anything that isn't a parameter to the commandString
-          theObj["commandString"]+=" " + valStr;
-      } else {
-        theObj["commandString"]=valStr;
-      }
-      theVal="";
-      return theObj;
-    },{});
-  }
   // Now, whether this is a require or ran from the command line, fill in any missing blanks
   // ### Establish the IP    
   if (!paramsObject.hasOwnProperty("ip") && starNetConfig){ // Prefer starNetConfig.json settings
@@ -224,8 +175,71 @@ if (global.hasOwnProperty("getInstallObj")){ // This is to allow this script to 
         paramsObject["password"]=theServerCfg["SUPER_ADMIN_PASSWORD"]; // Pull from the server.cfg file
     }
   }
+
+  
+  
+  // If there are any command line arguments given, process them.
+  if (__filename == require.main.filename){
+    // eslint-disable-next-line consistent-return
+    var theArgsArray=process.argv;
+    if ((/node\.exe$|node$/).test(theArgsArray[0])){ // needed to determine whether the script was ran directly or with the node command line
+      theArgsArray.shift();
+    }
+    theArgsArray.shift(); // gets rid of the "starNet.js" value
+    if (theArgsArray.length == 0 && starNetConfig){ // If IP, port, or superAdminPassword have no sources, set up the starNetConfig.json file.
+      // If config has already been set up, then display this, otherwise let things continue so it can fill in any gaps that might exist.
+      console.log("ERROR: starNet.js requires at least 1 parameter!  To display help for this script, type: node starNet.js -help");
+      console.log("Note: If you would like to reset the ip, port, or password starNet.js is using, you can either..");
+      console.log("  A. Edit the 'starNetConfig.json' file to update these values");
+      console.log("  B. Delete the 'starNetConfig.json' file and then run starNet.js again with no parameters.");
+      process.exit();
+    } else if ((/^-?help$/i).test(theArgsArray[0])){
+      showCommandLineHelp();
+      process.exit();
+    }
+    // Find if any of the values for IP, port, or superadminpassword were given
+    paramsObject=theArgsArray.reduce((theObj,valStr) => {
+      var theVal;
+      if (valStr.match(/^-ip[:=]/)){
+        theVal=valStr.match(/(?<=-ip[:=]).*$/i);
+        if (theVal){ // Discard empty parameters
+          theObj["ip"]=theVal.toString();
+        }
+      } else if (valStr.match(/^-port[:=]/)){
+        theVal=valStr.match(/(?<=-port[:=]).*$/i);
+        if (theVal){ // Discord empty
+          theObj["port"]=theVal.toString();
+        }
+      } else if (valStr.match(/^-password[:=]/)){
+        theVal=valStr.match(/(?<=-password[:=]).*$/i);
+        if (theVal){
+          theObj["password"]=theVal.toString();
+        }
+      } else if (theObj.hasOwnProperty("commandString")){ // Add anything that isn't a parameter to the commandString
+          theObj["commandString"]+=" " + valStr;
+      } else {
+        theObj["commandString"]=valStr;
+      }
+      theVal="";
+      return theObj;
+    },{});
+  }
+
+  
   (async function(){ // We run asynchronously so we can have convenient formatting for prompting for text later
     var changesMade=false; // We will only write to the config if changes were made to values
+    // If there are any default values given in this script, override any from any other source
+    if (typeof defaultPassword != "undefined"){
+      paramsObject["password"]=defaultPassword;
+    }
+    if (typeof defaultIP != "undefined"){
+      paramsObject["ip"]=defaultIP;
+    }
+    if (typeof defaultPort != "undefined"){
+      paramsObject["port"]=defaultPort;
+    }
+
+    // Ensure all values are set, whether ran by command line OR through a require.
     if (!paramsObject.hasOwnProperty("ip")){
       console.log("What is the IP of the StarMade server? (Use 127.0.0.1) if ran on this machine.");
       paramsObject["ip"]=await asyncPrompt(" IP to use: ",{force:true});
@@ -245,12 +259,25 @@ if (global.hasOwnProperty("getInstallObj")){ // This is to allow this script to 
       if (theServerCfg.hasOwnProperty("SUPER_ADMIN_PASSWORD")){
         await writeJSONFile(starNetConfigPath,{ip:paramsObject.ip, port:paramsObject.port}); 
       } else {
-        await writeJSONFile(starNetConfigPath,paramsObject);
+        await writeJSONFile(starNetConfigPath,{ip:paramsObject.ip, port:paramsObject.port, password:paramsObject.password});
       }
     } else if (changesMade){
-      await writeJSONFile(starNetConfigPath,paramsObject); 
+      await writeJSONFile(starNetConfigPath,{ip:paramsObject.ip, port:paramsObject.port, password:paramsObject.password}); 
     }
-    // If this is being run from the command line, then we should now run the command.
+
+  // For scripts that use this as a require and no default values are set, let's set the default ip/port/password
+    if (paramsObject.hasOwnProperty("password") && typeof defaultPassword == "undefined"){
+      defaultPassword=paramsObject["password"];
+    }  
+    if (paramsObject.hasOwnProperty("ip") && typeof defaultIP == "undefined"){
+      defaultIP=paramsObject["ip"];
+    }  
+    if (paramsObject.hasOwnProperty("port") && typeof defaultPort == "undefined"){
+      defaultPort=paramsObject["port"];
+    } 
+
+
+    // If this is being run from the command line, then we should now run the command, otherwise wait.
     if (__filename == require.main.filename){ 
       // ### Run the command
       if (paramsObject.hasOwnProperty("commandString")){
@@ -307,7 +334,7 @@ function getSuperAdminPassword(){
   if (serverObj.hasOwnProperty("getSuperAdminPassword")){
     return serverObj.getSuperAdminPassword();
   }
-  return null;
+  return defaultPassword;
 }
 function getIpToUse(){ // We're using a latch variable setter and retreiver so that when this script is required in, BEFORE the server config has been created, it won't error out, but instead nothing happens.
   if (serverObj.hasOwnProperty("serverCfgFile")){
@@ -322,7 +349,7 @@ function getIpToUse(){ // We're using a latch variable setter and retreiver so t
     }
     return "127.0.0.1"; // I'm guessing if this field is left blank, starmade will revert to using "any".  But if not, then it should crash, so this doesn't matter then.
   }
-  return null;
+  return defaultIP;
 }
 function getPort(){
   if (serverObj.hasOwnProperty("settings")){
@@ -330,7 +357,7 @@ function getPort(){
       return serverObj.settings["port"];
     }
   }
-  return null;
+  return defaultPort;
 }
 function starNetCb(command,options,cb){ // If no CB given, returns a promise.
   // {"ip":paramsObject.ip,"port":paramsObject.port,"superAdminPassword":paramsObject.password}
