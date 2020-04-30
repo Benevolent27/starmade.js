@@ -1,20 +1,17 @@
-// TODO: read from the wrapperInfo.json file to get the path to the main folder,
-// then get import the server.cfg file to get the superadminpassword and use the 
-// StarNet.jar in the /bin folder
+// This script can be ran independently from the wrapper.  
+// It can also be used as a require for other scripts, but won't have as much functionality as a mod using it would have. (no sendDirectToServer function nor {fast:true} options for sending commands)
 
-// Combined starNet with starNetHelpers - 01-09-20 - needs testing
-// Note:  The StarNet will not function if called before a serverObj exists for this server.
 module.exports={
-  starNetSync,
-  "starNet":starNetCb,
+  starNetVerified, // (commandString,options,cb) - This is normally what you want to use.  Supports CB OR Promise notation.
+  starNetVerifiedCB,
+  "starNet":starNetCb, // Works the same as starNetVerified, except it will not retry on connection fail.
   starNetCb,
+  starNetSync, // Don't use this.  The normal version has callback/promise capabilities.
   mapifyShipInfoUIDString,
   getCoordsAndReturnNumArray,
   getEntityValueSync,
   getEntityValue,
   ShipInfoUidObj,
-  starNetVerified,
-  starNetVerifiedCB,
   verifyResponse,
   detectError,
   detectRan,
@@ -27,7 +24,7 @@ module.exports={
   getFactionNumberFromName,
   getFactionObjFromName,
   returnMatchingLinesAsArray,
-  sendDirectToServer,
+  sendDirectToServer, // Only usable for a starmade.js mod, not if this script is used as a require
   runSimpleCommand
 }
 var defaultPassword; // This can be changed to the superAdminPassword from the server.cfg to make it faster and do less disk reads
@@ -359,12 +356,12 @@ function getPort(){
   }
   return defaultPort;
 }
-function starNetCb(command,options,cb){ // If no CB given, returns a promise.
+function starNetCb(commandString,options,cb){ // If no CB given, returns a promise.
   // {"ip":paramsObject.ip,"port":paramsObject.port,"superAdminPassword":paramsObject.password}
   if (typeof cb=="function"){
     var processArray=[];
-    if (testIfInput(command)){
-      var theCommandToUse=toStringIfPossible(command);
+    if (testIfInput(commandString)){
+      var theCommandToUse=toStringIfPossible(commandString);
       if (typeof theCommandToUse=="string"){
         var simulateProblem=getOption(options,"simulateProblem","none").toLowerCase(); // For testing purposes only to ascertain errors
         var theParameters="";
@@ -375,20 +372,20 @@ function starNetCb(command,options,cb){ // If no CB given, returns a promise.
 
         if (typeof theSuperAdminPassword == "string"){
           if (simulateProblem == "none"){
-            theParameters=["-jar",starNetJarPath,theIP + ":" + thePort,theSuperAdminPassword,command];
+            theParameters=["-jar",starNetJarPath,theIP + ":" + thePort,theSuperAdminPassword,commandString];
           } else if (simulateProblem=="wrongip"){ // Destination unreachable
             thisConsole.log("### Simulating wrong ip -- destination unreachable ###");
-            theParameters=["-jar",starNetJarPath,"128.0.0.1:" + thePort,theSuperAdminPassword,command];
+            theParameters=["-jar",starNetJarPath,"128.0.0.1:" + thePort,theSuperAdminPassword,commandString];
           } else if (simulateProblem=="wrongport"){ // Refused connection
             thisConsole.log("### Simulating wrong port -- refused connection ###");
-            theParameters=["-jar",starNetJarPath,theIP + ":" + 6767,theSuperAdminPassword,command];
+            theParameters=["-jar",starNetJarPath,theIP + ":" + 6767,theSuperAdminPassword,commandString];
           } else if (simulateProblem=="wrongsuperadminpassword"){
             thisConsole.log("### Simulating wrong super admin password ###");
-            theParameters=["-jar",starNetJarPath,theIP + ":" + thePort,"This is wrong",command];
+            theParameters=["-jar",starNetJarPath,theIP + ":" + thePort,"This is wrong",commandString];
           } else if (simulateProblem=="wrongparameters"){
             // invalid parameters
             thisConsole.log("### Simulating bad parameters ###");
-            theParameters=["-jar",starNetJarPath,"This is wrong",command];
+            theParameters=["-jar",starNetJarPath,"This is wrong",commandString];
           } else {
             var theError=new Error("Invalid problem given to simpulate!");
             thisConsole.error(theError);
@@ -443,10 +440,10 @@ function starNetCb(command,options,cb){ // If no CB given, returns a promise.
     }
     return cb(new Error("No command given to starNet function!  Please provide a command!"));
   } else {
-    return simplePromisifyIt(starNetCb,options,command);
+    return simplePromisifyIt(starNetCb,options,commandString);
   }
 }
-function starNetSync(command,options){ // This should never be used.  Use the CB/Promise version instead.
+function starNetSync(commandString,options){ // This should never be used.  Use the CB/Promise version instead.
   // Options are passed as an array.  Eg. {debug:true}
   var debug=false;
   if (module.debug){
@@ -458,23 +455,23 @@ function starNetSync(command,options){ // This should never be used.  Use the CB
   // thisConsole.dir(command);
   var simulateProblem=getOption(options,"simulateProblem","none").toLowerCase(); // For testing purposes only to ascertain errors
   // thisConsole.log("simulateProblem: " + simulateProblem);
-  if (testIfInput(command)){
+  if (testIfInput(commandString)){
     var theSuperAdminPassword=getOption(options,"superAdminPassword",getSuperAdminPassword());
     var theIP=getOption(options,"ip",getIpToUse());
     var thePort=getOption(options,"port",getPort());
     if (typeof theSuperAdminPassword == "string"){
       var results;
       if (simulateProblem == "none"){
-        results=child.spawnSync("java",["-jar",starNetJarPath,theIP + ":" + thePort,theSuperAdminPassword,command],{"cwd":mainBinFolder});
+        results=child.spawnSync("java",["-jar",starNetJarPath,theIP + ":" + thePort,theSuperAdminPassword,commandString],{"cwd":mainBinFolder});
       } else if (simulateProblem=="wrongip"){ // Destination unreachable
-        results=child.spawnSync("java",["-jar",starNetJarPath,"128.0.0.1:" + thePort,theSuperAdminPassword,command],{"cwd":mainBinFolder});
+        results=child.spawnSync("java",["-jar",starNetJarPath,"128.0.0.1:" + thePort,theSuperAdminPassword,commandString],{"cwd":mainBinFolder});
       } else if (simulateProblem=="wrongport"){
-        results=child.spawnSync("java",["-jar",starNetJarPath,theIP + ":" + 6767,theSuperAdminPassword,command],{"cwd":mainBinFolder});
+        results=child.spawnSync("java",["-jar",starNetJarPath,theIP + ":" + 6767,theSuperAdminPassword,commandString],{"cwd":mainBinFolder});
       } else if (simulateProblem=="wrongsuperAdminPassword"){
-        results=child.spawnSync("java",["-jar",starNetJarPath,theIP + ":" + thePort,"This is wrong",command],{"cwd":mainBinFolder});
+        results=child.spawnSync("java",["-jar",starNetJarPath,theIP + ":" + thePort,"This is wrong",commandString],{"cwd":mainBinFolder});
       } else if (simulateProblem=="wrongparameters"){
       // invalid parameters
-        results=child.spawnSync("java",["-jar",starNetJarPath,"This is wrong",command],{"cwd":mainBinFolder});
+        results=child.spawnSync("java",["-jar",starNetJarPath,"This is wrong",commandString],{"cwd":mainBinFolder});
       } else {
         thisConsole.error("Invalid problem to simulate, so doing nothing!");
       }
@@ -485,6 +482,73 @@ function starNetSync(command,options){ // This should never be used.  Use the CB
     thisConsole.error("No super admin password established yet!  Can't do anything!");
   }
   return false;
+}
+function starNetVerifiedCB(commandString,options,cb){ // Takes a string command.  Options are optional
+  var optionsToUse={ }; // I'm creating the options object here, because it's changed and reused for retries
+  if (typeof options == "object"){
+    optionsToUse=options;
+  }
+  optionsToUse.retryOnConnectionProblem=getOption(options,"retryOnConnectionProblem",true); 
+  optionsToUse.retryOnConnectionProblemMs=getOption(options,"retryOnConnectionProblemMs",1000);
+  optionsToUse.maxRetriesOnConnectionProblem=getOption(options,"maxRetriesOnConnectionProblem",60); // This is the maximum amount of retries
+  optionsToUse.maxTimeToRetry=getOption(options,"maxTimeToRetry",60000); // This is to keep trying for a certain number of MS.
+  optionsToUse.simulateProblem=getOption(options,"simulateProblem","none");
+  // If these options don't exist on the options, add them for the next try (if needed).
+  optionsToUse.starNetVerifiedCBTryCount=getOption(options,"starNetVerifiedCBTryCount",1);
+  optionsToUse.starNetVerifiedCBtimeToRetryTill=getOption(options,"starNetVerifiedCBtimeToRetryTill",new Date().getTime() + optionsToUse.maxTimeToRetry);
+  // thisConsole.log("Using options:"); // temp
+  // thisConsole.dir(optionsToUse);
+  if (typeof commandString == "string"){
+    return starNetCb(commandString,optionsToUse,async function (err,result){ // Not sure if I should be using async here, but what the hey
+      if (err){
+        // There will not be an error returned unless StarNet.jar terminates abornally or could not be run.
+        // We are throwing an error because the wrapper cannot do anything without StarNet.jar operating correctly.
+        thisConsole.error("StarNet.jar either could not be run or terminated abnormally!  This should never happen!  You may need to redownload StarNet.jar or add permission to run it.");
+        throw err;
+      } else if (verifyResponse(result)){ // Verify that no error happened.
+          return cb(err,result); // No connection failure happened!  "err" will be Null.  This does NOT mean the command succeeded.  The result still needs to be processed, success/fail messages vary widely across commands.
+      } else { // Some error happened
+        var theErrorNum=99; // 99 error code is "unknown"
+        theErrorNum=getStarNetErrorType(result,{"returnNum":true});
+        var connectionProblem=false;
+        if (theErrorNum==1 || theErrorNum==2){ // These two codes indicate either unreachable host or conenction refused.
+          connectionProblem=true;
+        }
+        var timeStamp=new Date().getTime();
+        var starNetVerifiedRetrySecondsLeft=Math.ceil((optionsToUse.starNetVerifiedCBtimeToRetryTill-timeStamp)/1000);
+        thisConsole.error("ERROR:  Connection problem to server when attempting command: " + commandString);
+
+        if (optionsToUse.retryOnConnectionProblem && connectionProblem && optionsToUse.starNetVerifiedCBTryCount < optionsToUse.maxRetriesOnConnectionProblem && optionsToUse.starNetVerifiedCBtimeToRetryTill > timeStamp){ // Only sleep and then continue to loop IF there was a connection problem.
+          // Neither the max time nor max count has been reached yet
+          thisConsole.error("Trying again in " + optionsToUse.retryOnConnectionProblemMs + " ms.  (Retry " + optionsToUse.starNetVerifiedCBTryCount + "/" + optionsToUse.maxRetriesOnConnectionProblem + ")  Giving up in " + starNetVerifiedRetrySecondsLeft + " seconds.");
+          await sleep(optionsToUse.retryOnConnectionProblemMs); // TODO: Test this.  I made this sub-function async, base function async, and starNetCB async.  How will this affect CB functionality?  Will it still be able to access the variables from the function it's running under?
+          optionsToUse.starNetVerifiedCBTryCount++;
+
+          return starNetVerifiedCB(commandString,optionsToUse,cb); // Try again
+        } else { // function is either not set to retry, or it's used up all the time/retry counts.
+          var theErrorText="Error when sending starNet.jar command: " + commandString;
+          var theError=new Error(theErrorText);
+          theError.code=theErrorNum;
+          return cb(theError,result);
+        }
+      }
+    });
+  } else {
+    throw new Error("Invalid parameters given to starNetVerified function!");
+    // no code given because this is not a connection problem.
+  }
+  // Returns the result of the command if it verifies, meaning it ran AND there were no java errors.  This does not guarantee the command was successful, like when a person gives an invalid amount of parameters.  The output still needs to be further processed to determine success/fail/warning
+};
+function starNetVerified(commandString,options,cb){ // Takes a string command.  Options are optional.  If no cb is given, will run as Sync.
+  // Options right now include displaying the result on screen by giving "{debug:true}" as an option
+  // This should probably not be used on longer sort of responses because it has to parse through every line
+
+  // Be careful using this, since it will crash the scripting if the error isn't handled.
+  if (typeof cb == "function"){
+    return starNetVerifiedCB(commandString,options,cb);
+  } else {
+    return simplePromisifyIt(starNetVerified,options,commandString);
+  }
 }
 // start starNetHelper.js
 var nameMap={ // This is for mapping LOADED values to DatabaseEntry values, since these values can be safely pulled instead of having to load the sector the entity is in.
@@ -1173,73 +1237,7 @@ function verifyResponse(input){ // input should be a full starNet.js response st
     }
     return false;
 }
-function starNetVerifiedCB(string,options,cb){ // Takes a string command.  Options are optional
-    var optionsToUse={ }; // I'm creating the options object here, because it's changed and reused for retries
-    if (typeof options == "object"){
-      optionsToUse=options;
-    }
-    optionsToUse.retryOnConnectionProblem=getOption(options,"retryOnConnectionProblem",true); 
-    optionsToUse.retryOnConnectionProblemMs=getOption(options,"retryOnConnectionProblemMs",1000);
-    optionsToUse.maxRetriesOnConnectionProblem=getOption(options,"maxRetriesOnConnectionProblem",60); // This is the maximum amount of retries
-    optionsToUse.maxTimeToRetry=getOption(options,"maxTimeToRetry",60000); // This is to keep trying for a certain number of MS.
-    optionsToUse.simulateProblem=getOption(options,"simulateProblem","none");
-    // If these options don't exist on the options, add them for the next try (if needed).
-    optionsToUse.starNetVerifiedCBTryCount=getOption(options,"starNetVerifiedCBTryCount",1);
-    optionsToUse.starNetVerifiedCBtimeToRetryTill=getOption(options,"starNetVerifiedCBtimeToRetryTill",new Date().getTime() + optionsToUse.maxTimeToRetry);
-    // thisConsole.log("Using options:"); // temp
-    // thisConsole.dir(optionsToUse);
-    if (typeof string == "string"){
-      return starNetCb(string,optionsToUse,async function (err,result){ // Not sure if I should be using async here, but what the hey
-        if (err){
-          // There will not be an error returned unless StarNet.jar terminates abornally or could not be run.
-          // We are throwing an error because the wrapper cannot do anything without StarNet.jar operating correctly.
-          thisConsole.error("StarNet.jar either could not be run or terminated abnormally!  This should never happen!  You may need to redownload StarNet.jar or add permission to run it.");
-          throw err;
-        } else if (verifyResponse(result)){ // Verify that no error happened.
-            return cb(err,result); // No connection failure happened!  "err" will be Null.  This does NOT mean the command succeeded.  The result still needs to be processed, success/fail messages vary widely across commands.
-        } else { // Some error happened
-          var theErrorNum=99; // 99 error code is "unknown"
-          theErrorNum=getStarNetErrorType(result,{"returnNum":true});
-          var connectionProblem=false;
-          if (theErrorNum==1 || theErrorNum==2){ // These two codes indicate either unreachable host or conenction refused.
-            connectionProblem=true;
-          }
-          var timeStamp=new Date().getTime();
-          var starNetVerifiedRetrySecondsLeft=Math.ceil((optionsToUse.starNetVerifiedCBtimeToRetryTill-timeStamp)/1000);
-          thisConsole.error("ERROR:  Connection problem to server when attempting command: " + string);
-  
-          if (optionsToUse.retryOnConnectionProblem && connectionProblem && optionsToUse.starNetVerifiedCBTryCount < optionsToUse.maxRetriesOnConnectionProblem && optionsToUse.starNetVerifiedCBtimeToRetryTill > timeStamp){ // Only sleep and then continue to loop IF there was a connection problem.
-            // Neither the max time nor max count has been reached yet
-            thisConsole.error("Trying again in " + optionsToUse.retryOnConnectionProblemMs + " ms.  (Retry " + optionsToUse.starNetVerifiedCBTryCount + "/" + optionsToUse.maxRetriesOnConnectionProblem + ")  Giving up in " + starNetVerifiedRetrySecondsLeft + " seconds.");
-            await sleep(optionsToUse.retryOnConnectionProblemMs); // TODO: Test this.  I made this sub-function async, base function async, and starNetCB async.  How will this affect CB functionality?  Will it still be able to access the variables from the function it's running under?
-            optionsToUse.starNetVerifiedCBTryCount++;
-  
-            return starNetVerifiedCB(string,optionsToUse,cb); // Try again
-          } else { // function is either not set to retry, or it's used up all the time/retry counts.
-            var theErrorText="Error when sending starNet.jar command: " + string;
-            var theError=new Error(theErrorText);
-            theError.code=theErrorNum;
-            return cb(theError,result);
-          }
-        }
-      });
-    } else {
-      throw new Error("Invalid parameters given to starNetVerified function!");
-      // no code given because this is not a connection problem.
-    }
-    // Returns the result of the command if it verifies, meaning it ran AND there were no java errors.  This does not guarantee the command was successful, like when a person gives an invalid amount of parameters.  The output still needs to be further processed to determine success/fail/warning
-};
-function starNetVerified(string,options,cb){ // Takes a string command.  Options are optional.  If no cb is given, will run as Sync.
-    // Options right now include displaying the result on screen by giving "{debug:true}" as an option
-    // This should probably not be used on longer sort of responses because it has to parse through every line
-  
-    // Be careful using this, since it will crash the scripting if the error isn't handled.
-    if (typeof cb == "function"){
-      return starNetVerifiedCB(string,options,cb);
-    } else {
-      return simplePromisifyIt(starNetVerified,options,string);
-    }
-}
+
   
 function getStarNetErrorType(input,options){ // parses through a starNet.jar string return to detect StarNet.jar errors.
     // Usage:  getStarNetErrorType(input,{"returnNum":true})
