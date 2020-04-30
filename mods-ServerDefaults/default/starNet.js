@@ -1287,29 +1287,34 @@ function getStarNetErrorType(input,options){ // parses through a starNet.jar str
 
 function sendDirectToServer(input, cb) { // if cb not given, functions as Sync. Expects a string input, returning "false" if the input wasn't valid.  This sends a command directly to the console with a return character.
   // Note:  This is probably the one exception I'm making to allow running in sync mode, since it's just sending input to the stdin
-  var theResult = null;
-  var theErr = null;
-  if (testIfInput(input)) {
-    try {
-      theResult = serverObj.spawn.stdin.write(input + "\n");
-    } catch (err) {
-      theErr = err;
+  if (Object.keys(serverObj).length > 0){
+    var theResult = null;
+    var theErr = null;
+    if (testIfInput(input)) {
+      try {
+        theResult = serverObj.spawn.stdin.write(input + "\n");
+      } catch (err) {
+        theErr = err;
+      }
+      if (typeof cb == "function") {
+        return cb(theErr, theResult);
+      } else {
+        if (theErr) {
+          throw theErr;
+        }
+        return theResult;
+      }
     }
+    theErr = new Error("Invalid input given to sendDirectToServer function!");
     if (typeof cb == "function") {
       return cb(theErr, theResult);
     } else {
-      if (theErr) {
-        throw theErr;
-      }
-      return theResult; // This should not happen any longer
+      throw theErr;
     }
-  }
-  theErr = new Error("Invalid input given to sendDirectToServer function!");
-  if (typeof cb == "function") {
-    return cb(theErr, theResult);
   } else {
-    throw theErr;
+    throw new Error("This function cannot be used as a require since it would require direct access to the server spawn object.");
   }
+
 };
 function runSimpleCommand(theCommand, options, cb) { // cb/promises compliant
   // This is used for PlayerObj methods that can be sent to either the console or using StarNet
