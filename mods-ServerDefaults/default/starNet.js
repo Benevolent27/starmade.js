@@ -28,7 +28,12 @@ module.exports={
   runSimpleCommand,
   // A few useful utilities for use with scripts that require this script in.
   simplePromisifyIt,
-  asyncPrompt
+  asyncPrompt,
+  existsAndIsFile,
+  sleep,
+  // Needed for sqlQuery.js
+  toStringIfPossible,
+  strMapToObj
 }
 var defaultPassword; // This can be changed to the superAdminPassword from the server.cfg to make it faster and do less disk reads
 var defaultIP; // This can be set to "127.0.0.1" if the intention is to have this connect to the local machine server

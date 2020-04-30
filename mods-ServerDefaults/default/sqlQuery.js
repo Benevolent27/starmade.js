@@ -12,17 +12,7 @@ module.exports={ // top exporting to allow circular dependencies to work.
 // TODO:  Add callback forms for all StarNet.jar queries
 const path=require('path');
 const starNet=require(path.join(__dirname,"starNet.js"));
-const {starNetSync,starNetCb,starNetVerified,verifyResponse}=starNet;
-
-const mainFolder=path.dirname(require.main.filename); // This should be where the starmade.js is, unless this script is ran by itself.
-const mainBinFolder=path.join(mainFolder,"bin");
-const objectHelper=require(path.join(mainBinFolder,"objectHelper.js"));
-
-// TODO: Set up the check where if there are no columns returned, the query must have been invalid
-// Set up aliases
-const {addNumToErrorObj,simplePromisifyIt,toStringIfPossible}=objectHelper;
-// var {getOption,testIfInput,}=objectHelper;
-
+const {starNetSync,starNetCb,starNetVerified,verifyResponse,simplePromisifyIt,toStringIfPossible,strMapToObj}=starNet;
 
 if (__filename == require.main.filename){ // Only run the arguments IF this script is being run by itself and NOT as a require.
   // This script must be provided with the ip, port, and superadmin password.
@@ -202,7 +192,7 @@ function SqlQueryObj(sqlQuery){ // TODO:  Discontinue this object since it relie
           this.objArray2=function(){
             var returnArray=[];
             for (let i=0;i<this.mapArray.length;i++){
-              returnArray.push(objectHelper.strMapToObj(this.mapArray[i]));
+              returnArray.push(strMapToObj(this.mapArray[i]));
             }
             return returnArray;
           };
@@ -259,7 +249,7 @@ function mapFromColumnsAndDataSet(columnArray,dataArray){ // this assists the SQ
 function convertMapArrayToObjectArray(theMap){
   var returnArray=[];
   for (let i=0;i<theMap.length;i++){
-    returnArray.push(objectHelper.strMapToObj(theMap[i]));
+    returnArray.push(strMapToObj(theMap[i]));
   }
 return returnArray;
 };
@@ -283,3 +273,11 @@ function objectFromColumnsAndDataSet(columnArray,dataArray){ // this assists the
   return tempObject;
 };
 
+// ### Functions added to make this self-sufficient (aside from needing starNet.js)
+function addNumToErrorObj(errorObj,number){
+  // This adds an errno value to an existing error object
+  // Example: addNumToErrorObj(new Error("This would normally have 0 as errno"),2)
+  var returnObj=errorObj;
+  returnObj["errno"]=number;
+  return returnObj;
+}
