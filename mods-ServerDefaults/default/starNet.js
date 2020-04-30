@@ -25,7 +25,10 @@ module.exports={
   getFactionObjFromName,
   returnMatchingLinesAsArray,
   sendDirectToServer, // Only usable for a starmade.js mod, not if this script is used as a require
-  runSimpleCommand
+  runSimpleCommand,
+  // A few useful utilities for use with scripts that require this script in.
+  simplePromisifyIt,
+  asyncPrompt
 }
 var defaultPassword; // This can be changed to the superAdminPassword from the server.cfg to make it faster and do less disk reads
 var defaultIP; // This can be set to "127.0.0.1" if the intention is to have this connect to the local machine server
@@ -70,8 +73,8 @@ if (global.hasOwnProperty("getInstallObj")){ // This is to allow this script to 
   });
 } else { // This is required in by another script OR is being ran from the command line.
   // ### Load the server.cfg file if it exists
-  var theServerCfg;
-  var paramsObject;
+  var theServerCfg={};
+  var paramsObject={};
   var serverCfgFileName="server.cfg";
   var serverCfgPath=path.join(__dirname,serverCfgFileName);
   if (!existsAndIsFile(serverCfgPath)){
@@ -272,22 +275,18 @@ if (global.hasOwnProperty("getInstallObj")){ // This is to allow this script to 
     if (paramsObject.hasOwnProperty("port") && typeof defaultPort == "undefined"){
       defaultPort=paramsObject["port"];
     } 
-
-
+    // ensure the StarNet.jar file exists and if not, download it first.
+    if (!existsAndIsFile(starNetJarPath)){
+      await download(starNetJarURL,starNetJarPath).catch((err) => {
+        console.log("StarNet.jar did not exist and could not download it!  Exiting!");
+        console.log(err);
+        process.exit();
+      });
+    }
     // If this is being run from the command line, then we should now run the command, otherwise wait.
     if (__filename == require.main.filename){ 
       // ### Run the command
       if (paramsObject.hasOwnProperty("commandString")){
-        // ensure the StarNet.jar file exists and if not, download it first.
-        // If this script is within a mod subfolder, there should be a "wrapperInfo.json" file left by the wrapper pointing back to it.  This should allow us to determine the location of the starNet.jar file.
-        if (!existsAndIsFile(starNetJarPath)){
-          await download(starNetJarURL,starNetJarPath).catch((err) => {
-            console.log("StarNet.jar did not exist and could not download it!  Exiting!");
-            console.log(err);
-            process.exit();
-          });
-        }
-        
         return starNetCb(paramsObject.commandString,{"ip":paramsObject.ip,"port":paramsObject.port,"superAdminPassword":paramsObject.password},function(err,result){
           if (err){
             throw err;
