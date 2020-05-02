@@ -48,6 +48,7 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   removeOneFromArray, // Usage: removeOneFromArray(inputArray,valToRemove) -- Returns a new array of all values, minus the first instance of valToRemove
   applyFunctionToArray,
   simplePromisifyIt,
+  simplerPromisifyIt,
   getParamNames,
   listObjectMethods,
   createDateObjIfPossible,
@@ -200,35 +201,34 @@ function simplePromisifyIt(cbFunctionToCall,options){
   }
   throw new Error("Invalid input given to simplePromisifyIt as functionToCall!");
 }
-//  Unnecessarily complicated code.  Replace when above is confirmed working.
-//   if (typeof cbFunctionToCall == "function"){
-//     var args=Array.from(arguments);
-//     var theFunctionToCall=cbFunctionToCall;
-//     args.splice(0,2); // Splicing while making the array doesn't seem to work properly
-//     if (args.length<0){ // arguments were not used
-//       return new Promise(function(resolve,reject){
-//         return theFunctionToCall(options,function(err,result){
-//           if (err){
-//             reject(err);
-//           } else {
-//             resolve(result);
-//           }
-//         });
-//       });
-//     } else { // Arguments were used, so we should expand them
-//       return new Promise(function(resolve,reject){
-//         theFunctionToCall(...args,options,function(err,result){
-//           if (err){
-//             reject(err);
-//           } else {
-//             resolve(result);
-//           }
-//         });
-//       });
-//     }
-//   }
-//   throw new Error("Invalid input given to simplePromisifyIt as functionToCall!");
-// }
+function simplerPromisifyIt(cbFunctionToCall){
+  // This is used to turn callback functions into promises.  Does not have a mandatory "options" requirement.
+  // Example Usage:
+  // function myFunc(name,age,cb){  // If no callback function given, will return a promise.
+  //   if (typeof cb == "function"){
+  //     // Do stuff
+  //     return cb(null,result);
+  //   } else {
+  //     return simplerPromisifyIt(myFunc,name,age);
+  //   }
+  // }
+  if (typeof cbFunctionToCall == "function"){
+    var args=Array.from(arguments);
+    args.splice(0,1); // Splicing while making the array doesn't work
+    return new Promise(function(resolve,reject){
+      return cbFunctionToCall(...args,function(err,result){
+        if (err){
+          reject(err);
+        } else {
+          resolve(result);
+        }
+      });
+    });
+  }
+  throw new Error("Invalid input given to simplePromisifyIt as functionToCall!");
+}
+
+
 
 function applyFunctionToArray(arrayInput,functionToRun){
   // cycles through an array, running a function on each value, replacing the original value.
