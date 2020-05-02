@@ -203,31 +203,29 @@ if (global.hasOwnProperty("getInstallObj")){ // This is to allow this script to 
       process.exit();
     }
     // Find if any of the values for IP, port, or superadminpassword were given
-    paramsObject=theArgsArray.reduce((theObj,valStr) => {
-      var theVal;
-      if (valStr.match(/^-ip[:=]/)){
-        theVal=valStr.match(/(?<=-ip[:=]).*$/i);
+    for (let i=0,theVal;i<theArgsArray.length;i++){
+      if (theArgsArray[i].match(/^-ip[:=]/)){
+        theVal=theArgsArray[i].match(/(?<=-ip[:=]).*$/i);
         if (theVal){ // Discard empty parameters
-          theObj["ip"]=theVal.toString();
+          paramsObject["ip"]=theVal.toString();
         }
-      } else if (valStr.match(/^-port[:=]/)){
-        theVal=valStr.match(/(?<=-port[:=]).*$/i);
+      } else if (theArgsArray[i].match(/^-port[:=]/)){
+        theVal=theArgsArray[i].match(/(?<=-port[:=]).*$/i);
         if (theVal){ // Discord empty
-          theObj["port"]=theVal.toString();
+          paramsObject["port"]=theVal.toString();
         }
-      } else if (valStr.match(/^-password[:=]/)){
-        theVal=valStr.match(/(?<=-password[:=]).*$/i);
+      } else if (theArgsArray[i].match(/^-password[:=]/)){
+        theVal=theArgsArray[i].match(/(?<=-password[:=]).*$/i);
         if (theVal){
-          theObj["password"]=theVal.toString();
+          paramsObject["password"]=theVal.toString();
         }
-      } else if (theObj.hasOwnProperty("commandString")){ // Add anything that isn't a parameter to the commandString
-          theObj["commandString"]+=" " + valStr;
+      } else if (paramsObject.hasOwnProperty("commandString")){ // Add anything that isn't a parameter to the commandString
+        paramsObject["commandString"]+=" " + quoteIfNeeded(theArgsArray[i]);
       } else {
-        theObj["commandString"]=valStr;
+        paramsObject["commandString"]=quoteIfNeeded(theArgsArray[i]);
       }
       theVal="";
-      return theObj;
-    },{});
+    }
   }
 
   
@@ -329,6 +327,21 @@ function showCommandLineHelp(){
   console.log(" ");
   console.log(" Note: If the config has an old super admin password or other information, you can simply edit the starNetConfig.json file or delete it to recreate the file.");
   console.log(" ");
+}
+
+function quoteIfNeeded(input){
+  var test=input.split(/\s/);
+  if (test.length > 1){
+    let quoteTest1=(/'/).test(input);
+    let quoteTest2=(/"/).test(input);
+    if (!quoteTest1 && !quoteTest2 || quoteTest1){ // Text had no quotes or single quotes
+      return `"${input}"`;
+    } else if (!quoteTest1 && quoteTest2){ // Text had double quotes
+      return `'${input}'`;
+    }
+    // Text had both quotes already
+  }
+  return input;
 }
 
 function getSuperAdminPassword(){
@@ -520,7 +533,9 @@ function starNetVerifiedCB(commandString,options,cb){ // Takes a string command.
         }
         var timeStamp=new Date().getTime();
         var starNetVerifiedRetrySecondsLeft=Math.ceil((optionsToUse.starNetVerifiedCBtimeToRetryTill-timeStamp)/1000);
-        thisConsole.error("ERROR:  Connection problem to server when attempting command: " + commandString);
+        thisConsole.error(`ERROR:  Error (${theErrorNum}) when attempting command: ${commandString}`);
+        thisConsole.log("Result returned:");
+        thisConsole.dir(result);
 
         if (optionsToUse.retryOnConnectionProblem && connectionProblem && optionsToUse.starNetVerifiedCBTryCount < optionsToUse.maxRetriesOnConnectionProblem && optionsToUse.starNetVerifiedCBtimeToRetryTill > timeStamp){ // Only sleep and then continue to loop IF there was a connection problem.
           // Neither the max time nor max count has been reached yet
@@ -530,7 +545,7 @@ function starNetVerifiedCB(commandString,options,cb){ // Takes a string command.
 
           return starNetVerifiedCB(commandString,optionsToUse,cb); // Try again
         } else { // function is either not set to retry, or it's used up all the time/retry counts.
-          var theErrorText="Error when sending starNet.jar command: " + commandString;
+          var theErrorText="Problem when sending starNet.jar command: " + commandString;
           var theError=new Error(theErrorText);
           theError.code=theErrorNum;
           return cb(theError,result);
@@ -598,14 +613,11 @@ function mapifyDatabaseEntry(databaseEntryStr){ // This will always return a map
     }
 }
 function cleanRegularValue(inputStr){
-    // thisConsole.debug("Cleaning input: " + inputStr);
     if (typeof inputStr == "string"){
       var remBeginSpam=new RegExp("^RETURN: [[]SERVER, "); // Remove the begin spam
       var remEndSpam=new RegExp(", [0-9]{1,1}\\]$"); // Remove the end spam
       let tempVal=inputStr.replace(remBeginSpam,"").toString();
-      // thisConsole.debug("Removed begin spam: " + tempVal);
       tempVal=tempVal.replace(remEndSpam,"").toString();
-      // thisConsole.debug("Removed end spam: " + tempVal);
       return tempVal;
     } else {
       throw new Error("ERROR: Invalid input given to cleanRegularValue function!  Expected a string!");
@@ -669,11 +681,8 @@ function mapifyShipInfoUIDString(responseStr,options){ // options are optional. 
     //   }
     // }
   
-    thisConsole.debug("Starting mapify!");
     if (typeof responseStr == "string"){
-      thisConsole.debug("Using responseStr: " + responseStr);
       var results=responseStr.split("\n");
-      thisConsole.debug("Results found!");
       var loadedValueReg=new RegExp("^RETURN: \\[SERVER, [a-zA-Z()-]+: .+");
       var entityNotExistReg=new RegExp("RETURN: \\[SERVER, UID also");
       var entityNotExistInDBReg=new RegExp("RETURN: \\[SERVER, UID Not");
@@ -682,7 +691,6 @@ function mapifyShipInfoUIDString(responseStr,options){ // options are optional. 
       var returnMap=new Map();
       // Cycle through all the lines, populating the object with each value.
       for (let i=0;i<results.length;i++){
-        thisConsole.debug("Working on result: " + results[i]);
         if (/^RETURN: \[SERVER, Loaded: [a-zA-Z]+/.test(results[i])){ // This is treated specially because it's the only value that should be a boolean
           let loadedVal=toBoolean(cleanRegularValue(results[i]).replace(/^Loaded: /,"").toString());
           returnMap.set("loaded",loadedVal);
@@ -991,7 +999,7 @@ function getEntityValue(uidOrShipObj,valueString,options,cb){
       var shipNotExistMsg="Ship does not appear to exist!  Cannot get value of '" + valueString + "'!"
       var malformedRequestMsg="ERROR: Could not get value, '" + valueString + "' because the request was malformed!";
       var returnVal;
-      var uidToUse=toStringIfPossible(uidOrShipObj);
+      var uidToUse=quoteIfNeeded(toStringIfPossible(uidOrShipObj));
       if (typeof uidToUse != "string"){
         return cb(new Error("Invalid input given to getEntityValue as uidOrShipObj!"),null);
       }
@@ -999,7 +1007,7 @@ function getEntityValue(uidOrShipObj,valueString,options,cb){
         return cb(new Error("Invalid input given to getEntityValue as valueString!"),null);
       }
   
-      return starNetVerified("/ship_info_uid \"" + uidToUse + "\"",options,function(err,result){
+      return starNetVerified(`/ship_info_uid ${uidToUse}`,options,function(err,result){
         if (err){
           return cb(err,result);
         }
@@ -1052,7 +1060,6 @@ function getEntityValue(uidOrShipObj,valueString,options,cb){
               }
             }
             if (tryAgain==true){
-              thisConsole.debug("Value only available when sector is loaded.  Loading sector, " + theSectorString + ", and trying again.." + new Date());
               return starNetVerified("/load_sector_range " + theSectorString + " " + theSectorString,options,function(err,result2){
                 if (err){
                   return cb(err,result2);
@@ -1147,7 +1154,6 @@ function getEntityValueSync(uidOrShipObj,valueString,options){ // Options are op
             }
           }
           if (tryAgain==true){
-            // thisConsole.debug("Value only available when sector is loaded.  Loading sector, " + theSectorString + ", and trying again.." + new Date());
             starNetSync("/load_sector_range " + theSectorString + " " + theSectorString,options);
             returnVal=getEntityValueSync(uidToUse,valueString); // Try again till successful.  This will cause an infinite loop while the sector is unloaded, but will not run again if the command fails.
             // If the entity loads and no value is present, 'undefined' will be returned.  This is intended.
@@ -1330,23 +1336,13 @@ function runSimpleCommand(theCommand, options, cb) { // cb/promises compliant
       if (fast == true) { // this can run in Sync if a CB is not specified, since it's only sending input to a stdin of the server
         return sendDirectToServer(theCommandToUse, cb);
       }
-      thisConsole.debug("Running StarNet command: " + theCommandToUse);
-      if (testIfInput(options)) {
-        thisConsole.debug("Using options:");
-        thisConsole.debug(options);
-      }
       return starNetVerified(theCommandToUse, options, function (err, msgResult) {
         if (err) {
           // thisConsole.log("Returning an error: " + err);
           return cb(err, msgResult);
         } else if (checkForLine(msgResult, msgTestFail) || checkForLine(msgResult, msgTestFail2)) { // The player was offline, did not exist, or other parameters were incorrect.
-          thisConsole.debug("Command connection succeeded, but command failed. Returning a false value.");
-          thisConsole.debug("msgResult: " + msgResult);
           return cb(null, Boolean(false)); // err will be null
         } else { // The command appears to have not failed, so let's assume it succeeded.
-          // thisConsole.log("Returning an true on success.");
-          thisConsole.debug("Command connection succeeded and command succeeded. Returning a true value.");
-          thisConsole.debug("msgResult: " + msgResult);
           return cb(null, Boolean(true)); // Err will be null
         }
       });
