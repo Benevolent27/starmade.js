@@ -334,7 +334,7 @@ function quoteIfNeeded(input){
   if (test.length > 1){
     let quoteTest1=(/'/).test(input);
     let quoteTest2=(/"/).test(input);
-    if (!quoteTest1 && !quoteTest2 || quoteTest1){ // Text had no quotes or single quotes
+    if ((!quoteTest1 && !quoteTest2) || quoteTest1){ // Text had no quotes or single quotes
       return `"${input}"`;
     } else if (!quoteTest1 && quoteTest2){ // Text had double quotes
       return `'${input}'`;
