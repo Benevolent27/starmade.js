@@ -17,32 +17,19 @@ const {starNetSync,starNetCb,starNetVerified,verifyResponse,simplePromisifyIt,to
 if (__filename == require.main.filename){ // Only run the arguments IF this script is being run by itself and NOT as a require.
   // This script must be provided with the ip, port, and superadmin password.
   // TODO: Make it so this script can look up the super admin password for the current server.
-  try {
-    var theArgsArray=process.argv;
-    if (theArgsArray[0]=='node'){
-      theArgsArray.shift();
-    }
+  var theArgsArray=process.argv;
+  if ((/node\.exe$|node$/).test(theArgsArray[0])){ // needed to determine whether the script was ran directly or with the node command line
     theArgsArray.shift();
-    var theIP=toStringIfPossible(theArgsArray[0].match(/^[^:]*/));
-    var thePort=toStringIfPossible(theArgsArray[0].match(/[^:]*$/));
-    var superAdminPassword=theArgsArray[1];
-    theArgsArray.shift();
-    theArgsArray.shift();
-    var theCommand=theArgsArray.join(" ");
-    simpleSqlQuery(theCommand,{"ip":theIP,"port":thePort,"superAdminPassword":superAdminPassword},function(err,result){
-      if (err){
-        throw err;
-      }
-      console.log(result); // Consider using console.table instead of console.log
-    });
-  } catch (err){
-    console.log("ERROR:  Invalid input given!");
-    console.log(`Usage: ${__filename} ip:port "sqlquery goes here"`);
   }
+  theArgsArray.shift(); // gets rid of the "sqlQuery.js" value
+  var theCommand=theArgsArray.join(" ");
+  simpleSqlQuery(theCommand,"",function(err,result){
+    if (err){
+      throw err;
+    }
+    console.log(result); // Consider using console.table instead of console.log
+  });
 }
-var installObj = global.getInstallObj(__dirname);
-var thisConsole=installObj.console;
-
 function getSQLquery(query){ // This will preprocess a query so that it should work with starNet.js to run correctly.
   // This should correct for improper quote types.
   // For example if someone tries to use a ' character instead of a " character when performing "like" operators
