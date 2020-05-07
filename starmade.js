@@ -91,7 +91,7 @@ const treeKill = installAndRequire('tree-kill', "^1.2.1"); // https://www.npmjs.
 const prompt = installAndRequire("prompt-sync", "^4.1.7")({"sigint": true}); // https://www.npmjs.com/package/prompt-sync This creates sync prompts and can have auto-complete capabilties.  The sigint true part makes it so pressing CTRL + C sends the normal SIGINT to the parent javascript process
 var Tail = installAndRequire('tail', "^2.0.3").Tail; // https://github.com/lucagrulla/node-tail/blob/master/README.md For following the server log.  I forgot that the console output does NOT have everything.  This is NOT a perfect solution because whenever file rotation occurs, there is a 1 second gap in coverage.  Argh.
 const exitHook = installAndRequire('exit-hook', "^2.2.0"); // https://github.com/sindresorhus/exit-hook Handles normal shutdowns, sigterm, sigint, and a "message=shutdown" event.  Good for ensuring the server gets shutdown.
-const sqlite3 = installAndRequire("sqlite3", "^4.1.0").verbose(); // Embedded sql database
+const sqlite3 = installAndRequire("sqlite3","^4.2.0").verbose(); // Embedded sql database
 const _ = installAndRequire("lodash", "^4.17.15"); // Useful javascript shortcuts http://zetcode.com/javascript/lodash/
 global["prompt"] = prompt;
 global["fsExtra"] = fsExtra;
