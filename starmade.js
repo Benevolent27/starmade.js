@@ -93,6 +93,7 @@ const prompt = installAndRequire("prompt-sync", "^4.2.0")({"sigint": true}); // 
 const exitHook = installAndRequire('exit-hook', "^2.2.0"); // https://github.com/sindresorhus/exit-hook Handles normal shutdowns, sigterm, sigint, and a "message=shutdown" event.  Good for ensuring the server gets shutdown.
 const sqlite3 = installAndRequire("sqlite3","^4.2.0").verbose(); // Embedded sql database
 const _ = installAndRequire("lodash", "^4.17.15"); // Useful javascript shortcuts http://zetcode.com/javascript/lodash/
+global["isInvalidPath"]=isInvalidPath;
 global["prompt"] = prompt;
 global["fsExtra"] = fsExtra;
 global["treeKill"] = treeKill;

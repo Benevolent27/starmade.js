@@ -18,7 +18,6 @@ module.exports = function (serverSettingsObj) { // If no serverSettingsObj provi
 
   var mainFolder = path.dirname(require.main.filename);
   var binFolder = path.join(mainFolder, "bin");
-  var installAndRequire = require(path.join(binFolder, "installAndRequire.js")); // This is used to install missing NPM modules and then require them without messing up the require cache.
   var objectHelper = require(path.join(binFolder, "objectHelper.js"));
   var miscHelpers = require(path.join(binFolder, "miscHelpers.js"));
   var {
@@ -29,9 +28,8 @@ module.exports = function (serverSettingsObj) { // If no serverSettingsObj provi
   } = objectHelper; // Aliases
   var {ensureFolderExists} = miscHelpers;
   // console.log("Loading dependencies..");
-  const prompt = installAndRequire("prompt-sync", '^4.1.7')({"sigint": true}); // https://www.npmjs.com/package/prompt-sync - This creates sync prompts and can have auto-complete capabilties.  The sigint true part makes it so pressing CTRL + C sends the normal SIGINT to the parent javascript process
-  const isInvalidPath = installAndRequire("is-invalid-path", '^1.0.2'); // https://www.npmjs.com/package/is-invalid-path -- Not using the "is-valid-path" because my force require scripting won't work with it since it uses a non-standard path to it's scripts
-  const mkdirp = installAndRequire("mkdirp", '^0.5.1'); // https://www.npmjs.com/package/mkdirp - Great for sync or async folder creation, creating all folders necessary up to the end folder
+  const prompt = global["prompt"]; // https://www.npmjs.com/package/prompt-sync - This creates sync prompts and can have auto-complete capabilties.  The sigint true part makes it so pressing CTRL + C sends the normal SIGINT to the parent javascript process
+  const isInvalidPath = global["isInvalidPath"]; // https://www.npmjs.com/package/is-invalid-path -- Not using the "is-valid-path" because my force require scripting won't work with it since it uses a non-standard path to it's scripts
 
 
   function isValidCommandOperator(testString) {
