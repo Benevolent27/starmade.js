@@ -29,7 +29,8 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   convertSectorCoordsToSystem,
   getEntityPrefixFromPublicEntitiesTypeNumber,
   toNumberWithCommas, // Converts a number to one with commas
-  i // Does a simple case insensitive comparison on two or more strings, returning true if two strings match.  If more than 2 given, then it will check the first value to all others and return true if any matched.
+  i, // Does a simple case insensitive comparison on two or more strings, returning true if two strings match.  If more than 2 given, then it will check the first value to all others and return true if any matched.
+  download // Used to download files to a specific location
 };
 
 
@@ -642,3 +643,60 @@ function asyncPrompt(text,options,cb){
   return simplePromisifyIt(asyncPrompt,options,text);
 }
 
+function download(httpURL, fileToPlace, options, cb) { // This function handles the pre-downloading of files, such as StarNet.jar.  When all downloads are finished, the StarMade server is started by emitting the event signal, "ready".
+  // Code adapted from: https://stackoverflow.com/questions/11944932/how-to-download-a-file-with-node-js-without-using-third-party-libraries
+  if (typeof cb == "function"){
+    let tempFileToPlace = path.resolve(__dirname, fileToPlace + ".tmp");
+    quietDelete(tempFileToPlace);
+    let resolvedFileToPlace = path.resolve(__dirname, fileToPlace);
+    let baseFileToPlace = path.basename(resolvedFileToPlace);
+  
+    // Check to see if the file already exists or not.  If it does exist, then we can end this operation.
+    // fs.accessSync(resolvedFileToPlace),fs.constants.F_OK); // Supposed to check if the file can be seen but it was not working for me for some reason.
+    if (fs.existsSync(resolvedFileToPlace)) { // We can see that a file, directory, or symlink exists at the target path
+      if (fs.statSync(resolvedFileToPlace).isFile()) {
+        // File already existed.  This will only download the file if it does not exist.
+        return cb(null,Boolean(false)); // Indicate false so we know the download did not happen, but there was no error.
+      } else if (fs.statSync(resolvedFileToPlace).isDirectory()) {
+        return cb(new Error(`Cannot download file: ${resolvedFileToPlace}\nDirectory already exists with the name!  Please remove this directory and run this script again!`),null);
+      } else {
+        return cb(new Error(`ERROR: Cannot download file: ${resolvedFileToPlace}\nPath already exists with the name!  Please rectify this and then run this script again!`),null);
+      }
+    } else { // If the file does not exist, let's download it.
+      var file = fs.createWriteStream(tempFileToPlace); // Open up a write stream to the temporary file.  We are using a temporary file to ensure the file will only exist at the target IF the download is a success and the file write finishes.
+      try {
+        var request = require('http').get(httpURL, function (response) {
+          if (response.statusCode == 200) {
+            response.pipe(file);
+          } else {
+            console.error(`Error downloading file, '${baseFileToPlace}'!  HTTP Code: ${response.statusCode}`);
+            return cb(new Error(`Response from HTTP server: ${response.statusMessage}`),null);
+          };
+          return true;
+        });
+        request.on('error', (e) => cb(new Error(`problem with request: ${e.message}`),null));
+      } catch (err) { // If there was any trouble connecting to the server, then hopefully this will catch those errors and exit the wrapper.
+        return cb(err,null);
+      }
+      file.on('finish', function () {
+        file.close();
+        return fs.rename(tempFileToPlace, resolvedFileToPlace, (err) => {
+          if (err) {
+            return cb(err,null);
+          }
+          return cb(null,Boolean(true)); // SUCCESS
+        });
+      });
+    }
+    return true;
+  }
+  return simplePromisifyIt(download,options,httpURL,fileToPlace);
+}
+
+function quietDelete (fileToDelete){ // Requires full path to the file.  Throws error if it has problems deleting it, true if it deleted it, and false if nothing to delete
+  if (fs.existsSync(fileToDelete)){
+    fs.unlinkSync(fileToDelete);
+    return true;
+  }
+  return false;
+}
