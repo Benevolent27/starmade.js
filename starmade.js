@@ -1721,6 +1721,7 @@ function goReady(){ // This is called when the "ready" event is emitted globally
       "reloadMods": function(options){ return reloadServerMods(this.path,options) }, // Reloads the listeners and mods
       "JSONFileCache": {}, // Used for managing JSON files for mods
       "getJSON": function(modDirPath,nameOfJSONFile){ return getJSON(this.path,modDirPath,nameOfJSONFile) },  // Example of code in a mod: installObj.getJSON(__dirname,"whatever")
+      "getJSONPath": function(modDirPath,nameOfJSONFile){ return getJSONPath(this.path,modDirPath,nameOfJSONFile) },  // Example of code in a mod: installObj.getJSON(__dirname,"whatever")
       "writeJSON": function(modDirPath,nameOfJSONFile){ return writeJSON(this.path,modDirPath,nameOfJSONFile) },  // Example of code in a mod:  installObj.writeJSON(__dirname, "whatever")
       "writeJSONFiles": function(){ return writeJSONs(this.path) } // Example: installObj.writeJSONFiles()
       // "serverObj":theServerObj // This should be added by the starter mod for the install.
@@ -1757,16 +1758,16 @@ function goReady(){ // This is called when the "ready" event is emitted globally
 
 // TODO:  Create system for reading and writing JSON files from the /installPath/data folder.
 
-function getJSON(installPath,modPath,nameOfFile){ // installPath should always be given, modPath and nameOfFile are optional
+function getJSONPath(installPath,modPath,nameOfFile){ // installPath should always be given, modPath and nameOfFile are optional
   // For use with the installObj
   // If modPath and nameOfFile are not given, will return a global.json file object
   var theFolderPath="";
-  var theFileName="data.json"; // This will be used if no nameOfFile given
+  var theFileName="data.json"; // This will be used if no nameOfFile given, but the mod folder is
   var modsDataFolderName="modsData";
   if (typeof modPath == "undefined" || modPath == "" || modPath === null){  // if no modpath specified
     theFolderPath=path.join(installPath,modsDataFolderName); // set path to modsData folder.
     if (typeof nameOfFile !== "string" || nameOfFile == "" || nameOfFile === null){
-      theFileName="global.json"; // if no filename given (typical), use the default
+      theFileName="global.json"; // if no filename given, use the default
     }
   } else { // If mods folder given, resolve the modsData folderPath.
     theFolderPath=resolveFromTwoPaths(installPath,"modsData",modPath);
@@ -1775,10 +1776,33 @@ function getJSON(installPath,modPath,nameOfFile){ // installPath should always b
   if (typeof nameOfFile == "string"){ // Whether a global file or individual mod file, standardize the filename (this is important for linux)
     theFileName=nameOfFile.replace(/\.json$/i,"") + ".json";
   }
+  return path.join(theFolderPath,theFileName);
+}
+function getJSON(installPath,modPath,nameOfFile){ // installPath should always be given, modPath and nameOfFile are optional
+  // For use with the installObj
+  // If modPath and nameOfFile are not given, will return a global.json file object
 
-  var theFilePath=path.join(theFolderPath,theFileName);
-  miscHelpers.ensureFolderExists(theFolderPath);
+  // Obsoleted - TODO: Delete below
+  // var theFolderPath="";
+  // var theFileName="data.json"; // This will be used if no nameOfFile given
+  // var modsDataFolderName="modsData";
+  // if (typeof modPath == "undefined" || modPath == "" || modPath === null){  // if no modpath specified
+  //   theFolderPath=path.join(installPath,modsDataFolderName); // set path to modsData folder.
+  //   if (typeof nameOfFile !== "string" || nameOfFile == "" || nameOfFile === null){
+  //     theFileName="global.json"; // if no filename given (typical), use the default
+  //   }
+  // } else { // If mods folder given, resolve the modsData folderPath.
+  //   theFolderPath=resolveFromTwoPaths(installPath,"modsData",modPath);
+  //   // Example of resolution:  "/path/to/install/mods/MyMod" translates to "/path/to/install/modsData/MyMod"
+  // }
+  // if (typeof nameOfFile == "string"){ // Whether a global file or individual mod file, standardize the filename (this is important for linux)
+  //   theFileName=nameOfFile.replace(/\.json$/i,"") + ".json";
+  // }
+  // var theFilePath=path.join(theFolderPath,theFileName);
+  // miscHelpers.ensureFolderExists(theFolderPath);
 
+  var theFilePath=getJSONPath(installPath,modPath,nameOfFile);
+  miscHelpers.ensureFolderExists(path.dirname(theFilePath));
   if (global["installObjects"][installPath]["JSONFileCache"].hasOwnProperty(theFilePath)){ // If cached,
     return global["installObjects"][installPath]["JSONFileCache"][theFilePath]; // Return the cached object
   }
@@ -1790,42 +1814,32 @@ function getJSON(installPath,modPath,nameOfFile){ // installPath should always b
   }
   return global["installObjects"][installPath]["JSONFileCache"][theFilePath]; // Will either be the file contents or {}
 }
-
 function writeJSON(installPath,modPath,nameOfFile){
   // Helper function for use with installObj.  Saves an individual JSON file.
   // installPath should always be given, modPath and nameOfFile are optional
   // If modPath and nameOfFile are not given, will save the global.json file
 
-  // Obsoleted - todo: remove commented section below
+  // Obsoleted - TODO: delete below
   // var theFolderPath="";
-  // var theFileName="";
+  // var theFileName="data.json"; // This will be used if no nameOfFile given
   // var modsDataFolderName="modsData";
-  // if (typeof modPath == "undefined"){ // Set the global.json
-  //   theFolderPath=path.join(installPath,modsDataFolderName); // write to the modsData folder root.
-  //   theFileName="global.json";
-  // } else {
-  //   theFolderPath=resolveFromTwoPaths(installPath,modsDataFolderName,modPath);
-  //   theFileName=nameOfFile.replace(/\.json$/i,"") + ".json"; // Standardize the filename so it is predictable under linux
+  // if (typeof modPath == "undefined" || modPath == "" || modPath === null){  // if no modpath specified
+  //   theFolderPath=path.join(installPath,modsDataFolderName); // set path to modsData folder.
+  //   if (typeof nameOfFile !== "string" || nameOfFile == "" || nameOfFile === null){
+  //     theFileName="global.json"; // if no filename given (typical), use the default
+  //   }
+  // } else { // If mods folder given, resolve the modsData folderPath.
+  //   theFolderPath=resolveFromTwoPaths(installPath,"modsData",modPath);
+  //   // Example of resolution:  "/path/to/install/mods/MyMod" translates to "/path/to/install/modsData/MyMod"
   // }
+  // if (typeof nameOfFile == "string"){ // Whether a global file or individual mod file, standardize the filename (this is important for linux)
+  //   theFileName=nameOfFile.replace(/\.json$/i,"") + ".json";
+  // }
+  // miscHelpers.ensureFolderExists(theFolderPath);
+  // var theFilePath=path.join(theFolderPath,theFileName);
 
-  var theFolderPath="";
-  var theFileName="data.json"; // This will be used if no nameOfFile given
-  var modsDataFolderName="modsData";
-  if (typeof modPath == "undefined" || modPath == "" || modPath === null){  // if no modpath specified
-    theFolderPath=path.join(installPath,modsDataFolderName); // set path to modsData folder.
-    if (typeof nameOfFile !== "string" || nameOfFile == "" || nameOfFile === null){
-      theFileName="global.json"; // if no filename given (typical), use the default
-    }
-  } else { // If mods folder given, resolve the modsData folderPath.
-    theFolderPath=resolveFromTwoPaths(installPath,"modsData",modPath);
-    // Example of resolution:  "/path/to/install/mods/MyMod" translates to "/path/to/install/modsData/MyMod"
-  }
-  if (typeof nameOfFile == "string"){ // Whether a global file or individual mod file, standardize the filename (this is important for linux)
-    theFileName=nameOfFile.replace(/\.json$/i,"") + ".json";
-  }
-
-  miscHelpers.ensureFolderExists(theFolderPath);
-  var theFilePath=path.join(theFolderPath,theFileName);
+  var theFilePath=getJSONPath(installPath,modPath,nameOfFile);
+  miscHelpers.ensureFolderExists(path.dirname(theFilePath));
   if (!global["installObjects"][installPath]["JSONFileCache"].hasOwnProperty(theFilePath)){ // If not cached,
     global["installObjects"][installPath]["JSONFileCache"][theFilePath]={}; // set blank Obj to write
   }
