@@ -15,20 +15,9 @@ const path = require('path');
 // class Event extends EventEmitter {};
 const prompt = global["prompt"]; // This creates sync prompts and can have auto-complete capabilties.
 // const events               = require('events');
-const mainFolder = path.dirname(require.main.filename); // This should be where the starmade.js is, unless this script is ran by itself for testing purposes.
-const binFolder = path.join(mainFolder, "bin");
 const spawn = require('child_process').spawn;
-const miscHelpers = require(path.join(binFolder, "miscHelpers.js"));
-const {requireBin,i} = miscHelpers;
-
-// const objectCreator = requireBin("objectCreator.js"); // This is imported for the CustomConsole object
-const objectHelper = requireBin("objectHelper.js");
-const regExpHelper = requireBin("regExpHelper.js");
-const ini = requireBin("iniHelper.js");
-const installAndRequire = requireBin("installAndRequire.js");
-const sleep = requireBin("mySleep.js").softSleep;
-const {sleepPromise}=requireBin("mySleep.js");
-const sleepSync = global["sleepSync"];
+const {objectHelper,miscHelpers,regExpHelper,ini,installAndRequire,sleep,sleepSync,treeKill} = global;
+const {i} = miscHelpers;
 
 // TODO:  Below needs to be fixed, because they require a serverObj to initialize correctly
 const modBinFolder = path.join(__dirname, "bin");
@@ -38,29 +27,13 @@ const starNetJs = require(path.join(__dirname, "starNet.js"));
 const serverObjects = require(path.join(__dirname, "serverObjects.js"));
 const smInstallHelpers = require(path.join(modBinFolder, "smInstallHelpers.js"));
 const {spawnStarMadeInstallTo,verifyInstall,generateConfigFiles,isInstalled}=smInstallHelpers;
-
-
 const lineProcessor = require(path.resolve(__dirname, "lineProcessor.js"));
-const {
-  processDataInput,
-  processServerlogDataInput
-} = lineProcessor; // These cannot be used till the ServerObj has been created since it relies on creating objects from the serverObj.
-// NPM installable requires
-const treeKill = installAndRequire('tree-kill', '^1.2.1'); // https://www.npmjs.com/package/tree-kill To kill the server and any sub-processes
-// const isInvalidPath = installAndRequire("is-invalid-path",'^1.0.2'); // https://www.npmjs.com/package/is-invalid-path -- Not using the "is-valid-path" because my force require scripting won't work with it since it uses a non-standard path to it's scripts
-// const exitHook      = installAndRequire('exit-hook','2.2.0'); // https://github.com/sindresorhus/exit-hook Handles normal shutdowns, sigterm, sigint, and a "message=shutdown" event.  Good for ensuring the server gets shutdown.
-const fsExtra = installAndRequire("fs-extra", "^8.1.0");
+const {processDataInput} = lineProcessor; // These cannot be used till the ServerObj has been created since it relies on creating objects from the serverObj.
 
 // Aliases for requires - These are set up for readability
 const stripFullUIDtoUID = regExpHelper["stripFullUIDtoUID"]; // Function that removes text like ENTITY_SHIP_ and ENTITY_PLANET_ from the beginning of a full UID so it can be used to perform SQL queries on UID
 var sectorProtectionsArray = regExpHelper.sectorProtections; // This should include all the possible protections a sector can have.
-// const verifyStarNetResponse = starNet.verifyResponse; // This can be used to perform a verification on a StarNet response without consuming the response
-// const starNetVerified       = starNetVerified; // If the response does not verify, this consumes the response and throws an error instead
-const {
-  sqlQuery,
-  SqlQueryObj,
-  simpleSqlQuery
-} = sqlQueryJs;
+const {simpleSqlQuery} = sqlQueryJs;
 const {
   starNet,
   starNetVerified,
@@ -145,49 +118,6 @@ var {
 var installObj=global.getInstallObj(__dirname);
 var {settings,log,installPath,event}=installObj;
 var thisConsole=installObj.console;
-
-async function getSuperAdminPassword(starMadeInstallPath) { // This will grab the superadmin password, setting it up and enabling it if not already.
-  // TODO: Offload this to a require
-  // Load the server.cfg from install path
-  var serverCfgFile = path.join(starMadeInstallPath, "StarMade", "server.cfg");
-  var serverCfgObj = ini.getFileAsObj(serverCfgFile);
-  var superAdminPassword = ini.getVal(serverCfgObj, "SUPER_ADMIN_PASSWORD");
-  var superAdminPasswordEnabled = ini.getVal(serverCfgObj, "SUPER_ADMIN_PASSWORD_USE");
-  if (superAdminPasswordEnabled) { // Only perform .toLowerCase() if the value exists to avoid crashing the script.
-    superAdminPasswordEnabled = superAdminPasswordEnabled.toLowerCase();
-  }
-  if (superAdminPassword == "mypassword" || !superAdminPassword) { // "mypassword" is the default value upon install.  We do not want to keep this since it'd be a major security vulnerability.
-    // We don't use the custom console here, because prompt does not work with the console switching system.
-    console.log("\nThe 'SuperAdminPassword' has not been set up yet!  This is needed for StarNet.jar to connect to the server.");
-    console.log("You can set a custom alphanumeric password OR just press [ENTER] to have a long, randomized one set for you. (Recommended)")
-    let newSuperAdminPassword = "";
-    do {
-      newSuperAdminPassword = prompt("New SuperAdminPassword: ");
-    }
-    while (!(newSuperAdminPassword === null || newSuperAdminPassword == "" || regExpHelper.isAlphaNumeric(newSuperAdminPassword))) // If a person puts invalid characters in, it'll just keep repeating the prompt.
-    if (newSuperAdminPassword === null || newSuperAdminPassword == "") {
-      console.log("Excellent choice!  I have set a LONG and nearly impossible to crack SuperAdminPassword for you! :D");
-      newSuperAdminPassword = getRandomAlphaNumericString(32);
-    } else {
-      console.log("Alrighty then.  I'll just use what you provided!")
-    };
-    await sleepSync(2000);
-    // serverCfgObj["SUPER_ADMIN_PASSWORD"]=keepIniComment(serverCfgObj["SUPER_ADMIN_PASSWORD"],newSuperAdminPassword);
-    ini.setVal(serverCfgObj, "SUPER_ADMIN_PASSWORD", newSuperAdminPassword);
-    if (superAdminPasswordEnabled == "false") {
-      console.log("Super Admin Password was disabled, enabling!");
-      // serverCfgObj["SUPER_ADMIN_PASSWORD_USE"]=keepIniComment(serverCfgObj["SUPER_ADMIN_PASSWORD_USE"],"true");
-      ini.setVal(serverCfgObj, "SUPER_ADMIN_PASSWORD_USE", "true");
-    }
-    ini.writeObjToFile(serverCfgObj, serverCfgFile);
-  } else if (superAdminPasswordEnabled != "true") { // Enable super admin password if it was disabled for some reason.
-    console.log("Super Admin Password was disabled, enabling!");
-    // serverCfgObj["SUPER_ADMIN_PASSWORD_USE"]=keepIniComment(serverCfgObj["SUPER_ADMIN_PASSWORD_USE"],"true");
-    ini.setVal(serverCfgObj, "SUPER_ADMIN_PASSWORD_USE", "true");
-    ini.writeObjToFile(serverCfgObj, serverCfgFile);
-  }
-  return ini.getVal(serverCfgObj, "SUPER_ADMIN_PASSWORD");
-}
 
 // TODO: Fix recording
 function getRecordFileName() {
@@ -707,7 +637,7 @@ function ServerObj(options) {
                 return cb(err, null);
               }
               if (result) {
-                await sleepPromise(theDuration * 1000);
+                await sleep(theDuration * 1000);
                 return runSimpleCommand("/shutdown 1", options, function(err,result){
                   if (err){
                     thisConsole.log("Shutdown command failed with an error when attempting to start the one second shutdown!");
@@ -737,7 +667,7 @@ function ServerObj(options) {
                 return cb(err, null);
               }
               if (result) {
-                await sleepPromise(theDuration * 1000);
+                await sleep(theDuration * 1000);
                 return runSimpleCommand("/shutdown 1", options, function(err,result){
                   if (err){
                     thisConsole.log("Shutdown command failed with an error when attempting to start the one second shutdown!");
