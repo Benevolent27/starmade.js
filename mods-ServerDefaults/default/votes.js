@@ -54,7 +54,7 @@ function getPlayerVotesObj(options,cb){
       return cb(null,{});
     } else {
       thisConsole.log("Getting votes for the server..");
-      let URL=`https://starmade-servers.com/api/?object=servers&element=votes&key="${config.apiKey}"&format=json`
+      let URL=`http://starmade-servers.com/api/?object=servers&element=votes&key=${config.apiKey}&format=json`;
       return downloadJSON(URL,"",function(err,result){
         if (err){
           return cb(err,null);
@@ -66,8 +66,9 @@ function getPlayerVotesObj(options,cb){
         }
       });
     }
+  } else {
+    return simplePromisifyIt(getPlayerVotes,options);
   }
-  return simplePromisifyIt(getPlayerVotes,options);
   // Example return:
   // {
   //   "name":"Light Vs Dark",
@@ -91,7 +92,7 @@ function getPlayerVotes(options,cb){
       return cb(null,[]);
     } else {
       thisConsole.log("Getting votes for the server..");
-      return getPlayerVotesObj(URL,"",function(err,votesObj){
+      return getPlayerVotesObj("",function(err,votesObj){
         if (err){
           return cb(err,null);
         }
@@ -114,11 +115,11 @@ function getPlayerVotes(options,cb){
         } else {
           return cb(new Error("Could not retrieve vote info from starmade-servers.com!  Is the API key set up correctly?"),null);
         }
-      })
-
+      });
     }
+  } else {
+    return simplePromisifyIt(getPlayerVotes,options);
   }
-  return simplePromisifyIt(getPlayerVotes,options);
   // Example return:
   // [ "Benevolent27" , "AnotherPlayer" ]
 }
