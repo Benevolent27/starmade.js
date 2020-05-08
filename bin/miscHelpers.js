@@ -30,7 +30,9 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   getEntityPrefixFromPublicEntitiesTypeNumber,
   toNumberWithCommas, // Converts a number to one with commas
   i, // Does a simple case insensitive comparison on two or more strings, returning true if two strings match.  If more than 2 given, then it will check the first value to all others and return true if any matched.
-  download // Used to download files to a specific location
+  download, // Used to download files to a specific location
+  downloadData, // Downloads data in UTF-8 encoding and returns it as a string
+  downloadJSON // Downloads JSON parseable data in UTF-8 encoding and returns it as an object
 };
 
 
@@ -643,7 +645,7 @@ function asyncPrompt(text,options,cb){
   return simplePromisifyIt(asyncPrompt,options,text);
 }
 
-function download(httpURL, fileToPlace, options, cb) { // This function handles the pre-downloading of files, such as StarNet.jar.  When all downloads are finished, the StarMade server is started by emitting the event signal, "ready".
+function download(httpURL, fileToPlace, options, cb) { 
   // Code adapted from: https://stackoverflow.com/questions/11944932/how-to-download-a-file-with-node-js-without-using-third-party-libraries
   if (typeof cb == "function"){
     let tempFileToPlace = path.resolve(__dirname, fileToPlace + ".tmp");
@@ -692,6 +694,49 @@ function download(httpURL, fileToPlace, options, cb) { // This function handles 
   }
   return simplePromisifyIt(download,options,httpURL,fileToPlace);
 }
+function downloadJSON(httpURL, options, cb){
+  if (typeof cb == "function"){
+    return downloadData(httpURL, options,function(err,result){
+      if (err){
+        return cb(err,null);
+      }
+      try {
+        const parsedData = JSON.parse(result);
+        return cb(null,parsedData);
+      } catch (er) {
+        return cb(err,null);
+      }
+    });
+  } else {
+    return simplePromisifyIt(downloadJSON,options,httpURL);
+  }
+}
+function downloadData(httpURL, options, cb) { 
+  // Downloads a JSON file and returns it as an object - Used for API's that return JSON values
+  // Code adapted from: https://stackoverflow.com/questions/11944932/how-to-download-a-file-with-node-js-without-using-third-party-libraries
+  if (typeof cb == "function"){
+    var request = require('http').get(httpURL, function (response) {
+      if (response.statusCode != 200) {
+        return cb(new Error(`Response from HTTP server: ${response.statusMessage}`),null);
+      };
+      response.setEncoding('utf8');
+      let rawData="";
+      response.on('data', (chunk) => { rawData += chunk; });
+      return response.on('end', () => {
+        try {
+          return cb(null,rawData);
+        } catch (err) {
+          return cb(err,null);
+        }
+      });
+    });
+    request.on('error', (err) => cb(new Error(`problem with request: ${err.message}`),null));
+    return request;
+  } else {
+    return simplePromisifyIt(downloadData,options,httpURL);
+  }
+}
+
 
 function quietDelete (fileToDelete){ // Requires full path to the file.  Throws error if it has problems deleting it, true if it deleted it, and false if nothing to delete
   if (fs.existsSync(fileToDelete)){
