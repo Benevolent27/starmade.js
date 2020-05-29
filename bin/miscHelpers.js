@@ -162,7 +162,8 @@ function getSysCoordFromSector(input) {
 
 function getJSONFileSync(pathToJSONFile){
   var output=fs.readFileSync(pathToJSONFile,'utf8');
-  output=output.toString().replace(/[\n\r\t ]+/g,"").trim();
+  // output=output.toString().replace(/[\n\r\t ]+/g,"").trim(); // TODO:  Remove these lines.  I do not know why I put them in here.
+  // output=output.toString().replace(/[\r]+/g,"").trim();
   return JSON.parse(output);
 }
 function getJSONFile(pathToJSONFile,options,cb){
