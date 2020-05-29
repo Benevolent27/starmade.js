@@ -33,8 +33,6 @@ function serverLogExcluded(){
   var excludeServerLogPatternRegex=new RegExp(excludePatternServerLogRegexTemp);
   return excludeServerLogPatternRegex;
 }
-
-
 function included(){ // Include Patterns
   var includePatterns=[];
   includePatterns.push("^\\[SERVER\\] MAIN CORE STARTED DESTRUCTION"); // This is for ship overheats.  It was implemented with systems 2.0, but it's bugged.  It fires off not only when ships overheat but also when they are destroyed.
