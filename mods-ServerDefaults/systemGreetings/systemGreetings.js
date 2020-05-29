@@ -49,7 +49,7 @@ event.on("serverStop",function(){
   allSystemClaimsBuilding=null; // Will allow the command to run again if the server is restarted.
 });
 event.on("commandStart",function(regCommand){
-  thisConsole.log("Registering commands for sysClaimsMessages.js..");
+  thisConsole.log("Registering commands for systemGreetings.js..");
   regCommand("SetSystemGreeting", "System Commands", false, true,{},setSystemGreeting);
   regCommand("RemoveSystemGreeting", "System Commands", false, true,{},removeSystemGreeting);
   regCommand("ShowSystemGreeting", "System Commands", false, true,{},showSystemGreeting);
@@ -98,11 +98,10 @@ async function showSystemGreeting(player, command, args, messageObj, options){
   }
 }
 function showSystemGreetingHelp(player,command,options){
-  player.botMsg("This command shows the active system message for the system you currently are within, if one has been set.",options).catch(dispErr);
+  player.botMsg("This command shows the greeting for the current system if one has been set.",options).catch(dispErr);
   player.msg(`Usage: ${commandOperator}${command}`,options).catch(dispErr);
-  player.msg("Note:  If a message was set previously but the system is no longer owned by that faction, no message will show.",options).catch(dispErr);
+  player.msg("Note:  If a greeting was set previously but the system is no longer owned by that faction, no greeting will show.",options).catch(dispErr);
 }
-
 async function removeSystemGreeting(player, command, args, messageObj, options){
   if (getOption(options,"help") == true || (/^help$/i).test(args[0])){ 
     return removeSystemGreetingHelp(player,command,{fast:true});
@@ -113,7 +112,7 @@ async function removeSystemGreeting(player, command, args, messageObj, options){
   } else {
     var playerFaction=await player.faction().catch(dispErr);
     if (playerFaction === null){
-      return player.botMsg("You are not currently in a faction!  Cannot remove a system claim message for this system unless you are IN a faction and have claimed the system!",{fast:true}).catch(dispErr);
+      return player.botMsg("You are not currently in a faction!  Cannot remove a system greeting unless you are IN a faction and that has claimed this system!",{fast:true}).catch(dispErr);
     } else {
       // Check to ensure the player is faction rank 5 (founder)
       let playerRank=await player.getFactionRank().catch(dispErr);
@@ -126,21 +125,22 @@ async function removeSystemGreeting(player, command, args, messageObj, options){
           player.botMsg(`Deleting your factions message for this current system (${playerSystem.toString()})..`,{fast:true}).catch(dispErr);
           player.msg(`Old System Message: ${oldMsg}`,{fast:true}).catch(dispErr);
           removeSystemMessagesForFactionAndSystem(playerFaction.number,playerSystem.toString());
-          return player.msg("When players enter your system, they will no longer see a message.",{fast:true}).catch(dispErr);
+          return player.msg("When players enter your system, they will no longer see a greeting.",{fast:true}).catch(dispErr);
         } else {
-          return player.msg(`Your faction did not have a system message set for this current system (${playerSystem.toString()})!  Nothing to delete!`,{fast:true}).catch(dispErr);
+          return player.msg(`Your faction did not have a system greeting set for this system (${playerSystem.toString()})!  Nothing to delete!`,{fast:true}).catch(dispErr);
         }
       } else { // Player was not founder
-        return player.msg("ERROR:  Only faction founders can remove a system message for their faction!",{fast:true}).catch(dispErr);
+        return player.msg("ERROR:  Only faction founders can remove a system greeting for their faction!  You are not a founder!",{fast:true}).catch(dispErr);
       }
     }
   }
 }
 function removeSystemGreetingHelp(player,command,options){
-  player.botMsg("This command is used to remove a system message that your faction has previously set for the system you currently are within.",options).catch(dispErr);
+  player.botMsg("This command is used to remove a greeting from the system you are currently within.",options).catch(dispErr);
+  player.msg(`Your faction must have previously set a greeting for the system.`,options).catch(dispErr);
   player.msg(`Usage: ${commandOperator}${command}`,options).catch(dispErr);
   player.msg(" ",options);
-  player.msg("Note that this command can only be used by faction owners.",options).catch(dispErr);
+  player.msg("Note:  You must be ranked founder of your faction to use this command.",options).catch(dispErr);
 }
 async function setSystemGreeting(player, command, args, messageObj, options){
   if (getOption(options,"help") == true || (/^help$/i).test(args[0])){ 
@@ -152,7 +152,7 @@ async function setSystemGreeting(player, command, args, messageObj, options){
   } else {
     var playerFaction=await player.faction().catch(dispErr);
     if (playerFaction === null){
-        return player.botMsg("You are not currently in a faction!  Cannot set a system claim message unless you are IN a faction and have claimed the system you are currently in!",{fast:true}).catch(dispErr);
+        return player.botMsg("You are not currently in a faction!  Cannot set a system greeting unless you are IN a faction and have claimed the system you are currently in!",{fast:true}).catch(dispErr);
     } else {
       // Ensure the player is a founder
       let playerRank=await player.getFactionRank().catch(dispErr);
@@ -164,19 +164,19 @@ async function setSystemGreeting(player, command, args, messageObj, options){
         let checkOwnership=await serverObj.sqlQuery(`SELECT OWNER_FACTION FROM PUBLIC.SYSTEMS WHERE OWNER_FACTION='${playerFaction.number}' AND X=${playerSystem.x} AND Y=${playerSystem.y} AND Z=${playerSystem.z}`); // Should return an array, which will have 1 entry if the person's faction owns the system or will be an empty array if not.
         if (Array.isArray(checkOwnership)){
           if (checkOwnership.length==0){ // Player's faction does NOT own the current system
-            return player.botMsg("Sorry but your faction has not claimed this system!  Cannot set a system message for a system you do not currently control!",{fast:true});
+            return player.botMsg("ERROR:  You may not set a system greeting for this system since your faction does not own it!",{fast:true});
           } else if (args.length > 0){ // Player's faction owns the current system and a message was given
               var newMsg=args.join(" ");
-              player.botMsg("Setting the display message for this current system..",{fast:true}).catch(dispErr);
+              player.botMsg("Setting a new greeting for this current system..",{fast:true}).catch(dispErr);
               let oldMsg=getSystemMessage(playerSystem.toString());
               if (typeof oldMsg == "string"){ // Will be null if not exist
-                player.msg(`Old System Message: ${oldMsg}`,{fast:true}).catch(dispErr);
+                player.msg(`Old Greeting: ${oldMsg}`,{fast:true}).catch(dispErr);
               }
               setSystemDataMessage(playerSystem.toString(),playerFaction.number,newMsg)
-              player.msg(`Set system message to: ${newMsg}`,{fast:true}).catch(dispErr);
+              player.msg(`Set system greeting to: ${newMsg}`,{fast:true}).catch(dispErr);
               return player.msg("When players enter your system, they will now see this message!",{fast:true}).catch(dispErr);
           } else { // No message was given
-            player.botMsg("Error:  You must provide the message you would like to display for players who enter this system!",{fast:true}).catch(dispErr);
+            player.botMsg("Error:  You must provide the greeting you would like to display for players!",{fast:true}).catch(dispErr);
             player.msg(`Example: ${commandOperator}${command} Hello and welcome to my home system!`,{fast:true}).catch(dispErr);
             return player.msg(`For more help on this command, type: ${commandOperator}help ${command}`,{fast:true}).catch(dispErr);
           }
@@ -184,22 +184,21 @@ async function setSystemGreeting(player, command, args, messageObj, options){
           return player.botMsg("There was an error checking if you own this current system!  Please try again!").catch(dispErr);
         }
       } else { // Player was not founder
-        return player.msg("ERROR:  Only faction founders can set a system message for their faction!  You are not ranked as a founder!",{fast:true}).catch(dispErr);
+        return player.msg("ERROR:  Only faction founders can set a system greeting for their faction!  You are not ranked as founder!",{fast:true}).catch(dispErr);
       }
     }
   }
 }
 function setSystemGreetingHelp(player,command,options){
-  player.botMsg("This command is used to set a message that will display to players who join this current system.",options).catch(dispErr);
-  player.msg("You must be in a faction and it MUST own this current system!  You must also be the owner of the faction to use this!",options).catch(dispErr);
+  player.botMsg("This command is used to set a greeting message that will display to players who join this current system.",options).catch(dispErr);
+  player.msg("You must be in a faction and it MUST own the system!  You must also be a founder of your faction!",options).catch(dispErr);
   player.msg(`Usage: ${commandOperator}${command} [message]`,options).catch(dispErr);
   player.msg(`Example: ${commandOperator}${command} Hello and welcome to my system!`,options).catch(dispErr);
   player.msg(` `,options);
-  player.msg(`Related commands: RemoveSystemMessage and ShowSystemMessage.`,options);
 }
 
 function sendPlayerSystemMessage(playerObj,message,options){
-  return playerObj.msg(`MESSAGE FROM SYSTEM OWNER: ${message}`,options).catch(dispErr);
+  return playerObj.msg(`[ Faction System Greeting: ] ${message}`,options).catch(dispErr);
 }
 event.on("playerSpawn",async function(playerObj){ // This is for displaying the system message to a player upon spawn
   while (allClaimedSystems === null){ // This is to ensure the first player who joins within the 2 minute timeframe will get a message after the system claim data has been pulled
@@ -224,6 +223,16 @@ event.on("factionDisbanded",function(factionObj,factionNameStr){ // All system m
   removeSystemMessagesForFaction(factionObj.number);
 });
 
+// This is to update the list of system claims in memory as factions claim or unclaim systems
+event.on('systemFactionClaimed', function(systemObj,entityObj,factionObj){
+  allClaimedSystems[systemObj.toString()]=factionObj.number;
+});
+event.on('systemFactionUnclaimed', function(systemObj,entityObj){
+  delete allClaimedSystems[systemObj.toString()];
+});
+
+
+
 async function startEvent(){
   await sleep(millisecondsToWaitTillSQLQuery); // Wait 2 minutes to give the server time to boot
   return getAllClaimedSystems();
@@ -241,14 +250,14 @@ async function getAllClaimedSystems(){
   }
   // Server should be started now.
   var tempClaims=null;
-  thisConsole.log("sysClaimsMessages.js: Gathering system claims..");
+  thisConsole.log("systemGreetings.js: Gathering system claims..");
   while (tempClaims === null){
     tempClaims=await getAllSystemClaims().catch(dispErr); // will return null on error
     if (tempClaims === null){
       await sleep(5000);
     }
   }
-  thisConsole.log(`sysClaimsMessages.js: Found ${tempClaims.length} system claims.`);
+  thisConsole.log(`systemGreetings.js: Found ${tempClaims.length} system claims.`);
   // Let's do some post processing to make checking coordinates easier.
   // Example array after being built:
   // [
