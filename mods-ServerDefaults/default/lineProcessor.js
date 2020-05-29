@@ -368,7 +368,7 @@ function processDataInput(dataInput) { // This function is run on every single l
         event.emit('playerFactionJoin', playerObj, factionObj, factionNameString);
       }
 
-    } else if (theArguments[0] == "[FACTIONMANAGER]") { // Player left a faction
+    } else if (theArguments[0] == "[FACTIONMANAGER]") { // Player left a faction, system claims, and possibly more
       // STDERR: [FACTIONMANAGER] removing member: Benevolent27 from Faction [id=10003, name=whatever, description=Faction name, size: 1; FP: -142]; on Server(0)
       if (theArguments[1] == "removing") {
         console.debug("Player joined faction.  dataInput: " + dataInput);
@@ -378,7 +378,37 @@ function processDataInput(dataInput) { // This function is run on every single l
         let nameObj = new installObj.objects.PlayerObj(name);
         let factionObj = new installObj.objects.FactionObj(factionID);
         event.emit('playerFactionLeave', nameObj, factionObj, factionName);
+      } else if ((/^\[FACTIONMANAGER\] System ownership called Server.*/).test(dataInput)){
+        var factionNum=toNumIfPossible(toStringIfPossible(dataInput.match(/(?<=New Values: FactionId )[0-9]+(?=;)/)));
+        var systemNum=toStringIfPossible(dataInput.match(/(?<=; System \()[-]{0,1}[0-9]+, [-]{0,1}[0-9]+, [-]{0,1}[0-9]+(?=[)])/));
+        var entityUID=toStringIfPossible(dataInput.match(/(?<=\) UID\()[^\)]*/));
+        if (typeof factionNum == "number" && factionNum != 0){
+          var factionObj=new installObj.objects.FactionObj(factionNum);
+        }
+        if (typeof systemNum == "string"){
+          var systemObj=new installObj.objects.SystemObj(systemNum);
+        }
+        if (typeof entityUID == "string"){
+          var entityObj=new installObj.objects.EntityObj(entityUID);
+        }
+        if (typeof factionObj == "object"){
+          // System was claimed
+          event.emit('systemFactionClaimed',systemObj,entityObj,factionObj);
+        } else {
+          // System was unclaimed
+          event.emit('systemFactionUnclaimed',systemObj,entityObj);
+        }
+        // Working on:
+        // Revoking system ownership (1, 1, 5) is the system:
+        // STDERR: [FACTIONMANAGER] System ownership called Server(0): New Values: FactionId 0; System (1, 1, 5) UID(ENTITY_SPACESTATION_DestroyerOfWorlds_1590755298320)
+        // Adding ownership:
+        // Base (STDERR): [FACTIONMANAGER] System ownership called Server(0): New Values: FactionId 10004; System (1, 1, 5) UID(ENTITY_SPACESTATION_DestroyerOfWorlds_1590755298320)
+        // Planet (STDERR): [FACTIONMANAGER] System ownership called Server(0): New Values: FactionId 10004; System (1, 1, 5) UID(ENTITY_PLANET_25_25_85_1_1590761413541)
+
       }
+
+
+
     } else if (theArguments[0] == "[SEND][SERVERMESSAGE]") { // player connect
       // STDERR: [SEND][SERVERMESSAGE] [SERVERMSG (type 0): [484, Weedle]] to RegisteredClient: Weedle (5) [Benevolent27]connected: true
       console.debug("Possible player connection: " + dataInput);
