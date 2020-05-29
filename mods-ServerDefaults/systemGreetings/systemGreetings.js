@@ -21,7 +21,7 @@ const {getOption}=objectHelper;
 // ### Get the installObj and set things up ###
 const installObj = global.getInstallObj(__dirname);
 const {event,console:thisConsole} = installObj;
-var systemMessages=installObj.getJSON(__dirname,"sysClaimsMessages");
+var systemMessages=installObj.getJSON(__dirname,"systemGreetings");
 // example:
 // {
 //   "1 2 3":{
@@ -50,9 +50,9 @@ event.on("serverStop",function(){
 });
 event.on("commandStart",function(regCommand){
   thisConsole.log("Registering commands for sysClaimsMessages.js..");
-  regCommand("SetSystemMessage", "System Commands", false, true,{},setSystemMessage);
-  regCommand("RemoveSystemMessage", "System Commands", false, true,{},removeSystemMessage);
-  regCommand("ShowSystemMessage", "System Commands", false, true,{},showSystemMessage);
+  regCommand("SetSystemGreeting", "System Commands", false, true,{},setSystemGreeting);
+  regCommand("RemoveSystemGreeting", "System Commands", false, true,{},removeSystemGreeting);
+  regCommand("ShowSystemGreeting", "System Commands", false, true,{},showSystemGreeting);
 });
 
 function wasPlayerMessagedForSystem(playerName,systemCoords){
@@ -81,9 +81,9 @@ event.on("playerSectorChange", function(player, startingCoords, endingCoords, pl
   return false;
 });
 
-async function showSystemMessage(player, command, args, messageObj, options){
+async function showSystemGreeting(player, command, args, messageObj, options){
   if (getOption(options,"help") == true || (/^help$/i).test(args[0])){ 
-    return showSystemMessageHelp(player,command,{fast:true});
+    return showSystemGreetingHelp(player,command,{fast:true});
   }
   var playerSystem=await player.system().catch(dispErr);
   if (playerSystem === null){
@@ -97,15 +97,15 @@ async function showSystemMessage(player, command, args, messageObj, options){
     }
   }
 }
-function showSystemMessageHelp(player,command,options){
+function showSystemGreetingHelp(player,command,options){
   player.botMsg("This command shows the active system message for the system you currently are within, if one has been set.",options).catch(dispErr);
   player.msg(`Usage: ${commandOperator}${command}`,options).catch(dispErr);
   player.msg("Note:  If a message was set previously but the system is no longer owned by that faction, no message will show.",options).catch(dispErr);
 }
 
-async function removeSystemMessage(player, command, args, messageObj, options){
+async function removeSystemGreeting(player, command, args, messageObj, options){
   if (getOption(options,"help") == true || (/^help$/i).test(args[0])){ 
-    return removeSystemMessageHelp(player,command,{fast:true});
+    return removeSystemGreetingHelp(player,command,{fast:true});
   }
   var playerSystem=await player.system().catch(dispErr);
   if (playerSystem === null){
@@ -136,15 +136,15 @@ async function removeSystemMessage(player, command, args, messageObj, options){
     }
   }
 }
-function removeSystemMessageHelp(player,command,options){
+function removeSystemGreetingHelp(player,command,options){
   player.botMsg("This command is used to remove a system message that your faction has previously set for the system you currently are within.",options).catch(dispErr);
   player.msg(`Usage: ${commandOperator}${command}`,options).catch(dispErr);
   player.msg(" ",options);
   player.msg("Note that this command can only be used by faction owners.",options).catch(dispErr);
 }
-async function setSystemMessage(player, command, args, messageObj, options){
+async function setSystemGreeting(player, command, args, messageObj, options){
   if (getOption(options,"help") == true || (/^help$/i).test(args[0])){ 
-    return setSystemMessageHelp(player,command,{fast:true});
+    return setSystemGreetingHelp(player,command,{fast:true});
   }
   var playerSystem=await player.system().catch(dispErr);
   if (playerSystem === null){
@@ -189,7 +189,7 @@ async function setSystemMessage(player, command, args, messageObj, options){
     }
   }
 }
-function setSystemMessageHelp(player,command,options){
+function setSystemGreetingHelp(player,command,options){
   player.botMsg("This command is used to set a message that will display to players who join this current system.",options).catch(dispErr);
   player.msg("You must be in a faction and it MUST own this current system!  You must also be the owner of the faction to use this!",options).catch(dispErr);
   player.msg(`Usage: ${commandOperator}${command} [message]`,options).catch(dispErr);
