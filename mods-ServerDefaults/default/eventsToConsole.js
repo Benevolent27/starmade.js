@@ -18,6 +18,7 @@ defaultGlobalEvent.on("init",function(){ // ONLY NECESSARY FOR DEFAULT MODS SINC
   });
   event.on('start',function(theServerObj){
     // serverObj=theServerObj;
+    // In-Game events
     event.on('playerMessage', function(messageObj) { // Handle messages sent from players
       thisConsole.log("Event (playerMessage) emitted.  Message (type: " + messageObj.type +") DETECTED from " + toStringIfPossible(messageObj.sender) + " to " + toStringIfPossible(messageObj.receiver) + ": " + messageObj.text);
     });
@@ -56,6 +57,12 @@ defaultGlobalEvent.on("init",function(){ // ONLY NECESSARY FOR DEFAULT MODS SINC
     });
     event.on('entityOverheatStopped', function(theEntityObj){
       thisConsole.log(`Event (entityOverheatStopped) emitted.   theEntityObj: ${toStringIfPossible(theEntityObj)}`);
+    });
+    event.on('systemFactionClaimed', function(systemObj,entityObj,factionObj){
+      thisConsole.log(`Event (systemFactionClaimed) emitted.   systemObj: ${toStringIfPossible(systemObj)}  entityObj: ${toStringIfPossible(entityObj)}  factionObj: ${toStringIfPossible(factionObj)}`);
+    });
+    event.on('systemFactionUnclaimed', function(systemObj,entityObj){
+      thisConsole.log(`Event (systemFactionUnclaimed) emitted.   systemObj: ${toStringIfPossible(systemObj)}  entityObj: ${toStringIfPossible(entityObj)}`);
     });
   });
   event.on('serverStart',function(){
