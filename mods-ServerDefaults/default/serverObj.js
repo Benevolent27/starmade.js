@@ -286,9 +286,8 @@ function ServerObj(options) {
     
   this.starMadeInstallerFilePath = global["starMadeInstallerFilePath"];
   this.serverCfgFilePath = path.join(self.starMadeInstallFolder, "server.cfg");
-  
-  //  We need to ensure the server has been installed before we continue
 
+  //  We use a getter because we need to ensure the server has been installed before we pull the config
   this.getServerCfgAsIniObj = function () { // callbackify and promisify this
     // This should only be ran AFTER a successful install has been performed
     if (typeof self.serverCfgObj == "object"){
@@ -301,6 +300,21 @@ function ServerObj(options) {
       return null; // File does not exist
     }
   };
+  this.blockTypePropertiesFilePath=path.join(self.starMadeInstallFolder, "data", "config","BlockTypes.properties");
+  this.getblockTypePropertiesAsIniObj = function () { // callbackify and promisify this
+    // This should only be ran AFTER a successful install has been performed
+    if (typeof self.blockTypePropertiesObj == "object"){
+      return self.blockTypePropertiesObj; // This is an iniObj.  This should get deleted when the server exits.
+    }
+    if (existsAndIsFile(self.blockTypePropertiesFilePath)) {
+      self.blockTypePropertiesObj = ini.getFileAsObj(self.blockTypePropertiesFilePath); // This generates a new ini file object each time it's ran
+      return self.blockTypePropertiesObj;
+    } else {
+      return null; // File does not exist
+    }
+  };
+
+
   this.getSuperAdminPassword = function () {
     if (typeof self.superAdminPassword == "string"){
       return self.superAdminPassword; // This should get deleted when the server exits.
@@ -446,6 +460,7 @@ function ServerObj(options) {
       }
       // Before starting the server, make sure the superAdminPassword has been set up correctly.
       self.getSuperAdminPassword(); // This also reloads the ini file for server.cfg
+      self.getblockTypePropertiesAsIniObj();  // this loads self.blockTypePropertiesObj
       thisConsole.log("Starting the server..");
       self.spawn = spawn("java", self.spawnArgs, {"cwd": self.starMadeInstallFolder}); // Spawn the server
       self.spawnStatus = "started";
@@ -516,6 +531,10 @@ function ServerObj(options) {
         if (self.hasOwnProperty("superAdminPassword")) { // Same as above. The superAdminPassword can change between reboots.
           Reflect.deleteProperty(self, "superAdminPassword");
         }
+        if (self.hasOwnProperty("blockTypePropertiesObj")) { // Same as above. The BlockType.properties file can change between reboots.
+          Reflect.deleteProperty(self, "blockTypePropertiesObj");
+        }
+
 
         // Tail will no longer be used in StarMade after the current version as of this writing
         // thisConsole.log("serverTail:");
