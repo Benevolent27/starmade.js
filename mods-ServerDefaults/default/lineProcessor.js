@@ -381,7 +381,7 @@ function processDataInput(dataInput) { // This function is run on every single l
       } else if ((/^\[FACTIONMANAGER\] System ownership called Server.*/).test(dataInput)){
         var factionNum=toNumIfPossible(toStringIfPossible(dataInput.match(/(?<=New Values: FactionId )[0-9]+(?=;)/)));
         var systemNum=toStringIfPossible(dataInput.match(/(?<=; System \()[-]{0,1}[0-9]+, [-]{0,1}[0-9]+, [-]{0,1}[0-9]+(?=[)])/));
-        var entityUID=toStringIfPossible(dataInput.match(/(?<=\) UID\()[^\)]*/));
+        var entityUID=toStringIfPossible(dataInput.match(/(?<=\) UID\()[^)]*/));
         if (typeof factionNum == "number" && factionNum != 0){
           var factionObj=new installObj.objects.FactionObj(factionNum);
         }
