@@ -1,6 +1,8 @@
 /* eslint-disable no-unmodified-loop-condition */
 /* eslint-disable no-await-in-loop */
 
+// TODO:  Add adding and removing of system claims as they occur to allClaimedSystems var
+
 // This mod allows founders of factions to set a message for a system that their faction has claimed.
 // Whenever any player moves to any sector within the system, they will receive the message.
 // This message should only display once to the player, till they move out of the system.
@@ -89,7 +91,7 @@ async function showSystemMessage(player, command, args, messageObj, options){
   } else {
     let theMsg=getSystemMessage(playerSystem.toString());
     if (typeof theMsg == "string"){ // Will be null if not exist
-      return player.botMsg(`System Message (${playerSystem.toString()}): ${theMsg}`,{fast:true}).catch(dispErr);
+      return player.botMsg(`Message from Owner for current system, ${playerSystem.toString()}: ${theMsg}`,{fast:true}).catch(dispErr);
     } else {
       return player.botMsg(`There is currently no message active for the system, ${playerSystem.toString()}!`,{fast:true}).catch(dispErr);
     }
@@ -197,7 +199,7 @@ function setSystemMessageHelp(player,command,options){
 }
 
 function sendPlayerSystemMessage(playerObj,message,options){
-  return playerObj.msg(`CLAIMED SYSTEM MESSAGE: ${message}`,options).catch(dispErr);
+  return playerObj.msg(`MESSAGE FROM SYSTEM OWNER: ${message}`,options).catch(dispErr);
 }
 event.on("playerSpawn",async function(playerObj){ // This is for displaying the system message to a player upon spawn
   while (allClaimedSystems === null){ // This is to ensure the first player who joins within the 2 minute timeframe will get a message after the system claim data has been pulled
