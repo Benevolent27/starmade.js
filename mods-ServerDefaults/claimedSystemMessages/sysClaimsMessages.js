@@ -91,7 +91,7 @@ async function showSystemMessage(player, command, args, messageObj, options){
   } else {
     let theMsg=getSystemMessage(playerSystem.toString());
     if (typeof theMsg == "string"){ // Will be null if not exist
-      return player.botMsg(`Message from Owner for current system, ${playerSystem.toString()}: ${theMsg}`,{fast:true}).catch(dispErr);
+      return player.msg(`[ System greeting for current system ]: ${theMsg}`,{fast:true}).catch(dispErr);
     } else {
       return player.botMsg(`There is currently no message active for the system, ${playerSystem.toString()}!`,{fast:true}).catch(dispErr);
     }
