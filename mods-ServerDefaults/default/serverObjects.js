@@ -221,8 +221,7 @@ SystemObj.prototype.toString = function () {
 // #### START ####
 // ###############
 var installObj=global.getInstallObj(__dirname);
-var {settings,log,event,defaultGlobalEvent}=installObj;
-const thisConsole=installObj.console;
+var {settings,log,event,defaultGlobalEvent,console:thisConsole}=installObj;
 var serverObj = {};
 defaultGlobalEvent.on("init",function(){ // ONLY NECESSARY FOR DEFAULT MODS SINCE THEY DO NOT RELOAD ON MODRELOAD()
   event.on("start", function (theServerObj) { // This event only happens AFTER the serverObj has been created
@@ -3943,11 +3942,6 @@ function EntityObj(fullUID) { // cb/promises/squish compliant
     self.destroyOnlyDocked = function (options, cb) { // despawns an entity (and all docked entities) as though it were destroyed, till the sector is reloaded.
       return runSimpleCommand("/destroy_uid_only_docked \"" + self.fullUID + "\"", options, cb);
     }
-
-
-    
-
-
     self.softDespawn = function (options, cb) { // despawns an entity as though it were destroyed, till the sector is reloaded.
       // WARNING: if an entity has docked entities on it and it is soft-despawns, I believe this causes them to undock.
       return runSimpleCommand("/soft_despawn \"" + self.fullUID + "\"", options, cb);

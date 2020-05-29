@@ -32,7 +32,11 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   i, // Does a simple case insensitive comparison on two or more strings, returning true if two strings match.  If more than 2 given, then it will check the first value to all others and return true if any matched.
   download, // Used to download files to a specific location
   downloadData, // Downloads data in UTF-8 encoding and returns it as a string
-  downloadJSON // Downloads JSON parseable data in UTF-8 encoding and returns it as an object
+  downloadJSON, // Downloads JSON parseable data in UTF-8 encoding and returns it as an object
+  getEpochSecs, // Gets the seconds since Epoch (1970)
+  getMonthStartEpochSecs, // Gets the time in Epoch seconds for the start of the Month
+  getWeekStartEpochSecs, // Gets the time in Epoch seconds for the start of the Week
+  getDayStartEpochSecs  // Gets the time in Epoch seconds for the start of the Day
 };
 
 
@@ -552,6 +556,39 @@ function convertSecondsToReadableTimeframe(seconds){
     }
   }
   throw new Error("Invalid input given to convertSecondsToReadableTimeframe as 'seconds' input!");
+}
+
+
+function getDayStartEpochSecs(){
+  var epochSecs=getEpochSecs();
+  var myDate=new Date();
+  var myHours=myDate.getHours() * 60 * 60;
+  var myMinutes=myDate.getMinutes() * 60;
+  var mySeconds=myDate.getSeconds();
+  return epochSecs-mySeconds-myMinutes-myHours;
+}
+
+function getWeekStartEpochSecs(){
+  var epochSecs=getEpochSecs();
+  var myDate=new Date();
+  var myDay=myDate.getDay() * 24 * 60 * 60;
+  var myHours=myDate.getHours() * 60 * 60;
+  var myMinutes=myDate.getMinutes() * 60;
+  var mySeconds=myDate.getSeconds();
+  return epochSecs-mySeconds-myMinutes-myHours-myDay;
+}
+function getMonthStartEpochSecs(){
+  var epochSecs=getEpochSecs();
+  var myDate=new Date();
+  var myDay=myDate.getDate() * 24 * 60 * 60;
+  var myHours=myDate.getHours() * 60 * 60;
+  var myMinutes=myDate.getMinutes() * 60;
+  var mySeconds=myDate.getSeconds();
+  return epochSecs-mySeconds-myMinutes-myHours-myDay;
+}
+
+function getEpochSecs(){
+  return Math.round(new Date().getTime() / 1000);
 }
 
 function getSimpleDate(input){

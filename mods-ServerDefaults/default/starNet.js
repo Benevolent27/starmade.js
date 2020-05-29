@@ -983,11 +983,7 @@ function getUIDfromNameSync(name,options){ // Runs in sync mode to assist in cre
 // TODO: Create a "getEntityValueUsingEntityName" function which will parse the /ship_info_name results -- Note that the results returned are much different so a whole set of supporting functions needs to be created
 function getEntityValue(uidOrShipObj,valueString,options,cb){ 
     // valueString can be one of the following:
-  
-  
     // If necessary, the sector the entity is in will be loaded so the value can be retrieved successfully.
-  
-  
   
     // Options are optional.  Allows setting the return type for DataBaseEntry to an object
     // The goal of this is to find a value without creating a full map of everything, stopping once the value is found, so it is as efficient as possible.

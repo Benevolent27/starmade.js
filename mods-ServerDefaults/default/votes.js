@@ -44,16 +44,39 @@ if (!config.hasOwnProperty("apiKey")){
 var serverObj={};
 event.on("start",function(theServerObj){ // the start event indicates that a serverObj has been created.
   serverObj=theServerObj;
+  // # Extend server object
   serverObj.getVotes=getPlayerVotes;
   serverObj.getVotesObj=getPlayerVotesObj;
+  // # Add prototypes for object types
+  installObj.objects.PlayerObj.prototype.hasVoted=function(options,cb){
+    return hasPlayerVoted(this.name,options,cb);
+  };
 });
+function hasPlayerVoted(name,options,cb){
+  if (typeof cb=="function"){
+    return getPlayerVotes("",(err,resultArray) => {
+      if (err){
+        return cb(err,null);
+      }
+      var theReg=new RegExp(`^${name}$`,"i"); // Does a case insensitive match
+      for (let i=0;i<resultArray.length;i++){
+        if (theReg.test(resultArray[i])){
+          return true;
+        }
+      }
+      return false;
+    });
+  } else {
+    return simplePromisifyIt(hasPlayerVoted,options,name);
+  }
+}
+
 function getPlayerVotesObj(options,cb){
   if (typeof cb == "function"){
     if (config.apiKey === notConfiguredAPIKey){
       thisConsole.log("Player votes attempted, but not set up.  Returning empty object!");
       return cb(null,{});
     } else {
-      thisConsole.log("Getting votes for the server..");
       let URL=`http://starmade-servers.com/api/?object=servers&element=votes&key=${config.apiKey}&format=json`;
       return downloadJSON(URL,"",function(err,result){
         if (err){
@@ -91,7 +114,6 @@ function getPlayerVotes(options,cb){
       thisConsole.log("Player votes attempted, but not set up.  Returning empty array!");
       return cb(null,[]);
     } else {
-      thisConsole.log("Getting votes for the server..");
       return getPlayerVotesObj("",function(err,votesObj){
         if (err){
           return cb(err,null);
