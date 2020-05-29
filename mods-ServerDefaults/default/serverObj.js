@@ -1561,7 +1561,7 @@ function ServerObj(options) {
     if (typeof cb == "function"){
       return simpleSqlQuery(theQueryString,options,cb);
     } else {
-      return self.sqlQuery(options,theQueryString);
+      return simplePromisifyIt(self.sqlQuery,options,theQueryString);
     }
   }
   // shutdown(seconds,"message") // message is optional.  If given, a countdown timer will be used and then a 1 second shutdown when it is set to expire.
