@@ -4,9 +4,6 @@ module.exports = { // IMPORTANT: These cannot be used until the serverObj has be
   processDataInput,
   processServerlogDataInput
 }
-// Changeable settings:
-var minIntervalPerPlayerDeath=5; // A player can only die once per a given number of seconds.  When multiple outputs kill a player, multiple console lines appear, so this protects from multiple events firing for the same death.
-
 
 // This script needs to read from the server settings, so it needs the installObj
 var installObj = global.getInstallObj(__dirname);
@@ -38,6 +35,8 @@ const mainFolder = path.dirname(require.main.filename); // This should be where 
 const wrapperBinFolder = path.join(mainFolder, "bin");
 const objectHelper = require(path.join(wrapperBinFolder, "objectHelper.js"));
 const miscHelpers = require(path.join(wrapperBinFolder, "miscHelpers.js"));
+const {ini}=global;
+const {getVal}=ini;
 var {
   getSimpleTime,
   getSimpleDate
@@ -57,6 +56,19 @@ var {
 } = objectHelper;
 
 var playerDeathRegistry={};
+
+var minIntervalPerPlayerDeath=5; // A player can only die once per a given number of seconds.  When multiple outputs kill a player, multiple console lines appear, so this protects from multiple events firing for the same death.
+defaultEvent.on("serverStart",function(serverObj){
+  let serverCfgObj=serverObj.getServerCfgAsIniObj();
+  let tempVal=toNumIfPossible(getVal(serverCfgObj,"SPAWN_PROTECTION")); // This is the number of invulnerable seconds a player has
+  if (typeof tempVal == "number"){
+    if (tempVal > 1){
+      minIntervalPerPlayerDeath=tempVal - 1; // We don't necessarily want it to be equal, in case lag or rounding happens
+    } else { // If protection is disabled, we still need to have a protection amount of something to avoid duplicate death counts.
+      minIntervalPerPlayerDeath=1;
+    }
+  }
+});
 
 defaultEvent.on("playerFactionLeave",function(nameObj, factionObj, factionNameStr){
   // Check if the faction still exists or not, and if not, emit a factionDisbanded event
