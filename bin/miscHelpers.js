@@ -33,6 +33,7 @@ module.exports={ // Always put module.exports at the top so circular dependencie
   download, // Used to download files to a specific location
   downloadData, // Downloads data in UTF-8 encoding and returns it as a string
   downloadJSON, // Downloads JSON parseable data in UTF-8 encoding and returns it as an object
+  getEpochMs, // Gets the milliseconds since Epoch (1970)
   getEpochSecs, // Gets the seconds since Epoch (1970)
   getMonthStartEpochSecs, // Gets the time in Epoch seconds for the start of the Month
   getWeekStartEpochSecs, // Gets the time in Epoch seconds for the start of the Week
@@ -586,6 +587,10 @@ function getMonthStartEpochSecs(){
   var myMinutes=myDate.getMinutes() * 60;
   var mySeconds=myDate.getSeconds();
   return epochSecs-mySeconds-myMinutes-myHours-myDay;
+}
+
+function getEpochMs(){
+  return new Date().getTime();
 }
 
 function getEpochSecs(){
