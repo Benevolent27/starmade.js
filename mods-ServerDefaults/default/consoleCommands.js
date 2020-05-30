@@ -4,7 +4,7 @@ var {settings,log,event,defaultGlobalEvent}=installObj;
 const thisConsole=installObj.console;
 var {toNumIfPossible,toStringIfPossible,getOption}=global.objectHelper;
 var {i} = global.miscHelpers;
-var thisServerObj={};
+var serverObj={};
 
 
 defaultGlobalEvent.on("init",function(){ // ONLY NECESSARY FOR DEFAULT MODS
@@ -13,7 +13,7 @@ defaultGlobalEvent.on("init",function(){ // ONLY NECESSARY FOR DEFAULT MODS
   });
 
   event.on('start',function(theServerObj){
-    thisServerObj=theServerObj;
+    serverObj=theServerObj;
     // #####  SERVER CONTROL  #####
     thisConsole.regCommand("Start","Server Controls",start);
     thisConsole.regCommand("Stop","Server Controls",stop);
@@ -55,14 +55,14 @@ function showAllEvents(theProperCommand,theArguments,options){
   if (getOption(options,"help") == true){
     return showAllEventsHelp(theProperCommand);
   } else if (theArguments.length == 0){
-    thisConsole.log("showAllEvents is currently set to: " + thisServerObj.settings["showAllEvents"]);
+    thisConsole.log("showAllEvents is currently set to: " + serverObj.settings["showAllEvents"]);
     thisConsole.log(`For help on this command, type !help ${theProperCommand}`);
   } else if (i(theArguments[0],"on")){
     thisConsole.log("Setting showAllEvents to true!");
-    thisServerObj.settings["showAllEvents"]=true;
+    serverObj.settings["showAllEvents"]=true;
   } else if (i(theArguments[0],"off")){
     thisConsole.log("Setting showAllEvents to false!");
-    thisServerObj.settings["showAllEvents"]=false;
+    serverObj.settings["showAllEvents"]=false;
   } else {
     thisConsole.log("Invalid parameter given!");
     showAllEventsHelp(theProperCommand);
@@ -78,14 +78,14 @@ function autoRestart(theProperCommand,theArguments,options){
   if (getOption(options,"help") == true){
     showAutoRestartHelp(theProperCommand);
   } else if (theArguments.length == 0){
-    thisConsole.log("autoRestart is currently set to: " + thisServerObj.settings["autoRestart"]);
+    thisConsole.log("autoRestart is currently set to: " + serverObj.settings["autoRestart"]);
     thisConsole.log(`For help on this command, type !help ${theProperCommand}`);
   } else if (i(theArguments[0],"on")){
       thisConsole.log("Setting autoRestart to true!");
-      thisServerObj.settings["autoRestart"]=true;
+      serverObj.settings["autoRestart"]=true;
   } else if (i(theArguments[0],"off")){
     thisConsole.log("Setting autoRestart to false!");
-    thisServerObj.settings["autoRestart"]=false;
+    serverObj.settings["autoRestart"]=false;
   } else {
     thisConsole.log("Invalid parameter given!");
     showAutoRestartHelp(theProperCommand);
@@ -100,14 +100,14 @@ function stdout(theProperCommand,theArguments,options){
   if (getOption(options,"help") == true){
     showStdoutHelp(theProperCommand);
   } else if (theArguments.length == 0){
-    thisConsole.log("showStdout is currently set to: " + thisServerObj.settings["showStdout"]);
+    thisConsole.log("showStdout is currently set to: " + serverObj.settings["showStdout"]);
     thisConsole.log(`For help on this command, type !help ${theProperCommand}`);
   } else if (i(theArguments[0],"on")){
     thisConsole.log("Setting showStdout to true!");
-    thisServerObj.settings["showStdout"]=true;
+    serverObj.settings["showStdout"]=true;
   } else if (i(theArguments[0],"off")){
     thisConsole.log("Setting showStdout to false!");
-    thisServerObj.settings["showStdout"]=false;
+    serverObj.settings["showStdout"]=false;
   } else {
     thisConsole.log("Invalid parameter given!");
     showStdoutHelp(theProperCommand);
@@ -123,14 +123,14 @@ function stderr(theProperCommand,theArguments,options){
   if (getOption(options,"help") == true){
     showStderrHelp(theProperCommand);
   } else if (theArguments.length == 0){
-    thisConsole.log("showStderr is currently set to: " + thisServerObj.settings["showStderr"]);
+    thisConsole.log("showStderr is currently set to: " + serverObj.settings["showStderr"]);
     thisConsole.log(`For help on this command, type !help ${theProperCommand}`);
   } else if (i(theArguments[0],"on")){
     thisConsole.log("Setting showStderr to true!");
-    thisServerObj.settings["showStderr"]=true;
+    serverObj.settings["showStderr"]=true;
   } else if (i(theArguments[0],"off")){
     thisConsole.log("Setting showStderr to false!");
-    thisServerObj.settings["showStderr"]=false;
+    serverObj.settings["showStderr"]=false;
   } else {
     thisConsole.log("Invalid parameter given!");
     showStderrHelp(theProperCommand);
@@ -146,17 +146,17 @@ function stderrFilter(theProperCommand,theArguments,options){
   if (getOption(options,"help") == true){
     stderrFilterHelp(theProperCommand);
   } else if (theArguments.length == 0){
-    if (thisServerObj.settings["stderrFilter"]){
-      thisConsole.log("stderrFilter is currently set to: " + thisServerObj.settings["stderrFilter"]);
+    if (serverObj.settings["stderrFilter"]){
+      thisConsole.log("stderrFilter is currently set to: " + serverObj.settings["stderrFilter"]);
     } else {
-      thisConsole.log("No stderrFilter has been set." + thisServerObj.settings["stderrFilter"]);
+      thisConsole.log("No stderrFilter has been set." + serverObj.settings["stderrFilter"]);
     }
     thisConsole.log(`For help on this command, type !help ${theProperCommand}`);
   } else if (theArguments[0] == "-clear"){
-      thisServerObj.settings["stderrFilter"]=false;
+      serverObj.settings["stderrFilter"]=false;
   } else {
     try {
-      thisServerObj.settings["stderrFilter"]=new RegExp(theArguments.join(""));
+      serverObj.settings["stderrFilter"]=new RegExp(theArguments.join(""));
     } catch (err){
       thisConsole.log("Error creating regExp pattern!  Please correct for the following error and try again:");
       thisConsole.log(err);
@@ -175,17 +175,17 @@ function stdoutFilter(theProperCommand,theArguments,options){
   if (getOption(options,"help") == true){
     stdoutFilterHelp(theProperCommand);
   } else if (theArguments.length == 0){
-    if (thisServerObj.settings["stdoutFilter"]){
-      thisConsole.log("stdoutFilter is currently set to: " + thisServerObj.settings["stdoutFilter"]);
+    if (serverObj.settings["stdoutFilter"]){
+      thisConsole.log("stdoutFilter is currently set to: " + serverObj.settings["stdoutFilter"]);
     } else {
-      thisConsole.log("No stdoutFilter has been set." + thisServerObj.settings["stdoutFilter"]);
+      thisConsole.log("No stdoutFilter has been set." + serverObj.settings["stdoutFilter"]);
     }
     thisConsole.log(`For help on this command, type !help ${theProperCommand}`);
   } else if (theArguments[0] == "-clear"){
-      thisServerObj.settings["stdoutFilter"]=false;
+      serverObj.settings["stdoutFilter"]=false;
   } else {
     try {
-      thisServerObj.settings["stdoutFilter"]=new RegExp(theArguments.join(""));
+      serverObj.settings["stdoutFilter"]=new RegExp(theArguments.join(""));
     } catch (err){
       thisConsole.log("Error creating regExp pattern!  Please correct for the following error and try again:");
       thisConsole.log(err);
@@ -203,9 +203,9 @@ function stdoutFilterHelp(theProperCommand){
 async function onlinePlayers(theProperCommand,theArguments,options){
   if (getOption(options,"help") == true){
     onlinePlayersHelp(theProperCommand);
-  } else if (thisServerObj.hasOwnProperty("spawnStatus")){
-    if (thisServerObj.spawnStatus == "started"){
-      let theResult=await thisServerObj.onlinePlayers().catch((err) => console.error(err));
+  } else if (serverObj.hasOwnProperty("spawnStatus")){
+    if (serverObj.spawnStatus == "started"){
+      let theResult=await serverObj.onlinePlayers().catch((err) => console.error(err));
       // thisConsole.log("This is the results.. " + typeof theResult); // temp
       // thisConsole.dir(theResult); // temp
       if (Array.isArray(theResult)){
@@ -244,19 +244,19 @@ async function currentStatus(theProperCommand,theArguments,options){
     var theResults=[];
     var firstSet={};
     var spawnStatus;
-    if (thisServerObj.hasOwnProperty("spawnStatus")){
-      spawnStatus=thisServerObj.spawnStatus;
+    if (serverObj.hasOwnProperty("spawnStatus")){
+      spawnStatus=serverObj.spawnStatus;
       firstSet["spawnStatus"]=spawnStatus;
     }
-    if (thisServerObj.hasOwnProperty("spawnStatusWanted")){
-      firstSet["spawnStatusWanted"]=thisServerObj.spawnStatusWanted;
+    if (serverObj.hasOwnProperty("spawnStatusWanted")){
+      firstSet["spawnStatusWanted"]=serverObj.spawnStatusWanted;
     }
     if (Object.keys(firstSet).length > 0){
       theResults.push("### SERVER INFO ###")
       theResults.push(firstSet);
     }
     if (spawnStatus == "started"){
-      let theResult=await thisServerObj.status().catch((err) => console.error(err));
+      let theResult=await serverObj.status().catch((err) => console.error(err));
       if (typeof theResult != "undefined"){
         theResults.push("### SERVER STATUS COMMAND RESULTS ###");
         theResults.push(theResult);
@@ -274,7 +274,7 @@ function start(theProperCommand,theArguments,options){ // Display errors, but do
     thisConsole.log("This command attempts to start the server.  It will do nothing if the server is already started.");
     thisConsole.log(`Usage:  !${theProperCommand}`);
   } else {
-    return thisServerObj.start("",function(err){ 
+    return serverObj.start("",function(err){ 
       if (err){ 
         thisConsole.error(err) 
       } 
@@ -302,7 +302,7 @@ function stop(theProperCommand,theArguments,options){ // Any arguments given to 
       theArguments.shift();
       theMessage=theArguments.join(" "); // Will be blank if nothing provided.
     }
-    return thisServerObj.stop(theDuration,theMessage,"",function(err){ thisConsole.error(err) });
+    return serverObj.stop(theDuration,theMessage,"",function(err){ thisConsole.error(err) });
   }
   return true;
 }
@@ -314,7 +314,7 @@ function install(theProperCommand,theArguments,options){
     thisConsole.log("Note:  Normally you shouldn't have to use this command because the wrapper auto-installs the StarMade server if it doesn't exist.");
     thisConsole.log("This command is only useful if you need to perform a reinstall of the starmade server without restarting the wrapper.");
   } else {
-    return thisServerObj.install("",function(err){ 
+    return serverObj.install("",function(err){ 
       thisConsole.error(err); // Display errors, but do not crash the wrapper.
     }); 
   }
@@ -326,7 +326,7 @@ function forcestop(theProperCommand,theArguments,options){ // Any arguments give
     thisConsole.log(`Usage:  !${theProperCommand}`);
   } else {
     // duration, message
-    return thisServerObj.forceStop("",function(err,result){
+    return serverObj.forceStop("",function(err,result){
       if (err){
         thisConsole.error("ERROR:  Could not force stop server!");
         console.dir(err);
