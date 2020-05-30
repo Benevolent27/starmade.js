@@ -50,15 +50,11 @@ defaultGlobalEvent.on("init",function(){ // ONLY NECESSARY FOR DEFAULT MODS SINC
     event.on('playerDisconnect',function(playerObj,playerSmNameObj){
       thisConsole.log(`Event (playerDisconnect) emitted.   playerObj: ${toStringIfPossible(playerObj)}  playerSmNameObj: ${toStringIfPossible(playerSmNameObj)}`);
     });
-    // OLD - TODO:  Delete the obsoleted death event
-    // event.on('playerDeath',function(personObj,deathType,responsibleEntityObj,responsibleFactionObj,killerObj){
-    //   thisConsole.log(`Event (playerDeath) emitted.   personObj: ${toStringIfPossible(personObj)}  deathType: ${toStringIfPossible(deathType)}  responsibleEntityObj: ${toStringIfPossible(responsibleEntityObj)}  responsibleFactionObj: ${toStringIfPossible(responsibleFactionObj)}  killerObj: ${toStringIfPossible(killerObj)}`);
-    // });
-    
     event.on('playerDeath',function(deathObj){
-      thisConsole.log(`Event (playerDeath) emitted (${deathCounter}):`);
+      let deathObjKeys=Object.keys(deathObj);
+      thisConsole.log(`Event (playerDeath) emitted (${deathCounter}) for player, ${deathObj.player.name}.  Info included: ${deathObjKeys.join(" ")}`);
       deathCounter+=1;
-      thisConsole.dir(deathObj);
+      // thisConsole.dir(deathObj);
     });
 
     
