@@ -284,32 +284,6 @@ var starMadeInstallerURL = "http://files.star-made.org/" + starMadeStarter;
 // macosx: http://files.star-made.org/StarMade-Starter.jar
 // Linux: http://files.star-made.org/StarMade-Starter.jar
 
-// TODO:  INCOMPLETE - Implement the console outputs for MAIN, server 1, server 2, etc., then set up recording on the main screen here.
-var recording = false;
-var recordingArray = [];
-var recordFileName = "record";
-var recordingCounter = 1;
-var recordingFile = getRecordFileName();
-
-function getRecordFileName() {
-  if (miscHelpers.isSeen(recordingFile)) {
-    recordingCounter++;
-    recordingFile = path.join(__dirname, recordFileName + recordingCounter + ".log");
-    return getRecordFileName();
-  } else {
-    return path.join(__dirname, recordFileName + recordingCounter + ".log");
-  }
-}
-
-function dumpToRecordFile(options, cb) {
-  if (typeof cb == "function") {
-    var stringToWrite = recordingArray.join("\n");
-    recordingArray = [];
-    return fs.writeFile(getRecordFileName(), stringToWrite, cb);
-  }
-  return simplePromisifyIt(dumpToRecordFile, options);
-}
-
 log("starmade.js launched.");
 
 // ######################
@@ -1023,7 +997,6 @@ process.stdin.on('data', function (text) { // This runs for any console
         console.log(" !debug [on/off]"); // Displays debug messages
         // console.log(" !enumerateevents [on/off]");
         console.log(" !reloadMods");
-        // console.log(" !record (stop)");
         // console.log(" !showallevents [on/off]");
         // console.log(" !listObjectConstructors");
         // console.log(" !listObjectConstructorElements [ObjectName(parameters)]");
@@ -1215,31 +1188,7 @@ process.stdin.on('data', function (text) { // This runs for any console
       console.log("Exiting wrapper..");
       process.exit(); // Any listeners for the server exit will fire before the wrapper actually stops. 
 
-    } else if (i(theCommand, "record")) { // Change this so it records whatever is output to the screen, so that it will work across servers (if possible).
-      if (!theArguments[0] || i(theArguments[0], "start")) {
-        if (recording) {
-          console.log("Already recording!  Please stop the current recording to start a new one!  To stop recording, type: !record stop");
-        } else {
-          console.log("Starting to record outputs..  To dump to file (" + getRecordFileName() + "), type !record stop");
-          recording = true;
-        }
-      } else if (i(theArguments[0], "stop")) {
-        if (recording) {
-          console.log("Stopping and saving recording to file..");
-          recording = false;
-          return dumpToRecordFile("", function (err) {
-            if (err) {
-              console.log("Error writing recording to file: " + recordingFile);
-              console.dir(err);
-            }
-            console.log("SUCCESS:  Finished writing to record file: " + recordingFile);
-          });
-        } else {
-          console.log("No recording is happening!  To start recording server output, please type:  !record");
-        }
-      } else {
-        console.log("Invalid argument given to !record command.")
-      }
+
 
       // } else if (i(theCommand,"stdout")) {
       //   if (i(theArguments[0],"on")){

@@ -119,31 +119,6 @@ var installObj=global.getInstallObj(__dirname);
 var {settings,log,installPath,event}=installObj;
 var thisConsole=installObj.console;
 
-// TODO: Fix recording
-function getRecordFileName() {
-  if (miscHelpers.isSeen(recordingFile)) {
-    recordingCounter++;
-    recordingFile = path.join(__dirname, recordFileName + recordingCounter + ".log");
-    return getRecordFileName();
-  } else {
-    return path.join(__dirname, recordFileName + recordingCounter + ".log");
-  }
-}
-
-function dumpToRecordFile(options, cb) {
-  if (typeof cb == "function") {
-    var stringToWrite = recordingArray.join("\n");
-    recordingArray = [];
-    return fs.writeFile(getRecordFileName(), stringToWrite, cb);
-  }
-  return simplePromisifyIt(dumpToRecordFile, options);
-}
-var recording = false;
-var recordingArray = [];
-var recordFileName = "record";
-var recordingCounter = 1;
-var recordingFile = getRecordFileName();
-
 function ServerObj(options) { 
   // This us used to run server commands or gather specific information regarding the server.
   
@@ -469,33 +444,6 @@ function ServerObj(options) {
       // global["servers"][self.installFolder]=self.spawn; // Old method, plus no need to add the spawn, since this adds it to the ServerObj
       self.addLockPID(self.spawn.pid);
 
-      // Tailing is no longer necessary, since the console should output serverlog messages (added after StarMade ver 0.201.378)
-      // thisConsole.log("Initializing tail of serverlog.0.log");
-      // miscHelpers.touch(serverLogFile); // Ensure the file exists before we tail it.
-      // if (process.platform == "win32" ){ // TODO:  See if there is a cleaner workaround than using a powershell instance to force the serverTail to be faster..  It does not handle errors well.  I believe it will crash when log rotation happens.
-      //   thisConsole.log("#########   Windows detected, running powershell listener.  #########");
-      //   //  powershell type -wait -Tail 0 .\serverlog.0.log  <-- this will force it to refresh  Source: https://serverfault.com/questions/1845/how-to-monitor-a-windows-log-file-in-real-time
-      //   var powershellArgs=["type","-wait","-Tail 0",serverLogFile];
-      //   thisConsole.log("Set Powershell arguments to: " + powershellArgs)
-      //   self.powershellSpawn=spawn("powershell",powershellArgs,{"cwd": self.starMadeLogFolder});
-      //   thisConsole.log("Powershell started with PID: " + self.powershellSpawn.pid);
-      //   self.addLockPID(self.powershellSpawn.pid); // This is to ensure the PID is killed if the server is started again and was not successfully shut down.  I am also adding a treekill to the global exit listener.
-      // }
-      // var tailOptions = {
-      //   "fsWatchOptions": {"persistent": false},
-      //   "follow": true,
-      //   "fromBeginning": false
-      // };    
-      // self.serverTail = new Tail(serverLogFile,tailOptions);
-      // serverTail.watch(); // TEMPORARY
-      // process.exit(); // TEMPORARY
-
-      // Unnecessary to follow the 'close' since 'exit' suffices.  This would duplicate with the 'exit' listener.
-      // this.spawn.on('close',function(code){ // This has to do with whether it's STDIO is closed or not, this normally fires after the exit.
-      //   thisConsole.log("###### SPAWN STATUS SET TO:  closed");
-      //   self.spawnStatus="closed";
-      //   self.spawnStatusCode=code;
-      // });
       self.spawn.on('disconnect', function () {
         thisConsole.log("###### SPAWN STATUS SET TO:  disconnect");
         self.spawnStatus = "disconnected";
@@ -534,13 +482,6 @@ function ServerObj(options) {
         if (self.hasOwnProperty("blockTypePropertiesObj")) { // Same as above. The BlockType.properties file can change between reboots.
           Reflect.deleteProperty(self, "blockTypePropertiesObj");
         }
-
-
-        // Tail will no longer be used in StarMade after the current version as of this writing
-        // thisConsole.log("serverTail:");
-        // thisConsole.dir(self.serverTail.listeners());
-        // thisConsole.log("Shutting down server log tail..");
-        // self.serverTail.unwatch();
       });
 
       // Set up the listeners for the main process and for the serverlog
@@ -564,9 +505,6 @@ function ServerObj(options) {
                   thisConsole.log("STDOUT: " + dataArray[i]);
                 }
               }
-              if (recording) { // For the wrapper console command "!recording"
-                recordingArray.push("STDOUT: " + dataArray[i]);
-              }
               processDataInput(dataArray[i]); // Process the line to see if it matches any events and then trigger the appropriate event
             }
           }
@@ -589,43 +527,11 @@ function ServerObj(options) {
                   thisConsole.log("STDERR: " + dataArray[i]);
                 }
               }
-              if (recording) { // For the wrapper console command "!recording"
-                recordingArray.push("STDERR: " + dataArray[i]);
-              }
               processDataInput(dataArray[i]); // Process the line to see if it matches any events and then trigger the appropriate event
             }
           }
         }
       });
-      // No longer needed since we aren't tailing the serverlog anymore
-      // self.serverTail.on('line', function (data) { // This is unfortunately needed because some events don't appear in the console output.  I do not know if the tail will be 100% accurate, missing nothing.
-      //   // thisConsole.log("Processing serverlog.0.log line: " + data.toString().trim());
-      //   // There needs to be a separate processor for serverlog stuff, since there can be duplicates found in the console and serverlog.0.log file.  This should also be faster once streamlined.
-      //   // let dataString=data.toString().trim().replace(/^\[[^\[]*\] */,''); // This was throwing ESLINTER areas I guess.
-      //   let dataString = data.toString().trim().replace(/^\[[^[]*\] */, ''); // This removes the timestamp from the beginning of each line so each line looks the same as a console output line, which has no timestamps.
-      //   if (dataString) { // Do not process empty lines
-      //     let dataArray = dataString.replace("\r", "").split("\n"); // simplify to only new line characters and split to individual lines.
-      //     for (let i = 0;i < dataArray.length;i++) {
-      //       if (dataArray[i]) { // Do not process empty lines
-      //         if (self.settings.showServerlog == true || self.settings.showAllEvents == true) {
-      //           if (typeof self.settings.serverlogFilter == "object") {
-      //             if (self.settings.serverlogFilter.test(dataArray[i])) {
-      //               thisConsole.log("serverlog.0.log: " + dataArray[i]);
-      //             }
-      //           } else {
-      //             thisConsole.log("serverlog.0.log: " + dataArray[i]);
-      //           }
-      //         }
-      //         if (recording) { // For the wrapper console command "!recording"
-      //           recordingArray.push("serverlog.0.log: " + dataArray[i]);
-      //         }
-      //         processServerlogDataInput(dataArray[i]); // Process the line to see if it matches any events and then trigger the appropriate event
-      //       }
-      //     }
-      //   }
-      // });
-
-      // return this.spawn;
       return cb(null, this.spawn);
     } else {
       return simplePromisifyIt(self.start, options);
