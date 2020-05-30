@@ -8,6 +8,7 @@ var installObj=global.getInstallObj(__dirname);
 var {settings,log,event,defaultGlobalEvent}=installObj;
 const thisConsole=installObj.console;
 var {toStringIfPossible}=global.objectHelper;
+var deathCounter=1;
 // var serverObj={};
 defaultGlobalEvent.on("init",function(){ // ONLY NECESSARY FOR DEFAULT MODS SINCE THEY DO NOT RELOAD ON MODRELOAD()
   event.on('commandStart',function(){
@@ -49,9 +50,18 @@ defaultGlobalEvent.on("init",function(){ // ONLY NECESSARY FOR DEFAULT MODS SINC
     event.on('playerDisconnect',function(playerObj,playerSmNameObj){
       thisConsole.log(`Event (playerDisconnect) emitted.   playerObj: ${toStringIfPossible(playerObj)}  playerSmNameObj: ${toStringIfPossible(playerSmNameObj)}`);
     });
-    event.on('playerDeath',function(personObj,deathType,responsibleEntityObj,responsibleFactionObj,killerObj){
-      thisConsole.log(`Event (playerDeath) emitted.   personObj: ${toStringIfPossible(personObj)}  deathType: ${toStringIfPossible(deathType)}  responsibleEntityObj: ${toStringIfPossible(responsibleEntityObj)}  responsibleFactionObj: ${toStringIfPossible(responsibleFactionObj)}  killerObj: ${toStringIfPossible(killerObj)}`);
+    // OLD - TODO:  Delete the obsoleted death event
+    // event.on('playerDeath',function(personObj,deathType,responsibleEntityObj,responsibleFactionObj,killerObj){
+    //   thisConsole.log(`Event (playerDeath) emitted.   personObj: ${toStringIfPossible(personObj)}  deathType: ${toStringIfPossible(deathType)}  responsibleEntityObj: ${toStringIfPossible(responsibleEntityObj)}  responsibleFactionObj: ${toStringIfPossible(responsibleFactionObj)}  killerObj: ${toStringIfPossible(killerObj)}`);
+    // });
+    
+    event.on('playerDeath',function(deathObj){
+      thisConsole.log(`Event (playerDeath) emitted (${deathCounter}):`);
+      deathCounter+=1;
+      thisConsole.dir(deathObj);
     });
+
+    
     event.on('entityOverheat',function(entityObj,sectorObj,playerObj,playerSMNameObj){
       thisConsole.log(`Event (entityOverheat) emitted.   entityObj: ${toStringIfPossible(entityObj)} sectorObj: ${toStringIfPossible(sectorObj)}  playerObj: ${toStringIfPossible(playerObj)}  playerSMNameObj: ${toStringIfPossible(playerSMNameObj)}`);
     });

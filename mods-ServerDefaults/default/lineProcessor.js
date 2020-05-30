@@ -4,6 +4,9 @@ module.exports = { // IMPORTANT: These cannot be used until the serverObj has be
   processDataInput,
   processServerlogDataInput
 }
+// Changeable settings:
+var minIntervalPerPlayerDeath=5; // A player can only die once per a given number of seconds.  When multiple outputs kill a player, multiple console lines appear, so this protects from multiple events firing for the same death.
+
 
 // This script needs to read from the server settings, so it needs the installObj
 var installObj = global.getInstallObj(__dirname);
@@ -53,6 +56,7 @@ var {
   getParamNames
 } = objectHelper;
 
+var playerDeathRegistry={};
 
 defaultEvent.on("playerFactionLeave",function(nameObj, factionObj, factionNameStr){
   // Check if the faction still exists or not, and if not, emit a factionDisbanded event
@@ -145,6 +149,189 @@ function processDataInput(dataInput) { // This function is run on every single l
       // theArguments[8]: yet.
       // theArguments[9]: Creating
       // theArguments[10]: entry!
+
+      // ### PLAYER DEATHS ###
+      // TODO: 
+      // - Test planet core death
+      // - Test Faction ships (including NPC's)
+      // - Test Mines
+    } else if ((/\[SERVERLOG\] \[DEATH\]/).test(dataInput)){
+      var deathTime=new Date().getTime();
+      var deadPlayerName=dataInput.match(/(?<=^\[SERVERLOG\] \[DEATH\] )[^ ]*/);
+      // The console outputs multiple death messages for the same death if multiple outputs of a weapon killed a player at the same time
+      // Normally servers have death protection on, so a player can only die a certain number of times per second
+      // So we should be able to safely only allow up to 1 death message to get through per interval of seconds
+      if (playerDeathRegistry.hasOwnProperty(deadPlayerName)){
+        let deathTimeElapsed=deathTime - playerDeathRegistry[deadPlayerName];
+        let minDeathTime=minIntervalPerPlayerDeath * 1000;
+        if (deathTimeElapsed < minDeathTime){
+          return false;
+        }
+      }
+      playerDeathRegistry[deadPlayerName]=deathTime;
+      var returnObj={};
+      returnObj.deathTime=deathTime;
+      
+      
+
+      returnObj.player=new installObj.objects.PlayerObj(deadPlayerName);
+      // var controllableText=dataInput.match(/(?<=; controllable: ).*$/); // TODO: Delete this line
+
+      // Controllable examples:
+      // Star + Blackhole has Sector[ with coordinates
+      // PlayerCharacter[ // PVP
+      // PlS[ // Suicide
+      // SpaceStation[ // Any spacestation with or without player in it
+      // Ship[ // Any ship, with or without player in it
+      // Planet( // Any Planet, with or without player in it
+      var responsibleText=toStringIfPossible(dataInput.match(/(?<='Responsible: )[^[(]*/));
+      if (typeof responsibleText != "string"){ // When a player is in the entity, it will be "Killer" instead
+        responsibleText=toStringIfPossible(dataInput.match(/(?<='Killer: )[^[(]*/));
+      }
+      if (typeof responsibleText == "string"){
+        responsibleText=responsibleText.replace(/ <.*>$/,""); // This is to remove the player name if piloting a ship or base
+      }
+
+      // [ ( <
+      // Responsible: My new base[ // a base
+      // Responsible: KillerMachine[ // a ship
+      // Floating Rock <
+      // Responsible: Sun[
+      // Responsible: Black Hole[
+      var controllableType=toStringIfPossible(dataInput.match(/(?<=; controllable: )[^[(]*/));
+      if (typeof controllableType == "string"){
+        controllableType=controllableType.trim();
+      }
+      // Types:
+      // PlayerCharacter -- player kills another with hand weapon
+      // PlS -- suicide
+      // SpaceStation
+      // Ship
+      // Planet
+      // ManagedAsteroid
+      // Sector // can be either a star or a black hole
+      // Mine
+      var owner=toStringIfPossible(dataInput.match(/(?<=Owner=PlS\[)[^ ]*/)); // Will be null if no player
+      var deathType;
+      if (controllableType == "PlayerCharacter"){
+        if (deadPlayerName == owner){ // Rocket launcher deaths
+          deathType="suicide";
+        } else {
+          deathType="player";
+        }
+      } else if (controllableType == "PlS"){ // Menu suicides
+        deathType="suicide";
+      } else if (controllableType == "SpaceStation"){
+        deathType="station";
+      } else if (controllableType == "Ship"){
+        deathType="ship";
+      } else if (controllableType == "Planet"){
+        deathType="planet";
+      } else if (controllableType == "ManagedAsteroid"){
+        deathType="asteroid";
+      } else if (controllableType == "Sector"){
+        if (responsibleText == "Sun"){
+          deathType="star";
+        } else if (responsibleText == "Black Hole"){
+          deathType="blackHole";
+        }
+        var sectorTmp=toStringIfPossible(dataInput.match(/(?<=\()[-]{0,1}[0-9]+, [-]{0,1}[0-9]+, [-]{0,1}[0-9]+\)$/));
+        if (typeof sectorTmp == "string"){
+          sectorTmp=sectorTmp.replace(/\)$/,"");
+          sectorTmp=sectorTmp.split(", ");
+          if (sectorTmp.length==3){
+            returnObj.sector=new installObj.objects.SectorObj(...sectorTmp);
+          }
+        }
+      } else if (controllableType=="Mine"){
+        deathType="mine";
+        var mineData=toStringIfPossible(dataInput.match(/(?<=; controllable: Mine \[)[^\]]*/));
+        if (typeof mineData == "string"){
+          let mineID=toNumIfPossible(toStringIfPossible(mineData.match(/(?<=id=)[-]{0,1}[0-9]+/)));
+          if (typeof mineID == "number"){
+            returnObj.killerMineID=mineID;
+          }
+          let mineCoords=toStringIfPossible(mineData.match(/(?<=sectorPos=\()[-]{0,1}[0-9]+, [-]{0,1}[0-9]+, [-]{0,1}[0-9]+/));
+          if (typeof mineCoords == "string"){
+            mineCoords=mineCoords.split(", ");
+            returnObj.sector=new installObj.objects.SectorObj(...mineCoords);
+          }
+          let mineType=toStringIfPossible(mineData.match(/(?<=mineType=)[^,]+/));
+          if (typeof mineType == "string"){
+            returnObj.KillerMineType=mineType;
+            // Looks like this:
+            // MINE_TYPE_CANNON
+            // TODO:  Find all the mine types to document them
+          }
+        }
+      } else {
+        // TODO:  Figure out mine deaths, warheads, and test if NPC fleets (or fleets in general) show differently
+        // } else if ((/\(design\)/).test(responsible)) {
+        //   deathType = "shipyarddesign";
+        deathType="unknown"; // This should cover shipyard deaths or anything I might not be considering right now
+      }
+      returnObj.deathType=deathType;
+      if (deathType != "suicide" && owner !== null){
+        returnObj.killerPlayer=new installObj.objects.PlayerObj(owner);
+      }
+      // planet/asteroid/star/blackHole/suicide/player/station/ship
+      if (returnObj.deathType == "station" || returnObj.deathType == "ship"){
+        if (typeof responsibleText == "string"){
+          returnObj.killerEntityName=responsibleText;
+        }
+      }
+      // Look up the UID, which should be available for: station, ship, planet, and asteroid
+      if (deathType == "station" || deathType == "ship" || deathType == "planet" || deathType == "asteroid"){
+        let entityUID=toStringIfPossible(dataInput.match(/(?<=, UID={)[^}]*/));
+        if (typeof entityUID == "string"){
+          returnObj.killerEntity=new installObj.objects.EntityObj(entityUID);
+        }
+      }
+
+      // Look up faction number
+      let factionNum=toNumIfPossible(toStringIfPossible(dataInput.match(/(?<=\[Faction=)[-]{0,1}[0-9]+/)));
+      if (factionNum != 0){
+        returnObj.killerFaction=new installObj.objects.FactionObj(factionNum);
+        // Look up a faction name, if possible
+        // possible for: bases, ships, and planets
+        if (deathType == "station" || deathType == "ship" || deathType == "planet"){
+          let responsibleTest=toStringIfPossible(dataInput.match(/(?<=Responsible: [^[]*\[)[^\]]*/)); // A player was NOT in the entity
+          if (typeof responsibleTest == "string"){
+            returnObj.killerFactionName=responsibleTest;
+          } else { 
+            let killerText=toStringIfPossible(dataInput.match(/(?<=Killer: [^[]*\[)[^\]]*/)); // A player WAS in the entity
+            if (typeof killerText == "string"){
+              returnObj.killerFactionName=killerText;
+            }
+          }
+        }
+      }
+
+
+      // The returnObj should now have the following elements:
+      // player
+      // killerEntity
+      // killerPlayer
+      // killerEntity
+      // killerEntityName
+      // killerFaction
+      // killerFactionName
+      // sector
+      // deathType
+
+      // Time to emit the object
+      event.emit('playerDeath',returnObj);
+      // var exampleDeathObj={
+      //   player:playerObj, // player who died
+      //   killerPlayer:playerObj, // Player who killed that player - only provided IF a player was in the entity.  Available in the "Owner" info part of the line.
+      //   killerEntity:entityObj, // responsible - entity that killed the player
+      //   killerEntityName:"Entity Name",
+      //   killerFaction:factionObj, // Only provided if faction information is available (only for factioned entities)
+      //   killerFactionName:"factionName", // Only available if faction information is available
+      //   sector:sectorObj, // only available IF a black hole or star killed the player
+      //   controllable:???, // This determines if the player
+      //   deathType:"planet/asteroid/star/blackHole/suicide/player/station/ship"
+      // }
 
       // ### New Ship or Base Creation (not blueprints) ###
     } else if (theArguments[0].match(/\[BLUEPRINT\].*/)) { // Various Blueprint events
@@ -617,7 +804,7 @@ function processServerlogDataInput(dataInput) { // This function is run on every
         }
       }
     } else if (theArguments[0] == "[DEATH]") {
-      // Post 2.0 weapons update:
+      // Post 2.0 weapons update: -- no longer relevant
       // [2018-07-15 13:21:05] [DEATH] TheDerpGamer has been killed by 'Responsible: Mine//1342'; controllable: Mine [id=1342, sectorPos=(22, 28, 36), mineType=MINE_TYPE_MISSILE, active=true(5)]
       // [2018-07-15 10:17:31] [DEATH] Starjet1 has been killed by 'Killer: Starjet1 (0.0/120.0 HP left)'; controllable: PlS[Starjet1 [Starjet]; id(2704)(15)f(0)]
       // [2018-07-15 21:04:33] [DEATH] WARLOCKZIKE has been killed by 'Killer: WARLOCKZIKE (0.0/120.0 HP left)'; controllable: PlS[WARLOCKZIKE [WARLOCKZIKE]; id(27544)(80)f(0)]
