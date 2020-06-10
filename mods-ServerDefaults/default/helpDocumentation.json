@@ -1,0 +1,397 @@
+{
+  "objects":{
+    "//":"'examples' are used to create objects for registered object constructors.",
+    "//":"These are found in installObj.objects.",
+    "//":"On startup, a set is created and then used to build the webpage documentation",
+    "//":"This is necessary so that each of the elements can be gone through for each object type.",
+    "//":"All elements that are functions will have their arguments be parsed to be displayed",
+    "//":"Within the documentation.",
+    "examples":{ 
+      "//":"'ServerObj' is a special case.  The 'installObj.serverObj' will be used as the example before attempting to create a new one with installObj.objects.ServerObj",
+      "ServerObj":{
+        "input":"",
+        "info":"This is the object that is used to control the server or send server-wide commands."
+      },
+      "BlueprintObj":{
+        "input":["Example"],
+        "info":"This object represents an individual blueprint, which may or may not be owned by a player."
+      },
+      "BotObj":{
+        "input":["Melvin"],
+        "info":"This object represents the bot that interfaces with players.  It is used primarily just for messaging purposes and typically represents the face of the wrapper."
+      },
+      "ChannelObj":{
+        "input":["name"],
+        "info":"This object represents a channel in the game, whether it is a private message between players or a public channel.",
+        "note":"Presently there are no commands to manipulate channels."
+      },
+      "CoordsObj":{
+        "input":[2,3,4],
+        "info":"This object represents a general set of coordinates on a 3 dimensional plane.",
+        "note":"These coordinates do not necessarily represent a sector, system, local coordinates, nor spacial coordinates within a sector, but they may.\nThe appropriate object type for systems, sectors, or spacial coordinates should be used for their corresponding type."
+      },
+      "EntityObj":{
+        "input":["SHIP_ENTITY_SomeShip"],
+        "info":"This is an object that represents a ship, space station, asteroid, or planet part.",
+        "note":"This will likely become a super constructor later, with each entity type separated out since all admin commands may not work for each entity type."
+      },
+      "FactionObj":{
+        "input":[10000],
+        "info":"This object represents an in-game faction."
+      },
+      "IPObj":{
+        "input":["127.0.0.1"],
+        "info":"This object represents the IP address of a player."
+      },
+      "LocationObj":{
+        "input":[[2,2,2],[23,54,26]],
+        "info":"This object represents a specific point within the universe by sector and local coordinates."
+      },
+      "MessageObj":{
+        "input":["Benevolent27","NaStral","CHANGETHIS","This is an example message"],
+        "info":"This object represents a single message sent by a player.  These can be from any channel or private message."
+      },
+      "PlayerObj":{
+        "input":["Benevolent27"],
+        "info":"This object represents an individual in-game player.",
+        "note":"For all function elements, if no callback is given, a promise will be returned.",
+        "//":"After an example object is created, the element data is paired to the information below to build a webpage detailing what each element is for.",
+        "elements":{ 
+          "addAdmin":{
+            "info":"Adds this player as an admin if they aren't already.",
+            "returnValues":{
+              "true":"If the command succeeded.",
+              "false":"If the command failed.  This may happen if the player is already an admin."
+            }
+          },
+          "addAdminDeniedCommand":{
+            "info":"Adds a command to the disallow list for an admin.  The player MUST be an admin for this to work.",
+            "note":"If no callback is provided, a promise is returned.",
+            "returnValues":{
+              "true":"If the command succeeded.",
+              "false":"If the command failed.  This may happen if the player is not an admin."
+            }
+          },
+          "ban":{
+            "info":"Bans the player.  If no time is specified, the ban is permanent.",
+            "note":"If no callback is provided, a promise is returned."
+          },
+          "blueprints":{
+            "info":"Returns the blueprints for the player as an array of BlueprintObj.",
+            "note":"If no callback is provided, a promise is returned."
+          },
+          "botMsg":{
+            "info":"Sends the player a message from the server bot.",
+            "note":"If wanting to send a bot message to the public channel, see serverObj.botMsg"
+          },
+          "changeSector":{
+            "info":"Moves the player to to a different sector."
+          },
+          "changeSectorCopy":{
+            "info":"Moves the player to to a different sector, leaving behind a copy of whichever entity the player might be in.",
+            "note":"This creates a copy of the player's entity"
+          },
+          "creativeMode":{
+            "info":"Turns creative mode on or off for the player.",
+            "note":"This is persistent across server reboots.  If turned on, it will stay on."
+          },
+          "credits":{
+            "info":"Returns the amount of credits a player has in their inventory as a number."
+          },
+          "currentEntity":{
+            "info":"Returns the entity a player is currently in",
+            "note":""
+          },
+          "deleteFromFaction":{
+            "info":"",
+            "note":""
+          },
+          "exists":{
+            "info":"",
+            "note":""
+          },
+          "faction":{
+            "info":"",
+            "note":""
+          },
+          "factionPointProtect":{
+            "info":"",
+            "note":""
+          },
+          "getFactionRank":{
+            "info":"",
+            "note":""
+          },
+          "giveItem":{
+            "info":"",
+            "note":""
+          },
+          "giveItemId":{
+            "info":"",
+            "note":""
+          },
+          "giveAllItems":{
+            "info":"",
+            "note":""
+          },
+          "giveCategoryItems":{
+            "info":"",
+            "note":""
+          },
+          "giveCredits":{
+            "info":"",
+            "note":""
+          },
+          "giveGrapple":{
+            "info":"",
+            "note":""
+          },
+          "giveGrappleOP":{
+            "info":"",
+            "note":""
+          },
+          "giveHealWeapon":{
+            "info":"",
+            "note":""
+          },
+          "giveLaserWeapon":{
+            "info":"",
+            "note":""
+          },
+          "giveLaserWeaponOP":{
+            "info":"",
+            "note":""
+          },
+          "giveMarkerWeapon":{
+            "info":"",
+            "note":""
+          },
+          "giveMetaItem":{
+            "info":"",
+            "note":""
+          },
+          "givePowerSupplyWeapon":{
+            "info":"",
+            "note":""
+          },
+          "giveRocketLauncher":{
+            "info":"",
+            "note":""
+          },
+          "giveRocketLauncherOP":{
+            "info":"",
+            "note":""
+          },
+          "giveSniperWeapon":{
+            "info":"",
+            "note":""
+          },
+          "giveSniperWeaponOP":{
+            "info":"",
+            "note":""
+          },
+          "giveTorchWeapon":{
+            "info":"",
+            "note":""
+          },
+          "giveTorchWeaponOP":{
+            "info":"",
+            "note":""
+          },
+          "giveTransporterMarkerWeapon":{
+            "info":"",
+            "note":""
+          },
+          "godMode":{
+            "info":"",
+            "note":""
+          },
+          "info":{
+            "info":"",
+            "note":""
+          },
+          "inventory":{
+            "info":"",
+            "note":""
+          },
+          "invisibilityMode":{
+            "info":"",
+            "note":""
+          },
+          "ip":{
+            "info":"",
+            "note":""
+          },
+          "ipBan":{
+            "info":"",
+            "note":""
+          },
+          "ipBanAll":{
+            "info":"",
+            "note":""
+          },
+          "ipUnban":{
+            "info":"",
+            "note":""
+          },
+          "ipUnbanAll":{
+            "info":"",
+            "note":""
+          },
+          "ips":{
+            "info":"",
+            "note":""
+          },
+          "isAdmin":{
+            "info":"",
+            "note":""
+          },
+          "isBanned":{
+            "info":"",
+            "note":""
+          },
+          "isOnline":{
+            "info":"",
+            "note":""
+          },
+          "isWhitelisted":{
+            "info":"",
+            "note":""
+          },
+          "joinFaction":{
+            "info":"",
+            "note":""
+          },
+          "kick":{
+            "info":"",
+            "note":""
+          },
+          "kickPlayerOutOfEntity":{
+            "info":"",
+            "note":""
+          },
+          "kill":{
+            "info":"",
+            "note":""
+          },
+          "listAdminDeniedCommands":{
+            "info":"",
+            "note":""
+          },
+          "msg":{
+            "info":"",
+            "note":""
+          },
+          "name":{
+            "info":"This is the name of the player."
+          },
+          "personalTestSector":{
+            "info":"This returns the player's personal Test Sector, which is where they are moved when viewing a ship design.",
+            "note":"If no callback is provided, a promise is returned."
+          },
+          "playerNameProtect":{
+            "info":"This protects a user name so that only a specific registry account can log in under it.",
+            "note":"If no callback is provided, a promise is returned."
+          },
+          "playerNameUnprotect":{
+            "info":"",
+            "note":""
+          },
+          "putPlayerIntoEntity":{
+            "info":"",
+            "note":""
+          },
+          "removeAdmin":{
+            "info":"",
+            "note":""
+          },
+          "removeAdminDeniedCommand":{
+            "info":"",
+            "note":""
+          },
+          "sector":{
+            "info":"",
+            "note":""
+          },
+          "setFactionRank":{
+            "info":"",
+            "note":""
+          },
+          "setInfiniteInventoryVolume":{
+            "info":"",
+            "note":""
+          },
+          "setSpawnLocation":{
+            "info":"",
+            "note":""
+          },
+          "smName":{
+            "info":"",
+            "note":""
+          },
+          "smNameBan":{
+            "info":"",
+            "note":""
+          },
+          "smNameUnban":{
+            "info":"",
+            "note":""
+          },
+          "spacialCoords":{
+            "info":"",
+            "note":""
+          },
+          "spawnLocation":{
+            "info":"",
+            "note":""
+          },
+          "suspendFromFaction":{
+            "info":"",
+            "note":""
+          },
+          "system":{
+            "info":"",
+            "note":""
+          },
+          "teleportTo":{
+            "info":"",
+            "note":""
+          },
+          "tint":{
+            "info":"",
+            "note":""
+          },
+          "unban":{
+            "info":"",
+            "note":""
+          },
+          "unsuspendFromFaction":{
+            "info":"",
+            "note":""
+          },
+          "upgraded":{
+            "info":"",
+            "note":""
+          },
+          "whitelist":{
+            "info":"",
+            "note":""
+          }
+        }
+      },
+      "SMNameObj":{
+        "input":["Benevolent27"],
+        "info":"This object represents an individual StarMade Registry Account.",
+        "note":"A player may have more than 1 player name, but should use the same registry account for verification purposes."
+      },
+      "SectorObj":{
+        "input":[2,2,2],
+        "info":"This object represents a specific sector within the universe based on it's set of coordinates."
+      },
+      "SystemObj":{
+        "input":[3,2,1],
+        "info":"This object represents a specific system within the universe based on it's set of coordinates."
+      }
+    }
+  }
+}
