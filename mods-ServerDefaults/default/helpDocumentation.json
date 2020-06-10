@@ -6,392 +6,664 @@
     "//":"This is necessary so that each of the elements can be gone through for each object type.",
     "//":"All elements that are functions will have their arguments be parsed to be displayed",
     "//":"Within the documentation.",
-    "examples":{ 
-      "//":"'ServerObj' is a special case.  The 'installObj.serverObj' will be used as the example before attempting to create a new one with installObj.objects.ServerObj",
-      "ServerObj":{
-        "input":"",
-        "info":"This is the object that is used to control the server or send server-wide commands."
-      },
-      "BlueprintObj":{
-        "input":["Example"],
-        "info":"This object represents an individual blueprint, which may or may not be owned by a player."
-      },
-      "BotObj":{
-        "input":["Melvin"],
-        "info":"This object represents the bot that interfaces with players.  It is used primarily just for messaging purposes and typically represents the face of the wrapper."
-      },
-      "ChannelObj":{
-        "input":["name"],
-        "info":"This object represents a channel in the game, whether it is a private message between players or a public channel.",
-        "note":"Presently there are no commands to manipulate channels."
-      },
-      "CoordsObj":{
-        "input":[2,3,4],
-        "info":"This object represents a general set of coordinates on a 3 dimensional plane.",
-        "note":"These coordinates do not necessarily represent a sector, system, local coordinates, nor spacial coordinates within a sector, but they may.\nThe appropriate object type for systems, sectors, or spacial coordinates should be used for their corresponding type."
-      },
-      "EntityObj":{
-        "input":["SHIP_ENTITY_SomeShip"],
-        "info":"This is an object that represents a ship, space station, asteroid, or planet part.",
-        "note":"This will likely become a super constructor later, with each entity type separated out since all admin commands may not work for each entity type."
-      },
-      "FactionObj":{
-        "input":[10000],
-        "info":"This object represents an in-game faction."
-      },
-      "IPObj":{
-        "input":["127.0.0.1"],
-        "info":"This object represents the IP address of a player."
-      },
-      "LocationObj":{
-        "input":[[2,2,2],[23,54,26]],
-        "info":"This object represents a specific point within the universe by sector and local coordinates."
-      },
-      "MessageObj":{
-        "input":["Benevolent27","NaStral","CHANGETHIS","This is an example message"],
-        "info":"This object represents a single message sent by a player.  These can be from any channel or private message."
-      },
-      "PlayerObj":{
-        "input":["Benevolent27"],
-        "info":"This object represents an individual in-game player.",
-        "note":"For all function elements, if no callback is given, a promise will be returned.",
-        "//":"After an example object is created, the element data is paired to the information below to build a webpage detailing what each element is for.",
-        "elements":{ 
-          "addAdmin":{
-            "info":"Adds this player as an admin if they aren't already.",
-            "returnValues":{
-              "true":"If the command succeeded.",
-              "false":"If the command failed.  This may happen if the player is already an admin."
-            }
-          },
-          "addAdminDeniedCommand":{
-            "info":"Adds a command to the disallow list for an admin.  The player MUST be an admin for this to work.",
-            "note":"If no callback is provided, a promise is returned.",
-            "returnValues":{
-              "true":"If the command succeeded.",
-              "false":"If the command failed.  This may happen if the player is not an admin."
-            }
-          },
-          "ban":{
-            "info":"Bans the player.  If no time is specified, the ban is permanent.",
-            "note":"If no callback is provided, a promise is returned."
-          },
-          "blueprints":{
-            "info":"Returns the blueprints for the player as an array of BlueprintObj.",
-            "note":"If no callback is provided, a promise is returned."
-          },
-          "botMsg":{
-            "info":"Sends the player a message from the server bot.",
-            "note":"If wanting to send a bot message to the public channel, see serverObj.botMsg"
-          },
-          "changeSector":{
-            "info":"Moves the player to to a different sector."
-          },
-          "changeSectorCopy":{
-            "info":"Moves the player to to a different sector, leaving behind a copy of whichever entity the player might be in.",
-            "note":"This creates a copy of the player's entity"
-          },
-          "creativeMode":{
-            "info":"Turns creative mode on or off for the player.",
-            "note":"This is persistent across server reboots.  If turned on, it will stay on."
-          },
-          "credits":{
-            "info":"Returns the amount of credits a player has in their inventory as a number."
-          },
-          "currentEntity":{
-            "info":"Returns the entity a player is currently in",
-            "note":""
-          },
-          "deleteFromFaction":{
-            "info":"",
-            "note":""
-          },
-          "exists":{
-            "info":"",
-            "note":""
-          },
-          "faction":{
-            "info":"",
-            "note":""
-          },
-          "factionPointProtect":{
-            "info":"",
-            "note":""
-          },
-          "getFactionRank":{
-            "info":"",
-            "note":""
-          },
-          "giveItem":{
-            "info":"",
-            "note":""
-          },
-          "giveItemId":{
-            "info":"",
-            "note":""
-          },
-          "giveAllItems":{
-            "info":"",
-            "note":""
-          },
-          "giveCategoryItems":{
-            "info":"",
-            "note":""
-          },
-          "giveCredits":{
-            "info":"",
-            "note":""
-          },
-          "giveGrapple":{
-            "info":"",
-            "note":""
-          },
-          "giveGrappleOP":{
-            "info":"",
-            "note":""
-          },
-          "giveHealWeapon":{
-            "info":"",
-            "note":""
-          },
-          "giveLaserWeapon":{
-            "info":"",
-            "note":""
-          },
-          "giveLaserWeaponOP":{
-            "info":"",
-            "note":""
-          },
-          "giveMarkerWeapon":{
-            "info":"",
-            "note":""
-          },
-          "giveMetaItem":{
-            "info":"",
-            "note":""
-          },
-          "givePowerSupplyWeapon":{
-            "info":"",
-            "note":""
-          },
-          "giveRocketLauncher":{
-            "info":"",
-            "note":""
-          },
-          "giveRocketLauncherOP":{
-            "info":"",
-            "note":""
-          },
-          "giveSniperWeapon":{
-            "info":"",
-            "note":""
-          },
-          "giveSniperWeaponOP":{
-            "info":"",
-            "note":""
-          },
-          "giveTorchWeapon":{
-            "info":"",
-            "note":""
-          },
-          "giveTorchWeaponOP":{
-            "info":"",
-            "note":""
-          },
-          "giveTransporterMarkerWeapon":{
-            "info":"",
-            "note":""
-          },
-          "godMode":{
-            "info":"",
-            "note":""
-          },
-          "info":{
-            "info":"",
-            "note":""
-          },
-          "inventory":{
-            "info":"",
-            "note":""
-          },
-          "invisibilityMode":{
-            "info":"",
-            "note":""
-          },
-          "ip":{
-            "info":"",
-            "note":""
-          },
-          "ipBan":{
-            "info":"",
-            "note":""
-          },
-          "ipBanAll":{
-            "info":"",
-            "note":""
-          },
-          "ipUnban":{
-            "info":"",
-            "note":""
-          },
-          "ipUnbanAll":{
-            "info":"",
-            "note":""
-          },
-          "ips":{
-            "info":"",
-            "note":""
-          },
-          "isAdmin":{
-            "info":"",
-            "note":""
-          },
-          "isBanned":{
-            "info":"",
-            "note":""
-          },
-          "isOnline":{
-            "info":"",
-            "note":""
-          },
-          "isWhitelisted":{
-            "info":"",
-            "note":""
-          },
-          "joinFaction":{
-            "info":"",
-            "note":""
-          },
-          "kick":{
-            "info":"",
-            "note":""
-          },
-          "kickPlayerOutOfEntity":{
-            "info":"",
-            "note":""
-          },
-          "kill":{
-            "info":"",
-            "note":""
-          },
-          "listAdminDeniedCommands":{
-            "info":"",
-            "note":""
-          },
-          "msg":{
-            "info":"",
-            "note":""
-          },
-          "name":{
-            "info":"This is the name of the player."
-          },
-          "personalTestSector":{
-            "info":"This returns the player's personal Test Sector, which is where they are moved when viewing a ship design.",
-            "note":"If no callback is provided, a promise is returned."
-          },
-          "playerNameProtect":{
-            "info":"This protects a user name so that only a specific registry account can log in under it.",
-            "note":"If no callback is provided, a promise is returned."
-          },
-          "playerNameUnprotect":{
-            "info":"",
-            "note":""
-          },
-          "putPlayerIntoEntity":{
-            "info":"",
-            "note":""
-          },
-          "removeAdmin":{
-            "info":"",
-            "note":""
-          },
-          "removeAdminDeniedCommand":{
-            "info":"",
-            "note":""
-          },
-          "sector":{
-            "info":"",
-            "note":""
-          },
-          "setFactionRank":{
-            "info":"",
-            "note":""
-          },
-          "setInfiniteInventoryVolume":{
-            "info":"",
-            "note":""
-          },
-          "setSpawnLocation":{
-            "info":"",
-            "note":""
-          },
-          "smName":{
-            "info":"",
-            "note":""
-          },
-          "smNameBan":{
-            "info":"",
-            "note":""
-          },
-          "smNameUnban":{
-            "info":"",
-            "note":""
-          },
-          "spacialCoords":{
-            "info":"",
-            "note":""
-          },
-          "spawnLocation":{
-            "info":"",
-            "note":""
-          },
-          "suspendFromFaction":{
-            "info":"",
-            "note":""
-          },
-          "system":{
-            "info":"",
-            "note":""
-          },
-          "teleportTo":{
-            "info":"",
-            "note":""
-          },
-          "tint":{
-            "info":"",
-            "note":""
-          },
-          "unban":{
-            "info":"",
-            "note":""
-          },
-          "unsuspendFromFaction":{
-            "info":"",
-            "note":""
-          },
-          "upgraded":{
-            "info":"",
-            "note":""
-          },
-          "whitelist":{
-            "info":"",
-            "note":""
+    "//":"'ServerObj' is a special case.  The 'installObj.serverObj' will be used as the example before attempting to create a new one with installObj.objects.ServerObj",
+    "//":"After an example object is created, the element data is paired to the information below to build a webpage detailing what each element is for.",
+    "ServerObj":{
+      "input":"",
+      "info":"This is the object that is used to control the server or send server-wide commands."
+    },
+    "BlueprintObj":{
+      "input":["Example"],
+      "info":"This object represents an individual blueprint, which may or may not be owned by a player."
+    },
+    "BotObj":{
+      "input":["Melvin"],
+      "info":"This object represents the bot that interfaces with players.  It is used primarily just for messaging purposes and typically represents the face of the wrapper."
+    },
+    "ChannelObj":{
+      "input":["name"],
+      "info":"This object represents a channel in the game, whether it is a private message between players or a public channel.",
+      "note":"Presently there are no commands to manipulate channels."
+    },
+    "CoordsObj":{
+      "input":[2,3,4],
+      "info":"This object represents a general set of coordinates on a 3 dimensional plane.",
+      "note":"These coordinates do not necessarily represent a sector, system, local coordinates, nor spacial coordinates within a sector, but they may.\nThe appropriate object type for systems, sectors, or spacial coordinates should be used for their corresponding type."
+    },
+    "EntityObj":{
+      "input":["SHIP_ENTITY_SomeShip"],
+      "info":"This is an object that represents a ship, space station, asteroid, or planet part.",
+      "note":"This will likely become a super constructor later, with each entity type separated out since all admin commands may not work for each entity type."
+    },
+    "FactionObj":{
+      "input":[10000],
+      "info":"This object represents an in-game faction."
+    },
+    "IPObj":{
+      "input":["127.0.0.1"],
+      "info":"This object represents the IP address of a player."
+    },
+    "LocationObj":{
+      "input":[[2,2,2],[23,54,26]],
+      "info":"This object represents a specific point within the universe by sector and local coordinates."
+    },
+    "MessageObj":{
+      "input":["Benevolent27","NaStral","CHANGETHIS","This is an example message"],
+      "info":"This object represents a single message sent by a player.  These can be from any channel or private message."
+    },
+    "PlayerObj":{
+      "input":["Benevolent27"],
+      "info":"This object represents an individual in-game player.",
+      "note":"For all function elements, if no callback is given, a promise will be returned.",
+      "elements":{ 
+        "addAdmin":{
+          "info":"Adds this player as an admin if they aren't already.",
+          "returnValues":{
+            "true":"If the command succeeded.",
+            "false":"If the command failed.  This may happen if the player is already an admin."
           }
+        },
+        "addAdminDeniedCommand":{
+          "info":"Adds a command to the disallow list for an admin.  The player MUST be an admin for this to work.",
+          "note":"If no callback is provided, a promise is returned.",
+          "returnValues":{
+            "true":"If the command succeeded.",
+            "false":"If the command failed.  This may happen if the player is not an admin."
+          }
+        },
+        "ban":{
+          "info":"Bans the player.  If no time is specified, the ban is permanent.",
+          "note":"If no callback is provided, a promise is returned.",
+          "returnValues":{
+            "true":"If the command succeeded.",
+            "false":"If the command failed."
+          }
+        },
+        "blueprints":{
+          "info":"Returns the blueprints for the player as an array of BlueprintObj.",
+          "note":"If no callback is provided, a promise is returned.",
+          "returnValues":{
+            "Array":"Contains the blueprints for the player.  This will be an empty array if the player had no blueprints.",
+            "false":"If the command failed for a non-connection problem.  This may happen if the player does not exist."
+          }
+        },
+        "botMsg":{
+          "info":"Sends the player a message from the server bot.",
+          "note":"If wanting to send a bot message to the public channel, see serverObj.botMsg",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed."
+          }
+        },
+        "changeSector":{
+          "info":"Moves the player to to a different sector.",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed."
+          }
+        },
+        "changeSectorCopy":{
+          "info":"Moves the player to to a different sector, leaving behind a copy of whichever entity the player might be in.",
+          "note":"This creates a copy of the player's entity",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed."
+          }
+        },
+        "creativeMode":{
+          "info":"Turns creative mode on or off for the player.",
+          "note":"This is persistent across server reboots.  If turned on, it will stay on.",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed."
+          }
+        },
+        "credits":{
+          "info":"Returns the amount of credits a player has in their inventory.",
+          "note":"The player character must be loaded into active memory.  This will not work for offline players.",
+          "returnValues":{
+            "number":"The command succeeded and the result is returned.",
+            "false":"The command failed.  This will happen if the player is offline or does not exist."
+          }
+        },
+        "currentEntity":{
+          "info":"Returns the entity a player is currently in.",
+          "note":"The player character must be loaded into active memory.  This will not work for offline players.",
+          "returnValues":{
+            "EntityObj":"The player was in an entity.",
+            "null":"The player was not in an entity."
+          }
+        },
+        "deleteFromFaction":{
+          "info":"Removes the player from their current faction.",
+          "note":"If the faction is left with 0 players, the faction will be disbanded!",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed."
+          }
+        },
+        "exists":{
+          "info":"Checks to see if the player name associated with the player object exists.",
+          "note":"",
+          "returnValues":{
+            "true":"The player exists.",
+            "false":"The player does not exist."
+          }
+        },
+        "faction":{
+          "info":"Looks up the faction that the player is currently in.",
+          "note":"",
+          "returnValues":{
+            "FactionObj":"For the faction the player is in, if they were in a faction.",
+            "null":"The player was not in a faction."
+          }
+        },
+        "factionPointProtect":{
+          "info":"This turns death faction point loss on or off.",
+          "note":"This is permanent change.",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed."
+          }
+        },
+        "getFactionRank":{
+          "info":"Gets the rank of the player within their current faction.",
+          "returnValues":{
+            "number":"Value will be between 1 and 5.  5 is founder.",
+            "null":"Player was not in a faction."
+          }
+        },
+        "giveItem":{
+          "info":"Gives the player one or more items (by item name) IF they are online.  This can also be used to remove items from the player's inventory if a negative number is given as the item count.",
+          "note":"If items are being subtracted from a player's inventory, no error is given if the number subtracted exceeds what is in their inventory.  For example, if they have 5 rocks and 10 rocks are removed, they will end up with 0 rocks and no error is given.",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed."
+          }
+        },
+        "giveItemId":{
+          "info":"Gives the player one or more items (by item number) IF they are online.  This can also be used to remove items from the player's inventory if a negative number is given as the item count.",
+          "note":"If items are being subtracted from a player's inventory, no error is given if the number subtracted exceeds what is in their inventory.  For example, if they have 5 rocks and 10 rocks are removed, they will end up with 0 rocks and no error is given.",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed."
+          }
+        },
+        "giveAllItems":{
+          "info":"Gives the player a number of every type of item IF they are online.  This can also be used to remove items from the player's inventory if a negative number is given as the item count.",
+          "note":"If items are being subtracted from a player's inventory, no error is given if the number subtracted exceeds what is in their inventory.  For example, if they have 5 rocks and 10 of all items are removed, they will end up with 0 rocks and no error is given.\nThis command will NOT work to give or remove meta items, such as blueprints.",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed."
+          }
+        },
+        "giveCategoryItems":{
+          "info":"Gives the player a number of items based on category IF they are online.  This can also be used to remove items from the player's inventory if a negative number is given as the item count.",
+          "note":"If items are being subtracted from a player's inventory, no error is given if the number subtracted exceeds what is in their inventory.  For example, if they have 5 rocks and 10 of all items are removed, they will end up with 0 rocks and no error is given.\nThis command will NOT work to give or remove meta items, such as blueprints.",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed."
+          }
+        },
+        "giveCredits":{
+          "info":"Gives a player a certain number of credits, if they are online.  If a negative number is provided, credits will be removed.",
+          "note":"If credits are being removed, their inventory cannot go below 0.  No error is given either if the number attempted to be removed is larger than what they have, their credits will simply end up being 0.",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed."
+          }
+        },
+        "giveGrapple":{
+          "info":"Gives the player a grapple item.",
+          "note":"The player must be online to receive the item.",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed."
+          }
+        },
+        "giveGrappleOP":{
+          "info":"Gives the player a grapple OP item.",
+          "note":"The player must be online to receive the item.",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed."
+          }
+        },
+        "giveHealWeapon":{
+          "info":"Gives the player a heal tool.",
+          "note":"The player must be online to receive the item.",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed."
+          }
+        },
+        "giveLaserWeapon":{
+          "info":"Gives the player a laser pistol weapon.",
+          "note":"The player must be online to receive the item.",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed."
+          }
+        },
+        "giveLaserWeaponOP":{
+          "info":"Gives the player a laser pistol OP weapon.",
+          "note":"The player must be online to receive the item.",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed."
+          }
+        },
+        "giveMarkerWeapon":{
+          "info":"Gives the player a marker tool.",
+          "note":"The player must be online to receive the item.",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed."
+          }
+        },
+        "giveMetaItem":{
+          "info":"Gives the player a meta item based on the meta item's name, such as: blueprint, recipe, log_book, helmet, build_prohibiter, flash_light, virtual_blueprint, block_storage, laser, heal, power_supply, marker, rocket_launcher, sniper_rifle, grapple, torch, transporter_marker",
+          "note":"The player must be online to receive the item.",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed."
+          }
+        },
+        "givePowerSupplyWeapon":{
+          "info":"Gives the player a power supply tool.",
+          "note":"The player must be online to receive the item.",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed."
+          }
+        },
+        "giveRocketLauncher":{
+          "info":"Gives the player a rocket launcher weapon.",
+          "note":"The player must be online to receive the item.",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed."
+          }
+        },
+        "giveRocketLauncherOP":{
+          "info":"Gives the player a rocket launcher OP weapon.",
+          "note":"The player must be online to receive the item.",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed."
+          }
+        },
+        "giveSniperWeapon":{
+          "info":"Gives the player a sniper rifle weapon.",
+          "note":"The player must be online to receive the item.",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed."
+          }
+        },
+        "giveSniperWeaponOP":{
+          "info":"Gives the player a sniper rifle OP weapon.",
+          "note":"The player must be online to receive the item.",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed."
+          }
+        },
+        "giveTorchWeapon":{
+          "info":"Gives the player a torch weapon.",
+          "note":"The player must be online to receive the item.",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed."
+          }
+        },
+        "giveTorchWeaponOP":{
+          "info":"Gives the player a torch OP weapon.",
+          "note":"The player must be online to receive the item.",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed."
+          }
+        },
+        "giveTransporterMarkerWeapon":{
+          "info":"Gives the player a transporter tool.",
+          "note":"The player must be online to receive the item.",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed."
+          }
+        },
+        "godMode":{
+          "info":"Turns godmode on or off for a player.",
+          "note":"This status is reset when the player disconnects from the server.  They will no longer have godmode on after rejoining the server.",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed."
+          }
+        },
+        "info":{
+          "info":"Uses the /player_info command to pull information on a player.",
+          "returnValues":{
+            "object":"Returns an object with several pieces of information about a player.  If the player is offline, only a few pieces are available.\nONLINE:\n\nsector - The sector the player is in, as a SectorObj\nspacialCoords - The location the player is in as a CoordsObj\nupgraded - True or false.  Indicates whether the player purchased StarMade or not.\nsmName - The player's registry account name as a SMNameObj\nip - The player's IP as an IPObj\n\nONLINE OR OFFLINE:\npersonalTestSector - As a SectorObj\ncredits - The number of credits a player has.",
+            "null":"The player did not exist."
+          }
+        },
+        "inventory":{
+          "info":"This looks up a player's inventory.",
+          "note":"The player must be online for this to succeed.  If the player has nothing in their inventory, the array will be empty.",
+          "returnValues":{
+            "array":"Each object in the array will have the following elements:\nslot: which inventory slot the item is in.\nmulti: true or false.  This indicates if the item is part of a group of items, such as logic blocks, that are within the same slot.\ntype: item number (will be negative if item is a meta item)\nmeta: a positive number IF the item is a meta item, otherise -1. This number is currently unusable.\ncount: The number of the item count in this inventory slot.  If there are other slots with the same item, they will be listed separately.",
+            "null":"The player was not online or did not exist."
+          }
+        },
+        "invisibilityMode":{
+          "info":"Turns invisibility mode on or off for the player.",
+          "note":"This is reset when the player goes offline.  When logging back in, they will no longer have invisibilty mode turned on.",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed."
+          }
+        },
+        "ip":{
+          "info":"Looks up the current or last IP for the player.",
+          "note":"If the player is online, their current IP is given.  If offline, their last IP recorded is given.  If the player does not exist, an error is thrown.",
+          "returnValues":{
+            "IPObj":"This represent's the player IP"
+          }      
+        },
+        "ipBan":{
+          "info":"Bans the player based on their current or last IP, depending on if they are online or not.  If the minutes are not provided, the ban is permanent.",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed."
+          }
+        },
+        "ipBanAll":{
+          "info":"Bans the player based on all unique IP's they have ever logged into the server under.  If the minutes are not provided, the ban is permanent.",
+          "note":"Be careful with this one.  The player's old IP's may now belong to other people.",
+          "returnValues":{
+            "true":"The command succeeded in banning all IP's for the user.",
+            "some":"The command succeeded in banning some IP's but failed in one or more.",
+            "false":"The command failed to ban any of the IP's."
+          }
+        },
+        "ipUnban":{
+          "info":"Attempts to unban the player's IP.",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed.  This will happen if the IP was not previously banned."
+          }
+        },
+        "ipUnbanAll":{
+          "info":"Attempts to unban all previously associated IP's with the player.",
+          "returnValues":{
+            "true":"The command succeeded for all IP's.",
+            "some":"The command unbanned one or more IP but failed in one or more.  This will happen if one or more of the IP's were not previously banned.",
+            "false":"The command failed.  This will happen if the IP's were not previously banned."
+          }
+        },
+        "ips":{
+          "info":"Returns all the IP's recorded for this user for previous connections to the server.",
+          "returnValues":{
+            "array":"One or more IPObj representing each IP the player has logged in under.  The last value in the array represents their last IP used.",
+            "null":"The player did not exist."
+          }
+        },
+        "isAdmin":{
+          "info":"Looks up whether the player is an admin or not.",
+          "returnValues":{
+            "true":"The player is an admin.",
+            "false":"The player is not an admin.  This will also happen if the player does not exist."
+          },
+          "options":{
+            "fast":"true or false.  If true, reads from the admins.txt.  If false, uses a StarNet command to pull the list of admins to check against.  Default is false.",
+            "unrestricted":"true or false.  If true, only returns true if the player is an admin with no command restrictions."
+          }
+        },
+        "isBanned":{
+          "info":"Looks up whether the player has been banned by name.",
+          "note":"This will not check for IP or registry account bans.",
+          "returnValues":{
+            "true":"The player had been banned and the ban is still in effect.",
+            "false":"The player does not appear to be banned."
+          }
+        },
+        "isOnline":{
+          "info":"Checks if the player is currently online",
+          "returnValues":{
+            "true":"The player is online.",
+            "false":"The player is not online."
+          }
+        },
+        "isWhitelisted":{
+          "info":"Checks if the player name is whitelisted.",
+          "note":"This does not check if the IP or SMName is whitelisted.  Also, there is a whitelist, whether it is active or not.",
+          "returnValues":{
+            "true":"The player name is whitelisted.",
+            "false":"The player name is not whitelisted."
+          }
+        },
+        "joinFaction":{
+          "info":"Places a player into a specific faction.",
+          "note":"The faction number or a FactionObj may be used as input.",
+          "returnValues":{
+            "true":"Presently, the command always appears to have succeeded even if it failed.  There is no way to tell if it failed.",
+            "false":"This will never happen right now, but is reserved for if the command is fixed by Schema to indicate if it failed."
+          }
+        },
+        "kick":{
+          "info":"Kicks a player from the server, disconnecting them.",
+          "note":"A reason is optional, but if given, a pop-up displays to the player with the words.",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed."
+          }
+        },
+        "kickPlayerOutOfEntity":{
+          "info":"Kicks the player out of an entity if they are in one.",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed.  This happens if the player was not in an entity."
+          }
+        },
+        "kill":{
+          "info":"Kills the player, if they are online.",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed."
+          }
+        },
+        "listAdminDeniedCommands":{
+          "info":"Returns the commands an admin is currently prevented from using.",
+          "note":"This can only work if the player has admin status.",
+          "returnValues":{
+            "array":"This is a list of admin commands as strings.  They do not contain the / character.  If the player is not an admin or there are no restrictions, this array will be empty."
+          }
+        },
+        "msg":{
+          "info":"Sends a private message to the player from the server (via the /server_message_to command), either in main chat or as a popup.",
+          "note":"The player must be online to see this message.  This is NOT sent through the in-game mail system.\nIf 'fast' is set to true, the command can only report a failure if the server instance has closed.",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed."
+          },
+          "options":{
+            "fast":"true or false.  If true, sends the command directly to the console (this is much faster when sending several messages).  If false, each message may take half a second or so.  Default is false.",
+            "type":"plain - Sends to the main chat and onto the screen. This is the default.\ninfo - Green Pop-up (normally appears on the right)\nwarning - Blue Pop-up (normally appears on the right)\nerror - Red Pop-up (normally appears on the right)"
+          }
+        },
+        "name":{
+          "info":"This is the name of the player.",
+          "returnValues":{
+            "string":"The player's name."
+          }
+        },
+        "personalTestSector":{
+          "info":"This returns the player's personal Test Sector, which is where they are moved when viewing a ship design.",
+          "note":"This should be accurate whether the player is online or offline.",
+          "returnValues":{
+            "SectorObj":"The sector representing the player's personal test sector.",
+            "null":"The player did not exist."
+          }
+        },
+        "playerNameProtect":{
+          "info":"This protects a user name so that only a specific registry account can log in under it.  This normally happens automatically when a player logs in under a specific name.",
+          "note":"There is a maximum amount of player names a player can have.  This is configured in the server.cfg file found in the StarMade install directory.",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed."
+          }
+        },
+        "playerNameUnprotect":{
+          "info":"This removes name protection for a player name, disassociating it with the associated StarMade registry account.",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed."
+          }
+        },
+        "putPlayerIntoEntity":{
+          "info":"Puts the player into a specific entity.  This works similarly to how F1 + F9 works for admins.",
+          "note":"The entity must be in a loaded sector for this to work and the player must be online.\nThe entity does NOT need to be in the same sector as the player.\nIf the player is currently in a different entity, they will be forced out of it before being placed into the entity specified.",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed."
+          }
+        },
+        "removeAdmin":{
+          "info":"Removes a player as an admin.",
+          "note":"The player must be an admin already for this to work.",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed."
+          }
+        },
+        "removeAdminDeniedCommand":{
+          "info":"Removes an admin denied command.",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed."
+          },
+          "options":{
+            "fast":"true or false.  If true, sends the command directly to the console (this is much faster when sending several messages, but failure can only be detected if the server process has shut down).  This may be preferrable if removing a lot of commands and then verify afterwards they were all successful with the listAdminDeniedCommands function.  Default is false."
+          }
+        },
+        "sector":{
+          "info":"Returns the sector the player is currently in.",
+          "note":"The player must be online and spawned in.",
+          "returnValues":{
+            "SectorObj":"This object represents the sector the player is currently in.",
+            "null":"The player was not online or was not spawned."
+          }
+        },
+        "setFactionRank":{
+          "info":"Sets the rank for the player within their faction. 5 is founder, 1 is the lowest rank.",
+          "note":"The player must be in a faction to set their rank.",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed."
+          }
+        },
+        "setInfiniteInventoryVolume":{
+          "info":"Sets whether the player should be allowed to go over the personal maximum inventory allowed for the server.",
+          "note":"This setting is permanent and will stay on even if a player goes offline and comes back online.",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed."
+          }
+        },
+        "setSpawnLocation":{
+          "info":"Sets the player's death spawn location to a specific sector and location within that sector.",
+          "note":"If a LocationObj is given, a CoordsObj is not needed.\nThis can be changed by a player if they use an undeathenator elsewhere.\nIf wishing to change their spawn location back to what it was before, see the 'spawnLocation' function.",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed."
+          }
+        },
+        "smName":{
+          "info":"Returns the registry account name associated with this player name.",
+          "note":"Only works if the player is online.",
+          "returnValues":{
+            "SMNameObj":"This object represents the player's StarMade registry account.",
+            "null":"No registry account was associated with the player, they were offline, or the player did not exist."
+          }
+        },
+        "smNameBan":{
+          "info":"Performs a ban of a player based on their StarMade registry account.  This will also prevent the player from logging in under any other player name.",
+          "note":"This will only work if the player is online.  A future code change will allow this to work if the player is offline.\nIf no time is given, the ban is permanent.",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed."
+          }
+        },
+        "smNameUnban":{
+          "info":"Unbans a specific StarMade registry account.",
+          "note":"This will only work if the player is online.  A future code change will allow this to work if the player is offline.  For now, use the SMNameObj.unban function to unban a specific registry account if the player is offline.",
+          "returnValues":{
+            "true":"The command succeeded.",
+            "false":"The command failed.  This happens if the StarMade registry account was not previously banned."
+          }
+        },
+        "spacialCoords":{
+          "info":"Shows the present location of a player within a sector.",
+          "note":"The player must be online or spawned in.",
+          "returnValues":{
+            "CoordsObj":"This object represents a specific location within a sector as a set of coordinates.",
+            "null":"The player was offline, not spawned in, or did not exist."
+          }
+        },
+        "spawnLocation":{
+          "info":"Returns the spawn location of the player.  This can be a specific sector and spacial coordinates or or attached to a specific entity and local coordinates in relation to the starter block/core.",
+          "note":"This only works if the player is currently online.",
+          "returnValues":{
+            "LocationObj":"This contains the sector and spacial coords of the player's spawn point."
+          }
+        },
+        "suspendFromFaction":{
+          "info":"",
+          "note":""
+        },
+        "system":{
+          "info":"",
+          "note":""
+        },
+        "teleportTo":{
+          "info":"",
+          "note":""
+        },
+        "tint":{
+          "info":"",
+          "note":""
+        },
+        "unban":{
+          "info":"",
+          "note":""
+        },
+        "unsuspendFromFaction":{
+          "info":"",
+          "note":""
+        },
+        "upgraded":{
+          "info":"",
+          "note":""
+        },
+        "whitelist":{
+          "info":"",
+          "note":""
         }
-      },
-      "SMNameObj":{
-        "input":["Benevolent27"],
-        "info":"This object represents an individual StarMade Registry Account.",
-        "note":"A player may have more than 1 player name, but should use the same registry account for verification purposes."
-      },
-      "SectorObj":{
-        "input":[2,2,2],
-        "info":"This object represents a specific sector within the universe based on it's set of coordinates."
-      },
-      "SystemObj":{
-        "input":[3,2,1],
-        "info":"This object represents a specific system within the universe based on it's set of coordinates."
       }
+    },
+    "SMNameObj":{
+      "input":["Benevolent27"],
+      "info":"This object represents an individual StarMade Registry Account.",
+      "note":"A player may have more than 1 player name, but should use the same registry account for verification purposes."
+    },
+    "SectorObj":{
+      "input":[2,2,2],
+      "info":"This object represents a specific sector within the universe based on it's set of coordinates."
+    },
+    "SystemObj":{
+      "input":[3,2,1],
+      "info":"This object represents a specific system within the universe based on it's set of coordinates."
     }
   }
 }
