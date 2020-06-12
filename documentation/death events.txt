@@ -1,0 +1,101 @@
+Deaths
+
+
+Killed by another player with a sniper rifle:
+STDERR: [SERVERLOG] [DEATH] Benevolent27 has been killed by 'Killer: DestroyerOfWorlds[Faction=10004, Owner=PlS[DestroyerOfWorlds [Benevolent27]*; id(245)(2)f(10004)], UID={ENTITY_PLAYERCHARACTER_DestroyerOfWorlds}] (120.0/120.0 HP left)'; controllable: PlayerCharacter[(ENTITY_PLAYERCHARACTER_DestroyerOfWorlds)(522)]
+
+
+SUICIDE:
+STDERR: [SERVERLOG] [DEATH] DestroyerOfWorlds has been killed by 'Killer: DestroyerOfWorlds[Faction=10004, Owner=PlS[DestroyerOfWorlds [Benevolent27]*; id(2)(1)f(10004)], UID={ENTITY_PLAYERSTATE_DestroyerOfWorlds}] (0.0/120.0 HP left)'; controllable: PlS[DestroyerOfWorlds [Benevolent27]*; id(2)(1)f(10004)]
+
+ACCIDENTAL SUICIDE - by rocket launcher:
+[SERVERLOG] [DEATH] Benevolent27 has been killed by 'Killer: Benevolent27[Faction=10001, Owner=PlS[Benevolent27 [Benevolent27]*; id(355)(3)f(10001)], UID={ENTITY_PLAYERCHARACTER_Benevolent27}] (0.0/120.0 HP left)'; controllable: PlayerCharacter[(ENTITY_PLAYERCHARACTER_Benevolent27)(2031)]
+
+
+MINE (1 cannon, 3 strength, 1 personal ai, 1 allied ai):
+[SERVERLOG] [DEATH] Benevolent27 has been killed by 'Responsible: Mine#18[Faction=10004, Owner=null, UID={n/a}]'; controllable: Mine [id=18, sectorPos=(20, 20, 84), mineType=MINE_TYPE_CANNON, active=true(2)]
+
+
+Unfactioned Base (no player):
+STDERR: [SERVERLOG] [DEATH] Benevolent27 has been killed by 'Responsible: My new base[Faction=0, Owner=null, UID={ENTITY_SPACESTATION_DestroyerOfWorlds_1590755298320}]'; controllable: SpaceStation[ENTITY_SPACESTATION_DestroyerOfWorlds_1590755298320(1998)]
+
+Factioned Base (no player):
+STDERR: [SERVERLOG] [DEATH] Benevolent27 has been killed by 'Responsible: My new base[AnotherFaction][Faction=10004, Owner=null, UID={ENTITY_SPACESTATION_DestroyerOfWorlds_1590755298320}]'; controllable: SpaceStation[ENTITY_SPACESTATION_DestroyerOfWorlds_1590755298320(1998)]
+
+Unfactioned Base (player):
+STDERR: [SERVERLOG] [DEATH] Benevolent27 has been killed by 'Killer: My new base[Faction=0, Owner=PlS[DestroyerOfWorlds [Benevolent27]*; id(245)(2)f(10004)], UID={ENTITY_SPACESTATION_DestroyerOfWorlds_1590755298320}] (120.0/120.0 HP left)'; controllable: SpaceStation[ENTITY_SPACESTATION_DestroyerOfWorlds_1590755298320(1998)]
+
+Factioned Base (player):
+STDERR: [SERVERLOG] [DEATH] Benevolent27 has been killed by 'Killer: My new base[AnotherFaction][Faction=10004, Owner=PlS[DestroyerOfWorlds [Benevolent27]*; id(245)(2)f(10004)], UID={ENTITY_SPACESTATION_DestroyerOfWorlds_1590755298320}] (120.0/120.0 HP left)'; controllable: SpaceStation[ENTITY_SPACESTATION_DestroyerOfWorlds_1590755298320(1998)]
+
+STDERR: [SERVERLOG] [DEATH] Benevolent27 has been killed by 'Killer: My new base[AnotherFaction][Faction=10004, Owner=PlS[DestroyerOfWorlds [Benevolent27]*; id(245)(2)f(10004)], UID={ENTITY_SPACESTATION_DestroyerOfWorlds_1590755298320}] (120.0/120.0 HP left)'; controllable: SpaceStation[ENTITY_SPACESTATION_DestroyerOfWorlds_1590755298320(1998)]
+
+
+
+
+
+Death by docked ship (unfactioned with unfactioned base):
+Death by undocked ship (unfactioned):
+STDERR: [SERVERLOG] [DEATH] DestroyerOfWorlds has been killed by 'Responsible: KillerMachine[Faction=0, Owner=null, UID={ENTITY_SHIP_KillerMachine}]'; controllable: Ship[KillerMachine](137)
+
+Death by docked ship (unfactioned but with factioned base):
+Death by undocked ship (factioned):
+STDERR: [SERVERLOG] [DEATH] DestroyerOfWorlds has been killed by 'Responsible: KillerMachine[AnotherFaction][Faction=10004, Owner=null, UID={ENTITY_SHIP_KillerMachine}]'; controllable: Ship[KillerMachine](137)
+
+Death by manned, undocked ship (unfactioned but player in faction):
+Death by manned, docked ship (unfactioned with unfactioned base):
+STDERR: [SERVERLOG] [DEATH] DestroyerOfWorlds has been killed by 'Killer: KillerMachine <Benevolent27>[Faction=0, Owner=PlS[Benevolent27 [Benevolent27]*; id(355)(3)f(10001)], UID={ENTITY_SHIP_KillerMachine}] (120.0/120.0 HP left)'; controllable: Ship[KillerMachine](137)
+
+Death by manned, undocked ship (factioned and player in faction):
+Death by manned, docked ship (unfactioned with factioned base):
+Death by manned, docked ship (factioned with unfactioned base):
+STDERR: [SERVERLOG] [DEATH] DestroyerOfWorlds has been killed by 'Killer: KillerMachine <Benevolent27>[MyFaction][Faction=10001, Owner=PlS[Benevolent27 [Benevolent27]*; id(355)(3)f(10001)], UID={ENTITY_SHIP_KillerMachine}] (120.0/120.0 HP left)'; controllable: Ship[KillerMachine](137)
+
+
+
+
+Unfactioned planet (no player in planet):
+STDERR: [SERVERLOG] [DEATH] Benevolent27 has been killed by 'Responsible: PlanetSegment(Planet);[Faction=0, Owner=null, UID={ENTITY_PLANET_25_25_85_6_1590761413554}]'; controllable: Planet(524)[s523]Planet  (Radius 109m) [10,000,000 HP]
+
+Unfactioned Planet (player in planet):
+STDERR: [SERVERLOG] [DEATH] Benevolent27 has been killed by 'Killer: PlanetSegment(Planet);[Faction=0, Owner=PlS[DestroyerOfWorlds [Benevolent27]*; id(245)(2)f(10004)], UID={ENTITY_PLANET_25_25_85_6_1590761413554}] (120.0/120.0 HP left)'; controllable: Planet(524)[s523]Planet  (Radius 109m) [10,000,000 HP]
+
+Factioned Planet (no player in planet):
+STDERR: [SERVERLOG] [DEATH] Benevolent27 has been killed by 'Responsible: PlanetSegment(Planet);[AnotherFaction][Faction=10004, Owner=null, UID={ENTITY_PLANET_25_25_85_6_1590761413554}]'; controllable: Planet(524)[s523]Planet  (Radius 109m) [10,000,000 HP]
+
+Factioned Planet (player in planet):
+STDERR: [SERVERLOG] [DEATH] Benevolent27 has been killed by 'Killer: PlanetSegment(Planet);[AnotherFaction][Faction=10004, Owner=PlS[DestroyerOfWorlds [Benevolent27]*; id(245)(2)f(10004)], UID={ENTITY_PLANET_25_25_85_6_1590761413554}] (120.0/120.0 HP left)'; controllable: Planet(524)[s523]Planet  (Radius 109m) [10,000,000 HP]
+
+
+
+Unfactioned Ship docked to unfactioned planet:
+STDERR: [SERVERLOG] [DEATH] Benevolent27 has been killed by 'Responsible: KillerMachine[Faction=0, Owner=null, UID={ENTITY_SHIP_KillerMachine}]'; controllable: Ship[KillerMachine](137)
+
+Factioned Ship docked to unfactioned planet:
+Unfactioned ship docked to factioned planet:
+factioned ship docked to factioned planet:
+STDERR: [SERVERLOG] [DEATH] Benevolent27 has been killed by 'Responsible: KillerMachine[AnotherFaction][Faction=10004, Owner=null, UID={ENTITY_SHIP_KillerMachine}]'; controllable: Ship[KillerMachine](137)
+
+
+
+unfactioned asteroid with no player:
+STDERR: [SERVERLOG] [DEATH] Benevolent27 has been killed by 'Responsible: Floating Rock <can be harvested>[Faction=0, Owner=null, UID={ENTITY_FLOATINGROCKMANAGED__1590830995850_28_25_81_1}]'; controllable: ManagedAsteroid(1089)sec[1035](!)
+
+factioned asteroid with no player:
+STDERR: [SERVERLOG] [DEATH] Benevolent27 has been killed by 'Responsible: Floating Rock <can be harvested>[Faction=10004, Owner=null, UID={ENTITY_FLOATINGROCKMANAGED__1590830995850_28_25_81_1}]'; controllable: ManagedAsteroid(1089)sec[1035](!)
+
+
+unfactioned asteroid with player:
+STDERR: [SERVERLOG] [DEATH] Benevolent27 has been killed by 'Killer: Floating Rock <can be harvested>[Faction=0, Owner=null, UID={ENTITY_FLOATINGROCKMANAGED__1590830995850_28_25_81_1}] (120.0/120.0 HP left)'; controllable: ManagedAsteroid(1089)sec[1035](!)
+
+factioned asteroid with player:
+STDERR: [SERVERLOG] [DEATH] Benevolent27 has been killed by 'Killer: Floating Rock <can be harvested>[Faction=10004, Owner=null, UID={ENTITY_FLOATINGROCKMANAGED__1590830995850_28_25_81_1}] (120.0/120.0 HP left)'; controllable: ManagedAsteroid(1089)sec[1035](!)
+
+
+STAR DEATH:
+STDERR: [SERVERLOG] [DEATH] Benevolent27 has been killed by 'Responsible: Sun[Faction=0, Owner=null, UID={SECTOR_24.23.88}]'; controllable: Sector[1215](24, 23, 88)
+
+BLACK HOLE DEATH:
+STDERR: [SERVERLOG] [DEATH] Benevolent27 has been killed by 'Responsible: Black Hole[Faction=0, Owner=null, UID={SECTOR_-38.24.134}]'; controllable: Sector[1762](-38, 24, 134)
+
+
