@@ -9,30 +9,33 @@ module.exports = { // Always put module.exports at the top so circular dependenc
 }
 
 // Requires
-const fs = require('fs');
 const path = require('path');
 // const EventEmitter = require('events');
 // class Event extends EventEmitter {};
 const prompt = global["prompt"]; // This creates sync prompts and can have auto-complete capabilties.
 // const events               = require('events');
 const spawn = require('child_process').spawn;
-const {objectHelper,miscHelpers,regExpHelper,ini,installAndRequire,sleep,sleepSync,treeKill} = global;
+const {treeKill} = global;
+const objectHelper=require("./helpers/objectHelper.js");
+const miscHelpers=require("./helpers/miscHelpers.js");
+const regExpHelper=require("./helpers/regExpHelper.js");
+const ini=require("./helpers/iniHelper.js");
+const installAndRequire=require("./helpers/installAndRequire.js");
+const mySleep=require("./helpers/mySleep.js");
+const {softsleep:sleepSync,sleepPromise:sleep}=mySleep;
 const {i} = miscHelpers;
 
 // TODO:  Below needs to be fixed, because they require a serverObj to initialize correctly
-const modBinFolder = path.join(__dirname, "bin");
-const setSettings = require(path.join(modBinFolder, "setSettings.js")); // This will confirm the settings.json file is created and the install folder is set up.
-const sqlQueryJs = require(path.join(__dirname, "sqlQuery.js"));
-const starNetJs = require(path.join(__dirname, "starNet.js"));
-const serverObjects = require(path.join(__dirname, "serverObjects.js"));
-const smInstallHelpers = require(path.join(modBinFolder, "smInstallHelpers.js"));
+const setSettings = require("./bin/setSettings.js"); // This will confirm the settings.json file is created and the install folder is set up.
+const sqlQueryJs = require("./sqlQuery.js");
+const starNetJs = require("./starNet.js");
+const serverObjects = require("./serverObjects.js");
+const smInstallHelpers = require("./bin/smInstallHelpers.js");
 const {spawnStarMadeInstallTo,verifyInstall,generateConfigFiles,isInstalled}=smInstallHelpers;
-const lineProcessor = require(path.resolve(__dirname, "lineProcessor.js"));
+const lineProcessor = require("./lineProcessor.js");
 const {processDataInput} = lineProcessor; // These cannot be used till the ServerObj has been created since it relies on creating objects from the serverObj.
 
 // Aliases for requires - These are set up for readability
-const stripFullUIDtoUID = regExpHelper["stripFullUIDtoUID"]; // Function that removes text like ENTITY_SHIP_ and ENTITY_PLANET_ from the beginning of a full UID so it can be used to perform SQL queries on UID
-var sectorProtectionsArray = regExpHelper.sectorProtections; // This should include all the possible protections a sector can have.
 const {simpleSqlQuery} = sqlQueryJs;
 const {
   starNet,

@@ -1,5 +1,10 @@
 // Emits events based on pattern matching
 
+if (__filename == require.main.filename){
+  console.log("This script cannot be ran by itself!  Exiting!");
+  process.exit();
+}
+
 module.exports = { // IMPORTANT: These cannot be used until the serverObj has been created for the install
   processDataInput,
   processServerlogDataInput
@@ -7,8 +12,7 @@ module.exports = { // IMPORTANT: These cannot be used until the serverObj has be
 
 // This script needs to read from the server settings, so it needs the installObj
 var installObj = global.getInstallObj(__dirname);
-var {settings,event,defaultEvent,defaultGlobalEvent}=installObj;
-var thisConsole=installObj.console;
+var {settings,event,defaultEvent,defaultGlobalEvent,console:thisConsole}=installObj;
 var serverObj = {}; // This will be set after the "start" is given.
 defaultGlobalEvent.on("init",function(){ // ONLY NECESSARY FOR DEFAULT MODS SINCE THEY DO NOT RELOAD ON MODRELOAD()
   event.on("start", function (theServerObj) {
@@ -17,26 +21,23 @@ defaultGlobalEvent.on("init",function(){ // ONLY NECESSARY FOR DEFAULT MODS SINC
 });
 
 const path = require('path');
-const patterns = require(path.join(__dirname,"patterns.js")); // Import the patterns that will be used to match to in-game events like deaths and messages.
+const patterns = require("./patterns.js"); // Import the patterns that will be used to match to in-game events like deaths and messages.
 var includePatternRegex = patterns.includes();
 var excludePatternRegex = patterns.excludes();
 var includePatternServerLogRegex = patterns.serverLogIncludes();
 var excludePatternServerLogRegex = patterns.serverLogExcluded();
 
-const starNet = require(path.join(__dirname,"starNet.js"));
+const starNet = require("./starNet.js");
 var {
   getUIDfromName,
   getFactionNumberFromName,
   getFactionObjFromName
 } = starNet;
-
-
-const mainFolder = path.dirname(require.main.filename); // This should be where the starmade.js is, unless this script is ran by itself for testing purposes.
-const wrapperBinFolder = path.join(mainFolder, "bin");
-const objectHelper = require(path.join(wrapperBinFolder, "objectHelper.js"));
-const miscHelpers = require(path.join(wrapperBinFolder, "miscHelpers.js"));
-const {ini}=global;
+const objectHelper = require("./helpers/objectHelper.js");
+const miscHelpers = require("./helpers/miscHelpers.js");
+const ini=require("./helpers/iniHelper.js");
 const {getVal}=ini;
+
 var {
   getSimpleTime,
   getSimpleDate

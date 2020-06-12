@@ -10,8 +10,8 @@ if (__filename == require.main.filename){
 
 const path=require('path');
 const fs=require('fs');
-const {miscHelpers}=global;
-const {objectHelper}=global;
+const miscHelpers=require("./helpers/miscHelpers.js");
+const objectHelper=require("./helpers/objectHelper.js");
 const {simplePromisifyIt}=objectHelper;
 const installObj=global.getInstallObj(__dirname);
 const {event,console:thisConsole,log}=installObj;

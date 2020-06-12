@@ -3,19 +3,20 @@
 
 // TODO:  Once promise methods are all done, switch this over to using them.
 
+if (__filename == require.main.filename){
+  console.log("This script cannot be ran by itself!  Exiting!");
+  process.exit();
+}
+
 const path = require('path');
 const fs = require('fs');
-
-
 
 // Variables used by functions, which are not dependent on the server object:
 const settingsFile = path.join(__dirname, "commandSettings.json");
 var defaultSettings = {};
 
-var {
-  objectHelper,
-  miscHelpers
-} = global;
+const objectHelper=require("./helpers/objectHelper.js");
+const miscHelpers=require("./helpers/miscHelpers.js");
 var {
   isInArray,
   testIfInput,
@@ -54,8 +55,10 @@ defaultGlobalEvent.on("init",function(){ // The defaultEvent does not get unload
     // Extenders - These will only be guaranteed available after the "init" event is triggered.
     // objectCreator["CommandObj"]=CommandObj;
     // serverObj.regConstructor(CommandObj);
-    serverObj["regCommand"] = regCommand; // Extend the serverObj
-    serverObj["commandSettings"] = defaultSettings;
+    serverObj.constructor.prototype["regCommand"] = regCommand; // Extend the serverObj
+    // serverObj["regCommand"] = regCommand; // Extend the serverObj
+    serverObj.constructor.prototype["commandSettings"] = defaultSettings;
+    // serverObj["commandSettings"] = defaultSettings;
     event.on("reloadMods", removeCommands);
     event.on('playerCommand', command);
     event.on('playerMessage', message);

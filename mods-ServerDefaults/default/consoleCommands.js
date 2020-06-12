@@ -1,10 +1,18 @@
-// Updated to use installObj
-var installObj=global.getInstallObj(__dirname);
-var {settings,log,event,defaultGlobalEvent}=installObj;
-const thisConsole=installObj.console;
-var {toNumIfPossible,toStringIfPossible,getOption}=global.objectHelper;
-var {i} = global.miscHelpers;
+if (__filename == require.main.filename){
+  console.log("This script cannot be ran by itself!  Exiting!");
+  process.exit();
+}
+
+
+const installObj=global.getInstallObj(__dirname);
+var {settings,log,event,defaultGlobalEvent,console:thisConsole}=installObj;
+const objectHelper = require("./helpers/objectHelper.js");
+var {toNumIfPossible,toStringIfPossible,getOption}=objectHelper;
+const miscHelpers=require("./helpers/miscHelpers.js");
+var {i} = miscHelpers;
 var serverObj={};
+const objects=require("./serverObjects.js");
+const serverObject=require("./serverObj.js");
 
 
 defaultGlobalEvent.on("init",function(){ // ONLY NECESSARY FOR DEFAULT MODS

@@ -1,8 +1,17 @@
 
 // This file has all the base patterns that match things like player messages, deaths, gravity changes, etc.
 
+if (__filename == require.main.filename){
+  console.log("This script cannot be ran by itself!  Exiting!");
+  process.exit();
+}
 
-// TODO: Create pattern matching JUST for the serverlog.0.log and stdout
+module.exports={
+  "includes":included,
+  "excludes":excluded,
+  "serverLogIncludes":includedServerLog,
+  "serverLogExcluded":serverLogExcluded
+};
 
 function includedServerLog(){
   var includePatternsServerLog=[];
@@ -108,10 +117,3 @@ function excluded(){
   var excludePatternRegex=new RegExp(excludePatternRegexTemp);
   return excludePatternRegex;
 }
-
-module.exports={
-  "includes":included,
-  "excludes":excluded,
-  "serverLogIncludes":includedServerLog,
-  "serverLogExcluded":serverLogExcluded
-};

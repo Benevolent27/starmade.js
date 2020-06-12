@@ -1,13 +1,38 @@
 
+
 // The purpose of this script is simply to output when events are triggered to the console.
 // This script can be deleted if the text isn't wanted on the console.
 // Note that this script can be used as a template for copy/paste into other scripts
 
+if (__filename == require.main.filename){
+  console.log("This script cannot be ran by itself!  Exiting!");
+  process.exit();
+}
 
+// @ts-ignore
 var installObj=global.getInstallObj(__dirname);
-var {settings,log,event,defaultGlobalEvent}=installObj;
-const thisConsole=installObj.console;
-var {toStringIfPossible}=global.objectHelper;
+var {settings,log,event,defaultGlobalEvent,console:thisConsole}=installObj;
+const objectHelper=require("./helpers/objectHelper.js");
+const serverObjects=require("./serverObjects.js");
+// const {SMNameObj}=serverObjects;
+// const PlayerObj=serverObjects.PlayerObj;
+// import {PlayerObj} from "./serverObjects.js";
+class PlayerObj extends serverObjects.PlayerObj { };
+class SMNameObj extends serverObjects.SMNameObj { };
+class EntityObj extends serverObjects.EntityObj { };
+
+/**
+ * this is a description
+ * @callback more
+ * type
+ * member serverObjects
+ * @argument {PlayerObj} playerObj
+ * @argument {SMNameObj} smNameObj
+ * @argument {EntityObj} entityObj
+ */
+
+
+var {toStringIfPossible}=objectHelper;
 var deathCounter=1;
 // var serverObj={};
 defaultGlobalEvent.on("init",function(){ // ONLY NECESSARY FOR DEFAULT MODS SINCE THEY DO NOT RELOAD ON MODRELOAD()
@@ -20,16 +45,29 @@ defaultGlobalEvent.on("init",function(){ // ONLY NECESSARY FOR DEFAULT MODS SINC
   event.on('start',function(theServerObj){
     // serverObj=theServerObj;
     // In-Game events
-    event.on('playerMessage', function(messageObj) { // Handle messages sent from players
+    event.on('playerMessage',function(messageObj) { // Handle messages sent from players
       thisConsole.log("Event (playerMessage) emitted.  Message (type: " + messageObj.type +") DETECTED from " + toStringIfPossible(messageObj.sender) + " to " + toStringIfPossible(messageObj.receiver) + ": " + messageObj.text);
     });
-    event.on('playerSpawn', function(playerObj, SMNameObj) {
-      thisConsole.log(`Event (playerSpawn) emitted.  playerObj: ${toStringIfPossible(playerObj)}  SMNameObj: ${toStringIfPossible(SMNameObj)}`);
+    event.on('playerSpawn', 
+      
+      /**
+       * this is a description
+       * @param {PlayerObj} playerObj the player object
+       * @param {SMNameObj} smNameObj the player's StarMade Registry account
+       * @returns {any} The return value isn't important here
+       */
+      function(playerObj, smNameObj) {
+      thisConsole.log(`Event (playerSpawn) emitted.  playerObj: ${toStringIfPossible(playerObj)}  SMNameObj: ${toStringIfPossible(smNameObj)}`);
     });
     event.on('shipSpawn', function(playerObj,entityObj) {
       thisConsole.log(`Event (shipSpawn) emitted.  playerObj: ${toStringIfPossible(playerObj)}  entityObj: ${toStringIfPossible(entityObj)}`);
     });
-    event.on('baseSpawn', function(playerObj,entityObj) {
+    event.on('baseSpawn', 
+    /** @type {more} */
+    function(playerObj,entityObj) {
+      
+      playerObj.addAdmin();
+      
       thisConsole.log(`Event (baseSpawn) emitted.  playerObj: ${toStringIfPossible(playerObj)}  entityObj: ${toStringIfPossible(entityObj)}`);
     });
     event.on('blueprintSpawn', function(spawnType,playerObj,blueprintObj,entityObj,sectorObj,factionObj) {

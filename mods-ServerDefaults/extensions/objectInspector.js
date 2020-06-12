@@ -1,4 +1,5 @@
-// Updated to use installObj
+// TODO:  Add support for prototypes of constructors.
+
 const util=require('util');
 var installObj=global.getInstallObj(__dirname);
 var {settings,log,event,defaultGlobalEvent}=installObj;
@@ -87,7 +88,7 @@ async function testObject(theProperCommand,theArguments,options){
       var theElementName=String(theArguments[0]);
       theArguments.shift();
       // console.log("theElementName: " + theElementName); // temp
-
+      // TODO: Add support for testing prototypes
       if (enumeratedObj.hasOwnProperty(theElementName)){
         if (typeof enumeratedObj[theElementName] == "function"){
           // Add routine for filling in the arguments
@@ -148,7 +149,7 @@ async function testObject(theProperCommand,theArguments,options){
           return true;
         }
       } else {
-        thisConsole.log(`ERROR:  Object did not have a method called, '${theArguments[0]}'!`);
+        thisConsole.log(`ERROR:  Object did not have a method called, '${theElementName}'!`);
         thisConsole.log(`To see a list of elements for this object, please use the '!testObject' command with no arguments provided!`);
       }
     } else {
@@ -235,31 +236,54 @@ function enumerateAnObject(theObject,objectName){
   // requires an Object.
   // used by more than 1 command to list the contents of an object in a uniform way.
   var keyArray=Object.keys(theObject);
-  keyArray = keyArray.sort(); // Alphabetize the list
-  for (let i = 0,params=[];i < keyArray.length;i++) {
-    if (typeof theObject[keyArray[i]] == "function") {
-      params = getParamNames(theObject[keyArray[i]]);
-      if (params.length > 0) {
-        thisConsole.log(` (${typeof theObject[keyArray[i]]}) \t${objectName}.${keyArray[i]}(${params})`);
-      } else {
-        thisConsole.log(` (${typeof theObject[keyArray[i]]}) \t${objectName}.${keyArray[i]}()`);
-      }
-    } else if (typeof theObject[keyArray[i]] == "object") {
-      if (theObject[keyArray[i]] instanceof Array) {
-        thisConsole.log(` (Array) \t${objectName}.${keyArray[i]}`);
-      } else if (theObject[keyArray[i]] instanceof Map) {
-        thisConsole.log(` (Map ${typeof theObject[keyArray[i]]}) \t${objectName}.${keyArray[i]}`);
-      } else if (theObject[keyArray[i]] instanceof Date) {
-        thisConsole.log(` (Date ${typeof theObject[keyArray[i]]}) \t${objectName}.${keyArray[i]}`);
-      } else {
-        thisConsole.log(` (${typeof theObject[keyArray[i]]}) \t${objectName}.${keyArray[i]}`);
-      }
-    } else {
-      thisConsole.log(` (${typeof theObject[keyArray[i]]}) \t${objectName}.${keyArray[i]}`);
+  if (keyArray.length > 0){
+    keyArray = keyArray.sort(); // Alphabetize the list
+    thisConsole.log(" ");
+    thisConsole.log(" Elements:")
+    for (let i = 0;i < keyArray.length;i++) {
+      typifyAndDisplay(theObject[keyArray[i]],objectName,keyArray[i])
     }
   }
+  // Now let's do the prototypes
+  var prototypeKeys=Object.keys(theObject.constructor.prototype);
+  if (prototypeKeys.length > 0){
+    prototypeKeys = prototypeKeys.sort(); // Alphabetize the list
+    thisConsole.log(" ");
+    thisConsole.log(" Prototypes:");
+    for (let i = 0;i < prototypeKeys.length;i++) {
+      typifyAndDisplay(theObject[prototypeKeys[i]],objectName,prototypeKeys[i])
+    }
+  }
+  if (keyArray.length == 0 && prototypeKeys == 0){
+    thisConsole.log("The object had no elements nor prototypes!  Nothing to display!");
+  }
 }
+
+function typifyAndDisplay(input,objectName,keyName){
+  if (typeof input == "function") {
+    var params = getParamNames(input);
+    if (params.length > 0) {
+      thisConsole.log(` (${typeof input}) \t${objectName}.${keyName}(${params})`);
+    } else {
+      thisConsole.log(` (${typeof input}) \t${objectName}.${keyName}()`);
+    }
+  } else if (typeof input == "object") {
+    if (input instanceof Array) {
+      thisConsole.log(` (Array) \t${objectName}.${keyName}`);
+    } else if (input instanceof Map) {
+      thisConsole.log(` (Map ${typeof input}) \t${objectName}.${keyName}`);
+    } else if (input instanceof Date) {
+      thisConsole.log(` (Date ${typeof input}) \t${objectName}.${keyName}`);
+    } else {
+      thisConsole.log(` (${typeof input}) \t${objectName}.${keyName}`);
+    }
+  } else {
+    thisConsole.log(` (${typeof input}) \t${objectName}.${keyName}`);
+  }
+}
+
 function enumerateAnObjectThenReturnObject(theObject,objectName){
+  // TODO:  Add support for prototypes
   // requires an Object.
   // used by more than 1 command to list the contents of an object in a uniform way.
   var keyArray=Object.keys(theObject);
