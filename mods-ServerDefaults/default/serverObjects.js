@@ -1,4 +1,5 @@
 // TODO:  Refactor this to initialize the bin scripts correctly
+// TODO: Add ".toArray" prototypes which allow recreating the object later by using as the input
 
 // #########################
 // ####  SERVER OBJECTS ####
@@ -37,9 +38,6 @@ module.exports = { // Always put module.exports at the top so circular dependenc
   isPlayerOnline,
   getProtectionsDifferentialString,
   getChmodArrayFromNum,
-  squish,
-  unSquish,
-  isSquishable,
   getPlayerList,
   getWhitelistedNameList,
   getWhitelistedAccountsList,
@@ -49,42 +47,22 @@ module.exports = { // Always put module.exports at the top so circular dependenc
   getBannedNameList,
   getBannedIPList
 }
-
 // Requires
 const fs = require('fs');
 const path = require('path');
-// Events are no longer created or used here.
-// const EventEmitter = require('events');
-// class Event extends EventEmitter {};
 const prompt = global["prompt"]; // This creates sync prompts and can have auto-complete capabilties.
-// const events               = require('events');
-const mainFolder = path.dirname(require.main.filename); // This should be where the starmade.js is, unless this script is ran by itself for testing purposes.
-const mainBinFolder = path.join(mainFolder, "bin");
-// const spawn = require('child_process').spawn;
-// const http = require('http');
-const miscHelpers = require(path.join(mainBinFolder, "miscHelpers.js"));
+const miscHelpers = require("./helpers/miscHelpers.js");
 const {requireBin} = miscHelpers;
-const sqlQueryJs = require(path.join(__dirname,"sqlQuery.js"));
-// SqlQueryObj is not in the module.exports above because it cannot be defined till after sqlQuery.js is required.
-module.exports.SqlQueryObj = sqlQueryJs.SqlQueryObj; // Module injections should occur as quickly as possible to allow circular dependencies to function properly
-const objectHelper = requireBin("objectHelper.js");
-const regExpHelper = requireBin("regExpHelper.js");
-const ini = requireBin("iniHelper.js");
-// var setSettings = require(path.join(__dirname,"bin","setSettings.js")); // This will confirm the settings.json file is created and the install folder is set up.
-const installAndRequire = requireBin("installAndRequire.js");
-const sleep = requireBin("mySleep.js").softSleep;
-const sleepSync = global["sleepSync"];
-const sleepPromise = requireBin("mySleep.js").sleepPromise;
+const sqlQueryJs = require("./sqlQuery.js");
+module.exports.SqlQueryObj = sqlQueryJs.SqlQueryObj; // SqlQueryObj is not in the module.exports above because it cannot be defined till after sqlQuery.js is required.
+const objectHelper = require("./helpers/objectHelper.js");
+const regExpHelper = require("./helpers/regExpHelper.js");
+const ini = require("./helpers/iniHelper.js");
+const starNet = require("./starNet.js"); // This self-initializes now
 
-const modBinFolder = path.join(__dirname, "bin");
-// TODO: Fix below, since these require being loaded with a server object.
-const starNet = require(path.join(__dirname, "starNet.js")); // This self-initializes now
 
 // NPM installable requires
-const treeKill = installAndRequire('tree-kill', '^1.2.1'); // https://www.npmjs.com/package/tree-kill To kill the server and any sub-processes
-const isInvalidPath = installAndRequire("is-invalid-path", '^1.0.2'); // https://www.npmjs.com/package/is-invalid-path -- Not using the "is-valid-path" because my force require scripting won't work with it since it uses a non-standard path to it's scripts
-const exitHook = installAndRequire('exit-hook', '2.2.0'); // https://github.com/sindresorhus/exit-hook Handles normal shutdowns, sigterm, sigint, and a "message=shutdown" event.  Good for ensuring the server gets shutdown.
-const fsExtra = installAndRequire("fs-extra", "^8.1.0");
+// const fsExtra = installAndRequire("fs-extra", "^8.1.0");
 
 // Aliases for requires - These are set up for readability
 const stripFullUIDtoUID = regExpHelper["stripFullUIDtoUID"]; // Function that removes text like ENTITY_SHIP_ and ENTITY_PLANET_ from the beginning of a full UID so it can be used to perform SQL queries on UID
@@ -112,9 +90,7 @@ const {
   toStringIfPossible,
   subArrayFromAnother,
   findSameFromTwoArrays,
-  isInArray
-} = objectHelper;
-const {
+  isInArray,
   testIfInput,
   trueOrFalse,
   isTrueOrFalse,
@@ -124,9 +100,7 @@ const {
   returnLineMatch,
   applyFunctionToArray,
   simplePromisifyIt,
-  toTrueOrFalseIfPossible
-} = objectHelper;
-const {
+  toTrueOrFalseIfPossible,
   isTrue,
   isFalse,
   getOption,
@@ -136,7 +110,6 @@ const {
   arrayMinus,
   addUniqueToArray
 } = objectHelper;
-const toNum = objectHelper.toNumIfPossible;
 const {
   areCoordsBetween,
   isPidAlive,
@@ -163,9 +136,9 @@ CoordsObj.prototype.toString = function () {
 CoordsObj.prototype.toArray = function () {
   return [this.x, this.y, this.z];
 }
-CreatureObj.prototype.toString = function () {
-  return this.fullUID.toString()
-};
+// CreatureObj.prototype.toString = function () {
+//   return this.fullUID.toString()
+// };
 EntityObj.prototype.toString = function () {
   return this.fullUID.toString()
 };
@@ -220,6 +193,16 @@ SystemObj.prototype.toString = function () {
 // ###############
 // #### START ####
 // ###############
+/**
+ * All callbacks follow the standard of error first, result second.  Errors should ALWAYS be handled.  See more [here]{@link http://fredkschott.com/post/2014/03/understanding-error-first-callbacks-in-node-js/}.
+ * @callback callbackFunction
+ * @param {Error|null} error This will be an ErrorObj if there was an error.
+ * @param {*} result This will be whatever is specified by the return value for the method.
+ */
+
+
+
+// @ts-ignore
 var installObj=global.getInstallObj(__dirname);
 var {settings,log,event,defaultGlobalEvent,console:thisConsole}=installObj;
 var serverObj = {};
@@ -228,7 +211,6 @@ defaultGlobalEvent.on("init",function(){ // ONLY NECESSARY FOR DEFAULT MODS SINC
     serverObj=theServerObj; // Get the serverObj up and running
   });
   // Register the constructors.  These are re-registered when mods are reloaded.
-  installObj.regConstructor(SquishedObj);
   installObj.regConstructor(BotObj);
   installObj.regConstructor(MessageObj);
   installObj.regConstructor(ChannelObj);
@@ -245,237 +227,30 @@ defaultGlobalEvent.on("init",function(){ // ONLY NECESSARY FOR DEFAULT MODS SINC
   installObj.regConstructor(EntityObj);
 });
 
-function showResponseCallback(error, output) { // This is a helper function for testing purposes.  It shows any error or output when it's used as a callback function.
-  if (error) {
-    thisConsole.error("Error: " + error.toString());
-  }
-  if (output) {
-    thisConsole.log("output: ");
-    thisConsole.dir(output);
-  }
-}
-
-//  #################
-//  ###  SQUISH  ####
-//  #################
-//  This allows "squishing" an object into a smaller object, JSON.stringifying it, 
-//  storing it to the hard drive, retrieving it, and then recreating the original object.
-//  It will preserve any additional elements added.
-//  It requires strict adherence to recreation of the object.  The parameters needed
-//  should be stored into the object as they are given, or the values must be able to be converted
-//  back to acceptable input by running a function on the value.  
-//  TODO:  Convert objects to be compatible with squish
-
-
-// Squishy code start
-SquishedObj.prototype.unSquish = function (options) { // options are optional
-  return unSquish(this, options);
-}
-
-function squishyElemIsAnythingBut(input) {
-  var objTypeName = "squishedFromObjectType";
-  var objCreationArrayName = "theSquishObjCreationArray";
-  if (input != objTypeName && input != objCreationArrayName) {
-    return true;
-  }
-  return false;
-}
-
-function isSquishable(inputObj) {
-  if (typeof inputObj == "object") {
-    var inputObjName = inputObj.constructor.name;
-    // thisConsole.log("inputObjName: " + inputObjName);
-    // thisConsole.log("typeof inputObjName: " + typeof inputObjName);
-    if (typeof inputObjName == "string" && inputObjName !== "") {
-      // thisConsole.log("Seeing if module.exports.hasOwnProperty(" + inputObjName + ")");
-      if (module.exports.hasOwnProperty(inputObjName)) {
-        if (inputObjName[0].match(/^[A-Z]+/)) { // Must have a capitalized letter as the first letter.
-          // It is a registered object type, but can it be successfully squished and unsquished?
-          try {
-            var squishedObj = squish(inputObj);
-          } catch (err) {
-            // thisConsole.log("Could not squish!",err);
-            return false;
-          }
-          try {
-            var unSquishedObj = unSquish(squishedObj);
-          } catch (err) {
-            // thisConsole.log("Could not unsquish!",err);
-            return false;
-          }
-          // thisConsole.log("Made it to checking of objects are equivalent..");
-          return objectHelper.areObjsEquivalent(inputObj, unSquishedObj); // Does the squished/unsquished object equal the original?
-        }
-      }
-    }
-  }
-  return false;
-}
-
-function squish(inputObj, options) { // The purpose of this is to minify an object to be recreated back later
-  // TODO:  Make this recursive so it will support nested objects, such as with MessageObj nesting PlayerObj as sender, etc.
-  thisConsole.log("Squishing object..");
-  // Get the parameters needed to create the function:
-
-  var objType = inputObj.constructor.name;
-  // var objType=inputObj.name;
-
-  // var objCreationString=inputObj.toString();
-  thisConsole.log("Object type: " + objType);
-  // var theConstructor=eval(inputObj.constructor.name); // temp.  Works fine with natively registered constructors from this script but not from registered.
-  // Cannot use "new", must instead use the module.exports[objType]
-
-  if (module.exports.hasOwnProperty(objType)) {
-    var theConstructor = module.exports[objType];
-    var paramsNameArray = getParamNames(theConstructor);
-    thisConsole.log("Parameters: " + paramsNameArray);
-
-    // Instead of using the input parameters to look up values from the object,
-    // we can specify which ones to use, but the results MUST be able to be used
-    // as parameters to create the object.
-    // For example:  MyObj(first,second,third,fourth);
-    // If the object created by this Constructor has a "1st" value, we can provide
-    // that as the map.
-    // example:  squish(myObj,{"elements":["1st","2nd","3rd","4th"]})
-    // This then looks up myObj["1st"] to use later as input to "first"
-    // Even if a parameter will be empty, it must be provided.
-
-    var iterableParams = getOption(options, "elements", paramsNameArray);
-    var iterableFuncs = getOption(options, "preProcess", []); // This is used to process any value retrieved to a value that can then be used to recreate the object
-    thisConsole.log("Using iterable params: " + iterableParams);
-    if (Array.isArray(iterableParams)) {
-      if (iterableParams.length == paramsNameArray.length) {
-        var theArgArray = [];
-        var paramName;
-        for (let i = 0;i < paramsNameArray.length;i++) {
-          paramName = iterableParams[i];
-          if (typeof iterableFuncs[i] == "function") {
-            theArgArray.push(iterableFuncs[i](inputObj[paramName]));
-          } else {
-            theArgArray.push(inputObj[paramName]);
-          }
-
-        }
-        thisConsole.log("Returning squished object..");
-        return new SquishedObj(inputObj, objType, theArgArray);
-      } else {
-        throw new Error("ERROR: elements array MUST be the same length as the input parameters required by the input Constructor!");
-      }
-    } else {
-      throw new Error("Invalid input given as 'elements' option!  Expects an array!");
-    }
-  } else {
-    throw new Error("Invalid object type given to squish!  Please register the constructor for that object type!");
-  }
-
-};
-
-function unSquish(squishedObj, options) {
-  // thisConsole.log("Unsquishing object..");
-  var squishedFromObjectType = squishedObj["squishedFromObjectType"];
-  // thisConsole.log("squishedFromObjectType: " + squishedFromObjectType); // temp
-  var theSquishObjCreationArray = squishedObj["theSquishObjCreationArray"];
-  var iterableFuncs = getOption(options, "preProcess", []); // This is used to process any value retrieved to a value that can then be used to recreate the object
-  for (let i = 0;i < iterableFuncs.length;i++) {
-    if (typeof iterableFuncs[i] == "function") {
-      // if it's a function, run the function on the value from the array to transform it and replace it.
-      theSquishObjCreationArray[i] = iterableFuncs[i](theSquishObjCreationArray[i]);
-    }
-  }
-  // var outputObj=Reflect.construct(eval(squishedFromObjectType),theSquishObjCreationArray);
-  var outputObj = new module.exports[squishedFromObjectType](...theSquishObjCreationArray);
-  for (var property in squishedObj) { // recreate any non-prototypes
-    if (squishedObj.hasOwnProperty(property)) {
-      if (squishyElemIsAnythingBut(property)) {
-        outputObj[property] = squishedObj[property];
-      }
-    }
-  }
-  return outputObj;
-};
-
-function SquishedObj(inputObj, objType, objCreationArray) { // Change this to take an array of strings
-  var self = this;
-  this["squishedFromObjectType"] = objType;
-  self["theSquishObjCreationArray"] = objCreationArray;
-  if (typeof inputObj == "object" && typeof objType == "string" && Array.isArray(objCreationArray)) {
-    // var compareToObj=Reflect.construct(eval(objType),objCreationArray);
-    // Rather than constructing using reflect, we can simply call the function and look at the output
-    // thisConsole.log("objType: " + objType);
-    // thisConsole.log("objCreationArray:");
-    // thisConsole.dir(objCreationArray);
-
-    var compareToObj = new module.exports[objType](...objCreationArray);
-    // thisConsole.log("compareToObj:"); // temp
-    // thisConsole.dir(compareToObj); // temp
-
-    for (var property in inputObj) {
-      if (inputObj.hasOwnProperty(property)) { // I don't want to save prototypes
-        if (!compareToObj.hasOwnProperty(property)) {
-          // The element is something not present in the default object type, so let's store it
-          self[property] = inputObj[property];
-        }
-      }
-    }
-    // Object should now be squished!
-  } else {
-    throw new Error("Invalid input given to SquishedObj!");
-  }
-}
-
-
-async function getSuperAdminPassword(starMadeFolder) { // This will grab the superadmin password, setting it up and enabling it if not already.
-  // TODO: Offload this to a require
-  // Load the server.cfg from install path
-  var serverCfgFile = path.join(starMadeFolder, "StarMade", "server.cfg");
-  var serverCfgObj = ini.getFileAsObj(serverCfgFile);
-  var superAdminPassword = ini.getVal(serverCfgObj, "SUPER_ADMIN_PASSWORD");
-  var superAdminPasswordEnabled = ini.getVal(serverCfgObj, "SUPER_ADMIN_PASSWORD_USE");
-  if (typeof superAdminPasswordEnabled == "string") { // Only perform .toLowerCase() if the value exists to avoid crashing the script.
-    superAdminPasswordEnabled = superAdminPasswordEnabled.toLowerCase();
-  }
-  if (superAdminPassword == "mypassword" || !superAdminPassword) { // "mypassword" is the default value upon install.  We do not want to keep this since it'd be a major security vulnerability.
-    thisConsole.log("\nThe 'SuperAdminPassword' has not been set up yet!  This is needed for StarNet.jar to connect to the server.");
-    thisConsole.log("You can set a custom alphanumeric password OR just press [ENTER] to have a long, randomized one set for you. (Recommended)")
-    let newSuperAdminPassword = "";
-    do {
-      newSuperAdminPassword = prompt("New SuperAdminPassword: ");
-    }
-    while (!(newSuperAdminPassword === null || newSuperAdminPassword == "" || regExpHelper.isAlphaNumeric(newSuperAdminPassword))) // If a person puts invalid characters in, it'll just keep repeating the prompt.
-    if (newSuperAdminPassword === null || newSuperAdminPassword == "") {
-      thisConsole.log("Excellent choice!  I have set a LONG and nearly impossible to crack SuperAdminPassword for you! :D");
-      newSuperAdminPassword = getRandomAlphaNumericString(32);
-    } else {
-      thisConsole.log("Alrighty then.  I'll just use what you provided!")
-    };
-    // await sleepSync(2000); // I don't know why a pause is needed here
-    ini.setVal(serverCfgObj, "SUPER_ADMIN_PASSWORD", newSuperAdminPassword);
-    if (superAdminPasswordEnabled == "false") {
-      thisConsole.log("Super Admin Password was disabled, enabling!");
-      // serverCfgObj["SUPER_ADMIN_PASSWORD_USE"]=keepIniComment(serverCfgObj["SUPER_ADMIN_PASSWORD_USE"],"true");
-      ini.setVal(serverCfgObj, "SUPER_ADMIN_PASSWORD_USE", "true");
-    }
-    ini.writeObjToFile(serverCfgObj, serverCfgFile);
-  } else if (superAdminPasswordEnabled != "true") { // Enable super admin password if it was disabled for some reason.
-    thisConsole.log("Super Admin Password was disabled, enabling!");
-    // serverCfgObj["SUPER_ADMIN_PASSWORD_USE"]=keepIniComment(serverCfgObj["SUPER_ADMIN_PASSWORD_USE"],"true");
-    ini.setVal(serverCfgObj, "SUPER_ADMIN_PASSWORD_USE", "true");
-    ini.writeObjToFile(serverCfgObj, serverCfgFile);
-  }
-  return ini.getVal(serverCfgObj, "SUPER_ADMIN_PASSWORD");
-}
-
+/**
+ * This is a bot object.  It is used for messaging purposes, to serve as the face of the wrapper.
+ * @class
+ * @param {string} name - The name of the bot 
+ * @property {string} name - The name of the bot
+ */
 function BotObj(name) { // cb/promises/squishy compliant 
   var self = this;
   this.name = toStringIfPossible(name); // This is to allow other objects that can be converted to a string to be used, such as mimicking a player's name, but will return an error if it cannot be turned into a string.
   if (typeof self.name != "string") {
     throw new Error("Invalid botName given to new BotObj!");
   }
-  this.starMadeFolder = serverObj.starMadeFolder; // This is needed to recreate the server object if needed after squishing the object
 
-  this.msg = function (player, msgString, options, cb) { // This expects a player object OR a string with a player's name, then the message to send, either as a string or an object that can be converted to a string with .toString()
+  /**
+   * Sends a private message from the bot directly to an individual player.
+   * @param {string|PlayerObj} player - The player the bot should send a message to.
+   * @param {string} message - The text to send to the player.
+   * @param {object|undefined|null} [options] - {fast:true} to send directly to console (no success check possible). Or {type:plain/info/warn/error}.  By default plain is used, which is a direct message to the main chat.  All other options produce colored pop-up messages.
+   * @param {callbackFunction} [cb] - If no callback provided, a promise is returned.
+   * @returns {boolean|promise} - True/False on success or failure.  Promise if no callback provided.
+   */
+  this.msg = function (player, message, options, cb) { // This expects a player object OR a string with a player's name, then the message to send, either as a string or an object that can be converted to a string with .toString()
     if (typeof cb == "function") {
-      var theMessage = toStringIfPossible(msgString); // This allows certain objects that can be converted to strings to be used, such as matches or other objects
+      var theMessage = toStringIfPossible(message); // This allows certain objects that can be converted to strings to be used, such as matches or other objects
       if (typeof theMessage == "string") {
         try {
           var thePlayer = new PlayerObj(player); // This creates a new playerObj with the playername string or PlayerObj
@@ -488,30 +263,52 @@ function BotObj(name) { // cb/promises/squishy compliant
         return cb(new Error("Error with BotObj.msg command.  Invalid input given to message player with!"), null); // Could not send message, so both error and false.
       }
     } else {
-      return simplePromisifyIt(self.msg, options, player, msgString);
+      return simplePromisifyIt(self.msg, options, player, message);
     }
   }
-  this.serverMsg = function (msgString, options, cb) { // This expects the message to send either as a string or an object that can be converted to a string
+
+  /**
+   * Sends a public message that all players will see.
+   * @param {string} message - The text to send.
+   * @param {object|undefined|null} [options] - {fast:true} to send directly to console (no success check possible). Or {type:plain/info/warn/error}.  By default plain is used, which is a direct message to the main chat.  All other options produce colored pop-up messages.
+   * @param {function|undefined|null} [cb] - If no callback provided, a promise is returned.
+   * @returns {boolean|promise} - True/False on success or failure.  Promise if no callback provided.
+   */
+  this.serverMsg = function (message, options, cb) { // This expects the message to send either as a string or an object that can be converted to a string
     if (typeof cb == "function") {
-      var theMessage = toStringIfPossible(msgString); // This allows certain objects that can be converted to strings to be used, such as matches or other objects
+      var theMessage = toStringIfPossible(message); // This allows certain objects that can be converted to strings to be used, such as matches or other objects
       if (typeof theMessage == "string") {
         return serverObj.msg("[" + this.name + "]: " + theMessage, options, cb); // options are forwarded to server.msg
       } else {
         return cb(new Error("Invalid message given to BotObj.serverMsg as 'msgString'!"), null);
       }
     } else {
-      return simplePromisifyIt(self.serverMsg, options, msgString);
+      return simplePromisifyIt(self.serverMsg, options, message);
     }
   }
 };
 
+/**
+ * This is a message object, which represents an individual message, whether in a chat room or private message.
+ * @class
+ * @param {string} senderString - This is the name of the player that sent the message
+ * @param {string} receiverString - This is the name of the player or channel the message was received to.
+ * @param {string} receiverTypeString - This is the type or name of channel it was sent in
+ * @param {string} text - This is the body of the text
+ * @property {string} senderString - the senderString as provided by the argument.
+ * @property {string} senderString - the receiverString as provided by the argument.
+ * @property {string} senderString - the receiverTypeString as provided by the argument.
+ * @property {PlayerObj} sender - The Player that send the message.
+ * @property {PlayerObj|ChannelObj} receiver - The receiver of the message. This may be a PlayerObj or a ChannelObj
+ * @property {string} type - The type of the message.  This may be "private" or "channel"
+ * @property {string} text - the text of the message as provided by the argument.
+ */
 function MessageObj(senderString, receiverString, receiverTypeString, text) { // cb/promises compliant, not squishy compliant because of nested objects.  Squishy must be recursive first.
   // Takes string values and converts to strings or objects of the correct types
   this.senderString = senderString;
   this.receiverString = receiverString;
   this.receiverTypeString = receiverTypeString;
   this.text = text;
-
   this.sender = new PlayerObj(senderString); // This should ALWAYS be a player sending a message
   if (receiverTypeString == "DIRECT") { // This is a private message sent from one player to another
     this.type = "private";
@@ -526,15 +323,23 @@ function MessageObj(senderString, receiverString, receiverTypeString, text) { //
   }
 };
 
-function ChannelObj(name) { // cb/promises/squishy compliant
-  this.name = name;
+/**
+ * This is a channel object.  Presently there are no commands to interface with a channel, but if a message was sent within a faction channel, there will be a faction element.  These are not used for private chat messages.
+ * @class
+ * @param {string} stringOutput - This is the output from a message within the console.  It may contain the name of the room or the faction number.
+ * @property {string} type - This will be "global" if message sent to main chat room, "faction" if within a faction chat room.  Or "named" if the message was within a named channel.
+ * @property {number} [factionNumber] - Provided if the channel is a faction channel.
+ * @property {FactionObj} [faction] - Provided if the channel is a faction channel.
+ */
+function ChannelObj(stringOutput) { // cb/promises/squishy compliant
+  this.name = stringOutput;
   var factionTest = new RegExp("^Faction-{0,1}[0-9]+");
-  if (name == "all") {
+  if (stringOutput == "all") {
     this.type = "global";
-  } else if (factionTest.test(name)) {
+  } else if (factionTest.test(stringOutput)) {
     var getFactionNumberReg = new RegExp("-{0,1}[0-9]+$");
     this.type = "faction";
-    var factionNumber = toNumIfPossible(name.match(getFactionNumberReg));
+    var factionNumber = toNumIfPossible(stringOutput.match(getFactionNumberReg));
     if (testIfInput(factionNumber)) {
       this.factionNumber = factionNumber.toString();
     }
@@ -546,7 +351,15 @@ function ChannelObj(name) { // cb/promises/squishy compliant
   }
 };
 
-function IPObj(address, date) { // cb/promises/squish compliant
+/**
+ * This represents an IP address of a player.
+ * @class
+ * @param {string} address - An IP address, such as "58.56.124.54"
+ * @param {Date} [date] This should be a date that is parseable by Date.
+ * @property {string} address - The IP address
+ * @property {Date} date - Only provided if given as an input parameter.  Used when log in history is paired to different IP addresses.
+ */
+function IPObj(address, date) { 
   // Example:  var myIPObj = new IpObj("192.0.0.100",Date.now());
   // ipAddressString should look something like "7.7.7.7"
   // date can be a string that "new Date()" can turn into an object or can be a Date object.  It's easier to debug if you create the date object yourself and then pass it here, so if there are any issues, the stack trace will point to the place where the bad string is attempted to be converted to a Date object.
@@ -556,19 +369,33 @@ function IPObj(address, date) { // cb/promises/squish compliant
   if (typeof date != "undefined") { // We're using typeof because we don't want to do a truthy assessment
     var possibleDate = createDateObjIfPossible(date); // Returns false if no information given or invalid information.  Returns a date object if given a date object.
     if (possibleDate instanceof Date) {
-      self.date = possibleDate;
+      this.date = possibleDate;
     } else {
       thisConsole.error("Unable to use date information given when creating new IpObj for IP, " + address + "! Invalid date information: " + date);
     }
   }
   // TODO:  Redo this section to standardize with the same options given as the PlayerObj
-  this.ban = function (minutes, options, cb) {
+  /**
+   * Bans the player's IP from the server.
+   * @param {number|null|undefined} [minutes] Sets a temporary ban if provided, otherwise will result in a permanent ban.
+   * @param {object|null|undefined} [options] - {fast:true} to send command directly to console.  Disables checking if command succeeded.
+   * @param {function|undefined} [cb] If not provided, a Promise is returned.
+   * @returns {boolean|Promise} True or false depending on if the command was successful.
+   */
+    this.ban = function (minutes, options, cb) {
     if (typeof cb == "function") {
       return ipBan(self.address, minutes, options, cb);
     } else {
       return simplePromisifyIt(self.ban, options, minutes);
     }
   };
+
+   /**
+   * Unbans a player's IP address.
+   * @param {object|null|undefined} [options] - {fast:true} to send command directly to console.  Disables checking if command succeeded.
+   * @param {function|undefined} [cb] If not provided, a Promise is returned.
+   * @returns {boolean|Promise} True or false depending on if the command was successful.
+   */
   this.unBan = function (options, cb) {
     if (typeof cb == "function") {
       return ipUnBan(self.address, options, cb)
@@ -577,6 +404,12 @@ function IPObj(address, date) { // cb/promises/squish compliant
     }
   };
 
+  /**
+   * Checks if this IP has been banned from the server.
+   * @param {object|null|undefined} [options] - {fast:true} to send command directly to console.  Disables checking if command succeeded.
+   * @param {function|undefined} [cb] If not provided, a Promise is returned.
+   * @returns {boolean|Promise} True or false depending on if the command was successful.
+   */
   this.isBanned = function (options, cb) {
     if (typeof cb == "function") {
       return isIPBanned(self.address, options, cb);
@@ -584,13 +417,26 @@ function IPObj(address, date) { // cb/promises/squish compliant
       return simplePromisifyIt(self.isBanned, options);
     }
   }
-  this.ipWhitelist = function (minutes, options, cb) { // minutes is optional.  Permanent whitelist if not specified.
+
+  /**
+   * @param {number|string} [minutes] - This is the number of minutes to whitelist the IP.  If not provided, the whitelist is permanent.
+   * @param {object} [options] - { fast:true } will send the command directly to the console.  Note that this makes verification of success impossible.
+   * @param {function|undefined} cb - If not provided, a Promise is returned.
+   * @returns {boolean|Promise} True or false depending on if the command was successful.
+   */
+  this.whitelist = function (minutes, options, cb) { // minutes is optional.  Permanent whitelist if not specified.
     if (typeof cb == "function") {
       return ipWhitelist(self.address, minutes, options, cb);
     } else {
-      return simplePromisifyIt(self.ipWhitelist, options, minutes);
+      return simplePromisifyIt(self.whitelist, options, minutes);
     }
   };
+
+  /**
+   * @param {object} [options] - { fast:true } will send the command directly to the console.  Note that this makes verification of success impossible.
+   * @param {function|undefined} cb - If not provided, a Promise is returned.
+   * @returns {boolean|null|Promise} - true/false whether whitelisted or not. null if player does not exist.  Promise if no valid callback function provided.
+   */
   this.isWhitelisted = function (options, cb) {
     if (typeof cb == "function") {
       return isIPWhitelisted(self.address, options, cb);
@@ -612,7 +458,13 @@ function IPObj(address, date) { // cb/promises/squish compliant
   // crawl(Num) - reveals all players who share the same IP.  If a Num is provided, then will crawl that level deep, gathering more IP's and ipcrawling those.
 };
 
-function SMNameObj(name) { // cb/promises/squish compliant
+/**
+ * This object is to perform actions or pull information via a player's Registry account name, not their in-game name.
+ * @class
+ * @param {string} name - The player's StarMade registry account name.
+ * @property {string} name - The player's StarMade registry account name.
+ */
+function SMNameObj(name) {
   var self = this;
   this.name = name;
   // TODO:
@@ -624,6 +476,13 @@ function SMNameObj(name) { // cb/promises/squish compliant
 
   // DONE:
   // getNames - Returns an array of PlayerObj's for all the usernames associated with this registry account name
+  
+  /**
+   * Used to check if a player's registry account is presently banned.
+   * @param {object|undefined|null} [options] - No options exist at this time.  A {fast:true} option is planned in the future which will directly read from the StarMade/blacklist.txt file.
+   * @param {function|undefined|null} [cb] - If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} - True/False depending on if the player is banned.
+   */
   this.isBanned = function (options, cb) { // Returns true or false depending on whether it is banned or not
     if (typeof cb == "function") {
       return isAccountBanned(self.name, options, cb);
@@ -631,6 +490,13 @@ function SMNameObj(name) { // cb/promises/squish compliant
       return simplePromisifyIt(self.isBanned, options);
     }
   }
+
+  /**
+   * Used to check if a player's registry account is presently whitelisted.
+   * @param {object|undefined|null} [options] - No options exist at this time.  A {fast:true} option is planned in the future which will directly read from the StarMade/whitelist.txt file.
+   * @param {function|undefined|null} [cb] - If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} - True/False depending on if the player is whitelisted.
+   */
   this.isWhitelisted = function (options, cb) {
     if (typeof cb == "function") {
       return isAccountWhitelisted(self.name, options, cb);
@@ -638,6 +504,14 @@ function SMNameObj(name) { // cb/promises/squish compliant
       return simplePromisifyIt(self.isWhitelisted, options);
     }
   }
+
+  /**
+   * Bans the player via their StarMade Registry Account name.
+   * @param {number} [timeToBan] The number of minutes to ban.  If not provided, will result in a perm ban.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {function} [cb] If no callback provided, a Promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
   this.ban = function (timeToBan, options, cb) { // timeToBan is optional.  If no number given, it will be a perm ban.  Options can be {"fast":true}
     if (typeof cb == "function") {
       var theTimeToUse = toNumIfPossible(timeToBan);
@@ -654,6 +528,13 @@ function SMNameObj(name) { // cb/promises/squish compliant
       return simplePromisifyIt(self.ban, options, timeToBan);
     }
   }
+
+  /**
+   * Unbans the player via their StarMade Registry Account name.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {function} [cb] If no callback provided, a Promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
   this.unban = function (options, cb) {
     if (typeof cb == "function") {
       return runSimpleCommand("/unban_account " + self.name, options, cb);
@@ -661,6 +542,14 @@ function SMNameObj(name) { // cb/promises/squish compliant
     }
     return simplePromisifyIt(self.unban, options);
   }
+
+  /**
+   * Whitelists the player via their StarMade Registry Account name.
+   * @param {number} [timeToWhitelist] The number of minutes to whitelist.  If not provided, will result in a perm whitelist.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {function} [cb] If no callback provided, a Promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
   this.whitelist = function (timeToWhitelist, options, cb) { // timeToWhitelist is optional.  If no number given, it will be a perm whitelist.  Options can be {"fast":true}
     if (typeof cb == "function") {
       var theTimeToUse = toNumIfPossible(timeToWhitelist);
@@ -677,7 +566,14 @@ function SMNameObj(name) { // cb/promises/squish compliant
       return simplePromisifyIt(self.whitelist, options, timeToWhitelist);
     }
   }
-  this.getNames = function (options, cb) { // Returns an array of PlayerObj's for all the usernames associated with this registry account name
+
+  /**
+   * Returns an array of PlayerObj's for all the usernames associated with this registry account name
+   * @param {object} [options] - No options at present.
+   * @param {function} [cb] If no callback provided, a Promise is returned.
+   * @returns {PlayerObj[]|Promise} If no player names associated with this registry account, the array will be empty.
+   */
+  this.getNames = function (options, cb) {
     if (typeof cb == "function") {
       var theSmNameToUse = self.name; // The sql db is actually case sensitive.
 
@@ -700,249 +596,512 @@ function SMNameObj(name) { // cb/promises/squish compliant
   }
 };
 
-
-function PlayerObj(name) { // cb/promises/squish compliant // "Player" must be a string and can be just the player's nickname or their full UID
+/**
+ * This object is used to pull information about an individual player or to act on them.
+ * @class
+ * @param {string|PlayerObj} name This can be the player's name or the full UID of their character.  The UID may be preceded by "ENTITY_PLAYERCHARACTER_" or "ENTITY_PLAYERSTATE_"
+ * @property {string} name This is the in-game name of the player.
+ * @property {number} [rankRetrieved] Only exists on the object when part of a {@link FactionObj.listMembers()} query.
+ */
+function PlayerObj(name) { // "Player" must be a string and can be just the player's nickname or their full UID
   var thePlayer = toStringIfPossible(name); // This allows other PlayerObj to be used as input.
-  if (typeof thePlayer == "string") {
-    var self = this; // this is needed to reference the "this" of functions in other contexts, particularly for creating promises via the outside function.  If "this" is used, the promisify function will not work correctly.
-    var playerName = thePlayer.trim();
-    // var playerName=player.replace(/^ENTITY_PLAYERCHARACTER_/,"").replace(/^ENTITY_PLAYERSTATE_/,""); // strip the UID
-    this.name = playerName.replace(/^ENTITY_PLAYERCHARACTER_/, "").replace(/^ENTITY_PLAYERSTATE_/, ""); // strip the UID
-    this.msg = function (message, options, cb) {
-      // Sends a message to the player.  "plain" type by default.  {"type":info/warn/error/plain} <-pick one.
-      // if no cb is given, this will return a promise.
-      // The return result will be true or false depending on success or failure.
-      // An error is thrown if failed connection. 
-      if (typeof cb == "function") {
-        var msgType = getOption(options, "type", "plain").toLowerCase(); // Note: This does not throw an error if invalid options are specified.
-        var msgToUse = toStringIfPossible(message);
-        if (typeof msgToUse == "string") {
-          return runSimpleCommand("/server_message_to " + msgType + " " + self.name + "'" + message.toString().trim() + "'", options, cb);
-        } else {
-          return cb(new Error("Invalid message given to PlayerObj.msg!"), Boolean(false));
-        }
+  if (typeof thePlayer != "string") {
+    throw new Error("ERROR: No playername provided to playerObj constructor!");
+  }
+  var self = this; // this is needed to reference the "this" of functions in other contexts, particularly for creating Promises via the outside function.  If "this" is used, the promisify function will not work correctly.
+  var playerName = thePlayer.trim();
+  // var playerName=player.replace(/^ENTITY_PLAYERCHARACTER_/,"").replace(/^ENTITY_PLAYERSTATE_/,""); // strip the UID
+  this.name = playerName.replace(/^ENTITY_PLAYERCHARACTER_/, "").replace(/^ENTITY_PLAYERSTATE_/, ""); // strip the UID
+  
+  /**
+   * Sends a message directly to the player, either to their main chat or as a popup.
+   * @param {string} message - This is the message to send to the player.  This can be an empty string.
+   * @param {object} [options] - {fast:true} or {"type":info/warn/error/plain}.  If type of "info","warn", or "error" is used, this will be a pop-up that is either green, blue, or red.  "plain" is the default message type.
+   * @param {callbackFunction} [cb] If no callback provided, a Promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.msg = function (message, options, cb) {
+    // Sends a message to the player.  "plain" type by default.  {"type":info/warn/error/plain} <-pick one.
+    // if no cb is given, this will return a Promise.
+    // The return result will be true or false depending on success or failure.
+    if (typeof cb == "function") {
+      var msgType = getOption(options, "type", "plain").toLowerCase(); // Note: This does not throw an error if invalid options are specified.
+      var msgToUse = toStringIfPossible(message);
+      if (typeof msgToUse == "string") {
+        return runSimpleCommand("/server_message_to " + msgType + " " + self.name + "'" + message.toString().trim() + "'", options, cb);
       } else {
-        return simplePromisifyIt(self.msg, options, message);
+        return cb(new Error("Invalid message given to PlayerObj.msg!"), Boolean(false));
       }
+    } else {
+      return simplePromisifyIt(self.msg, options, message);
     }
-    this.botMsg = function (message, options, cb) { // cb is optional, runs as Sync if not given.  Sends a plain message to the player with the bot's name.
-      if (typeof cb == "function") {
-        var messageToSend = toStringIfPossible(message);
-        if (!testIfInput(messageToSend) || messageToSend == "" || typeof messageToSend == "undefined") {
-          messageToSend = " "; // If empty, let's assume they meant to send an empty line.
-        }
-        if (typeof messageToSend != "string") { // Some kind of object that could not convert to a string was provided
-          return cb(new Error("Invalid input given to PlayerObj.botMsg!"), null);
-        }
-        return serverObj.bot.msg(self.name, messageToSend, options, cb); // This should throw an error if there is a problem connecting to the server
+  }
+
+  /**
+   * Sends a message directly to the player as though the server's bot sent the message.  This will be either to their main chat or as a popup.
+   * @param {string} message - This is the message to send to the player.  This can be an empty string.
+   * @param {object} [options] - {fast:true} or {"type":info/warn/error/plain}.  If type of "info","warn", or "error" is used, this will be a pop-up that is either green, blue, or red.  "plain" is the default message type.
+   * @param {callbackFunction} [cb] If no callback provided, a Promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.botMsg = function (message, options, cb) { // cb is optional, runs as Sync if not given.  Sends a plain message to the player with the bot's name.
+    if (typeof cb == "function") {
+      var messageToSend = toStringIfPossible(message);
+      if (!testIfInput(messageToSend) || messageToSend == "" || typeof messageToSend == "undefined") {
+        messageToSend = " "; // If empty, let's assume they meant to send an empty line.
+      }
+      if (typeof messageToSend != "string") { // Some kind of object that could not convert to a string was provided
+        return cb(new Error("Invalid input given to PlayerObj.botMsg!"), null);
+      }
+      return serverObj.bot.msg(self.name, messageToSend, options, cb); // This should throw an error if there is a problem connecting to the server
+    } else {
+      return simplePromisifyIt(self.botMsg, options, message);
+    }
+  }
+
+  /**
+   * Turns creative mode on or off for the player.
+   * @param {boolean|string} trueOrFalse "true" or "false" strings will be converted to appropriate boolean values.  No other string values will be accepted.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.creativeMode = function (trueOrFalse, options, cb) { // expects true or false as either boolean or string
+    if (typeof cb == "function") {
+      if (isTrueOrFalse(trueOrFalse)) {
+        return runSimpleCommand("/creative_mode " + self.name + " " + trueOrFalse, options, cb);
+      }
+      return cb(new Error("Invalid input given to PlayerObj.creativeMode!  Expects true or false!"), null);
+    } else {
+      return simplePromisifyIt(self.creativeMode, options, trueOrFalse);
+    }
+  }
+
+  /**
+   * Turns god mode on or off for the player.
+   * @param {boolean|string} trueOrFalse "true" or "false" strings will be converted to appropriate boolean values.  No other string values will be accepted.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.godMode = function (trueOrFalse, options, cb) { // expects true or false as either boolean or string
+    if (typeof cb == "function") {
+      if (isTrueOrFalse(trueOrFalse)) {
+        return runSimpleCommand("/god_mode " + self.name + " " + trueOrFalse, options, cb);
+      }
+      return cb(new Error("Invalid input given to PlayerObj.godMode!  Expects true or false!"), null);
+    }
+    return simplePromisifyIt(self.godMode, options, trueOrFalse);
+  }
+
+  /**
+   * Turns invisibility mode on or off for the player.
+   * @param {boolean|string} trueOrFalse "true" or "false" strings will be converted to appropriate boolean values.  No other string values will be accepted.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.invisibilityMode = function (trueOrFalse, options, cb) { // expects true or false as either boolean or string
+    if (typeof cb == "function") {
+      if (isTrueOrFalse(trueOrFalse)) {
+        return runSimpleCommand("/invisibility_mode " + self.name + " " + trueOrFalse, options, cb);
+      }
+      return cb(new Error("Invalid input given to PlayerObj.invisibilityMode! Expects true or false!"), null);
+    }
+    return simplePromisifyIt(self.invisibilityMode, options, trueOrFalse);
+  }
+
+  /**
+   * Turns infinite carrying capacity mode on or off for the player.
+   * @param {boolean|string} trueOrFalse "true" or "false" strings will be converted to appropriate boolean values.  No other string values will be accepted.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.setInfiniteInventoryVolume = function (trueOrFalse, options, cb) { // expects true or false as either boolean or string
+    if (typeof cb == "function") {
+      if (isTrueOrFalse(trueOrFalse)) {
+        return runSimpleCommand("/set_infinite_inventory_volume " + self.name + " " + trueOrFalse, options, cb);
+      }
+      return cb(new Error("Invalid input given to PlayerObj.setInfiniteInventoryVolume! Expects true or false!"), null);
+    }
+    return simplePromisifyIt(self.setInfiniteInventoryVolume, options, trueOrFalse);
+  }
+
+  /**
+   * Checks to see if the player is banned by name or not.  To see if their IP or SMName is banned, you'll want to look up their ip or SmName with the appropriate methods.
+   * @param {object} [options] None at this time. {fast:true} is planned in the future, which will read from the blacklist.txt file.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+  */
+  this.isBanned = function (options, cb) {
+    if (typeof cb == "function") {
+      return isNameBanned(self.name, options, cb);
+    }
+    return simplePromisifyIt(self.isBanned, options);
+  }
+
+  /**
+   * Checks to see if the player is whitelisted by name or not.  To see if their IP or SMName is whitelisted, you'll want to look up their ip or SmName with the appropriate methods.
+   * @param {object} [options] None at this time. {fast:true} is planned in the future, which will read from the whitelist.txt file.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+  */
+ this.isWhitelisted = function (options,cb) {
+    if (typeof cb == "function") {
+      return isNameWhitelisted(self.name, options);
+    }
+    return simplePromisifyIt(self.isWhitelisted, options);
+  }
+
+  /**
+   * Turns faction point protection mode on or off for the player.  This protects a player's faction from losing faction points if the player dies.
+   * @param {boolean|string} trueOrFalse "true" or "false" strings will be converted to appropriate boolean values.  No other string values will be accepted.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.factionPointProtect = function (trueOrFalse, options, cb) { // expects true or false as either boolean or string
+    if (typeof cb == "function") {
+      return runSimpleCommand("/faction_point_protect_player " + self.name + " " + trueOrFalse, options, cb);
+    }
+    return simplePromisifyIt(self.factionPointProtect, options, trueOrFalse);
+  }
+
+  /**
+   * Adds or subtracts a given number of item (by item name) from the player's currently open inventory IF they are online.
+   * <br><b>Note:</b>If items are being subtracted from a player's inventory, no error is given if the number subtracted exceeds what is in their inventory.  For example, if they have 5 rocks and 10 of all items are removed, they will end up with 0 rocks and no error is given.
+   * <br><b>Note 2:</b>This command will NOT work to give or remove meta items, such as blueprints.
+   * @param {string} itemName Example is "Power"
+   * @param {number} numberToGive The number of items to give.  This can be a negative value to subtract that item type from the player's inventory.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.  Note that if removing items, it will still return true even if unable to remove the item type.  You will want to use PlayerObj.inventory to check if it is possible to remove the number of items first.
+   */
+  this.giveItem = function (itemName, numberToGive, options, cb) { // expects an element name and number of items to give
+    if (typeof cb == "function") {
+      return runSimpleCommand("/give " + self.name + " " + itemName + " " + numberToGive, options, cb);
+    }
+    return simplePromisifyIt(self.giveItem, options, itemName, numberToGive);
+  }
+
+    /**
+   * Adds or subtracts a given number of item (by item ID number) from the player's currently open inventory IF they are online.
+   * <br><b>Note:</b>The player must be online.
+   * <br><b>Note 2:</b>If items are being subtracted from a player's inventory, no error is given if the number subtracted exceeds what is in their inventory.  For example, if they have 5 rocks and 10 of all items are removed, they will end up with 0 rocks and no error is given.
+   * <br><b>Note 3:</b>This command will NOT work to give or remove meta items, such as blueprints.
+   * @param {number} itemNumber Example is "1"
+   * @param {number} numberToGive The number of items to give.  This can be a negative value to subtract that item type from the player's inventory.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.  Note that if removing items, it will still return true even if unable to remove the item type.  You will want to use PlayerObj.inventory to check if it is possible to remove the number of items first.
+   */
+  this.giveItemId = function (itemNumber, numberToGive, options, cb) { // expects an element id and number of items to give
+    if (typeof cb == "function") {
+      return runSimpleCommand("/giveid " + self.name + " " + itemNumber + " " + numberToGive, options, cb);
+    }
+    return simplePromisifyIt(self.giveItemId, options, itemNumber, numberToGive);
+  }
+
+  /**
+   * Adds or subtracts a certain amount of every type of item from the player's currently accessed inventory IF they are online.
+   * <br><b>Note:</b>The player must be online.
+   * <br><b>Note 2:</b>If items are being subtracted from a player's inventory, no error is given if the number subtracted exceeds what is in their inventory.  For example, if they have 5 rocks and 10 of all items are removed, they will end up with 0 rocks and no error is given.
+   * <br><b>Note 3:</b>This command will NOT work to give or remove meta items, such as blueprints.
+   * @param {number} numberToGive The number of items to give.  This can be a negative value to subtract that item type from the player's inventory.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.  Note that if removing items, it will still return true even if unable to remove the item type.  You will want to use PlayerObj.inventory to check if it is possible to remove the number of items first.
+   */
+  this.giveAllItems = function (numberToGive, options, cb) { // expects an element name and number of items to give
+    if (typeof cb == "function") {
+      return runSimpleCommand("/give_all_items " + self.name + " " + numberToGive, options, cb);
+    }
+    return simplePromisifyIt(self.giveAllItems, options, numberToGive);
+  }
+
+  /**
+   * Adds or subtracts a certain amount of item from the player's currently accessed inventory based on category IF they are online.  This can also be used to remove items from the player's inventory if a negative number is given as the item count.
+   * <br><b>Note:</b>The player must be online.
+   * <br><b>Note 2:</b>If items are being subtracted from a player's inventory, no error is given if the number subtracted exceeds what is in their inventory.  For example, if they have 5 rocks and 10 of all items are removed, they will end up with 0 rocks and no error is given.
+   * <br><b>Note 3:</b>This command will NOT work to give or remove meta items, such as blueprints.
+   * @param {string} category The category of item to give. A few examples include: terrain/ship/station
+   * @param {number} numberToGive The number of items to give.  This can be a negative value to subtract that item type from the player's inventory.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.  Note that if removing items, it will still return true even if unable to remove the item type.  You will want to use PlayerObj.inventory to check if it is possible to remove the number of items first.
+   */
+  this.giveCategoryItems = function (category, numberToGive, options, cb) { // expects a category such as terrain/ship/station and number of items to give
+    if (typeof cb == "function") {
+      return runSimpleCommand("/give_category_items " + self.name + " " + numberToGive + " " + category, options, cb);
+    }
+    return simplePromisifyIt(self.giveCategoryItems, options, category, numberToGive);
+  }
+
+  /**
+   * Gives or takes away credits from the player's inventory.
+   * <br><b>Note:</b>The player must be online.
+   * <br><b>Note 2:</b>If credits are being removed, their inventory cannot go below 0.  No error is given either if the number attempted to be removed is larger than what they have, their credits will simply end up being 0.
+   * @param {number|string} creditCount This is the number of credits to add or subtract.  Negative numbers are subtracted.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.  Note that if subtracting credits, it will still return true even if unable to remove the item type.  You will want to use PlayerObj.credits() to check the player's credits.
+   */
+  this.giveCredits = function (creditCount, options, cb) { // expects a number of credits to give.  If this value is negative, it will subtract credits.
+    if (typeof cb == "function") {
+      return runSimpleCommand("/give_credits " + self.name + " " + creditCount, options, cb);
+    }
+    return simplePromisifyIt(self.giveCredits, options, creditCount);
+  }
+
+  /**
+   * Gives the player a hand-held grapple tool.
+   * <br><b>Note:</b>The player must be online to receive the item.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.giveGrapple = function (options, cb) { // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
+    if (typeof cb == "function") {
+      return runSimpleCommand("/give_grapple_item " + self.name, options, cb);
+    }
+    return simplePromisifyIt(self.giveGrapple, options);
+  }
+
+  /**
+   * Gives the player a hand-held grapple OP tool.
+   * <br><b>Note:</b>The player must be online to receive the item.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.giveGrappleOP = function (options, cb) {
+    if (typeof cb == "function") {
+      return runSimpleCommand("/give_grapple_item_op " + self.name, options, cb);
+    }
+    return simplePromisifyIt(self.giveGrappleOP, options);
+  }
+
+    /**
+   * Gives the player a hand-held heal tool.
+   * <br><b>Note:</b> The player must be online to receive the item.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.giveHealWeapon = function (options, cb) {
+    if (typeof cb == "function") {
+      return runSimpleCommand("/give_heal_weapon " + self.name, options, cb);
+    }
+    return simplePromisifyIt(self.giveHealWeapon, options);
+  }
+
+  /**
+   * Gives the player a hand-held laser pistol.
+   * <br><b>Note:</b> The player must be online to receive the item.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.giveLaserWeapon = function (options, cb) {
+    if (typeof cb == "function") {
+      return runSimpleCommand("/give_laser_weapon " + self.name, options, cb);
+    }
+    return simplePromisifyIt(self.giveLaserWeapon, options);
+  }
+
+  /**
+   * Gives the player a hand-held laser pistol weapon.
+   * <br><b>Note:</b> The player must be online to receive the item.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.giveLaserWeaponOP = function (options, cb) {
+    if (typeof cb == "function") {
+      return runSimpleCommand("/give_laser_weapon_op " + self.name, options, cb);
+    }
+    return simplePromisifyIt(self.giveLaserWeaponOP, options);
+  }
+
+  /**
+   * Gives the player a hand-held marker tool.
+   * <br><b>Note:</b> The player must be online to receive the item.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.giveMarkerWeapon = function (options, cb) {
+    if (typeof cb == "function") {
+      return runSimpleCommand("/give_marker_weapon " + self.name, options, cb);
+    }
+    return simplePromisifyIt(self.giveMarkerWeapon, options);
+  }
+
+  /**
+   * Gives the player a hand-held transporter tool.
+   * <br><b>Note:</b> The player must be online to receive the item.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.giveTransporterMarkerWeapon = function (options, cb) {
+    if (typeof cb == "function") {
+      return runSimpleCommand("/give_transporter_marker_weapon " + self.name, options, cb);
+    }
+    return simplePromisifyIt(self.giveTransporterMarkerWeapon, options);
+  }
+
+  /**
+   * Gives the player a hand-held power supply tool.
+   * <br><b>Note:</b> The player must be online to receive the item.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.givePowerSupplyWeapon = function (options, cb) {
+    if (typeof cb == "function") {
+      return runSimpleCommand("/give_power_supply_weapon " + self.name, options, cb);
+    }
+    return simplePromisifyIt(self.givePowerSupplyWeapon, options);
+  }
+
+  /**
+   * Gives the player a hand-held rocket launcher weapon.
+   * <br>Note:</b> The player must be online to receive the item.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.giveRocketLauncher = function (options, cb) {
+    if (typeof cb == "function") {
+      return runSimpleCommand("/give_rocket_launcher_weapon " + self.name, options, cb);
+    }
+    return simplePromisifyIt(self.giveRocketLauncher, options);
+  }
+
+  /**
+   * Gives the player a hand-held rocket launcher OP weapon.
+   * <br><b>Note:</b> The player must be online to receive the item.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.giveRocketLauncherOP = function (options, cb) {
+    if (typeof cb == "function") {
+      return runSimpleCommand("/give_rocket_launcher_op " + self.name, options, cb);
+    }
+    return simplePromisifyIt(self.giveRocketLauncherOP, options);
+  }
+
+  /**
+   * Gives the player a hand-held sniper rifle weapon.
+   * <br>Note:</b> The player must be online to receive the item.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.giveSniperWeapon = function (options, cb) {
+    if (typeof cb == "function") {
+      return runSimpleCommand("/give_sniper_weapon " + self.name, options, cb);
+    }
+    return simplePromisifyIt(self.giveSniperWeapon, options);
+  }
+
+  /**
+   * Gives the player a hand-held sniper rifle OP weapon.
+   * <br><b>Note:</b> The player must be online to receive the item.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.giveSniperWeaponOP = function (options, cb) {
+    if (typeof cb == "function") {
+      return runSimpleCommand("/give_sniper_weapon_op " + self.name, options, cb);
+    }
+    return simplePromisifyIt(self.giveSniperWeaponOP, options);
+  }
+
+  /**
+   * Gives the player a hand-held torch weapon.
+   * <br><b>Note:</b> The player must be online to receive the item.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.giveTorchWeapon = function (options, cb) {
+    if (typeof cb == "function") {
+      return runSimpleCommand("/give_torch_weapon " + self.name, options, cb);
+    }
+    return simplePromisifyIt(self.giveTorchWeapon, options);
+  }
+
+  /**
+   * Gives the player a hand-held torch OP weapon.
+   * <br><b>Note:</b> The player must be online to receive the item.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.giveTorchWeaponOP = function (options, cb) {
+    if (typeof cb == "function") {
+      return runSimpleCommand("/give_torch_weapon_op " + self.name, options, cb);
+    }
+    return simplePromisifyIt(self.giveTorchWeaponOP, options);
+  }
+
+  /**
+   * Kills the player if they are online.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.kill = function (options, cb) {
+    if (typeof cb == "function") {
+      return runSimpleCommand("/kill_character " + self.name, options, cb);
+    }
+    return simplePromisifyIt(self.kill, options);
+  }
+
+  /**
+   * Disconnects the player and informs them that they have been kicked off of the server.
+   * @param {string} [reason] The reason the player is being kicked.  This will display to them in a pop-up window.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.kick = function (reason, options, cb) { // Reason is optional.  Note that since reason is optional, this will always return true.
+    if (typeof cb == "function") {
+      if (testIfInput(reason)) {
+        // return sendDirectToServer("/kick_reason " + self.name + "'" + reason.toString().trim() + "'");
+        return runSimpleCommand("/kick_reason " + self.name + "'" + reason.toString().trim() + "'", options, cb);
       } else {
-        return simplePromisifyIt(self.botMsg, options, message);
+        // return sendDirectToServer("/kick " + self.name);
+        return runSimpleCommand("/kick " + self.name, options, cb);
       }
     }
-    this.creativeMode = function (input, options, cb) { // expects true or false as either boolean or string
-      if (typeof cb == "function") {
-        if (isTrueOrFalse(input)) {
-          return runSimpleCommand("/creative_mode " + self.name + " " + input, options, cb);
+    return simplePromisifyIt(self.kick, options, reason);
+  }
+
+  /**
+   * Gets the rank of the player within their current faction.
+   * @param {object} [options] No options currently exist.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {number|null|Promise} Returns 1-5, 5 representing founder, 1 being the lowest rank.  null is returned if the player is not in a faction.
+   */
+  this.getFactionRank = function (options,cb){
+    if (typeof cb == "function"){
+      // var playerFaction=await self.faction();
+      return self.faction("",function(err,playerFaction){
+        if (err){
+          return cb(err,null);
         }
-        return cb(new Error("Invalid input given to PlayerObj.creativeMode!  Expects true or false!"), null);
-      } else {
-        return simplePromisifyIt(self.creativeMode, options, input);
-      }
-    }
-    this.godMode = function (input, options, cb) { // expects true or false as either boolean or string
-      if (typeof cb == "function") {
-        if (isTrueOrFalse(input)) {
-          return runSimpleCommand("/god_mode " + self.name + " " + input, options, cb);
-        }
-        return cb(new Error("Invalid input given to PlayerObj.godMode!  Expects true or false!"), null);
-      }
-      return simplePromisifyIt(self.godMode, options, input);
-    }
-    this.invisibilityMode = function (input, options, cb) { // expects true or false as either boolean or string
-      if (typeof cb == "function") {
-        if (isTrueOrFalse(input)) {
-          return runSimpleCommand("/invisibility_mode " + self.name + " " + input, options, cb);
-        }
-        return cb(new Error("Invalid input given to PlayerObj.invisibilityMode! Expects true or false!"), null);
-      }
-      return simplePromisifyIt(self.invisibilityMode, options, input);
-    }
-    self.setInfiniteInventoryVolume = function (input, options, cb) { // expects true or false as either boolean or string
-      if (typeof cb == "function") {
-        if (isTrueOrFalse(input)) {
-          return runSimpleCommand("/set_infinite_inventory_volume " + self.name + " " + input, options, cb);
-        }
-        return cb(new Error("Invalid input given to PlayerObj.setInfiniteInventoryVolume! Expects true or false!"), null);
-      }
-      return simplePromisifyIt(self.setInfiniteInventoryVolume, options, input);
-    }
-    this.isBanned = function (options, cb) {
-      if (typeof cb == "function") {
-        return isNameBanned(self.name, options, cb);
-      }
-      return simplePromisifyIt(self.isBanned, options);
-    }
-    self.isWhitelisted = function (options) {
-      if (typeof cb == "function") {
-        return isNameWhitelisted(self.name, options);
-      }
-      return simplePromisifyIt(self.isWhitelisted, options);
-    }
-    self.factionPointProtect = function (input, options, cb) { // expects true or false as either boolean or string
-      if (typeof cb == "function") {
-        return runSimpleCommand("/faction_point_protect_player " + self.name + " " + input, options, cb);
-      }
-      return simplePromisifyIt(self.factionPointProtect, options, input);
-    }
-    self.give = function (input, number, options, cb) { // expects an element name and number of items to give
-      if (typeof cb == "function") {
-        return runSimpleCommand("/give " + self.name + " " + input + " " + number, options, cb);
-      }
-      return simplePromisifyIt(self.give, options, input, number);
-    }
-    self.giveId = function (inputNumber, number, options, cb) { // expects an element id and number of items to give
-      if (typeof cb == "function") {
-        return runSimpleCommand("/giveid " + self.name + " " + inputNumber + " " + number, options, cb);
-      }
-      return simplePromisifyIt(self.giveId, options, inputNumber, number);
-    }
-    self.giveAllItems = function (number, options, cb) { // expects an element name and number of items to give
-      if (typeof cb == "function") {
-        return runSimpleCommand("/give_all_items " + self.name + " " + number, options, cb);
-      }
-      return simplePromisifyIt(self.giveAllItems, options, number);
-    }
-    self.giveCategoryItems = function (category, number, options, cb) { // expects a category such as terrain/ship/station and number of items to give
-      if (typeof cb == "function") {
-        return runSimpleCommand("/give_category_items " + self.name + " " + number + " " + category, options, cb);
-      }
-      return simplePromisifyIt(self.giveCategoryItems, options, category, number);
-    }
-    self.giveCredits = function (number, options, cb) { // expects a number of credits to give.  If this value is negative, it will subtract credits.
-      if (typeof cb == "function") {
-        return runSimpleCommand("/give_credits " + self.name + " " + number, options, cb);
-      }
-      return simplePromisifyIt(self.giveCredits, options, number);
-    }
-    self.giveGrapple = function (options, cb) { // number is optional.  If more than 1, then it will loop through giving 1 at a time.  Be careful with this since these items do not stack.
-      // Unfortunately, with using callback functions, it's just not a good idea to allow more than 1 to be given.  Each command needs to have it's own error handling.
-      // var theNum=toNumIfPossible(number);
-      // var countTo=1; // The default times to run the command is 1
-      // var result;
-      // if (typeof theNum == "number"){ // Only use the input given if it is a number, otherwise ignore it.
-      //   if (number>1){ countTo=theNum; }
-      // }
-      // for (var i=0;countTo>i;i++){
-      //   result=runSimpleCommand("/give_grapple_item " + self.name,options,cb);
-      // }
-      // return result;
-      if (typeof cb == "function") {
-        return runSimpleCommand("/give_grapple_item " + self.name, options, cb);
-      }
-      return simplePromisifyIt(self.giveGrapple, options);
-    }
-    self.giveGrappleOP = function (options, cb) {
-      if (typeof cb == "function") {
-        return runSimpleCommand("/give_grapple_item_op " + self.name, options, cb);
-      }
-      return simplePromisifyIt(self.giveGrappleOP, options);
-    }
-    self.giveHealWeapon = function (options, cb) {
-      if (typeof cb == "function") {
-        return runSimpleCommand("/give_heal_weapon " + self.name, options, cb);
-      }
-      return simplePromisifyIt(self.giveHealWeapon, options);
-    }
-    self.giveLaserWeapon = function (options, cb) {
-      if (typeof cb == "function") {
-        return runSimpleCommand("/give_laser_weapon " + self.name, options, cb);
-      }
-      return simplePromisifyIt(self.giveLaserWeapon, options);
-    }
-    self.giveLaserWeaponOP = function (options, cb) {
-      if (typeof cb == "function") {
-        return runSimpleCommand("/give_laser_weapon_op " + self.name, options, cb);
-      }
-      return simplePromisifyIt(self.giveLaserWeaponOP, options);
-    }
-    self.giveMarkerWeapon = function (options, cb) {
-      if (typeof cb == "function") {
-        return runSimpleCommand("/give_marker_weapon " + self.name, options, cb);
-      }
-      return simplePromisifyIt(self.giveMarkerWeapon, options);
-    }
-    self.giveTransporterMarkerWeapon = function (options, cb) {
-      if (typeof cb == "function") {
-        return runSimpleCommand("/give_transporter_marker_weapon " + self.name, options, cb);
-      }
-      return simplePromisifyIt(self.giveTransporterMarkerWeapon, options);
-    }
-    self.givePowerSupplyWeapon = function (options, cb) {
-      if (typeof cb == "function") {
-        return runSimpleCommand("/give_power_supply_weapon " + self.name, options, cb);
-      }
-      return simplePromisifyIt(self.givePowerSupplyWeapon, options);
-    }
-    self.giveRocketLauncher = function (options, cb) {
-      if (typeof cb == "function") {
-        return runSimpleCommand("/give_rocket_launcher_weapon " + self.name, options, cb);
-      }
-      return simplePromisifyIt(self.giveRocketLauncher, options);
-    }
-    self.giveRocketLauncherOP = function (options, cb) {
-      if (typeof cb == "function") {
-        return runSimpleCommand("/give_rocket_launcher_op " + self.name, options, cb);
-      }
-      return simplePromisifyIt(self.giveRocketLauncherOP, options);
-    }
-    self.giveSniperWeapon = function (options, cb) {
-      if (typeof cb == "function") {
-        return runSimpleCommand("/give_sniper_weapon " + self.name, options, cb);
-      }
-      return simplePromisifyIt(self.giveSniperWeapon, options);
-    }
-    self.giveSniperWeaponOP = function (options, cb) {
-      if (typeof cb == "function") {
-        return runSimpleCommand("/give_sniper_weapon_op " + self.name, options, cb);
-      }
-      return simplePromisifyIt(self.giveSniperWeaponOP, options);
-    }
-    self.giveTorchWeapon = function (options, cb) {
-      if (typeof cb == "function") {
-        return runSimpleCommand("/give_torch_weapon " + self.name, options, cb);
-      }
-      return simplePromisifyIt(self.giveTorchWeapon, options);
-    }
-    self.giveTorchWeaponOP = function (options, cb) {
-      if (typeof cb == "function") {
-        return runSimpleCommand("/give_torch_weapon_op " + self.name, options, cb);
-      }
-      return simplePromisifyIt(self.giveTorchWeaponOP, options);
-    }
-    self.kill = function (options, cb) { // kills the player
-      if (typeof cb == "function") {
-        return runSimpleCommand("/kill_character " + self.name, options, cb);
-      }
-      return simplePromisifyIt(self.kill, options);
-    }
-    self.kick = function (reason, options, cb) { // Reason is optional.  Note that since reason is optional, this will always return true.
-      if (typeof cb == "function") {
-        if (testIfInput(reason)) {
-          // return sendDirectToServer("/kick_reason " + self.name + "'" + reason.toString().trim() + "'");
-          return runSimpleCommand("/kick_reason " + self.name + "'" + reason.toString().trim() + "'", options, cb);
-        } else {
-          // return sendDirectToServer("/kick " + self.name);
-          return runSimpleCommand("/kick " + self.name, options, cb);
-        }
-      }
-      return simplePromisifyIt(self.kick, options, reason);
-    }
-    this.getFactionRank = async function (options,cb){
-      if (typeof cb == "function"){
-        var playerFaction=await self.faction();
         //  /faction_list_members 10000
         // Result:
         // RETURN: [SERVER, [ADMIN COMMAND] [SUCCESS] The_Rebuilders: {Benevolent27=>FactionPermission [playerUID=Benevolent27, roleID=4], BoredNL=>FactionPermission [playerUID=BoredNL, roleID=4], Nikodaemos=>FactionPermission [playerUID=Nikodaemos, roleID=4]}, 0]
+        if (playerFaction === null){
+          return cb(null,null); // Player was not in a faction
+        }
         return playerFaction.listMembers("",function(err,playerList){
           if (err){
             return cb(err,null);
@@ -957,283 +1116,397 @@ function PlayerObj(name) { // cb/promises/squish compliant // "Player" must be a
           // This next line should never happen normally
           return cb(null,null); // Player was not in their own faction or results was not an array?  Did they exit the faction between the command to get their command and then list the members?
         });
-      }
-      return simplePromisifyIt(self.getFactionRank,options);
+      });
     }
-    self.setFactionRank = function (number, options, cb) { // expects a number 1-5.  5 is founder, 1 is lowest rank.
-      if (typeof cb == "function") {
-        if (isNum(number)) {
-          if (number >= 1 && number <= 5) {
-            return runSimpleCommand("/faction_mod_member " + self.name + " " + number, options, cb);
-          }
-          return cb(new Error("Invalid number given to PlayerObj.setFactionRank as number!  Needs to be between 1 and 5!"), null);
+    return simplePromisifyIt(self.getFactionRank,options);
+  }
+
+  /**
+   * Sets the rank of the player within their current faction.
+   * @param {number} rank Can be 1-5, 5 being founder and 1 being the lowest rank.
+   * @param {object} [options] No options currently exist.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.  It will fail if the player is not in a faction.
+   */
+  this.setFactionRank = function (rank, options, cb) { // expects a number 1-5.  5 is founder, 1 is lowest rank.
+    if (typeof cb == "function") {
+      if (isNum(rank)) {
+        if (rank >= 1 && rank <= 5) {
+          return runSimpleCommand("/faction_mod_member " + self.name + " " + rank, options, cb);
         }
-        return cb(new Error("Invalid value given to PlayerObj.setFactionRank as number!"), null);
+        return cb(new Error("Invalid number given to PlayerObj.setFactionRank as number!  Needs to be between 1 and 5!"), null);
       }
-      return simplePromisifyIt(self.setFactionRank, options, number);
+      return cb(new Error("Invalid value given to PlayerObj.setFactionRank as number!"), null);
     }
-    self.deleteFromFaction = function (options, cb) {
-      // WARNING: Will leave an empty faction behind if no members left!
-      // This might be what you want if you plan on adding them later, but if not, then you'll want to
-      // check their prior faction member count and delete it if empty.
-      if (typeof cb == "function") {
-        thisConsole.debug("Looking up faction..");
-        return self.faction(options, function (err, result) {
+    return simplePromisifyIt(self.setFactionRank, options, rank);
+  }
+
+  /**
+   * Removes the player from their current faction.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.  Returns null if the player was not in a faction.
+   */
+  this.deleteFromFaction = function (options, cb) {
+    // WARNING: Will leave an empty faction behind if no members left!
+    // This might be what you want if you plan on adding them later, but if not, then you'll want to
+    // check their prior faction member count and delete it if empty.
+    if (typeof cb == "function") {
+      thisConsole.debug("Looking up faction..");
+      return self.faction(options, function (err, result) {
+        if (err) {
+          return cb(err, null);
+        }
+        if (result === null){
+          return cb(null,null);
+        }
+        var theFactionNum = toNumIfPossible(toStringIfPossible(result));
+        if (typeof theFactionNum == "number" && theFactionNum) { // If faction number is 0, this will be falsey
+          return runSimpleCommand("/faction_del_member " + self.name + " " + theFactionNum, options, function (err, result) {
+            if (err) {
+              return cb(err, result);
+            }
+            return cb(null, result); // should be true if the command succeeded.  False if they are not in a faction.
+          });
+        } else {
+          // the player does not appear to be in a faction, so why bother trying?
+          return cb(null, false); // this is to indicate the command failed.
+        }
+      });
+    }
+    return simplePromisifyIt(self.deleteFromFaction, options);
+  }
+
+  /**
+   * Adds the player to a faction.  
+   * <br><b>Note:</b> If they are currently in a different faction, they are removed first.
+   * @param {number|FactionObj} theFaction The faction to put the player into.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.joinFaction = function (theFaction, options, cb) { // Allows FactionObj or number as input
+    // WARNING: Might leave an empty faction behind if no members left!
+    // This might be what you want if you plan on adding them later, but if not, then you'll want to
+    // check their prior faction member count and delete it if empty.
+    if (typeof cb == "function") {
+      var theFactionNum = toNumIfPossible(toStringIfPossible(theFaction));
+      if (typeof theFactionNum == "number") { // Any number is valid, even 0, though that will do nothing.
+        return runSimpleCommand("/faction_join_id " + self.name + " " + theFactionNum, options, function (err, result) {
           if (err) {
-            return cb(err, null);
+            return cb(err, result);
           }
-          var theFactionString = toStringIfPossible(result);
-          var theFactionNum = toNumIfPossible(theFactionString);
-          thisConsole.debug("faction number found: " + theFactionNum);
-          if (typeof theFactionNum == "number" && theFactionNum) { // If faction number is 0, this will be falsey
-            thisConsole.debug("Sending the del command..");
-            return runSimpleCommand("/faction_del_member " + self.name + " " + theFactionNum, options, function (err, result) {
-              if (err) {
-                thisConsole.debug("Encountered an error sending the command!");
-                return cb(err, result);
-              }
-              thisConsole.debug("looks like the command succeeded!");
-              return cb(null, result); // should be true if the command succeeded.  False if they are not in a faction.
-            });
+          if (result) {
+            // IMPORTANT:  The faction MUST exist before joining the player to it, otherwise the command will fail.
+            // However, even if the command fails, there is no error message, so it will appear to have succeeded.
+            // An ".exists()" command should be ran on the FactionObj returned before acting on it!
+            return cb(null, Boolean(true));
           } else {
-            // the player does not appear to be in a faction, so why bother trying?
-            return cb(null, false); // this is to indicate the command failed.
+            return cb(null, Boolean(false)); // join failed for some reason.
           }
+
         });
+      } else { // invalid input given as theFactionNum
+        return cb(new Error("Invalid input given to PlayerObj.joinFaction as theFaction!"), null);
       }
-      return simplePromisifyIt(self.deleteFromFaction, options);
     }
-    self.joinFaction = function (theFaction, options, cb) { // Allows FactionObj or number as input
-      // WARNING: Might leave an empty faction behind if no members left!
-      // This might be what you want if you plan on adding them later, but if not, then you'll want to
-      // check their prior faction member count and delete it if empty.
-      if (typeof cb == "function") {
-        var theFactionString = toStringIfPossible(theFaction);
-        var theFactionNum = toNumIfPossible(theFactionString);
-        if (typeof theFactionNum == "number") { // Any number is valid, even 0, though that will do nothing.
-          return runSimpleCommand("/faction_join_id " + self.name + " " + theFactionNum, options, function (err, result) {
-            if (err) {
-              return cb(err, result);
-            }
-            if (result) {
-              // IMPORTANT:  The faction MUST exist before joining the player to it, otherwise the command will fail.
-              // However, even if the command fails, there is no error message, so it will appear to have succeeded.
-              // An ".exists()" command should be ran on the FactionObj returned before acting on it!
-              return cb(null, new FactionObj(theFactionNum));
-            } else {
-              return cb(null, Boolean(false)); // join failed for some reason.
-            }
+    return simplePromisifyIt(self.joinFaction, options, theFaction);
+  }
 
-          });
-        } else { // invalid input given as theFactionNum
-          return cb(new Error("Invalid input given to PlayerObj.joinFaction as theFaction!"), null);
-        }
-      }
-      return simplePromisifyIt(self.joinFaction, options, theFaction);
+  /**
+   * Temporarily removes the player to their faction.  See {@link PlayerObj.unsuspendFromFaction} to put them back.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.suspendFromFaction = function (options, cb) { // Temporarily removes the player from their faction
+    if (typeof cb == "function") {
+      return runSimpleCommand("/player_suspend_faction " + self.name, options, cb);
     }
+    return simplePromisifyIt(self.suspendFromFaction, options);
+  }
 
-    self.suspendFromFaction = function (options, cb) { // Temporarily removes the player from their faction
-      if (typeof cb == "function") {
-        return runSimpleCommand("/player_suspend_faction " + self.name, options, cb);
-      }
-      return simplePromisifyIt(self.suspendFromFaction, options);
+  /**
+   * Places a player back into a faction they were temporarily suspended from.  See {@link PlayerObj.suspendFromFaction}
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.unsuspendFromFaction = function (options, cb) { // Returns the player to their prior faction
+    if (typeof cb == "function") {
+      return runSimpleCommand("/player_unsuspend_faction " + self.name, options, cb);
     }
-    self.unsuspendFromFaction = function (options, cb) { // Returns the player to their prior faction
-      if (typeof cb == "function") {
-        return runSimpleCommand("/player_unsuspend_faction " + self.name, options, cb);
-      }
-      return simplePromisifyIt(self.unsuspendFromFaction, options);
-    }
+    return simplePromisifyIt(self.unsuspendFromFaction, options);
+  }
 
-    self.kickPlayerOutOfEntity = function (options, cb) { // Kicks a player out of the entity they are currently in
-      if (typeof cb == "function") {
-        return runSimpleCommand("/kick_player_name_out_of_entity " + self.name, options, cb);
-      }
-      return simplePromisifyIt(self.kickPlayerOutOfEntity, options);
+  /**
+   * Kicks the player out of any entity they may be in.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.kickPlayerOutOfEntity = function (options, cb) { // Kicks a player out of the entity they are currently in
+    if (typeof cb == "function") {
+      return runSimpleCommand("/kick_player_name_out_of_entity " + self.name, options, cb);
     }
+    return simplePromisifyIt(self.kickPlayerOutOfEntity, options);
+  }
 
-    self.putPlayerIntoEntity = function (entity, options, cb) { // Returns the EntityObj if successful, otherwise false.
-      if (typeof cb == "function") {
-        var theEntityString = toStringIfPossible(entity);
-        if (typeof theFactionNum == "string") { // Any number is valid, even 0, though that will do nothing.
-          return runSimpleCommand("/player_put_into_entity_uid " + self.name + " '" + theEntityString + "'", options, function (err, result) {
-            if (err) {
-              return cb(err, result);
-            }
-            if (result) { // Returns an EntityObj of the entity the player was put into
-              return cb(null, new EntityObj(theEntityString));
-            } else {
-              return cb(null, Boolean(false)); // failed
-            }
-
-          });
-        } else { // invalid input given as theFactionNum
-          return cb(new Error("Invalid input given to PlayerObj.joinFaction as theFaction!"), null);
-        }
-      }
-      return simplePromisifyIt(self.putPlayerIntoEntity, options, entity);
-    }
-
-    self.tint = function (red, green, blue, alpha, options, cb) { // expects float values to denote percentages
-      if (typeof cb == "function") {
-        var theRed = toNumIfPossible(red);
-        var theGreen = toNumIfPossible(green);
-        var theBlue = toNumIfPossible(blue);
-        var theAlpha = toNumIfPossible(alpha);
-        if (typeof theRed == "number" && typeof theGreen == "number" && typeof theBlue == "number" && typeof theAlpha == "number") {
-          return runSimpleCommand("/tint_name " + theRed + " " + theGreen + " " + theBlue + " " + theAlpha + " " + self.name, options, cb);
-        }
-        return cb(new Error("Invalid input given to PlayerObj.tint! Expects red, green, blue, and alpha as float numbers!"), null);
-      }
-      return simplePromisifyIt(self.tint, options, red, green, blue, alpha);
-    }
-
-
-    self.addAdmin = function (options, cb) { // Adds the player as an admin
-      // this gives a warning if player does not exist on the server, so runSimpleCommand will not work
-      // TODO: I need separate text processing for this:
-      // RETURN: [SERVER, [ADMIN COMMAND] [WARNING] 'sdflkjdsf' is NOT online. Please make sure you have the correct name. Name was still added to admin list, 0]
-      // When successful, no specific message returned.
-      // return sendDirectToServer("/add_admin " + self.name);
-      if (typeof cb == "function") {
-        return runSimpleCommand("/add_admin " + self.name, options, cb);
-        // Since this will add a player that is even offline, there is no check to ensure the name is a valid one and so this will not return false if the player is offline either.
-      }
-      return simplePromisifyIt(self.addAdmin, options);
-    }
-    self.removeAdmin = function (options, cb) { // Removes the player as an admin
-      if (typeof cb == "function") {
-        return runSimpleCommand("/remove_admin " + self.name, options, cb);
-      }
-      return simplePromisifyIt(self.removeAdmin, options);
-    }
-    self.addAdminDeniedCommand = function (command, options, cb) { // Adds denied commands for an admin, input can be an array of commands to deny.  It will cycle through them all.
-      if (typeof cb == "function") {
-        // I need to disable the multi-functionality to separate out potential errors
-
-        // // Note:  This does not check to ensure the command actually exists.
-        // var returnVal=true;
-        // var result;
-        // if (typeof commandOrCommands == "object"){ // An array is an object typeof
-        //   if (commandOrCommands instanceof Array){ // This is how you figure out it is an array.  We cannot do this directly, because if it is not an object, this will throw an error.
-        //     if (commandOrCommands.length){ // This is to make sure it isn't an empty array
-        //       for (var i=0;i<commandOrCommands.length;i++){
-        //         // result=sendDirectToServer("/add_admin_denied_comand " + self.name + " " + commandOrCommands[i]);
-        //         result=runSimpleCommand("/add_admin_denied_comand " + self.name + " " + commandOrCommands[i],options,cb);
-        //         if (result===false){ returnVal=false; } // This works as a latch, so that if ANY of the commands fail, it returns false
-        //       }
-        //       return returnVal; // This will return false if ANY of the inputs failed.
-        //     } else {
-        //       return false;
-        //     }
-        //   }
-        //   return false; // This handles if an object of another type was given, which would be invalid.
-        // } else if (testIfInput(commandOrCommands)){ // This would trigger for strings or numbers.
-        //   // return sendDirectToServer("/add_admin_denied_comand " + self.name + " " + commandOrCommands);
-        return runSimpleCommand("/add_admin_denied_comand " + self.name + " " + command, options, cb);
-        // }
-        // return false; // This should never happen.
-      }
-      return simplePromisifyIt(self.addAdminDeniedCommand, options, command);
-    }
-    self.removeAdminDeniedCommand = function (command, options, cb) { // Adds denied commands for an admin, input can be an array of commands to deny.  It will cycle through them all.
-      if (typeof cb == "function") {
-        // Note:  This cannot check to ensure the command being denied actually exists.
-        return runSimpleCommand("/remove_admin_denied_comand " + self.name + " " + command, options, cb);
-      }
-      return simplePromisifyIt(self.removeAdminDeniedCommand, options, command);
-    }
-    this.listAdminDeniedCommands = function (options, cb) { // Returns an array of all forbidden commands for the admin
-      if (typeof cb == "function") {
-        thisConsole.log("Unfinished.");
-        return starNetVerified("/list_admin_denied_commands " + self.name, options, function (err, result) {
+  /**
+   * Puts the player into a specific entity.  This works similarly to how F1 + F9 works for admins.
+   * <br><b>Note:</b> The entity must be in a loaded sector for this to work and the player must be online.
+   * <br><b>Note 2:</b> The entity does NOT need to be in the same sector as the player.
+   * <br><b>Note 3:</b> If the player is currently in a different entity, they will be forced out of it before being placed into the entity specified.
+   * <br><b>Note 4:</b> The behavior may not work as intended if used for a space station, asteroid, or planet part with a build block.  The safest bet is to only place players into ships.
+   * <br><b>Note 5:</b> It is currently unknown what will happen if attempting to place the player into an entity which another player is already in.
+   * @param {EntityObj|string} entity If a string, this should be the FULL UID.  For example, ENTITY_SHIP_MyShip
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.putPlayerIntoEntity = function (entity, options, cb) { // Returns the EntityObj if successful, otherwise false.
+    if (typeof cb == "function") {
+      var theEntityString = toStringIfPossible(entity);
+      if (typeof theEntityString == "string") { // Any number is valid, even 0, though that will do nothing.
+        return runSimpleCommand("/player_put_into_entity_uid " + self.name + " '" + theEntityString + "'", options, function (err, result) {
           if (err) {
-            return cb(err, null);
+            return cb(err, result);
           }
-          // RETURN: [SERVER, Denied Commands for weedle:, 0]
-          // RETURN: [SERVER, ban, 0]
-          // RETURN: [SERVER, END; Admin command execution ended, 0]
+          if (result) { // Returns an EntityObj of the entity the player was put into
+            return cb(null, Boolean(true));
+          } else {
+            return cb(null, Boolean(false)); // failed
+          }
 
-          // RETURN: [SERVER, Player benevolent27 has no denied commands, 0]
-          // RETURN: [SERVER, END; Admin command execution ended, 0]
-          var outputArray = [];
-          if (checkForLine(result, /^RETURN: \[SERVER, Denied Commands.*/)) {
-            var theArray = result.trim().split("\n");
-            var theMatch;
-            for (let i = 1;i < theArray.length - 1;i++) { // Skip the first and last line
-              theMatch = theArray[i].match(/(?<=^RETURN: \[SERVER, )[^,]+/);
-              if (theMatch) {
-                outputArray.push(theMatch.toString());
-              }
+        });
+      } else { // invalid input given as theFactionNum
+        return cb(new Error("Invalid input given to PlayerObj.joinFaction as theFaction!"), null);
+      }
+    }
+    return simplePromisifyIt(self.putPlayerIntoEntity, options, entity);
+  }
+
+  /**
+   * Changes the color and intensity of the player's astronaut.
+   * <br><b>Note:</b>This effect is temporary.  When a player logs off, their color is reset.  It will stay on after death and respawn though.
+   * @param {number|string} red A number between 0 and 1, as a percentage.
+   * @param {number|string} green A number between 0 and 1, as a percentage.
+   * @param {number|string} blue A number between 0 and 1, as a percentage.
+   * @param {number|string} alpha A number between 0 and 1, as a percentage.  This determines the brightness. (TODO: Check on this)
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.tint = function (red, green, blue, alpha, options, cb) { // expects float values to denote percentages
+    if (typeof cb == "function") {
+      var theRed = toNumIfPossible(red);
+      var theGreen = toNumIfPossible(green);
+      var theBlue = toNumIfPossible(blue);
+      var theAlpha = toNumIfPossible(alpha);
+      if (typeof theRed == "number" && typeof theGreen == "number" && typeof theBlue == "number" && typeof theAlpha == "number") {
+        return runSimpleCommand("/tint_name " + theRed + " " + theGreen + " " + theBlue + " " + theAlpha + " " + self.name, options, cb);
+      }
+      return cb(new Error("Invalid input given to PlayerObj.tint! Expects red, green, blue, and alpha as float numbers!"), null);
+    }
+    return simplePromisifyIt(self.tint, options, red, green, blue, alpha);
+  }
+
+  /**
+   * Adds the player as a server admin.  For a list of server commands an admin can perform, see this [forum post]{@link https://starmadedock.net/threads/admin-commands.1283/}.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.addAdmin = function (options, cb) { // Adds the player as an admin
+    // this gives a warning if player does not exist on the server, so runSimpleCommand will not work
+    // TODO: I need separate text processing for this:
+    // RETURN: [SERVER, [ADMIN COMMAND] [WARNING] 'sdflkjdsf' is NOT online. Please make sure you have the correct name. Name was still added to admin list, 0]
+    // When successful, no specific message returned.
+    // return sendDirectToServer("/add_admin " + self.name);
+    if (typeof cb == "function") {
+      return runSimpleCommand("/add_admin " + self.name, options, cb);
+      // Since this will add a player that is even offline, there is no check to ensure the name is a valid one and so this will not return false if the player is offline either.
+    }
+    return simplePromisifyIt(self.addAdmin, options);
+  }
+
+  /**
+   * Removes the player as an admin.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.removeAdmin = function (options, cb) { // Removes the player as an admin
+    if (typeof cb == "function") {
+      return runSimpleCommand("/remove_admin " + self.name, options, cb);
+    }
+    return simplePromisifyIt(self.removeAdmin, options);
+  }
+
+  /**
+   * Adds a command to the disallow list for an admin.  The player MUST be an admin for this to work.
+   * @param {string} command The command to disallow.  To see a full listing of admin commands, see the forum post, [Admin Commands]{@link https://starmadedock.net/threads/admin-commands.1283/}.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.addAdminDeniedCommand = function (command, options, cb) { // Adds denied commands for an admin, input can be an array of commands to deny.  It will cycle through them all.
+    if (typeof cb == "function") {
+      return runSimpleCommand("/add_admin_denied_comand " + self.name + " " + command, options, cb);
+    }
+    return simplePromisifyIt(self.addAdminDeniedCommand, options, command);
+  }
+
+  /**
+   * Removes a command from disallow list for this particular admin.  The player MUST be an admin for this to work. See {@link PlayerObj.addAdminDeniedCommand}
+   * @param {string} command The command to remove from the disallowed list.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.removeAdminDeniedCommand = function (command, options, cb) { // Adds denied commands for an admin, input can be an array of commands to deny.  It will cycle through them all.
+    if (typeof cb == "function") {
+      // Note:  This cannot check to ensure the command being denied actually exists.
+      return runSimpleCommand("/remove_admin_denied_comand " + self.name + " " + command, options, cb);
+    }
+    return simplePromisifyIt(self.removeAdminDeniedCommand, options, command);
+  }
+
+  /**
+   * Shows the disallowed admin commands for this player.  The player MUST be an admin for this to work. See {@link PlayerObj.addAdminDeniedCommand}
+   * @param {object} [options] There are no options presently.  A {fast:true} option is planned, to read from the admins.txt file directly.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.listAdminDeniedCommands = function (options, cb) { // Returns an array of all forbidden commands for the admin
+    if (typeof cb == "function") {
+      return starNetVerified("/list_admin_denied_commands " + self.name, options, function (err, result) {
+        if (err) {
+          return cb(err, null);
+        }
+        // RETURN: [SERVER, Denied Commands for weedle:, 0]
+        // RETURN: [SERVER, ban, 0]
+        // RETURN: [SERVER, END; Admin command execution ended, 0]
+
+        // RETURN: [SERVER, Player benevolent27 has no denied commands, 0]
+        // RETURN: [SERVER, END; Admin command execution ended, 0]
+        var outputArray = [];
+        if (checkForLine(result, /^RETURN: \[SERVER, Denied Commands.*/)) {
+          var theArray = result.trim().split("\n");
+          var theMatch;
+          for (let i = 1;i < theArray.length - 1;i++) { // Skip the first and last line
+            theMatch = theArray[i].match(/(?<=^RETURN: \[SERVER, )[^,]+/);
+            if (theMatch) {
+              outputArray.push(theMatch.toString());
             }
           }
-          return cb(null, outputArray); // If no denied commands, this will be an empty array
-        });
-      }
-      return simplePromisifyIt(self.listAdminDeniedCommands, options);
+        }
+        return cb(null, outputArray); // If no denied commands, this will be an empty array
+      });
     }
-    self.unban = function (options, cb) {
-      if (typeof cb == "function") {
-        return runSimpleCommand("/unban_name " + self.name, options, cb);
-        // Note that this does not unban their ip or smname
-      }
-      return simplePromisifyIt(self.unban, options);
+    return simplePromisifyIt(self.listAdminDeniedCommands, options);
+  }
+
+  /**
+   * Unbans a player by their name. See {@link PlayerObj.ban}
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.unban = function (options, cb) {
+    if (typeof cb == "function") {
+      return runSimpleCommand("/unban_name " + self.name, options, cb);
+      // Note that this does not unban their ip or smname
     }
-    self.ban = function (toKick, reason, minutes, options, cb) { // No value is mandatory, but toKick will be true by default if not specified.  toKick should be true/false. Time is in minutes.
-      // Note that a player MUST BE ONLINE in order for the kick to work.
-      // Note that no reason is given to the player if they are not kicked.
-      // Also note that this ban does not apear to actually work.  It will kick the player, but then they can just rejoin.  An IP ban or ban via SMNameObj will actually be effective.
-      // If options are specified, the other values can be ""
-      if (typeof cb == "function") {
-        thisConsole.log("Banning player: " + self.name);
-        // return sendDirectToServer("/ban " + self.name + " " + toKick + " '" + reason.toString().trim() + "' " + time);
-        var banArray = [];
-        banArray.push("/ban");
-        banArray.push(self.name);
-        if (isTrueOrFalse(toKick)) {
-          banArray.push(toKick);
-        } else {
-          banArray.push(true); // By default the command will kick the player. But this will lead to "false" being returned if they are offline
-        }
-        if (typeof reason == "string") {
-          banArray.push("'" + reason + "'");
-        } else {
-          banArray.push("''");
-        }
-        if (isNum(minutes)) {
-          banArray.push(minutes);
-        }
-        var banString = banArray.join(" ");
-        thisConsole.log("Banning player with string: " + banString);
-        return runSimpleCommand(banString, options, cb);
+    return simplePromisifyIt(self.unban, options);
+  }
+
+  /**
+   * Bans a player by their name. See {@link PlayerObj.unban}
+   * @param {boolean} [toKick] Determines whether the player should be kicked or not.
+   * @param {string} [reason] If toKick was true, this will display a reason for the kick.  This is not used unless a kick occurs.
+   * @param {number|string} [minutes] Number of minutes to ban the player.  If not provided, the ban is permament.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.ban = function (toKick, reason, minutes, options, cb) { // No value is mandatory, but toKick will be true by default if not specified.  toKick should be true/false. Time is in minutes.
+    if (typeof cb == "function") {
+      thisConsole.log("Banning player: " + self.name);
+      // return sendDirectToServer("/ban " + self.name + " " + toKick + " '" + reason.toString().trim() + "' " + time);
+      var banArray = [];
+      banArray.push("/ban");
+      banArray.push(self.name);
+      if (isTrueOrFalse(toKick)) {
+        banArray.push(toKick);
+      } else {
+        banArray.push(true); // By default the command will kick the player. But this will lead to "false" being returned if they are offline
       }
-      return simplePromisifyIt(self.ban, options, toKick, reason, minutes);
+      if (typeof reason == "string") {
+        banArray.push("'" + reason + "'");
+      } else {
+        banArray.push("''");
+      }
+      if (isNum(minutes)) {
+        banArray.push(minutes);
+      }
+      var banString = banArray.join(" ");
+      thisConsole.log("Banning player with string: " + banString);
+      return runSimpleCommand(banString, options, cb);
     }
-    self.ipBan = async function (toKick, reason, minutes, options, cb){
-      if (typeof cb == "function"){
-        let toKickVal=true;
-        if (isTrueOrFalse(toKick)){
-          toKickVal=toKick;
+    return simplePromisifyIt(self.ban, options, toKick, reason, minutes);
+  }
+
+  /**
+   * Bans a player by their IP. This is the same as using {@link PlayerObj.ip()} and then {@link IPObj.ban()}
+   * @param {boolean} [toKick] Determines whether the player should be kicked or not.
+   * @param {string} [reason] If toKick was true, this will display a reason for the kick.  This is not used unless a kick occurs.
+   * @param {number|string} [minutes] Number of minutes to ban the player.  If not provided, the ban is permament.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.ipBan = function (toKick, reason, minutes, options, cb){
+    if (typeof cb == "function"){
+      let toKickVal=true;
+      if (isTrueOrFalse(toKick)){
+        toKickVal=toKick;
+      }
+      return self.ip("",function(err,theIPObj){
+        if (err){
+          return cb(err,null);
         }
-        let theIPObj=await self.ip().catch(showErr);
         if (theIPObj){
           if (typeof theIPObj == "object"){
-            let banResult=await theIPObj.ban(minutes,options).catch(showErr);
-            if (banResult == true){ // only kick if the ban succeeded
-              thisConsole.log("IP BAN: Banned IP: " + theIPObj.toString());
-              if (toKickVal){
-                if (await self.isOnline().catch(showErr) == true){ // Only attempt to kick the player if online
-                  let theKick=await self.kick(reason, options).catch(showErr);
-                  if (theKick == true){
-                    thisConsole.log("IPBAN: Kicked player: " + self.name);
-                  }
-                }
+            return theIPObj.ban(minutes,options,function(err,banResult){
+              if (err){
+                return cb(err,null);
               }
-              return cb(null,true);
-            } else {
-              thisConsole.log("IPBAN FAIL: Could not ban IP: " + theIPObj.toString());
-              return cb(null,false);
-            }
+              if (banResult == true){ // only kick if the ban succeeded
+                thisConsole.log("IP BAN: Banned IP: " + theIPObj.toString());
+                if (toKickVal){
+                  return self.isOnline("",function(err,result){
+                    if (err){
+                      return cb(err,null);
+                    }
+                    if (result  == true){ // Only attempt to kick the player if online
+                      return self.kick(reason, options,function(err,result){
+                        if (err){
+                          return cb(err,null);
+                        }
+                        thisConsole.log("IPBAN: Kicked player: " + self.name);
+                        return cb(null,true);
+                      });
+                    }
+                    return cb(null,true); // The ban should have succeeded, even if the player is no longer online.
+                  });
+                }
+                return cb(null,true);
+              } else {
+                thisConsole.log("IPBAN FAIL: Could not ban IP: " + theIPObj.toString());
+                return cb(null,false);
+              }
+            });
           } else {
             thisConsole.log("IPBAN ERROR: Invalid IP information retrieved for player: " + self.name);
             return cb(new Error("IPBAN ERROR: Invalid IP information retrieved for player: " + self.name),null);
@@ -1242,30 +1515,56 @@ function PlayerObj(name) { // cb/promises/squish compliant // "Player" must be a
           thisConsole.log("IPBAN ERROR: Could not find IP for player: " + self.name);
           return cb(new Error("IPBAN ERROR: Could not find IP for player: " + self.name),null);
         }
-      } else {
-        return simplePromisifyIt(self.ipBan, options, toKick, reason, minutes);
-      }
+      });
+
+    } else {
+      return simplePromisifyIt(self.ipBan, options, toKick, reason, minutes);
     }
-    self.ipUnban = async function(options,cb){
-      // This MUST unban all IP's for the player since the method ip() uses cannot work with the player offline.
-      if (typeof cb == "function"){
-        let theIPObj=await self.ip().catch(showErr);
+  }
+
+  /**
+   * Unbans a player by their last known IP. This is the same as obtaining the player's IPObj {@link PlayerObj.ip()} and then running {@link IPObj.unBan()}
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.ipUnban = function(options,cb){
+    // This MUST unban all IP's for the player since the method ip() uses cannot work with the player offline.
+    if (typeof cb == "function"){
+      return self.ip("",function(err,theIPObj){
+        if (err){
+          return cb(err,null);
+        }
         if (typeof theIPObj == "object"){
           return theIPObj.unBan(options,cb);
         } else {
           return cb(new Error("IPUNBAN ERROR:  Could not retrieve IP for player: " + self.name),null);
         }
-      } else {
-        return simplePromisifyIt(self.ipUnban,options);
-      }
+      });
+    } else {
+      return simplePromisifyIt(self.ipUnban,options);
     }
-    self.ipBanAll = async function (toKick, reason, minutes, options, cb){ // Bans all recorded IP's for this user
-      if (typeof cb == "function"){
-        let toKickVal=true;
-        if (isTrueOrFalse(toKick)){
-          toKickVal=toKick;
+  }
+
+  /**
+   * Bans a player by all unique IP's recorded for the player for all previous logins. This is the same as using {@link PlayerObj.ips()} to obtain an array of unique IP's and then {@link IPObj.ban()} on each one.
+   * @param {boolean} [toKick] Determines whether the player should be kicked or not.
+   * @param {string} [reason] If toKick was true, this will display a reason for the kick.  This is not used unless a kick occurs.
+   * @param {number|string} [minutes] Number of minutes to ban the player.  If not provided, the ban is permament.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.ipBanAll = function (toKick, reason, minutes, options, cb){ // Bans all recorded IP's for this user
+    if (typeof cb == "function"){
+      let toKickVal=true;
+      if (isTrueOrFalse(toKick)){
+        toKickVal=toKick;
+      }
+      return self.ips("",async function(err,theIPsArray){
+        if (err){
+          return cb(err,null);
         }
-        let theIPsArray=await self.ips().catch(showErr);
         if (Array.isArray(theIPsArray)){
           var banResultsArray=[];
           for (let e=0;e<theIPsArray.length;e++){
@@ -1284,8 +1583,15 @@ function PlayerObj(name) { // cb/promises/squish compliant // "Player" must be a
             }
           }
           if (someSucceeded && toKickVal){ // Only kick if at least one of the IP bans succeeded.
-            if (await self.isOnline().catch(showErr) == true){ // Only attempt to kick the player if online
-              let theKick=await self.kick(reason, options).catch(showErr);
+            let isOnline=await self.isOnline();
+            if (isOnline instanceof Promise){
+              isOnline.catch(showErr);
+            }
+            if (isOnline == true){ // Only attempt to kick the player if online
+              let theKick=await self.kick(reason, options);
+              if (theKick instanceof Promise){
+                theKick.catch(showErr);
+              }
               if (theKick == true){
                 thisConsole.log("IPBAN (ALL): Kicked player: " + self.name);
               }
@@ -1299,13 +1605,24 @@ function PlayerObj(name) { // cb/promises/squish compliant // "Player" must be a
         } else {
           return cb(new Error("IPBAN (ALL) ERROR: Could not find IPs for player: " + self.name),null);
         }
-      } else {
-        return simplePromisifyIt(self.ipBanAll, options, toKick, reason, minutes);
-      }
+      });
+    } else {
+      return simplePromisifyIt(self.ipBanAll, options, toKick, reason, minutes);
     }
-    self.ipUnbanAll = async function (options, cb){ // Bans all recorded IP's for this user
-    if (typeof cb == "function"){
-      let theIPsArray=await self.ips().catch(showErr);
+  }
+
+  /**
+   * Attemps to unban a player by all unique IP's recorded for the player for all previous logins. This is the same as using {@link PlayerObj.ips()} to obtain an array of unique IP's and then {@link IPObj.unBan()} on each one.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.ipUnbanAll = function (options, cb){ // Bans all recorded IP's for this user
+  if (typeof cb == "function"){
+    return self.ips("",async function(err,theIPsArray){
+      if (err){
+        return cb(err,null);
+      }
       if (Array.isArray(theIPsArray)){
         var unbanResultsArray=[];
         for (let e=0;e<theIPsArray.length;e++){
@@ -1331,25 +1648,46 @@ function PlayerObj(name) { // cb/promises/squish compliant // "Player" must be a
       } else {
         return cb(new Error("IPUNBAN (ALL) ERROR: Could not find IPs for player: " + self.name),null);
       }
-    } else {
-      return simplePromisifyIt(self.ipUnbanAll, options);
-    }
-    }
-    self.smNameBan = async function (toKick, reason, minutes, options, cb){
-      if (typeof cb == "function"){
-        let toKickVal=true;
-        if (isTrueOrFalse(toKick)){
-          toKickVal=toKick;
+    });
+  } else {
+    return simplePromisifyIt(self.ipUnbanAll, options);
+  }
+  }
+
+  /**
+   * Bans a player by their StarMade Registry Account. This is the same as using {@link PlayerObj.smName()} and then {@link SMNameObj.ban()} on that result.
+   * @param {boolean} [toKick] Determines whether the player should be kicked or not.
+   * @param {string} [reason] If toKick was true, this will display a reason for the kick.  This is not used unless a kick occurs.
+   * @param {number|string} [minutes] Number of minutes to ban the player.  If not provided, the ban is permament.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.smNameBan = function (toKick, reason, minutes, options, cb){
+    if (typeof cb == "function"){
+      let toKickVal=true;
+      if (isTrueOrFalse(toKick)){
+        toKickVal=toKick;
+      }
+      return self.smName("",async function(err,theSMNameObj){
+        if (err){
+          return cb(err,null);
         }
-        let theSMNameObj=await self.smName().catch(showErr);
         if (theSMNameObj){
           if (typeof theSMNameObj == "object"){
             let banResult=await theSMNameObj.ban(minutes,options).catch(showErr);
             if (banResult == true){ // only kick if the ban succeeded
               thisConsole.log("SMNAME BAN: Banned Registry Account Name: " + theSMNameObj.toString());
               if (toKickVal){
-                if (await self.isOnline().catch(showErr) == true){ // Only attempt to kick the player if online
-                  let theKick=await self.kick(reason, options).catch(showErr);
+                var isOnline=await self.isOnline();
+                if (isOnline instanceof Promise){
+                  isOnline.catch(showErr);
+                }
+                if (isOnline == true){ // Only attempt to kick the player if online
+                  let theKick=await self.kick(reason, options);
+                  if (theKick instanceof Promise){
+                    theKick.catch(showErr);
+                  }
                   if (theKick == true){
                     thisConsole.log("SMNAME BAN: Kicked Registry Account Name: " + self.name);
                   }
@@ -1368,704 +1706,788 @@ function PlayerObj(name) { // cb/promises/squish compliant // "Player" must be a
           thisConsole.log("SMNAME BAN ERROR: Could not find Registry Account Name for player: " + self.name);
           return cb(new Error("SMNAME BAN ERROR: Could not find Registry Account Name for player: " + self.name),null);
         }
-      } else {
-        return simplePromisifyIt(self.smNameBan, options, toKick, reason, minutes);
-      }
+      });
+    } else {
+      return simplePromisifyIt(self.smNameBan, options, toKick, reason, minutes);
     }
-    self.smNameUnban = async function(options,cb){
-      // This MUST unban all IP's for the player since the method ip() uses cannot work with the player offline.
-      if (typeof cb == "function"){
-        let theSMNameObj=await self.smName().catch(showErr);
+  }
+
+  /**
+   * Unbans a player by their StarMade Registry Account. This is the same as obtaining the player's SMNameObj with {@link PlayerObj.smName()} and then running {@link SMNameObj.unBan()}
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.smNameUnban = function(options,cb){
+    // This MUST unban all IP's for the player since the method ip() uses cannot work with the player offline.
+    if (typeof cb == "function"){
+      return self.smName("",function(err,theSMNameObj){
+        if (err){
+          return cb(err,null);
+        }
         if (typeof theSMNameObj == "object"){
           return theSMNameObj.unBan(options,cb);
         } else {
           return cb(new Error("SMNAME UNBAN ERROR:  Could not retrieve Registry Account Name for player: " + self.name),null);
         }
+      });
+    } else {
+      return simplePromisifyIt(self.smNameUnban,options);
+    }
+  }
+
+  /**
+   * Whitelists a player by their name.  See also {@link IPObj.whitelist()} and {@link SMNameObj.whitelist()}
+   * <br><b>Note:</b> There is presently no way to remove a player from the whitelist via the wrapper.  To remove their name, the server must be shut down and the StarMade/whitelist.txt edited to remove their name.
+   * @param {number|string} [minutes] Number of minutes to whitelist the player.  If not provided, the whitelist is permament.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.whitelist = function (minutes, options, cb) { // timeToWhitelist is optional.  If no number given, it will be a perm whitelist.  Options can be {"fast":true}
+    if (typeof cb == "function") {
+      var theTimeToUse = toNumIfPossible(minutes);
+      if (typeof theTimeToUse == "number") { // temp whitelist
+        return runSimpleCommand("/whitelist_name_temp " + self.name, options + " " + theTimeToUse, cb);
+      } else if (testIfInput(minutes)) {
+        return cb(new Error("Invalid input given to PlayerObj.whitelist as 'timeToWhitelist'!"), null);
+      } else { // permawhitelist
+        return runSimpleCommand("/whitelist_name " + self.name, options, cb);
+      }
+    } else {
+      return simplePromisifyIt(self.whitelist, options, minutes);
+    }
+  }
+
+  /**
+   * Gives the player one metaitem to the player's currently accessed inventory.
+   * <br><b>Note:</b>The player must be online.
+   * @param {string} metaItem Options include: blueprint, recipe, log_book, helmet, build_prohibiter, flash_light, virtual_blueprint, block_storage, laser, heal, power_supply, marker, rocket_launcher, sniper_rifle, grapple, torch, transporter_marker
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.giveMetaItem = function (metaItem, options, cb) {
+    // EXAMPLE: /give_metaitem schema blueprint, recipe, log_book, helmet, build_prohibiter, flash_light, virtual_blueprint, block_storage, laser, heal, power_supply, marker, rocket_launcher, sniper_rifle, grapple, torch, transporter_marker
+    // Note:  The primary usage for this is for log_book, helmet, and build_prohibiter
+    if (typeof cb == "function") {
+      return runSimpleCommand("/give_metaitem " + self.name + " " + metaItem.toString().trim(), options, cb);
+    }
+    return simplePromisifyIt(self.giveMetaItem, options, metaItem);
+  }
+
+  /**
+   * Checks to see if the player is currently online.
+   * @param {object} [options] There are no options currently.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {Promise|boolean} True/False depending on if the player is online.
+   */
+  this.isOnline = function (options, cb) {
+    if (typeof cb == "function") {
+      return isPlayerOnline(self.name, options, cb);
+    }; // Conforms to the standard of throwing an error on connection error, but gives false if player is offline.  There is no error for a failure of command since this should never happen.
+    return simplePromisifyIt(self.isOnline, options);
+  }
+
+  /**
+   * Checks to see if a player is an admin or not.
+   * @param {object} [options] Supports {fast:true}, which checks the admins.txt file instead of using a StarNet.jar command.  Also {"unrestricted":true}, which will return true only if the admin has no admin command restrictions.
+   * @param {callbackFunction} [cb] If no callback is provided, a promise is returned. 
+   * @returns {boolean|Promise} True/False depending on if the player is an admin or not.
+   */
+  this.isAdmin = function (options, cb) {
+    if (typeof cb == "function") {
+      return isPlayerAdmin(self.name, options, cb);
+    }
+    return simplePromisifyIt(self.isAdmin, options);
+  }
+
+  /**
+   * Returns the spawn location of the player.  This can be a specific sector and spacial coordinates or or attached to a specific entity and local coordinates in relation to the starter block/core.
+   * <br><b>Note:</b> This only works if the player is currently online.
+   * @param {object} [options] There are no options currently.
+   * @param {callbackFunction} [cb] If no callback provided, a promise is returned.
+   * @returns {LocationObj|Object|Promise} If the spawn point is a specific location in the universe, a LocationObj is provided.  If the spawn point is attached to an entity, then an object, {entity:{@link EntityObj},localCoords:{@link CoordsObj}} is returned.
+   */
+  this.spawnLocation = function (options, cb) { // Returns a LocationObj of the player's spawn coordinates, but can only be successful if the player is online.  Will return false if offline.
+    if (typeof cb == "function") {
+      return getPlayerSpawnLocation(self.name, options, cb);
+    }
+    return simplePromisifyIt(self.spawnLocation, options);
+  }
+
+  /**
+   * Sets the spawn location of a player to a specific point in the universe.
+   * <br><b>Note:</b> If Arrays used as inputs, they should contain three values representing x,y, and z.
+   * <br><b>Note 2:</b>  This does not presently support setting the spawn point to a specific entity.
+   * @param {LocationObj|SectorObj|CoordsObj|number[]} exactLocationOrSector If any input besides a LocationObj is used, the coordsObj is required.
+   * @param {undefined|CoordsObj|number[]} [spacialCoordinates] Not needed if a LocationObj is provided as the first argument.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback is provided, a promise is returned. 
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.setSpawnLocation = function (exactLocationOrSector, spacialCoordinates, options, cb) { // Needs sector and spacial coords.  coordsObj is needed if a SectorObj is given as first parameter.
+    // This should accept a location Obj, a pair of sectorObj and coordsObj, or any other pair of input that can translate to a CoordsObj
+    if (typeof cb == "function") {
+      let sectorToUse;
+      let spacialToUse;
+      if (Array.isArray(exactLocationOrSector)){
+        sectorToUse = new SectorObj(exactLocationOrSector);
       } else {
-        return simplePromisifyIt(self.smNameUnban,options);
+        sectorToUse = exactLocationOrSector;
       }
-    }
-    self.whitelist = function (timeToWhitelist, options, cb) { // timeToWhitelist is optional.  If no number given, it will be a perm whitelist.  Options can be {"fast":true}
-      if (typeof cb == "function") {
-        var theTimeToUse = toNumIfPossible(timeToWhitelist);
-        if (typeof theTimeToUse == "number") { // temp whitelist
-          return runSimpleCommand("/whitelist_name_temp " + self.name, options + " " + theTimeToUse, cb);
-        } else if (testIfInput(timeToWhitelist)) {
-          return cb(new Error("Invalid input given to PlayerObj.whitelist as 'timeToWhitelist'!"), null);
-        } else { // permawhitelist
-          return runSimpleCommand("/whitelist_name " + self.name, options, cb);
-        }
+      if (Array.isArray(spacialCoordinates)){
+        spacialToUse=new CoordsObj(spacialCoordinates);
       } else {
-        return simplePromisifyIt(self.whitelist, options, timeToWhitelist);
+        spacialToUse = spacialCoordinates;
       }
-    }
-    self.giveMetaItem = function (metaItem, options, cb) {
-      // EXAMPLE: /give_metaitem schema blueprint, recipe, log_book, helmet, build_prohibiter, flash_light, virtual_blueprint, block_storage, laser, heal, power_supply, marker, rocket_launcher, sniper_rifle, grapple, torch, transporter_marker
-      // Note:  The primary usage for this is for log_book, helmet, and build_prohibiter
-      if (typeof cb == "function") {
-        return runSimpleCommand("/give_metaitem " + self.name + " " + metaItem.toString().trim(), options, cb);
-      }
-      return simplePromisifyIt(self.giveMetaItem, options, metaItem);
-    }
-    self.isOnline = function (options, cb) {
-      if (typeof cb == "function") {
-        return isPlayerOnline(self.name, options, cb);
-      }; // Conforms to the standard of throwing an error on connection error, but gives false if player is offline.  There is no error for a failure of command since this should never happen.
-      return simplePromisifyIt(self.isOnline, options);
-    }
-    self.isAdmin = function (options, cb) {
-      if (typeof cb == "function") {
-        return isPlayerAdmin(self.name, options, cb);
-      }
-      return simplePromisifyIt(self.isAdmin, options);
-    }
-    self.spawnLocation = function (options, cb) { // Returns a LocationObj of the player's spawn coordinates, but can only be successful if the player is online.  Will return false if offline.
-      if (typeof cb == "function") {
-        return getPlayerSpawnLocation(self.name, options, cb);
-      }
-      return simplePromisifyIt(self.spawnLocation, options);
-    }
-    self.setSpawnLocation = function (location, coordsObj, options, cb) { // Needs sector and spacial coords.  coordsObj is needed if a SectorObj is given as first parameter.
-      // This should accept a location Obj, a pair of sectorObj and coordsObj, or any other pair of input that can translate to a CoordsObj
-      if (typeof cb == "function") {
-        var sectorToUse = location;
-        var spacialToUse = coordsObj;
-        if (typeof location == "object") {
-          if (location instanceof LocationObj) {
-            if (location.hasOwnProperty("spacial") && location.hasOwnProperty("sector")) { // This handles LocationObj types given.  This will lead to the coordsObj being ignored if given.
-              spacialToUse = location.spacial.toString();
-              sectorToUse = location.sector.toString();
-            } else {
-              return cb(new Error("Invalid LocationObj given to setSpawnLocation!"), null); // This is redundant and should never happen.
-            }
-          } else if ((location instanceof SectorObj || location instanceof CoordsObj) && (coordsObj instanceof CoordsObj)) {
-            sectorToUse = location.toString();
-            spacialToUse = coordsObj.toString();
-          } else { // Invalid objects or objects given as input.
-            return cb(new Error("Invalid object types given to setSpawnLocation!"), null);
-          }
+      
+      if (exactLocationOrSector instanceof LocationObj) {
+        if (exactLocationOrSector.hasOwnProperty("spacial") && exactLocationOrSector.hasOwnProperty("sector")) { // This handles LocationObj types given.  This will lead to the coordsObj being ignored if given.
+          spacialToUse = exactLocationOrSector.spacial.toString();
+          sectorToUse = exactLocationOrSector.sector.toString();
+        } else {
+          return cb(new Error("Invalid LocationObj given to setSpawnLocation!"), null); // This is redundant and should never happen.
         }
-        if (testIfInput(sectorToUse) && testIfInput(spacialToUse)) { // Two inputs given
-          // Let's see if coordinates can be made from the input.  String, Array, or object can be given with coordinates.
-          try {
-            sectorToUse = new CoordsObj(location).toString();
-            spacialToUse = new CoordsObj(coordsObj).toString();
-          } catch (error) { // Invalid input given.
-            return cb(new Error("Invalid input given to PlayerObj.setSpawnLocation!"), null);
-          }
-        } else { // Invalid amount of arguments given
-          return cb(new Error("Invalid number of parameters given to setSpawnLocation!"), null);
-        }
-        if (typeof spacialToUse == "string" && typeof sectorToUse == "string") { // This is redundant, an error should have been thrown by now if there was a problem.
-          // We should be all set to send the command now.
-          var fast = getOption(options, "fast", false);
-          var setSpawnLocationCommand = "/player_set_spawn_to " + self.name + " " + sectorToUse + " " + spacialToUse;
-          if (fast) {
-            return sendDirectToServer(setSpawnLocationCommand, cb);
-          } else {
-            return starNetVerified(setSpawnLocationCommand, options, function (err, result) { // TODO: Check if I should be returning starNetVerified or not.
-              thisConsole.log("using starnet verified to set the spawn location.  In objectCreator.js");
-              if (err) {
-                return cb(err, result);
-              } else {
-                // Success: RETURN: [SERVER, [ADMINCOMMAND][SPAWN][SUCCESS] set spawn of player PlS[Benevolent27 ; id(2)(1)f(10002)] to sector (1000, 1000, 1000); local position: (0.0, 0.0, 0.0), 0]
-                // Fail: RETURN: [SERVER, [ADMINCOMMAND][SPAWN] Player not found, 0]
-                let theReg = new RegExp("^RETURN: \\[SERVER, \\[ADMINCOMMAND\\]\\[SPAWN\\]\\[SUCCESS\\]");
-                return cb(null, checkForLine(result, theReg));
-              }
-            });
-          }
-        }
-        return cb(new Error("Invalid parameters given to playerObj setSpawnLocation method!"), null);
-      } else {
-        return simplePromisifyIt(self.setSpawnLocation, options, location, coordsObj);
-      }
-    }
-    self.changeSector = function (sector, options, cb) { // sector can be a LocationObj, SectorObj, CoordsObj, or other input that can be translated to a CoordsObj.
-      // This should accept a location Obj, a pair of sectorObj and coordsObj, or any other pair of input that can translate to a CoordsObj
-      if (typeof cb == "function") {
+      } else if ((exactLocationOrSector instanceof SectorObj || exactLocationOrSector instanceof CoordsObj) && (spacialCoordinates instanceof CoordsObj)) {
+        sectorToUse = exactLocationOrSector.toString();
+        spacialToUse = spacialCoordinates.toString();
+      } else if (typeof exactLocationOrSector == "object" || typeof spacialCoordinates == "object"){ // Invalid objects or objects given as input.
+        return cb(new Error("Invalid object types given to setSpawnLocation!"), null);
+      } else if (testIfInput(sectorToUse) && testIfInput(spacialToUse)) { // Two inputs given
+        // Let's see if coordinates can be made from the input.  String, Array, or object can be given with coordinates.
         try {
-          var sectorToUse = new CoordsObj(sector).toString();
+          sectorToUse = new CoordsObj(exactLocationOrSector).toString();
+          spacialToUse = new CoordsObj(spacialCoordinates).toString();
         } catch (error) { // Invalid input given.
-          thisConsole.error("ERROR: Invalid input given to PlayerObj.changeSector!");
+          return cb(new Error("Invalid input given to PlayerObj.setSpawnLocation!"), null);
+        }
+      } else { // Invalid amount of arguments given
+        return cb(new Error("Invalid number of parameters given to setSpawnLocation!"), null);
+      }
+      if (typeof spacialToUse == "string" && typeof sectorToUse == "string") { // This is redundant, an error should have been thrown by now if there was a problem.
+        // We should be all set to send the command now.
+        var fast = getOption(options, "fast", false);
+        var setSpawnLocationCommand = "/player_set_spawn_to " + self.name + " " + sectorToUse + " " + spacialToUse;
+        if (fast) {
+          return sendDirectToServer(setSpawnLocationCommand, cb);
+        } else {
+          return starNetVerified(setSpawnLocationCommand, options, function (err, result) { // TODO: Check if I should be returning starNetVerified or not.
+            thisConsole.log("using starnet verified to set the spawn location.  In objectCreator.js");
+            if (err) {
+              return cb(err, result);
+            } else {
+              // Success: RETURN: [SERVER, [ADMINCOMMAND][SPAWN][SUCCESS] set spawn of player PlS[Benevolent27 ; id(2)(1)f(10002)] to sector (1000, 1000, 1000); local position: (0.0, 0.0, 0.0), 0]
+              // Fail: RETURN: [SERVER, [ADMINCOMMAND][SPAWN] Player not found, 0]
+              let theReg = new RegExp("^RETURN: \\[SERVER, \\[ADMINCOMMAND\\]\\[SPAWN\\]\\[SUCCESS\\]");
+              return cb(null, checkForLine(result, theReg));
+            }
+          });
+        }
+      }
+      return cb(new Error("Invalid parameters given to playerObj setSpawnLocation method!"), null);
+    } else {
+      return simplePromisifyIt(self.setSpawnLocation, options, exactLocationOrSector, spacialCoordinates);
+    }
+  }
+
+  /**
+   * Moves the player to a specific sector.
+   * @param {SectorObj|CoordsObj|Array|string} sector Accepts any input that a CoordsObj takes.
+   * @param {object} [options] {fast:true} may be used to have the command sent directly to the console.  Note that this makes it impossible to check if the command succeeded or failed.
+   * @param {callbackFunction} [cb] If no callback is provided, a promise is returned. 
+   * @returns {boolean|Promise} True/False if command succeeded or not.
+   */
+  this.changeSector = function (sector, options, cb) { // sector can be a LocationObj, SectorObj, CoordsObj, or other input that can be translated to a CoordsObj.
+    // This should accept a location Obj, a pair of sectorObj and coordsObj, or any other pair of input that can translate to a CoordsObj
+    if (typeof cb == "function") {
+      try {
+        var sectorToUse = new CoordsObj(sector).toString();
+      } catch (error) { // Invalid input given.
+        thisConsole.error("ERROR: Invalid input given to PlayerObj.changeSector!");
+        return cb(error, null);
+      }
+      if (typeof sectorToUse == "string") {
+        var fast = getOption(options, "fast", false);
+        var changeSectorCommand = "/change_sector_for " + self.name + " " + sectorToUse;
+        if (fast) {
+          return sendDirectToServer(changeSectorCommand, cb);
+        } else {
+          return starNetVerified(changeSectorCommand, options, function (err, result) { // TODO: Test this.  I don't know if I should be returning this or just running it?
+            if (err) {
+              return cb(err, result);
+            } else {
+              // Success: RETURN: [SERVER, [ADMIN COMMAND] [SUCCESS] changed sector for Benevolent27 to (1000, 1000, 1000), 0]
+              // Fail: RETURN: [SERVER, [ADMIN COMMAND] [ERROR] player not found for your client Benevolent27, 0]
+              let theReg = new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] \\[SUCCESS\\]");
+              return cb(null, checkForLine(result, theReg)); // returns true or false
+            }
+          });
+        }
+      }
+      return cb(new Error("Invalid parameters given to playerObj changeSector method!"), null);
+    } else {
+      return simplePromisifyIt(self.changeSector, options, sector);
+    }
+  }
+  this.changeSectorCopy = function (sector, options, cb) { // sector can be a LocationObj, SectorObj, CoordsObj, or other input that can be translated to a CoordsObj.
+    // This should accept a location Obj, a pair of sectorObj and coordsObj, or any other pair of input that can translate to a CoordsObj
+    if (typeof cb == "function") {
+      try {
+        var sectorToUse = new CoordsObj(sector).toString();
+      } catch (error) { // Invalid input given.
+        thisConsole.error("ERROR: Invalid input given to PlayerObj.changeSectorCopy!");
+        return cb(error, null);
+      }
+      if (typeof sectorToUse == "string") {
+        // We should be all set to send the command now.
+        var fast = getOption(options, "fast", false);
+        var changeSectorCommand = "/change_sector_for_copy " + self.name + " " + sectorToUse;
+        if (fast) {
+          return sendDirectToServer(changeSectorCommand, cb);
+        } else {
+          return starNetVerified(changeSectorCommand, options, function (err, result) { // TODO: Test this.  I don't know if I should be returning this or just running it?
+            if (err) {
+              return cb(err, result);
+            } else {
+              // Success: RETURN: [SERVER, [ADMIN COMMAND] [SUCCESS] changed sector for Benevolent27 to (1000, 1000, 1000), 0]
+              // Fail: RETURN: [SERVER, [ADMIN COMMAND] [ERROR] player not found for your client Benevolent27, 0]
+              let theReg = new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] \\[SUCCESS\\]");
+              return cb(null, checkForLine(result, theReg)); // returns true or false
+            }
+          });
+        }
+      }
+      return cb(new Error("Invalid parameters given to playerObj changeSector method!"), null);
+    } else {
+      return simplePromisifyIt(self.changeSectorCopy, options, sector);
+    }
+  }
+  this.teleportTo = function (coords, options, cb) { // Needs sector and spacial coords.  coordsObj is needed if a SectorObj is given as first parameter.
+    // This should accept a location Obj, a pair of sectorObj and coordsObj, or any other pair of input that can translate to a CoordsObj
+    if (typeof cb == "function") {
+      var spacialCoordsToUse = coords;
+      if (typeof coords == "object") {
+        if (coords instanceof LocationObj) {
+          if (coords.hasOwnProperty("spacial")) { // This handles LocationObj objects
+            spacialCoordsToUse = coords.spacial;
+          } else {
+            return cb(new Error("Invalid LocationObj given to teleportTo!"), null);
+          }
+        } else if (coords instanceof CoordsObj) {
+          spacialCoordsToUse = coords.toString();
+        } else { // Invalid objects or objects given as input.
+          return cb(new Error("Invalid object type given to teleportTo!"), null);
+        }
+      } else if (testIfInput(coords)) { // Input given
+        // Let's see if coordinates can be made from the input.  A String (separated by , or spaces) or an Array can be given as input.
+        try {
+          spacialCoordsToUse = new CoordsObj(coords).toString();
+        } catch (error) { // Invalid input given.
+          thisConsole.error("Invalid input given to teleportTo!");
           return cb(error, null);
         }
-        if (typeof sectorToUse == "string") {
-          var fast = getOption(options, "fast", false);
-          var changeSectorCommand = "/change_sector_for " + self.name + " " + sectorToUse;
-          if (fast) {
-            return sendDirectToServer(changeSectorCommand, cb);
-          } else {
-            return starNetVerified(changeSectorCommand, options, function (err, result) { // TODO: Test this.  I don't know if I should be returning this or just running it?
-              if (err) {
-                return cb(err, result);
-              } else {
-                // Success: RETURN: [SERVER, [ADMIN COMMAND] [SUCCESS] changed sector for Benevolent27 to (1000, 1000, 1000), 0]
-                // Fail: RETURN: [SERVER, [ADMIN COMMAND] [ERROR] player not found for your client Benevolent27, 0]
-                let theReg = new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] \\[SUCCESS\\]");
-                return cb(null, checkForLine(result, theReg)); // returns true or false
-              }
-            });
-          }
-        }
-        return cb(new Error("Invalid parameters given to playerObj changeSector method!"), null);
-      } else {
-        return simplePromisifyIt(self.changeSector, options, sector);
+      } else { // Invalid amount of arguments given
+        return cb(new Error("No spacial coords given teleportTo!"), null);
       }
-    }
-    self.changeSectorCopy = function (sector, options, cb) { // sector can be a LocationObj, SectorObj, CoordsObj, or other input that can be translated to a CoordsObj.
-      // This should accept a location Obj, a pair of sectorObj and coordsObj, or any other pair of input that can translate to a CoordsObj
-      if (typeof cb == "function") {
-        try {
-          var sectorToUse = new CoordsObj(sector).toString();
-        } catch (error) { // Invalid input given.
-          thisConsole.error("ERROR: Invalid input given to PlayerObj.changeSectorCopy!");
-          return cb(error, null);
-        }
-        if (typeof sectorToUse == "string") {
-          // We should be all set to send the command now.
-          var fast = getOption(options, "fast", false);
-          var changeSectorCommand = "/change_sector_for_copy " + self.name + " " + sectorToUse;
-          if (fast) {
-            return sendDirectToServer(changeSectorCommand, cb);
-          } else {
-            return starNetVerified(changeSectorCommand, options, function (err, result) { // TODO: Test this.  I don't know if I should be returning this or just running it?
-              if (err) {
-                return cb(err, result);
-              } else {
-                // Success: RETURN: [SERVER, [ADMIN COMMAND] [SUCCESS] changed sector for Benevolent27 to (1000, 1000, 1000), 0]
-                // Fail: RETURN: [SERVER, [ADMIN COMMAND] [ERROR] player not found for your client Benevolent27, 0]
-                let theReg = new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] \\[SUCCESS\\]");
-                return cb(null, checkForLine(result, theReg)); // returns true or false
-              }
-            });
-          }
-        }
-        return cb(new Error("Invalid parameters given to playerObj changeSector method!"), null);
-      } else {
-        return simplePromisifyIt(self.changeSectorCopy, options, sector);
-      }
-    }
-    self.teleportTo = function (coords, options, cb) { // Needs sector and spacial coords.  coordsObj is needed if a SectorObj is given as first parameter.
-      // This should accept a location Obj, a pair of sectorObj and coordsObj, or any other pair of input that can translate to a CoordsObj
-      if (typeof cb == "function") {
-        var spacialCoordsToUse = coords;
-        if (typeof coords == "object") {
-          if (coords instanceof LocationObj) {
-            if (coords.hasOwnProperty("spacial")) { // This handles LocationObj objects
-              spacialCoordsToUse = coords.spacial;
+      if (typeof spacialCoordsToUse == "string") {
+        // We should be all set to send the command now.
+        var fast = getOption(options, "fast", false);
+        var teleportToCommand = "/teleport_to " + self.name + " " + spacialCoordsToUse;
+        if (fast) {
+          return sendDirectToServer(teleportToCommand, cb);
+        } else {
+          return starNetVerified(teleportToCommand, options, function (err, result) {
+            if (err) {
+              return cb(err, result);
             } else {
-              return cb(new Error("Invalid LocationObj given to teleportTo!"), null);
+              // Success: RETURN: [SERVER, [ADMIN COMMAND] teleported Benevolent27 to , 0]
+              // Fail: RETURN: [SERVER, [ADMIN COMMAND] [ERROR] player not found for your client, 0]
+              let theReg = new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] teleported");
+              return cb(null, checkForLine(result, theReg));
             }
-          } else if (coords instanceof CoordsObj) {
-            spacialCoordsToUse = coords.toString();
-          } else { // Invalid objects or objects given as input.
-            return cb(new Error("Invalid object type given to teleportTo!"), null);
-          }
-        } else if (testIfInput(coords)) { // Input given
-          // Let's see if coordinates can be made from the input.  A String (separated by , or spaces) or an Array can be given as input.
-          try {
-            spacialCoordsToUse = new CoordsObj(coords).toString();
-          } catch (error) { // Invalid input given.
-            thisConsole.error("Invalid input given to teleportTo!");
-            return cb(error, null);
-          }
-        } else { // Invalid amount of arguments given
-          return cb(new Error("No spacial coords given teleportTo!"), null);
+          });
         }
-        if (typeof spacialCoordsToUse == "string") {
-          // We should be all set to send the command now.
-          var fast = getOption(options, "fast", false);
-          var teleportToCommand = "/teleport_to " + self.name + " " + spacialCoordsToUse;
-          if (fast) {
-            return sendDirectToServer(teleportToCommand, cb);
+      }
+      return cb(new Error("Invalid parameters given to playerObj teleportTo method!"), null);
+    } else {
+      return simplePromisifyIt(self.teleportTo, options, coords);
+    }
+  }
+  this.info = function (options, cb) {
+    // This returns whatever accurate info it can from the /player_info command.
+    // It does not currently return the entity the player is in, because the /player_info command does not give the UID of asteroids nor planet planets  TODO:  Change this behavior if/when Schema implements
+    if (typeof cb == "function") {
+      var returnObj = {};
+      return starNetVerified("/player_info " + self.name, options, function (err, result) {
+        if (err) {
+          return cb(err, result);
+        }
+        if (!returnLineMatch(result, /^RETURN: \[SERVER, \[ADMIN COMMAND\] \[ERROR\]/)) { // Player exists
+          if (!returnLineMatch(result, /^RETURN: \[SERVER, \[PL\] CONTROLLING-POS: <not spawned>/)) { // Player online
+            // These values can only be obtained when the player is online
+            // returnObj["controlling"]=self.controlling(result); // self.controlling does not exist yet.
+            returnObj["sector"] = new SectorObj(returnLineMatch(result, /^RETURN: \[SERVER, \[PL\] SECTOR: \(.*/, /^RETURN: \[SERVER, \[PL\] SECTOR: \(/, /\), 0]$/).split(", "));
+            returnObj["spacialCoords"] = new CoordsObj(returnLineMatch(result, /^RETURN: \[SERVER, \[PL\] CONTROLLING-POS: \(.*/, /^RETURN: \[SERVER, \[PL\] CONTROLLING-POS: \(/, /\), 0]$/).split(", "));
+            returnObj["upgraded"] = trueOrFalse(returnLineMatch(result, /^RETURN: \[SERVER, \[PL\] UPGRADED: .*/, /^RETURN: \[SERVER, \[PL\] UPGRADED: /, /, 0\]$/));
+            returnObj["smName"] = new SMNameObj(returnLineMatch(result, /^RETURN: \[SERVER, \[PL\] SM-NAME: .*/, /^RETURN: \[SERVER, \[PL\] SM-NAME: /, /, 0\]$/));
+            returnObj["ip"] = new IPObj(returnLineMatch(result, /^RETURN: \[SERVER, \[PL\] IP: \/.*/, /^RETURN: \[SERVER, \[PL\] IP: \//, /, 0\]$/));
+          }
+          // These are always accurate, even if a player is offline
+          returnObj["personalTestSector"] = new SectorObj(returnLineMatch(result, /^RETURN: \[SERVER, \[PL\] PERSONAL-TEST-SECTOR: \(.*/, /^RETURN: \[SERVER, \[PL\] PERSONAL-TEST-SECTOR: \(/, /\), 0]$/).split(", "));
+          returnObj["credits"] = Number(returnLineMatch(result, /^RETURN: \[SERVER, \[PL\] CREDITS: .*/, /^RETURN: \[SERVER, \[PL\] CREDITS: /, /, 0\]$/));
+          var factionLine = returnLineMatch(result, /^RETURN: \[SERVER, \[PL\] FACTION: Faction \[.*/, /^RETURN: \[SERVER, \[PL\] FACTION: Faction \[/); // If the person is not in a faction, this will be undefined.
+          // TODO:  Test below.  If the person is not in a faction, will it be undefined?  Or throw an error?
+          // This needs to return undefined if not in a faction
+          if (factionLine) {
+            returnObj["faction"] = new FactionObj(factionLine.match(/^id=[-]{0,1}[0-9]+/).toString().replace(/^id=/, ""));
           } else {
-            return starNetVerified(teleportToCommand, options, function (err, result) {
-              if (err) {
-                return cb(err, result);
-              } else {
-                // Success: RETURN: [SERVER, [ADMIN COMMAND] teleported Benevolent27 to , 0]
-                // Fail: RETURN: [SERVER, [ADMIN COMMAND] [ERROR] player not found for your client, 0]
-                let theReg = new RegExp("^RETURN: \\[SERVER, \\[ADMIN COMMAND\\] teleported");
-                return cb(null, checkForLine(result, theReg));
-              }
-            });
+            returnObj["faction"] = null; // Player was not in a faction or could not obtain the value (if player is offline)
           }
+          return cb(null, returnObj);
         }
-        return cb(new Error("Invalid parameters given to playerObj teleportTo method!"), null);
-      } else {
-        return simplePromisifyIt(self.teleportTo, options, coords);
-      }
+        return cb(null, null); // Even if the player is offline, this should not happen.
+      });
+    } else {
+      return simplePromisifyIt(self.info, options);
     }
-    self.info = function (options, cb) {
-      // This returns whatever accurate info it can from the /player_info command.
-      // It does not currently return the entity the player is in, because the /player_info command does not give the UID of asteroids nor planet planets  TODO:  Change this behavior if/when Schema implements
-      if (typeof cb == "function") {
-        var returnObj = {};
-        return starNetVerified("/player_info " + self.name, options, function (err, result) {
-          if (err) {
-            return cb(err, result);
-          }
-          if (!returnLineMatch(result, /^RETURN: \[SERVER, \[ADMIN COMMAND\] \[ERROR\]/)) { // Player exists
-            if (!returnLineMatch(result, /^RETURN: \[SERVER, \[PL\] CONTROLLING-POS: <not spawned>/)) { // Player online
-              // These values can only be obtained when the player is online
-              // returnObj["controlling"]=self.controlling(result); // self.controlling does not exist yet.
-              returnObj["sector"] = new SectorObj(returnLineMatch(result, /^RETURN: \[SERVER, \[PL\] SECTOR: \(.*/, /^RETURN: \[SERVER, \[PL\] SECTOR: \(/, /\), 0]$/).split(", "));
-              returnObj["spacialCoords"] = new CoordsObj(returnLineMatch(result, /^RETURN: \[SERVER, \[PL\] CONTROLLING-POS: \(.*/, /^RETURN: \[SERVER, \[PL\] CONTROLLING-POS: \(/, /\), 0]$/).split(", "));
-              returnObj["upgraded"] = trueOrFalse(returnLineMatch(result, /^RETURN: \[SERVER, \[PL\] UPGRADED: .*/, /^RETURN: \[SERVER, \[PL\] UPGRADED: /, /, 0\]$/));
-              returnObj["smName"] = new SMNameObj(returnLineMatch(result, /^RETURN: \[SERVER, \[PL\] SM-NAME: .*/, /^RETURN: \[SERVER, \[PL\] SM-NAME: /, /, 0\]$/));
-              returnObj["ip"] = new IPObj(returnLineMatch(result, /^RETURN: \[SERVER, \[PL\] IP: \/.*/, /^RETURN: \[SERVER, \[PL\] IP: \//, /, 0\]$/));
-            }
-            // These are always accurate, even if a player is offline
-            returnObj["personalTestSector"] = new SectorObj(returnLineMatch(result, /^RETURN: \[SERVER, \[PL\] PERSONAL-TEST-SECTOR: \(.*/, /^RETURN: \[SERVER, \[PL\] PERSONAL-TEST-SECTOR: \(/, /\), 0]$/).split(", "));
-            returnObj["credits"] = Number(returnLineMatch(result, /^RETURN: \[SERVER, \[PL\] CREDITS: .*/, /^RETURN: \[SERVER, \[PL\] CREDITS: /, /, 0\]$/));
-            var factionLine = returnLineMatch(result, /^RETURN: \[SERVER, \[PL\] FACTION: Faction \[.*/, /^RETURN: \[SERVER, \[PL\] FACTION: Faction \[/); // If the person is not in a faction, this will be undefined.
-            // TODO:  Test below.  If the person is not in a faction, will it be undefined?  Or throw an error?
-            // This needs to return undefined if not in a faction
-            if (factionLine) {
-              returnObj["faction"] = new FactionObj(factionLine.match(/^id=[-]{0,1}[0-9]+/).toString().replace(/^id=/, ""));
-            } else {
-              returnObj["faction"] = null; // Player was not in a faction or could not obtain the value (if player is offline)
-            }
-            return cb(null, returnObj);
-          }
-          return cb(null, false); // Even if the player is offline, this should not happen.
-        });
-      } else {
-        return simplePromisifyIt(self.info, options);
-      }
-    }
-    self.sector = function (options, cb) { // Returns a player's sector if online, false if offline.
+  }
+  this.sector = function (options, cb) { // Returns a player's sector if online, false if offline.
+    if (typeof cb == "function") {
       var valToLookFor = "sector";
-      if (typeof cb == "function") {
-        return returnValFromPlayerInfo(self.info, valToLookFor, options, cb);
-        // return self.info(options,function(err,result) {
-        //   if (err){
-        //     return cb(err,null)
-        //   }
-        //   if (result.hasOwnProperty(valToLookFor)){
-        //     return cb(null,result[valToLookFor]);
-        //   }
-        //   return cb(null,Boolean(false));
-        // })
-      } else {
-        return simplePromisifyIt(self[valToLookFor], options);
-      }
+      return returnValFromPlayerInfo(self.info, valToLookFor, options, cb);
+      // return self.info(options,function(err,result) {
+      //   if (err){
+      //     return cb(err,null)
+      //   }
+      //   if (result.hasOwnProperty(valToLookFor)){
+      //     return cb(null,result[valToLookFor]);
+      //   }
+      //   return cb(null,Boolean(false));
+      // })
+    } else {
+      return simplePromisifyIt(self[valToLookFor], options);
     }
-    self.system = function (options, cb) {
-      if (typeof cb == "function") {
-        return self.sector(options, function (err, result) {
-          if (err) {
-            return cb(err, result);
-          }
-          return cb(null, result.system);
-        });
-      }
-      return simplePromisifyIt(self.system, options);
+  }
+  this.system = function (options, cb) {
+    if (typeof cb == "function") {
+      return self.sector(options, function (err, result) {
+        if (err) {
+          return cb(err, null);
+        }
+        return cb(null, result.system);
+      });
     }
-    self.spacialCoords = function (options, cb) { // Returns a player's personal sector, whether online or offline.
-      var valToLookFor = "spacialCoords";
-      if (typeof cb == "function") {
-        return returnValFromPlayerInfo(self.info, valToLookFor, options, cb);
-      } else {
-        return simplePromisifyIt(self[valToLookFor], options);
-      }
+    return simplePromisifyIt(self.system, options);
+  }
+  this.spacialCoords = function (options, cb) { // Returns a player's personal sector, whether online or offline.
+    var valToLookFor = "spacialCoords";
+    if (typeof cb == "function") {
+      return returnValFromPlayerInfo(self.info, valToLookFor, options, cb);
+    } else {
+      return simplePromisifyIt(self[valToLookFor], options);
     }
-    self.upgraded = function (options, cb) { // Returns a whether a player's registry account was purchased or not.  Returns false if the player is offline.
-      var valToLookFor = "upgraded";
-      if (typeof cb == "function") {
-        return returnValFromPlayerInfo(self.info, valToLookFor, options, cb);
-      } else {
-        return simplePromisifyIt(self[valToLookFor], options);
-      }
+  }
+  this.upgraded = function (options, cb) { // Returns a whether a player's registry account was purchased or not.  Returns false if the player is offline.
+    var valToLookFor = "upgraded";
+    if (typeof cb == "function") {
+      return returnValFromPlayerInfo(self.info, valToLookFor, options, cb);
+    } else {
+      return simplePromisifyIt(self[valToLookFor], options);
     }
-    self.smName = function (options, cb) { // Returns a player's registry account if online, false if offline.
-      var valToLookFor = "smName";
-      if (typeof cb == "function") {
-        return returnValFromPlayerInfo(self.info, valToLookFor, options, cb);
-      } else {
-        return simplePromisifyIt(self.smName, options);
-      }
+  }
+  // TODO:  create this.lastSMName to look up the last SMName for the player, like how IP works
+  this.smName = function (options, cb) { // Returns a player's registry account if online, null if offline.
+    var valToLookFor = "smName";
+    if (typeof cb == "function") {
+      return returnValFromPlayerInfo(self.info, valToLookFor, options, cb);
+    } else {
+      return simplePromisifyIt(self.smName, options);
     }
-    self.ip = async function (options, cb) { // Returns the last IP for the player.
-      // var valToLookFor = "ip";
-      if (typeof cb == "function") {
-        // return returnValFromPlayerInfo(self.info, valToLookFor, options, cb); // This method doesn't work if the player is offline.
-        var theIPs=await self.ips(options).catch(showErr);
+  }
+  this.ip = async function (options, cb) { // Returns the last IP for the player.
+    // var valToLookFor = "ip";
+    if (typeof cb == "function") {
+      // return returnValFromPlayerInfo(self.info, valToLookFor, options, cb); // This method doesn't work if the player is offline.
+      return self.ips(options,function(err,theIPs){
+        if (err){
+          return cb(err,null);
+        }
         if (Array.isArray(theIPs)){
           return cb(null,theIPs[theIPs.length -1]); // Returns only the last IP
         } else {
           return cb(new Error("playerObj.ip ERROR: Could not obtain IP!"),null)
         }
-      } else {
-        return simplePromisifyIt(self.ip, options);
-      }
+      });
+    } else {
+      return simplePromisifyIt(self.ip, options);
     }
-    self.ips = function (options, cb) { // Returns an array of IPObj of a user as returned by /player_info
-      // Note:  By default it will only return unique IP's, but an option can be specified to return them all, which includes the timestamp of the login from the IP
-      if (typeof cb == "function") {
-        var unique = getOption(options, "unique", true); // By default only return unique IP's
-        return starNetVerified("/player_info " + self.name, options, function (err, result) {
-          if (err) {
-            thisConsole.error("StarNet command failed when attempting to get the ips for player: " + self.name);
-            return cb(err, result);
-          }
-          var resultArray = returnMatchingLinesAsArray(result, /^RETURN: \[SERVER, \[PL\] LOGIN: \[time=.*/);
-          var outputArray = [];
-          var ipTemp;
-          var ipDateTemp;
-          var ipDateObj = {};
-          var ipTrackerArray = [];
-          for (var i = 0;i < resultArray.length;i++) {
-            ipDateTemp = resultArray[i].match(/\[time=[^,]*/);
-            if (ipDateTemp) {
-              ipDateTemp = ipDateTemp.toString().replace(/^\[time=/, "");
-              ipDateObj = new Date(ipDateTemp); // This was tested to be working correctly
-              ipTemp = resultArray[i].match(/ip=[^,]*/);
-              if (ipTemp) {
-                ipTemp = ipTemp.toString().replace(/^ip=\//, "");
-                // This does not filter based on unique IP's since there is a date associated with each IP login
-                // TODO:  Make it so the default is to filter only unique IP's but give an option not to
-                if (unique) { // If only pushing unique IP's
-                  if (!isInArray(ipTrackerArray, ipTemp)) {
-                    outputArray.push(new IPObj(ipTemp, ipDateObj));
-                    ipTrackerArray.push(ipTemp); // Record the unique IP so it isn't added to the resultArray again
-                  }
-                } else {
-                  outputArray.push(new IPObj(ipTemp, ipDateObj));
-                }
-              }
-            }
-          }
-          return cb(null, outputArray); // Array is empty if no results found
-        });
-      } else {
-        return simplePromisifyIt(self.ips, options);
-      }
-    }
-    self.personalTestSector = function (options, cb) { // Returns a player's personal sector, whether online or offline.
-      var valToLookFor = "personalTestSector";
-      if (typeof cb == "function") {
-        return returnValFromPlayerInfo(self.info, valToLookFor, options, cb);
-      } else {
-        return simplePromisifyIt(self[valToLookFor], options);
-      }
-    }
-    this.exists = function (options, cb) {
-      if (typeof cb == "function") {
-        return self.personalTestSector(options, function (err, result) { // All players have a personal test sector
-          if (err) {
-            return cb(err, result);
-          }
-          if (testIfInput(result)) {
-            return cb(null, true);
-          }
-          return cb(null, false);
-        });
-      }
-      return simplePromisifyIt(self.exists, options);
-    }
-    self.credits = function (options, cb) { // Returns a player's credits held, whether online or offline.
-      var valToLookFor = "credits";
-      if (typeof cb == "function") {
-        return returnValFromPlayerInfo(self.info, valToLookFor, options, cb);
-      } else {
-        return simplePromisifyIt(self[valToLookFor], options);
-      }
-    }
-    self.faction = function (options, cb) { // Returns a player's credits held, whether online or offline.
-      var valToLookFor = "faction";
-      if (typeof cb == "function") {
-        return returnValFromPlayerInfo(self.info, valToLookFor, options, cb); // returns FactionObj or False
-      } else {
-        return simplePromisifyIt(self[valToLookFor], options);
-      }
-    }
-    // TODO - create this: // self.controlling=function(input){ } // This is an alternative for currentEntity.  It cannot return the UID for asteroids or planets, but it will at least return SOMETHING.  currentEntity will return false if the player is in an asteroid.
-    self.playerProtect = function (smName, options, cb) { // Requires smName, which can be a string or a SMNameObj
-      if (typeof cb == "function") {
-        var smNameToUse = toStringIfPossible(smName);
-        if (typeof smNameToUse == "string") {
-          return runSimpleCommand("/player_protect " + self.name + " " + smNameToUse, options, cb);
-        } else {
-          return cb(new Error("Invalid smName given to playerProtect!"), null);
-        }
-      }
-      return simplePromisifyIt(self.playerProtect, options);
-    }
-    self.playerUnprotect = function (options, cb) { // Removes registry account protection for the username
-      if (typeof cb == "function") {
-        return runSimpleCommand("/player_unprotect " + self.name, options, cb);
-      }
-      return simplePromisifyIt(self.playerUnprotect, options);
-    }
-    self.currentEntity = function (options, cb) {
-      // This uses the /entity_info_by_player_uid command instead of /player_info command, since that will not work with asteroids nor planets.
-      // IMPORTANT NOTE:  This does not work with asteroids currently!
-
-      // RETURN: [SERVER, Attached: [PlS[Benevolent27 ; id(612)(4)f(10001)]], 0]
-      // RETURN: [SERVER, DockedUIDs: , 0]
-      // RETURN: [SERVER, Blocks: 214395, 0]
-      // RETURN: [SERVER, Mass: 0.0, 0]
-      // RETURN: [SERVER, LastModified: ENTITY_PLAYERSTATE_Benevolent27, 0]
-      // RETURN: [SERVER, Creator: , 0]
-      // RETURN: [SERVER, Sector: 953 -> Sector[953](5, 1, 23), 0]
-      // RETURN: [SERVER, Name: Planet, 0]
-      // RETURN: [SERVER, UID: ENTITY_PLANET_5_1_23_10_1562917261498, 0]
-      // RETURN: [SERVER, MinBB(chunks): (-3, 0, -3), 0]
-      // RETURN: [SERVER, MaxBB(chunks): (3, 3, 3), 0]
-      // RETURN: [SERVER, Local-Pos: (83.5057, -0.7602557, -41.887486), 0]
-      // RETURN: [SERVER, Orientation: (0.1676793, 0.45718494, -0.6869378, 0.5394274), 0]
-      // RETURN: [SERVER, Planet, 0]
-      // RETURN: [SERVER, END; Admin command execution ended, 0]
-      if (typeof cb == "function") {
-        return starNetVerified("/entity_info_by_player_uid " + self.name, options, function (err, result) {
-          if (err) {
-            thisConsole.error("PlayerObj.currentEntity encountered a StarNet problem.  On Player: " + self.name, err);
-            return cb(new Error(err), null);
-          }
-          if (!returnLineMatch(result, /^RETURN: \[SERVER, \[ADMIN COMMAND\] \[ERROR\]/)) {
-            var currentEntityResult = returnLineMatch(result, /^RETURN: \[SERVER, UID: .*/, /^RETURN: \[SERVER, UID: /, /, 0\]$/);
-            // NOTE:  This is currently broken for asteroids.  There seems to be no way to get the entity UID if it is an asteroid, but this does work for planet plates.
-            // TODO:  Bug Schema to fix this for asteroids.
-            if (currentEntityResult) {
-              // TODO:  Determine if there really is a reason to have separte entity objects for planets and asteroids, otherwise the below will be fine.
-              return cb(null, new EntityObj(currentEntityResult));
-            }
-          }
-          return cb(null, Boolean(false)); // Player is not in an entity, Player does not exist or is offline
-          // NOTE: This will always return false if the player is in an asteroid.. so be careful with self.
-        });
-      } else {
-        return simplePromisifyIt(self.currentEntity, options);
-      }
-    }
-    self.inventory = function (options, cb) { // Returns a player's inventory as an array of objects - Broken right now because it returns the currently open inventory, which could be the personal inventory, cargo, or creative
-      // TODO:  Follow up with Schema about it using the personal inventory by default, and a second command '/player_get_current_inventory' being added.
-      // TODO:  Add an option for the output to be a map object.
-      // TODO:  Create a function that converts an item number to the item name.  This might be pretty complicated though, since it would require parsing the blockProperties.xml file, blockConfig.xml, and customBlockConfig.xml to accurately find the item number's name.
-      // TODO:  Follow up with schema about multi-blocks being broken down into it's invidivdual block counts.  Right now, this is how a multi-block outputs:
-      // RETURN: [SERVER, [INVENTORY] Benevolent27:  SLOT: 27; MULTI: true; TYPE: -32768; META: -1; COUNT: 400, 0]
-      // For built-in blocks, it could be possible to map every single multi-block type and then run individual "/player_get_block_amount" on those id's.. and then reformulate the output to include whichever ones are found.. but that would be very time-consuming, inefficient, and would not work for custom block groupings since I'd have no way of anticipating what those -234234 numbers would look like.
-      if (typeof cb == "function") {
-        var current = false;
-        // var current=getOption(options,"current",false); // This does not work currently
-        var commandToUse = "/player_get_inventory ";
-        if (current) {
-          commandToUse = "/player_get_current_inventory "; // This command does not exist yet, so don't use this till it is.
-        }
-        return starNetVerified(commandToUse + self.name, options, function (err, result) {
-          if (err) {
-            thisConsole.error("PlayerObj.inventory StarNet command failed for player: " + self.name);
-            return cb(err, result);
-          }
-          // C:\coding\starmade.js\bin>node starNet.js "/player_get_inventory Benevolent27"
-          // RETURN: [SERVER, [ADMIN COMMAND] [SUCCESS] Listing player Benevolent27 personal inventory START, 0]
-          // RETURN: [SERVER, [INVENTORY] Benevolent27:  SLOT: 0; MULTI: false; TYPE: 598; META: -1; COUNT: 595, 0]
-          // RETURN: [SERVER, [INVENTORY] Benevolent27:  SLOT: 1; MULTI: false; TYPE: 1010; META: -1; COUNT: 5, 0]
-          // RETURN: [SERVER, [INVENTORY] Benevolent27:  SLOT: 2; MULTI: false; TYPE: -11; META: 100892; COUNT: 1, 0]
-          // RETURN: [SERVER, [INVENTORY] Benevolent27:  SLOT: 3; MULTI: false; TYPE: -11; META: 100893; COUNT: 1, 0]
-          // RETURN: [SERVER, [ADMIN COMMAND] [SUCCESS] Listing player Benevolent27 personal inventory END., 0]
-          // RETURN: [SERVER, END; Admin command execution ended, 0]
-
-          // Fail: RETURN: [SERVER, [ADMIN COMMAND] [ERROR] player Benevolent27 not online, 0]
-          if (!returnLineMatch(result, /^RETURN: \[SERVER, \[ADMIN COMMAND\] \[ERROR\].*/)) {
-            // thisConsole.log("Result found!"); // temp
-            var outputArray = [];
-            // Parse through the lines, creating new objects and outputting to the outputArray.
-            var theArray = result.trim().split("\n");
-            var theReg = new RegExp("^RETURN: \\[SERVER, \\[INVENTORY\\] Benevolent27: {2}SLOT: .*"); // The {2} here is just to denote 2 spaces.
-            var match;
-            var slot;
-            var multi;
-            var type;
-            var meta;
-            var count;
-            var outputObj = {};
-            for (var i = 0;i < theArray.length;i++) {
-              // thisConsole.log("Processing line: " + theArray[i]);  // temp
-              match = theArray[i].match(theReg); // Returns void if not found
-              if (match) {
-                // thisConsole.log("Match found!  Processing it..");
-                match = match.toString();
-                slot = match.match(/SLOT: [-]{0,1}[0-9]*/).toString().replace("SLOT: ", ""); // This should never error out, but a more careful approach might be needed.
-                multi = match.match(/MULTI: [a-zA-Z]*/).toString().replace("MULTI: ", "");
-                type = match.match(/TYPE: [-]{0,1}[0-9]*/).toString().replace("TYPE: ", "");
-                meta = match.match(/META: [-]{0,1}[0-9]*/).toString().replace("META: ", "");
-                count = match.match(/COUNT: [-]{0,1}[0-9]*/).toString().replace("COUNT: ", "");
-                outputObj = {
-                  "slot": toNum(slot),
-                  "multi": trueOrFalse(multi),
-                  "type": toNum(type),
-                  "meta": toNum(meta),
-                  "count": toNum(count)
-                }
-                // thisConsole.log("Adding object to outputArray:");
-                // thisConsole.dir(outputObj);
-                outputArray.push(outputObj);
-              }
-            }
-            return cb(null, outputArray); // If inventory is empty, will return an empty array.
-          }
-          return cb(null, Boolean(false)); // Player was offline or did not exist
-
-        }); // This will throw an error if there is a connection issue, false if the command fails, likely due to the player being offline.
-      } else {
-        return simplePromisifyIt(self.inventory, options);
-      }
-    }
-    self.blueprints = function (options, cb) { // Returns an array of blueprint objects.
-      if (typeof cb == "function") {
-        var verbose = getOption(options, "verbose", false); // Not sure if I'll actually use this
-        return starNetVerified("/list_blueprints_by_owner " + self.name, options, function (err, result) {
-          if (err) {
-            return cb(err, result);
-          }
-          // RETURN: [SERVER, [CATALOG] START, 0]
-          // RETURN: [SERVER, [CATALOG] INDEX 0: Another ship of mine with     spaces, 0]
-          // RETURN: [SERVER, [CATALOG] INDEX 1: A catalogue test, 0]
-          // RETURN: [SERVER, [CATALOG] END, 0]
-          // RETURN: [SERVER, END; Admin command execution ended, 0]
-          if (!returnLineMatch(result, /^RETURN: \[SERVER, \[ADMIN COMMAND\] \[ERROR\].*/)) { // This should normally not happen.
-            var outputArray = [];
-            // Parse through the lines, creating new objects and outputting to the outputArray.
-            var theArray = result.trim().split("\n");
-            var theReg = new RegExp("^RETURN: \\[SERVER, \\[CATALOG\\] INDEX.*"); // This will only search for only the lines with catalogue names
-            var theCatalogString;
-            for (let i = 0;i < theArray.length;i++) {
-              theCatalogString = theArray[i].match(theReg); // is undefined if no match
-              if (theCatalogString) {
-                theCatalogString = theCatalogString.toString().replace(/^RETURN: \[SERVER, \[CATALOG\] INDEX [0-9]+: /, "").replace(/, 0\]$/, "");
-                outputArray.push(new BlueprintObj(theCatalogString));
-              }
-            }
-            return cb(null, outputArray); // outputs an empty array if the player had no blueprints
-          }
-          return cb(null, Boolean(false)); // This will only happen if there is an error with the command, but it was not a connection error.  This should not happen.
-        });
-      } else {
-        return simplePromisifyIt(self.blueprints, options);
-      }
-    }
-    // blueprints()[1].blueprint_delete()
-    // EXAMPLE: /blueprint_delete my_ship
-
-    // blueprints()[1].blueprint_info()
-    // EXAMPLE: /blueprint_info my_ship
-
-    // server.blueprints[2].blueprint_set_owner(player) // include find functionality.
-
-
-
-    // Phase 2 - Add methods that poll information from the server using StarNet.
-
-    // Needs testing:
-    // changeSectorCopy("[X],[Y],[Z]" -or- SectorObj -or- CoordsObj) - teleports the player to a specific sector, leaving behind a copy of whatever entity they were in, duplicating it
-    // currentEntity() - Returns the EntityObj of the entity they are currently in or on.  Uses the /entity_info_by_player_uid command rather than the "CONTROLLING:" line from /player_info, since that doesn't work with planet plates or asteroids.  Though the /entity_info_by_player_uid command also does not work with asteroids, but does work for planet plates.
-    // playerProtect(smName) - uses /player_protect to protect a smname to a username - Sets this current player name to be protected under a specific registry account
-    // player_unprotect() - opposite of above - WARNING:  This will allow anyone to log in under this name in the future!
-
-    // Phase 2 - Done
-    // isAdmin() - uses /list_admins OR reads from the admins.txt file to determine is a player is an admin.  {"fast":true/false,"unrestricted":true/false}
-    // botMsg("message")
-    // inventory({options}) -- Working, but problematic.  See notes.
-    // ips(options) - returns an array of IPObj's with all unique IP's, as returned by /player_info.  Also sets the "date" function for each one.  'options' can be an object with "unique" set to false if you want all ip's with their associated dates, otherwise the default is to return only unique ip's.
-    // smName - returns a SmNameObj
-    // ip - returns an IPObj with the player's last IP in it
-    // personalTestSector - Returns the player's designated battlemode sector, which is unique to every player.  Returns a SectorObj.
-    // upgraded - returns true or false if the whether the person has a purchased version of the game or not.  Only works when authentication is required for the server, otherwise always returns false.  Returns Boolean values.
-    // credits - returns the amount of credits a player has on them as a number.
-    // spacialCoords - Returns the spacial coordinates the player is in, in a CoordsObj.
-    // faction - Returns the FactionObj of their faction or undefined if no faction found.
-    // sector - Returns the player's current sector as a SectorObj
-    // isOnline() - /player_list - Check to see if the player is online.  Useful for loops or delayed commands.
-    // /player_get_spawn
-    // /player_set_spawn_to Benevolent27 X Y Z spacialX spacialY spacialZ
-    // changeSector(coords) - /change_sector_for Benevolent27 x y z
-    // teleportTo(coords) - /teleport_to Benevolent27 x y z
-
-
-    // Phase 1 - Add methods which send the command directly to the server.
-    // banAccount - Bans the player by their registry account - this is a PERM ban
-    // banAccountTemp(NumberInMinutes) - Bans the player by their registry account temporarily
-    // banPlayerName - Bans the player by their playername - this is a PERM ban
-    // banPlayerNameTemp(NumberInMinutes) - Bans the player by their playername temorarily
-    // banIP - Bans the player by IP - PERM BAN - My Notes: Might use "/ban_ip_by_playername [PlayerName]" or "/ban_ip 1.1.1.1" if that is unreliable
-    // banIPTemp(NumberInMinutes) - Bans player by IP - Temp - My Notes: Can use "/ban_ip_by_playername_temp [PlayerName] 1" or "/ban_ip_temp 1.1.1.1 1" if that is unreliable
-
-
-    // addToFaction([FactionObj/FactionNum]) -- Switches the player to a specific faction
-
-
-
-    // Phase 1 done - sending directly to thisConsole.  Phase 2 incomplete.
-    // msg(MessageString,info/warning/error) - Sends a private message to this specific player.  If no method is specified "plain" is used, which shows up on the player's main chat.
-    // creativeMode(true/false) - Turns creative mode on or off for the player "/creative_mode player true/false"
-    // godMode(true/false) - Sets godmode to true or false for the player using /god_mode
-    // invisibilityMode(true/false) - Sets invisibility to true or false for the player using /invisibility_mode
-    // give(ElementNameString,Count) - Gives the player the number of blocks by element name - ONLY WORKS IF THE PLAYER IS ONLINE - Example: player.give("Power",10)
-    // giveID(ElementIDNum,Count) - Gives the player the number of blocks by element ID number - ONLY WORKS IF THE PLAYER IS ONLINE- Example: player.giveID(2,10)
-    // giveAllItems(Count) - Gives the player all blocks of a certain number
-    // giveCategoryItems(Count,categoryNameString) - /give_category_items Gives the player all blocks of a certain number by category
-    // giveCredits(Num) - Gives a certain number of credits to the player.  Will subtract if a negative number used.  Returns the new total credits the player has.
-    // giveGrapple - Gives the player a grapple gun
-    // giveGrappleOP - Gives the player an OP grapple gun
-    // giveHealWeapon
-    // giveLaserWeapon
-    // giveLaserWeaponOP
-    // giveMarkerWeapon
-    // giveTransporterMarkerWeapon
-    // givePowerSupplyWeapon
-    // giveRocketLauncher
-    // giveRocketLauncherOP
-    // giveSniperWeapon
-    // giveSniperWeaponOP
-    // giveTorchWeapon
-    // giveTorchWeaponOP
-    // kill - kills the player using "/kill_character [Name]"
-    // kick(reasonString) - kicks the player from the server using /kick or /kick_reason  ReasonString is optional.
-    // setFactionRank - Sets the player's rank within their current faction if they are in one.  Example: /faction_mod_member schema 1
-    // addAdmin - Adds this player as an admin to the server
-    // removeAdmin - Removes this player as an admin to the server
-    // addAdminDeniedCommand([One,or,more,commands]) - (example: /add_admin_denied_comand Benevolent27 ban) This can be an array or string.  If an array, it will cycle through the array, adding each denied command for the specific admin
-    // removeAdminDeniedCommand([One,or,more,commands]) - (example: /remove_admin_denied_comand Benevolent27 ban) This can be an array or string.  If an array, it will cycle through the array, removing each denied command for the specific admin.  Uses: /remove_admin_denied_comand [PlayerName] [CommandToRemove]
-    // ban(true/false,ReasonString,Time) - true/false is whether to kick.  Time is in minutes.
-    // unban();
-    // giveMetaItem(metaItem,number) - Gives the player a meta item based on it's name, such as recipe, log_book, helmet, build_prohibiter, etc.
-    // factionPointProtect(true/false) - (Example: /faction_point_protect_player Benevolent27 true) - Protects a player from faction point loss on death (permanent)
-
-
-    // TODO: Add Info methods:
-
-    // playerInfo - uses /player_info to create an object with all the info available, putting the data into an object or perhaps a map.
-
-    // other commands to utilize:
-    // /player_put_into_entity_uid
-    // /player_suspend_faction
-    // /player_get_inventory
-    // /player_get_block_amount
-    // /list_blueprints_by_owner
-    // kick_player_name_out_of_entity
-
-    // /faction_set_id_member <-- this is buggy and might not be adviseable to utilize.
-    // /faction_join_id Player FactionID
-    // /faction_del_member Player FactionID
-    // /list_blueprints_by_owner and/or /list_blueprints_by_owner_verbose
-    // /list_whitelist_name - See if whitelisted.  Could be useful to do a check of online players to see if everyone is whitelisted.
-    // /list_banned_name - See if banned.  Could be useful if banned but not kicked yet.
-
-    // infiniteInventory(true/false) - /set_infinite_inventory_volume Player true/false
-
-    // moveToSpacialCoords(x,y,z) /teleport_to Name X Y Z
-    // /tint_name x x x x Name - This sets the color of an astronaut.  See the colors.sh file from LvD for some color examples.
-    // /whitelist_name and /whitelist_name_temp
-
-    // Action methods:
-    // factionCreate(NewFactionNameString) - This creates a new faction and sets the player as the leader - I am unsure what the /faction_create command will do if a faction of the same name already exists, but I'm guessing it will just duplicate it. I also do not know what happens if the player is currently in a faction already.
-    // factionCreateAs(NewFactionNameString,FactionNum) - This creates a new faction with a specific faction number and sets the player as the leader - I am unsure what the /faction_create_as command will do if the faction number already exists..
-  } else {
-    throw new Error("ERROR: No playername provided to playerObj constructor!");
   }
+  this.ips = function (options, cb) { // Returns an array of IPObj of a user as returned by /player_info
+    // Note:  By default it will only return unique IP's, but an option can be specified to return them all, which includes the timestamp of the login from the IP
+    if (typeof cb == "function") {
+      var unique = getOption(options, "unique", true); // By default only return unique IP's
+      return starNetVerified("/player_info " + self.name, options, function (err, result) {
+        if (err) {
+          return cb(err, null);
+        }
+        var resultArray = returnMatchingLinesAsArray(result, /^RETURN: \[SERVER, \[PL\] LOGIN: \[time=.*/);
+        var outputArray = [];
+        var ipTemp;
+        var ipDateTemp;
+        var ipTrackerArray = [];
+        for (var i = 0;i < resultArray.length;i++) {
+          ipDateTemp = resultArray[i].match(/\[time=[^,]*/);
+          if (ipDateTemp) {
+            ipDateTemp = ipDateTemp.toString().replace(/^\[time=/, "");
+            var ipDateObj = new Date(ipDateTemp); // This was tested to be working correctly
+            ipTemp = resultArray[i].match(/ip=[^,]*/);
+            if (ipTemp) {
+              ipTemp = ipTemp.toString().replace(/^ip=\//, "");
+              // This does not filter based on unique IP's since there is a date associated with each IP login
+              // TODO:  Make it so the default is to filter only unique IP's but give an option not to
+              if (unique) { // If only pushing unique IP's
+                if (!isInArray(ipTrackerArray, ipTemp)) {
+                  outputArray.push(new IPObj(ipTemp, ipDateObj));
+                  ipTrackerArray.push(ipTemp); // Record the unique IP so it isn't added to the resultArray again
+                }
+              } else {
+                outputArray.push(new IPObj(ipTemp, ipDateObj));
+              }
+            }
+          }
+        }
+        if (outputArray.length >0){
+          return cb(null, outputArray);
+        } else {
+          return cb(null,null);
+        }
+      });
+    } else {
+      return simplePromisifyIt(self.ips, options);
+    }
+  }
+  this.personalTestSector = function (options, cb) { // Returns a player's personal sector, whether online or offline.
+    var valToLookFor = "personalTestSector";
+    if (typeof cb == "function") {
+      return returnValFromPlayerInfo(self.info, valToLookFor, options, cb);
+    } else {
+      return simplePromisifyIt(self[valToLookFor], options);
+    }
+  }
+  this.exists = function (options, cb) {
+    if (typeof cb == "function") {
+      return self.personalTestSector(options, function (err, result) { // All players have a personal test sector
+        if (err) {
+          return cb(err, result);
+        }
+        if (testIfInput(result)) {
+          return cb(null, true);
+        }
+        return cb(null, false);
+      });
+    }
+    return simplePromisifyIt(self.exists, options);
+  }
+  this.credits = function (options, cb) { // Returns a player's credits held, whether online or offline.
+    var valToLookFor = "credits";
+    if (typeof cb == "function") {
+      return returnValFromPlayerInfo(self.info, valToLookFor, options, cb);
+    } else {
+      return simplePromisifyIt(self[valToLookFor], options);
+    }
+  }
+  this.faction = function (options, cb) { // Returns a player's credits held, whether online or offline.
+    var valToLookFor = "faction";
+    if (typeof cb == "function") {
+      return returnValFromPlayerInfo(self.info, valToLookFor, options, cb); // returns FactionObj or False
+    } else {
+      return simplePromisifyIt(self[valToLookFor], options);
+    }
+  }
+  // TODO - create this: // self.controlling=function(input){ } // This is an alternative for currentEntity.  It cannot return the UID for asteroids or planets, but it will at least return SOMETHING.  currentEntity will return false if the player is in an asteroid.
+  this.playerNameProtect = function (smName, options, cb) { // Requires smName, which can be a string or a SMNameObj
+    if (typeof cb == "function") {
+      var smNameToUse = toStringIfPossible(smName);
+      if (typeof smNameToUse == "string") {
+        return runSimpleCommand("/player_protect " + self.name + " " + smNameToUse, options, cb);
+      } else {
+        return cb(new Error("Invalid smName given to playerProtect!"), null);
+      }
+    }
+    return simplePromisifyIt(self.playerNameProtect, options);
+  }
+  this.playerNameUnprotect = function (options, cb) { // Removes registry account protection for the username
+    if (typeof cb == "function") {
+      return runSimpleCommand("/player_unprotect " + self.name, options, cb);
+    }
+    return simplePromisifyIt(self.playerNameUnprotect, options);
+  }
+  this.currentEntity = function (options, cb) {
+    // This uses the /entity_info_by_player_uid command instead of /player_info command, since that will not work with asteroids nor planets.
+    // IMPORTANT NOTE:  This does not work with asteroids currently!
+
+    // RETURN: [SERVER, Attached: [PlS[Benevolent27 ; id(612)(4)f(10001)]], 0]
+    // RETURN: [SERVER, DockedUIDs: , 0]
+    // RETURN: [SERVER, Blocks: 214395, 0]
+    // RETURN: [SERVER, Mass: 0.0, 0]
+    // RETURN: [SERVER, LastModified: ENTITY_PLAYERSTATE_Benevolent27, 0]
+    // RETURN: [SERVER, Creator: , 0]
+    // RETURN: [SERVER, Sector: 953 -> Sector[953](5, 1, 23), 0]
+    // RETURN: [SERVER, Name: Planet, 0]
+    // RETURN: [SERVER, UID: ENTITY_PLANET_5_1_23_10_1562917261498, 0]
+    // RETURN: [SERVER, MinBB(chunks): (-3, 0, -3), 0]
+    // RETURN: [SERVER, MaxBB(chunks): (3, 3, 3), 0]
+    // RETURN: [SERVER, Local-Pos: (83.5057, -0.7602557, -41.887486), 0]
+    // RETURN: [SERVER, Orientation: (0.1676793, 0.45718494, -0.6869378, 0.5394274), 0]
+    // RETURN: [SERVER, Planet, 0]
+    // RETURN: [SERVER, END; Admin command execution ended, 0]
+    if (typeof cb == "function") {
+      return starNetVerified("/entity_info_by_player_uid " + self.name, options, function (err, result) {
+        if (err) {
+          thisConsole.error("PlayerObj.currentEntity encountered a StarNet problem.  On Player: " + self.name, err);
+          return cb(new Error(err), null);
+        }
+        if (!returnLineMatch(result, /^RETURN: \[SERVER, \[ADMIN COMMAND\] \[ERROR\]/)) {
+          var currentEntityResult = returnLineMatch(result, /^RETURN: \[SERVER, UID: .*/, /^RETURN: \[SERVER, UID: /, /, 0\]$/);
+          // NOTE:  This is currently broken for asteroids.  There seems to be no way to get the entity UID if it is an asteroid, but this does work for planet plates.
+          // TODO:  Bug Schema to fix this for asteroids.
+          if (currentEntityResult) {
+            // TODO:  Determine if there really is a reason to have separte entity objects for planets and asteroids, otherwise the below will be fine.
+            return cb(null, new EntityObj(currentEntityResult));
+          }
+        }
+        return cb(null, null); // Player is not in an entity, Player does not exist or is offline
+        // NOTE: This will always return false if the player is in an asteroid.. so be careful with self.
+      });
+    } else {
+      return simplePromisifyIt(self.currentEntity, options);
+    }
+  }
+  this.inventory = function (options, cb) { // Returns a player's inventory as an array of objects - Broken right now because it returns the currently open inventory, which could be the personal inventory, cargo, or creative
+    // TODO:  Follow up with Schema about it using the personal inventory by default, and a second command '/player_get_current_inventory' being added.
+    // TODO:  Add an option for the output to be a map object.
+    // TODO:  Create a function that converts an item number to the item name.  This might be pretty complicated though, since it would require parsing the blockProperties.xml file, blockConfig.xml, and customBlockConfig.xml to accurately find the item number's name.
+    // TODO:  Follow up with schema about multi-blocks being broken down into it's invidivdual block counts.  Right now, this is how a multi-block outputs:
+    // RETURN: [SERVER, [INVENTORY] Benevolent27:  SLOT: 27; MULTI: true; TYPE: -32768; META: -1; COUNT: 400, 0]
+    // For built-in blocks, it could be possible to map every single multi-block type and then run individual "/player_get_block_amount" on those id's.. and then reformulate the output to include whichever ones are found.. but that would be very time-consuming, inefficient, and would not work for custom block groupings since I'd have no way of anticipating what those -234234 numbers would look like.
+    if (typeof cb == "function") {
+      var current = false;
+      // var current=getOption(options,"current",false); // This does not work currently
+      var commandToUse = "/player_get_inventory ";
+      if (current) {
+        commandToUse = "/player_get_current_inventory "; // This command does not exist yet, so don't use this till it is.
+      }
+      return starNetVerified(commandToUse + self.name, options, function (err, result) {
+        if (err) {
+          thisConsole.error("PlayerObj.inventory StarNet command failed for player: " + self.name);
+          return cb(err, result);
+        }
+        // C:\coding\starmade.js\bin>node starNet.js "/player_get_inventory Benevolent27"
+        // RETURN: [SERVER, [ADMIN COMMAND] [SUCCESS] Listing player Benevolent27 personal inventory START, 0]
+        // RETURN: [SERVER, [INVENTORY] Benevolent27:  SLOT: 0; MULTI: false; TYPE: 598; META: -1; COUNT: 595, 0]
+        // RETURN: [SERVER, [INVENTORY] Benevolent27:  SLOT: 1; MULTI: false; TYPE: 1010; META: -1; COUNT: 5, 0]
+        // RETURN: [SERVER, [INVENTORY] Benevolent27:  SLOT: 2; MULTI: false; TYPE: -11; META: 100892; COUNT: 1, 0]
+        // RETURN: [SERVER, [INVENTORY] Benevolent27:  SLOT: 3; MULTI: false; TYPE: -11; META: 100893; COUNT: 1, 0]
+        // RETURN: [SERVER, [ADMIN COMMAND] [SUCCESS] Listing player Benevolent27 personal inventory END., 0]
+        // RETURN: [SERVER, END; Admin command execution ended, 0]
+
+        // Fail: RETURN: [SERVER, [ADMIN COMMAND] [ERROR] player Benevolent27 not online, 0]
+        if (!returnLineMatch(result, /^RETURN: \[SERVER, \[ADMIN COMMAND\] \[ERROR\].*/)) {
+          // thisConsole.log("Result found!"); // temp
+          var outputArray = [];
+          // Parse through the lines, creating new objects and outputting to the outputArray.
+          var theArray = result.trim().split("\n");
+          var theReg = new RegExp("^RETURN: \\[SERVER, \\[INVENTORY\\] Benevolent27: {2}SLOT: .*"); // The {2} here is just to denote 2 spaces.
+          var match;
+          var slot;
+          var multi;
+          var type;
+          var meta;
+          var count;
+          var outputObj = {};
+          for (var i = 0;i < theArray.length;i++) {
+            // thisConsole.log("Processing line: " + theArray[i]);  // temp
+            match = theArray[i].match(theReg); // Returns void if not found
+            if (match) {
+              // thisConsole.log("Match found!  Processing it..");
+              match = match.toString();
+              slot = match.match(/SLOT: [-]{0,1}[0-9]*/).toString().replace("SLOT: ", ""); // This should never error out, but a more careful approach might be needed.
+              multi = match.match(/MULTI: [a-zA-Z]*/).toString().replace("MULTI: ", "");
+              type = match.match(/TYPE: [-]{0,1}[0-9]*/).toString().replace("TYPE: ", "");
+              meta = match.match(/META: [-]{0,1}[0-9]*/).toString().replace("META: ", "");
+              count = match.match(/COUNT: [-]{0,1}[0-9]*/).toString().replace("COUNT: ", "");
+              outputObj = {
+                "slot": toNumIfPossible(slot),
+                "multi": trueOrFalse(multi),
+                "type": toNumIfPossible(type),
+                "meta": toNumIfPossible(meta),
+                "count": toNumIfPossible(count)
+              }
+              // thisConsole.log("Adding object to outputArray:");
+              // thisConsole.dir(outputObj);
+              outputArray.push(outputObj);
+            }
+          }
+          return cb(null, outputArray); // If inventory is empty, will return an empty array.
+        }
+        return cb(null, null); // Player was offline or did not exist
+
+      }); // This will throw an error if there is a connection issue, false if the command fails, likely due to the player being offline.
+    } else {
+      return simplePromisifyIt(self.inventory, options);
+    }
+  }
+  this.blueprints = function (options, cb) { // Returns an array of blueprint objects.
+    if (typeof cb == "function") {
+      var verbose = getOption(options, "verbose", false); // Not sure if I'll actually use this
+      return starNetVerified("/list_blueprints_by_owner " + self.name, options, function (err, result) {
+        if (err) {
+          return cb(err, result);
+        }
+        // RETURN: [SERVER, [CATALOG] START, 0]
+        // RETURN: [SERVER, [CATALOG] INDEX 0: Another ship of mine with     spaces, 0]
+        // RETURN: [SERVER, [CATALOG] INDEX 1: A catalogue test, 0]
+        // RETURN: [SERVER, [CATALOG] END, 0]
+        // RETURN: [SERVER, END; Admin command execution ended, 0]
+        if (!returnLineMatch(result, /^RETURN: \[SERVER, \[ADMIN COMMAND\] \[ERROR\].*/)) { // This should normally not happen.
+          var outputArray = [];
+          // Parse through the lines, creating new objects and outputting to the outputArray.
+          var theArray = result.trim().split("\n");
+          var theReg = new RegExp("^RETURN: \\[SERVER, \\[CATALOG\\] INDEX.*"); // This will only search for only the lines with catalogue names
+          var theCatalogString;
+          for (let i = 0;i < theArray.length;i++) {
+            theCatalogString = theArray[i].match(theReg); // is undefined if no match
+            if (theCatalogString) {
+              theCatalogString = theCatalogString.toString().replace(/^RETURN: \[SERVER, \[CATALOG\] INDEX [0-9]+: /, "").replace(/, 0\]$/, "");
+              outputArray.push(new BlueprintObj(theCatalogString));
+            }
+          }
+          return cb(null, outputArray); // outputs an empty array if the player had no blueprints
+        }
+        return cb(null, Boolean(false)); // This will only happen if there is an error with the command, but it was not a connection error.  This should not happen.
+      });
+    } else {
+      return simplePromisifyIt(self.blueprints, options);
+    }
+  }
+  // blueprints()[1].blueprint_delete()
+  // EXAMPLE: /blueprint_delete my_ship
+
+  // blueprints()[1].blueprint_info()
+  // EXAMPLE: /blueprint_info my_ship
+
+  // server.blueprints[2].blueprint_set_owner(player) // include find functionality.
+
+
+
+  // Phase 2 - Add methods that poll information from the server using StarNet.
+
+  // Needs testing:
+  // changeSectorCopy("[X],[Y],[Z]" -or- SectorObj -or- CoordsObj) - teleports the player to a specific sector, leaving behind a copy of whatever entity they were in, duplicating it
+  // currentEntity() - Returns the EntityObj of the entity they are currently in or on.  Uses the /entity_info_by_player_uid command rather than the "CONTROLLING:" line from /player_info, since that doesn't work with planet plates or asteroids.  Though the /entity_info_by_player_uid command also does not work with asteroids, but does work for planet plates.
+  // playerProtect(smName) - uses /player_protect to protect a smname to a username - Sets this current player name to be protected under a specific registry account
+  // player_unprotect() - opposite of above - WARNING:  This will allow anyone to log in under this name in the future!
+
+  // Phase 2 - Done
+  // isAdmin() - uses /list_admins OR reads from the admins.txt file to determine is a player is an admin.  {"fast":true/false,"unrestricted":true/false}
+  // botMsg("message")
+  // inventory({options}) -- Working, but problematic.  See notes.
+  // ips(options) - returns an array of IPObj's with all unique IP's, as returned by /player_info.  Also sets the "date" function for each one.  'options' can be an object with "unique" set to false if you want all ip's with their associated dates, otherwise the default is to return only unique ip's.
+  // smName - returns a SmNameObj
+  // ip - returns an IPObj with the player's last IP in it
+  // personalTestSector - Returns the player's designated battlemode sector, which is unique to every player.  Returns a SectorObj.
+  // upgraded - returns true or false if the whether the person has a purchased version of the game or not.  Only works when authentication is required for the server, otherwise always returns false.  Returns Boolean values.
+  // credits - returns the amount of credits a player has on them as a number.
+  // spacialCoords - Returns the spacial coordinates the player is in, in a CoordsObj.
+  // faction - Returns the FactionObj of their faction or undefined if no faction found.
+  // sector - Returns the player's current sector as a SectorObj
+  // isOnline() - /player_list - Check to see if the player is online.  Useful for loops or delayed commands.
+  // /player_get_spawn
+  // /player_set_spawn_to Benevolent27 X Y Z spacialX spacialY spacialZ
+  // changeSector(coords) - /change_sector_for Benevolent27 x y z
+  // teleportTo(coords) - /teleport_to Benevolent27 x y z
+
+
+  // Phase 1 - Add methods which send the command directly to the server.
+  // banAccount - Bans the player by their registry account - this is a PERM ban
+  // banAccountTemp(NumberInMinutes) - Bans the player by their registry account temporarily
+  // banPlayerName - Bans the player by their playername - this is a PERM ban
+  // banPlayerNameTemp(NumberInMinutes) - Bans the player by their playername temorarily
+  // banIP - Bans the player by IP - PERM BAN - My Notes: Might use "/ban_ip_by_playername [PlayerName]" or "/ban_ip 1.1.1.1" if that is unreliable
+  // banIPTemp(NumberInMinutes) - Bans player by IP - Temp - My Notes: Can use "/ban_ip_by_playername_temp [PlayerName] 1" or "/ban_ip_temp 1.1.1.1 1" if that is unreliable
+
+
+  // addToFaction([FactionObj/FactionNum]) -- Switches the player to a specific faction
+
+
+
+  // Phase 1 done - sending directly to thisConsole.  Phase 2 incomplete.
+  // msg(MessageString,info/warning/error) - Sends a private message to this specific player.  If no method is specified "plain" is used, which shows up on the player's main chat.
+  // creativeMode(true/false) - Turns creative mode on or off for the player "/creative_mode player true/false"
+  // godMode(true/false) - Sets godmode to true or false for the player using /god_mode
+  // invisibilityMode(true/false) - Sets invisibility to true or false for the player using /invisibility_mode
+  // give(ElementNameString,Count) - Gives the player the number of blocks by element name - ONLY WORKS IF THE PLAYER IS ONLINE - Example: player.give("Power",10)
+  // giveID(ElementIDNum,Count) - Gives the player the number of blocks by element ID number - ONLY WORKS IF THE PLAYER IS ONLINE- Example: player.giveID(2,10)
+  // giveAllItems(Count) - Gives the player all blocks of a certain number
+  // giveCategoryItems(Count,categoryNameString) - /give_category_items Gives the player all blocks of a certain number by category
+  // giveCredits(Num) - Gives a certain number of credits to the player.  Will subtract if a negative number used.  Returns the new total credits the player has.
+  // giveGrapple - Gives the player a grapple gun
+  // giveGrappleOP - Gives the player an OP grapple gun
+  // giveHealWeapon
+  // giveLaserWeapon
+  // giveLaserWeaponOP
+  // giveMarkerWeapon
+  // giveTransporterMarkerWeapon
+  // givePowerSupplyWeapon
+  // giveRocketLauncher
+  // giveRocketLauncherOP
+  // giveSniperWeapon
+  // giveSniperWeaponOP
+  // giveTorchWeapon
+  // giveTorchWeaponOP
+  // kill - kills the player using "/kill_character [Name]"
+  // kick(reasonString) - kicks the player from the server using /kick or /kick_reason  ReasonString is optional.
+  // setFactionRank - Sets the player's rank within their current faction if they are in one.  Example: /faction_mod_member schema 1
+  // addAdmin - Adds this player as an admin to the server
+  // removeAdmin - Removes this player as an admin to the server
+  // addAdminDeniedCommand([One,or,more,commands]) - (example: /add_admin_denied_comand Benevolent27 ban) This can be an array or string.  If an array, it will cycle through the array, adding each denied command for the specific admin
+  // removeAdminDeniedCommand([One,or,more,commands]) - (example: /remove_admin_denied_comand Benevolent27 ban) This can be an array or string.  If an array, it will cycle through the array, removing each denied command for the specific admin.  Uses: /remove_admin_denied_comand [PlayerName] [CommandToRemove]
+  // ban(true/false,ReasonString,Time) - true/false is whether to kick.  Time is in minutes.
+  // unban();
+  // giveMetaItem(metaItem,number) - Gives the player a meta item based on it's name, such as recipe, log_book, helmet, build_prohibiter, etc.
+  // factionPointProtect(true/false) - (Example: /faction_point_protect_player Benevolent27 true) - Protects a player from faction point loss on death (permanent)
+
+
+  // TODO: Add Info methods:
+
+  // playerInfo - uses /player_info to create an object with all the info available, putting the data into an object or perhaps a map.
+
+  // other commands to utilize:
+  // /player_put_into_entity_uid
+  // /player_suspend_faction
+  // /player_get_inventory
+  // /player_get_block_amount
+  // /list_blueprints_by_owner
+  // kick_player_name_out_of_entity
+
+  // /faction_set_id_member <-- this is buggy and might not be adviseable to utilize.
+  // /faction_join_id Player FactionID
+  // /faction_del_member Player FactionID
+  // /list_blueprints_by_owner and/or /list_blueprints_by_owner_verbose
+  // /list_whitelist_name - See if whitelisted.  Could be useful to do a check of online players to see if everyone is whitelisted.
+  // /list_banned_name - See if banned.  Could be useful if banned but not kicked yet.
+
+  // infiniteInventory(true/false) - /set_infinite_inventory_volume Player true/false
+
+  // moveToSpacialCoords(x,y,z) /teleport_to Name X Y Z
+  // /tint_name x x x x Name - This sets the color of an astronaut.  See the colors.sh file from LvD for some color examples.
+  // /whitelist_name and /whitelist_name_temp
+
+  // Action methods:
+  // factionCreate(NewFactionNameString) - This creates a new faction and sets the player as the leader - I am unsure what the /faction_create command will do if a faction of the same name already exists, but I'm guessing it will just duplicate it. I also do not know what happens if the player is currently in a faction already.
+  // factionCreateAs(NewFactionNameString,FactionNum) - This creates a new faction with a specific faction number and sets the player as the leader - I am unsure what the /faction_create_as command will do if the faction number already exists..
+  
 };
 
 function returnValFromPlayerInfo(selfInfoFunc, valToGet, options, cb) {
@@ -2077,11 +2499,11 @@ function returnValFromPlayerInfo(selfInfoFunc, valToGet, options, cb) {
     if (result.hasOwnProperty(valToGet)) {
       return cb(null, result[valToGet]);
     }
-    return cb(null, Boolean(false));
+    return cb(null, null);
   })
 };
 
-function SystemObj(x, y, z) { // cb/promises/squish compliant
+function SystemObj(x, y, z) {
   var self = this;
   this.coords = new CoordsObj(x, y, z);
   this.x = self.coords.x;
@@ -2237,7 +2659,7 @@ function SystemObj(x, y, z) { // cb/promises/squish compliant
   }
 };
 
-function BlueprintObj(name) { // cb/promises/squish compliant
+function BlueprintObj(name) {
   var self = this;
   this.name = name.toString(); // This will throw an error if anything given cannot be turned into a string.  This is intentional.
   // Info Methods to add:
@@ -2670,7 +3092,7 @@ function BlueprintObj(name) { // cb/promises/squish compliant
 
 };
 
-function FactionObj(number) { // cb/promises/squish compliant
+function FactionObj(number) { 
   // number is the Faction Number
   this.number = toNumIfPossible(number);
   var self = this;
@@ -2765,7 +3187,6 @@ function FactionObj(number) { // cb/promises/squish compliant
           // ; HomeBaseLocation: (-322, 13, -216);
           if (testReg.test(resultArray[i])) {
             theCoords = toStringIfPossible(resultArray[i].match(/(?<=; HomeBaseLocation: \()[-]{0,1}[0-9]+, [-]{0,1}[0-9]+, [-]{0,1}[0-9]+/));
-
             break;
           }
         }
@@ -2774,10 +3195,15 @@ function FactionObj(number) { // cb/promises/squish compliant
           // If no homebase, the coords will be 0 0 0.  It IS possible the person has actually set up a homebase at 0 0 0, so let's check for the homebaseEntityObj.. 
           return self.homeBaseEntity(options, function (err, result) {
             if (err) {
-              return cb(err, result);
+              return cb(err, null);
             }
             if (result) {
-              return cb(null, new SectorObj(...theCoordsArray)); // A homebase UID existed, so return the sector
+              try {
+                // @ts-ignore
+                return cb(null, new SectorObj(...theCoordsArray)); // A homebase UID existed, so return the sector
+              } catch (error){
+                return cb(error,null);
+              }
             }
             return cb(null, null); // No homebase existed, so return null
           })
@@ -2937,7 +3363,6 @@ function FactionObj(number) { // cb/promises/squish compliant
         if (err) {
           return cb(err, result);
         }
-        var thePlayerObj={};
         let regMatch = /^RETURN: \[SERVER, \[ADMIN COMMAND\] \[SUCCESS\].*/;
         let regRem1 = /^RETURN: \[SERVER, \[ADMIN COMMAND\] \[SUCCESS\] [^:]*: {/
         let regRem2 = /}, 0\]$/
@@ -2946,15 +3371,15 @@ function FactionObj(number) { // cb/promises/squish compliant
           var theArray = theList.split('], ');
           var outputArray = [];
           var tempNum=Number();
-          for (let i = 0;i < theArray.length;i++) {
-            thePlayerObj=new PlayerObj(theArray[i].match(/^[^=]*/).toString());
+          for (let i = 0,thePlayerObj;i < theArray.length;i++) {
+            thePlayerObj=new PlayerObj(toStringIfPossible(theArray[i].match(/^[^=]*/)));
             let rankNumberFound=theArray[i].match(/(?<=roleID=)[0-9]+/);
             tempNum=toNumIfPossible(toStringIfPossible(rankNumberFound));
             // 0 = rank 4
             // 4 = Founder
             // We need to add a number here because /faction_mod_member takes 1-5 with 5 being founder
             tempNum+=1;
-            thePlayerObj.rankRetrieved=Number(tempNum);
+            thePlayerObj["rankRetrieved"]=Number(tempNum);
             outputArray.push(thePlayerObj);
           }
           return cb(null, outputArray); // I'm guessing if a faction exists but has no members, this will output an empty array.
@@ -3065,9 +3490,18 @@ function FactionObj(number) { // cb/promises/squish compliant
   // serverMessage(MessageString,info/warning/error) - Sends a message to all online players of this faction.  If no method is specified "plain" is used, which shows up on the player's main chat.
 };
 
-function LocationObj(sector, spacial) { // cb/promises/squish compliant
+/**
+ * Used to indicate an exact location within the universe.
+ * @class
+ * @param {SectorObj|CoordsObj|Array|string} sector Accepts the same input as the first paramenter of a {@link CoordsObj}
+ * @param {CoordsObj|Array|string} spacial Accepts the same input as the first paramenter of a {@link CoordsObj}
+ * @property {SectorObj} sector The sector of the location.
+ * @property {CoordsObj} spacial The spacial coordinates within a sector.
+ * @property {SystemObj} system The system a sector is within.  This is the same as {@link SectorObj.system}
+ */
+function LocationObj(sector, spacial) { 
   // This is to store an exact location, including system, sector, and spacial coordinates.
-  var self = this; // this is needed to reference the "this" of functions in other contexts, particularly for creating promises via the outside function.  If "this" is used, the promisify function will not work correctly.
+  var self = this; // this is needed to reference the "this" of functions in other contexts, particularly for creating Promises via the outside function.  If "this" is used, the promisify function will not work correctly.
   // if (sectorObj instanceof SectorObj){
   //   self.sector=sectorObj;
   // } else if (sectorObj instanceof CoordsObj){
@@ -3075,18 +3509,29 @@ function LocationObj(sector, spacial) { // cb/promises/squish compliant
   // } else {
   //   self.sector=new SectorObj(sectorObj);
   // }
-  self.sector = new SectorObj(sector); // This will take any input a CoordObj can take, including another SectorObj
+  this.sector = new SectorObj(sector); // This will take any input a CoordObj can take, including another SectorObj
   // if (coordsObj instanceof CoordsObj){
   //   self.spacial=coordsObj;
   // } else {
   //   self.spacial=new CoordsObj(coordsObj); // This will throw an error if invalid input
   // }
-  self.spacial = new CoordsObj(spacial); // This will throw an error if invalid input
-  self.system = self.sector.system;
+  this.spacial = new CoordsObj(spacial); // This will throw an error if invalid input
+  this.system = self.sector.system;
 };
 
-function SectorObj(x, y, z) { // cb/promises/squish compliant
-  var self = this; // this is needed to reference the "this" of functions in other contexts, particularly for creating promises via the outside function.  If "this" is used, the promisify function will not work correctly.
+/**
+ * Represents a sector within the universe, utilizing x,y,z notation.
+ * @class
+ * @param {number|string|Array|SectorObj|CoordsObj} x Accepts a wide variety of inputs.  If using a string or array, there should be 3 numbers or strings that can be cooerced into numbers. Eg. [1,2,3]  A string can have values separated by spaces or commas. Example: "1,2,3" or "1 2 3"
+ * @param {*} [y] Required if x was a single digit.
+ * @param {*} [z] Required if x was a single digit.
+ * @property {number} x Represents the x digit.
+ * @property {number} y Represents the y digit.
+ * @property {number} z Represents the z digit.
+ * @property {CoordsObj} x An infinite recursion into to other CoordsObj.
+ */
+function SectorObj(x, y, z) { 
+  var self = this; // this is needed to reference the "this" of functions in other contexts, particularly for creating Promises via the outside function.  If "this" is used, the promisify function will not work correctly.
   // TODO: Add Info methods:
   // getSystem - Returns a SystemObj
 
@@ -3122,15 +3567,15 @@ function SectorObj(x, y, z) { // cb/promises/squish compliant
 
 
   var theCoordsObj = new CoordsObj(x, y, z); // This will handle any conversions needed of various inputs, either strings of x y z, Array of coordinates, other sector or coords objects, etc.
-  self.x = theCoordsObj.x;
-  self.y = theCoordsObj.y;
-  self.z = theCoordsObj.z;
+  this.x = theCoordsObj.x;
+  this.y = theCoordsObj.y;
+  this.z = theCoordsObj.z;
   // Only if this is valid should we proceed.
   if (typeof self.x == "number" && typeof self.y == "number" && typeof self.z == "number") {
     // TODO: add a .system method
-    self.coords = theCoordsObj;
-    self.system = convertSectorToSystem(self.coords);
-    self.clearMines = function (options, cb) {
+    this.coords = theCoordsObj;
+    this.system = convertSectorToSystem(self.coords);
+    this.clearMines = function (options, cb) {
       // RETURN: [SERVER, Mines cleared in 2, 2, 2!, 0]
       if (typeof cb == "function") {
         return runSimpleCommand("/clear_mines_sector " + self.coords.toString(), options, cb);
@@ -3138,7 +3583,7 @@ function SectorObj(x, y, z) { // cb/promises/squish compliant
         return simplePromisifyIt(self.clearMines, options);
       }
     }
-    self.clearOverheating = function (options, cb) {
+    this.clearOverheating = function (options, cb) {
       // Will error and return false if the sector is unloaded.
       if (typeof cb == "function") {
         return runSimpleCommand("/clear_overheating_sector " + self.coords.toString(), options, cb);
@@ -3146,7 +3591,7 @@ function SectorObj(x, y, z) { // cb/promises/squish compliant
         return simplePromisifyIt(self.clearOverheating, options);
       }
     }
-    self.despawn = function (partOfShipName, used, shipOnly, options, cb) {
+    this.despawn = function (partOfShipName, used, shipOnly, options, cb) {
       // /despawn_sector
       // EXAMPLE: /despawn_sector MOB_ unused true 2 2 2
       // Will error and return false if the sector is unloaded.
@@ -3171,7 +3616,7 @@ function SectorObj(x, y, z) { // cb/promises/squish compliant
       }
       return simplePromisifyIt(self.despawn, options, partOfShipName, used, shipOnly);
     }
-    self.isLoaded = function (options, cb) {
+    this.isLoaded = function (options, cb) {
       // ^RETURN\: \[SERVER, LOADED SECTOR INFO\:
       // RETURN: [SERVER, LOADED SECTOR INFO: Sector[132](2, 2, 2); Permission[Peace,Protected,NoEnter,NoExit,NoIndication,NoFpLoss]: 000000; Seed: -4197430019395025102; Type: VOID;, 0]
       if (typeof cb == "function") {
@@ -3185,7 +3630,7 @@ function SectorObj(x, y, z) { // cb/promises/squish compliant
       }
       return simplePromisifyIt(self.isLoaded, options);
     }
-    self.importSector = function (sectorExport, options, cb) {
+    this.importSector = function (sectorExport, options, cb) {
       // /import_sector
       // DESCRIPTION: make sure that the target sector is unloaded
       // PARAMETERS: toX(Integer), toY(Integer), toZ(Integer), name(String)
@@ -3203,7 +3648,7 @@ function SectorObj(x, y, z) { // cb/promises/squish compliant
           if (!(/\.smsec$/i).test(sectorExportFile)) {
             sectorExportFile += ".smsec";
           }
-          var exportFolder = path.join(global.starMadeInstallFolder, "sector-export/");
+          var exportFolder = path.join(installObj.path,"StarMade","sector-export/");
           var sectorExportFilePath = path.join(exportFolder, sectorExportFile);
           // StarMade seems to behave in a case insensitive way on windows, but case sensitive on linux and probably mac
           var theTest = false;
@@ -3235,7 +3680,7 @@ function SectorObj(x, y, z) { // cb/promises/squish compliant
       }
       return simplePromisifyIt(self.importSector, options, sectorExport);
     }
-    self.exportSector = function (sectorExport, options, cb) {
+    this.exportSector = function (sectorExport, options, cb) {
       // Will not give any error whether it did anything or not, unless parameters are incorrect
       if (typeof cb == "function") {
         var sectorExportToUse = toStringIfPossible(sectorExport);
@@ -3246,7 +3691,7 @@ function SectorObj(x, y, z) { // cb/promises/squish compliant
       }
       return simplePromisifyIt(self.exportSector, options);
     }
-    self.populate = function (options, cb) {
+    this.populate = function (options, cb) {
       // Will not give any error whether it did anything or not, unless parameters are incorrect
       // DESCRIPTION: WARNING: this will populate the sector. Use this as a reset after using /despawn_sector!
       if (typeof cb == "function") {
@@ -3254,7 +3699,7 @@ function SectorObj(x, y, z) { // cb/promises/squish compliant
       }
       return simplePromisifyIt(self.populate, options);
     }
-    self.repair = function (options, cb) {
+    this.repair = function (options, cb) {
       // WARNING - I think this is broken via StarNet.jar or through the console.  It ALWAYS gives the following error:
       // RETURN: [SERVER, [ADMIN COMMAND] [ERROR] player not found for your client, 0]
       // DESCRIPTION: attempts to correct the regitry of the sector
@@ -3268,7 +3713,7 @@ function SectorObj(x, y, z) { // cb/promises/squish compliant
 
 
 
-    self.spawnEntity = function (blueprintObj, shipName, factionNum, aiActiveBoolean, options, cb) {
+    this.spawnEntity = function (blueprintObj, shipName, factionNum, aiActiveBoolean, options, cb) {
       // factionNum and aiActive are optional
       // factionNum can be a faction object.
       if (typeof cb == "function") {
@@ -3309,14 +3754,14 @@ function SectorObj(x, y, z) { // cb/promises/squish compliant
 
 
     // Below needs to be brought up to the current standard of true=success,false=fail, throw error on connection problem.
-    self.load = function (options, cb) {
+    this.load = function (options, cb) {
       // This returns "true" if the command ran, false for anything else, such as if the server was down.
       if (typeof cb == "function") {
         return runSimpleCommand("/load_sector_range " + self.coords.toString() + " " + self.coords.toString(), options, cb);
       }
       return simplePromisifyIt(self.load, options);
     };
-    self.setChmod = function (val, options, cb) { // val should be a string or an array of strings.
+    this.setChmod = function (val, options, cb) { // val should be a string or an array of strings.
       // This will return true if it was a success, false otherwise.
       // Example vals:  "+ peace" or "- protected" <-- the space is required!
       if (typeof cb == "function") {
@@ -3349,7 +3794,7 @@ function SectorObj(x, y, z) { // cb/promises/squish compliant
       }
       return simplePromisifyIt(self.setChmod, options, val);
     };
-    self.getChmodNum = function (options, cb) {
+    this.getChmodNum = function (options, cb) {
       // This really should do a force save before pulling the values.. wish there was a way to do it silently..
       if (typeof cb == "function") {
         var theQuery = "SELECT PROTECTION FROM PUBLIC.SECTORS WHERE X=" + self.coords.x + " AND Y=" + self.coords.y + " AND Z=" + self.coords.x + ";";
@@ -3369,7 +3814,7 @@ function SectorObj(x, y, z) { // cb/promises/squish compliant
       }
       return simplePromisifyIt(self.getChmodNum, options);
     };
-    self.getChmodArray = function (options, cb) {
+    this.getChmodArray = function (options, cb) {
       // This really should do a force save before pulling the values.. wish there was a way to do it silently..
       if (typeof cb == "function") {
         return self.getChmodNum(options, function (err, result) {
@@ -3382,7 +3827,7 @@ function SectorObj(x, y, z) { // cb/promises/squish compliant
       return simplePromisifyIt(self.getChmodArray, options);
     };
 
-    self.setChmodNum = function (newNum, options, cb) { // Only has 1 option, which is to do a forcesave and then intelligently add/remove chmod values rather than the default of bruteforcing adding all needed and removing all unneeded.
+    this.setChmodNum = function (newNum, options, cb) { // Only has 1 option, which is to do a forcesave and then intelligently add/remove chmod values rather than the default of bruteforcing adding all needed and removing all unneeded.
       if (typeof cb == "function") {
         var theNumToUse = toNumIfPossible(newNum);
         if (typeof theNumToUse == "number") {
@@ -3418,7 +3863,7 @@ function SectorObj(x, y, z) { // cb/promises/squish compliant
 
 
 
-    self.listEntityUIDs = function (filter, options, cb) {
+    this.listEntityUIDs = function (filter, options, cb) {
       // If a filter is provided, it should include the FULL UID, including for example "ENTITY_SHIP_", unless type is given to options.
       // Options: { "type":["ship","station","shop","asteroid","creature","planet","player"] }
       // If a type is given, the filter will be placed AFTER the ENTITY_SHIP_, ENTITY_SHOP_,etc.
@@ -3429,30 +3874,30 @@ function SectorObj(x, y, z) { // cb/promises/squish compliant
       return simplePromisifyIt(self.listEntityUIDs, options, filter);
     };
 
-    self.listShipUIDs = function (filter, options, cb) {
+    this.listShipUIDs = function (filter, options, cb) {
       return self.listEntityUIDs(filter, addOption(options, "type", "ship"), cb); // handles promises
     };
-    self.listStationUIDs = function (filter, options, cb) {
+    this.listStationUIDs = function (filter, options, cb) {
       return self.listEntityUIDs(filter, addOption(options, "type", "station"), cb); // handles promises
     };
-    self.listShopUIDs = function (filter, options, cb) {
+    this.listShopUIDs = function (filter, options, cb) {
       return self.listEntityUIDs(filter, addOption(options, "type", "shop"), cb); // handles promises
     };
-    self.listCreatureUIDs = function (filter, options, cb) {
+    this.listCreatureUIDs = function (filter, options, cb) {
       return self.listEntityUIDs(filter, addOption(options, "type", "creature"), cb); // handles promises
     };
-    self.listAsteroidUIDs = function (filter, options, cb) {
+    this.listAsteroidUIDs = function (filter, options, cb) {
       return self.listEntityUIDs(filter, addOption(options, "type", "asteroid"), cb); // handles promises
     };
-    self.listPlanetUIDs = function (filter, options, cb) {
+    this.listPlanetUIDs = function (filter, options, cb) {
       return self.listEntityUIDs(filter, addOption(options, "type", "planet"), cb); // handles promises
     };
-    self.listPlayerUIDs = function (filter, options, cb) {
+    this.listPlayerUIDs = function (filter, options, cb) {
       return self.listEntityUIDs(filter, addOption(options, "type", "player"), cb); // handles promises
     };
 
 
-    self.entities = function (filter, options, cb) {
+    this.entities = function (filter, options, cb) {
       // "filter" is optional, it should look something like this "(ENTITY_SHIP_|ENTITY_CREATURE_)".  This will return all ships and creatures.
       // "options" are simply forwarded to the listEntityUIDs method and are also optional
       if (typeof cb == "function") {
@@ -3501,42 +3946,44 @@ function SectorObj(x, y, z) { // cb/promises/squish compliant
       }
       return simplePromisifyIt(self.entities, options, filter);
     };
-    self.ships = function (filter, options, cb) { // filter should be a string.  Can be a RegExp pattern.
+    this.ships = function (filter, options, cb) { // filter should be a string.  Can be a RegExp pattern.
       return self.entities(filter, addOption(options, "type", "ship"), cb); // handles promises
     };
-    self.stations = function (filter, options, cb) {
+    this.stations = function (filter, options, cb) {
       return self.entities(filter, addOption(options, "type", "station"), cb); // handles promises
     };
-    self.shops = function (filter, options, cb) {
+    this.shops = function (filter, options, cb) {
       return self.entities(filter, addOption(options, "type", "shop"), cb); // handles promises
     };
-    self.creatures = function (filter, options, cb) { // This includes NPC's, spiders, hoppies, or custom creations
+    this.creatures = function (filter, options, cb) { // This includes NPC's, spiders, hoppies, or custom creations
       return self.entities(filter, addOption(options, "type", "creature"), cb); // handles promises
     };
-    self.asteroids = function (filter, options, cb) { // TODO: Consider creating an AsteroidObj as opposed to entity if there are commands that won't work correctly with them
+    this.asteroids = function (filter, options, cb) { // TODO: Consider creating an AsteroidObj as opposed to entity if there are commands that won't work correctly with them
       return self.entities(filter, addOption(options, "type", "asteroid"), cb); // handles promises
     };
-    self.planets = function (filter, options, cb) { // TODO: Consider creating an PlanetObj as opposed to entity if there are commands that won't work correctly with them
+    this.planets = function (filter, options, cb) { // TODO: Consider creating an PlanetObj as opposed to entity if there are commands that won't work correctly with them
       return self.entities(filter, addOption(options, "type", "planet"), cb); // handles promises
     };
-    self.players = function (filter, options, cb) {
+    this.players = function (filter, options, cb) {
       return self.entities(filter, addOption(options, "type", "player"), cb); // handles promises
     };
-    // This can be expanded to allow storing information, such as a description, if more than values than expected are given to the constructor
-    if (arguments.length > SectorObj.length) {
-      var extraInfoArray = [];
-      for (let i = SectorObj.length - 1;i < arguments.length;i++) {
-        extraInfoArray.push(arguments[i]);
-      }
-      self.extraInfo = extraInfoArray;
-    }
-    // self.toString=function(){ return self.coords.toString() }; // We don't want to set this here because then it shows up as a key.  Instead we set up the prototype at the top of the script.
   } else {
     throw new Error("ERROR: Invalid values given to SectorObj constructor!");
   }
 };
 
-function CoordsObj(x, y, z) { // cb/promises/squish compliant
+/**
+ * A set of three digits, which typically represents coordinates on a 3d plane.  This object is typically used for spacial coordinates within a sector or relative coordinates to a ship core or starter block on a station.
+ * @class
+ * @param {number|string|Array|SectorObj|CoordsObj} x Accepts a wide variety of inputs.  If using a string or array, there should be 3 numbers or strings that can be cooerced into numbers. Eg. [1,2,3]  A string can have values separated by spaces or commas. Example: "1,2,3" or "1 2 3"
+ * @param {*} [y] Required if x was a single digit.
+ * @param {*} [z] Required if x was a single digit.
+ * @property {number} x Represents the x digit.
+ * @property {number} y Represents the y digit.
+ * @property {number} z Represents the z digit.
+ * @property {CoordsObj} x An infinite recursion into itself.  This is used to ensure similar typed objects can be converted to CoordsObj without issues.
+ */
+function CoordsObj(x, y, z) { 
   // x can be a string or space or comma separated numbers, coordsObj, or a sectorObj
   // test to ensure string, array, CoordsObj, SectorObj, and regular numbers/strings(which are numbers) works.
   var self = this; // this is needed to reference the "this" of functions in other contexts, particularly for creating promises via the outside function.  If "this" is used, the promisify function will not work correctly.
@@ -3552,10 +3999,10 @@ function CoordsObj(x, y, z) { // cb/promises/squish compliant
     zToUse = zToTry;
   } else if (typeof x == "string" && typeof yToTry == "undefined") { // This handles coords with spaces or commas
     var tempArray = [];
-    if (x.indexOf(",") > "-1") { // comma separated values
+    if ((/,/).test(x)) { // comma separated values
       tempArray = x.split(",");
-    } else if (x.indexOf(" ") > "-1") {
-      tempArray = x.split(" "); // space separated values
+    } else if ((/ /).test(x)) { // space separated values
+      tempArray = x.split(" "); 
     } else {
       throw new Error("Invalid string given as input to CoordsObj: " + xToTry);
     }
@@ -3564,61 +4011,47 @@ function CoordsObj(x, y, z) { // cb/promises/squish compliant
       yToUse = objectHelper.toNumIfPossible(tempArray[1].trim());
       zToUse = objectHelper.toNumIfPossible(tempArray[2].trim());
     } else {
-      thisConsole.error("Invalid amount of numbers given as string to CoordsObj. (" + tempArray.length + "): " + x);
-      throw new Error("Invalid amount of numbers given as string to CoordsObj.");
+      throw new Error(`Invalid amount of numbers given as string to CoordsObj. Array Length: ${tempArray.length}`);
     }
-  } else if (typeof x == "object") { // This handles arrays or other objects
-    if (objectHelper.getObjType(x) == "Array") {
-      if (x.length == 3) {
-        if (typeof x[0] == "number") { // This is necessary because .trim() will throw an error if attempted on a number
-          xToUse = x[0];
-        } else {
-          xToUse = objectHelper.toNumIfPossible(x[0].trim());
-        }
-        if (typeof x[1] == "number") {
-          yToUse = x[1];
-        } else {
-          yToUse = objectHelper.toNumIfPossible(x[1].trim());
-        }
-        if (typeof x[2] == "number") {
-          zToUse = x[2];
-        } else {
-          zToUse = objectHelper.toNumIfPossible(x[2].trim());
-        }
+  } else if (Array.isArray(x)) { // Arrays
+    if (x.length == 3) {
+      if (typeof x[0] == "number") { // This is necessary because .trim() will throw an error if attempted on a number
+        xToUse = x[0];
       } else {
-        var errMsgObj = new Error("Invalid number of values given in array to CoordsObj (" + xToTry.length + "): " + xToTry);
-        throw errMsgObj;
+        xToUse = objectHelper.toNumIfPossible(x[0].trim());
       }
-    } else if (objectHelper.getObjType(x) == "CoordsObj" || objectHelper.getObjType(x) == "SectorObj") {
-      var coordArrayTemp = x.toArray();
-      xToUse = coordArrayTemp[0];
-      yToUse = coordArrayTemp[1];
-      zToUse = coordArrayTemp[2];
+      if (typeof x[1] == "number") {
+        yToUse = x[1];
+      } else {
+        yToUse = objectHelper.toNumIfPossible(x[1].trim());
+      }
+      if (typeof x[2] == "number") {
+        zToUse = x[2];
+      } else {
+        zToUse = objectHelper.toNumIfPossible(x[2].trim());
+      }
     } else {
-      throw new Error("Invalid object input given to CoordsObj: " + xToTry);
+      var errMsgObj = new Error("Invalid number of values given in array to CoordsObj (" + xToTry.length + "): " + xToTry);
+      throw errMsgObj;
     }
+  } else if (x instanceof CoordsObj || x instanceof SectorObj) {
+    var coordArrayTemp = x.toArray();
+    xToUse = coordArrayTemp[0];
+    yToUse = coordArrayTemp[1];
+    zToUse = coordArrayTemp[2];
+  } else {
+    throw new Error("Invalid object input given to CoordsObj: " + xToTry);
   }
   if (typeof xToUse != "number" || typeof yToUse != "number" || typeof zToUse != "number") {
     thisConsole.error("Invalid coords input given to new CoordsObj: " + xToUse + " " + yToUse + " " + zToUse);
     throw new Error("Invalid coords input given to new CoordsObj: " + xToUse + " " + yToUse + " " + zToUse);
   }
-  self.x = xToUse;
-  self.y = yToUse;
-  self.z = zToUse;
-  self.coords = function () {
+  this.x = xToUse;
+  this.y = yToUse;
+  this.z = zToUse;
+  this.coords = function () {
     return new CoordsObj(self.x, self.y, self.z)
   }; // This is to allow a sectorObj to gracefully morph into a CoordsObj and for a CoordsObj to be duplicated and then possibly modified.
-
-
-  // This can be expanded to allow storing information, such as a description, if more than values than expected are given to the constructor
-  if (arguments.length > CoordsObj.length) { // the CoordsObj.length gets the number of expected input vars
-    var extraInfoArray = [];
-    for (let i = CoordsObj.length - 1;i < arguments.length;i++) {
-      extraInfoArray.push(arguments[i]);
-    }
-    self.extraInfo = extraInfoArray;
-  }
-  // self.toString=function(){ return self.string };
 };
 
 function CreatureObj(fullUID) { // Not usable right now since there are no creature commands that accept UID inputs
@@ -3632,7 +4065,7 @@ function CreatureObj(fullUID) { // Not usable right now since there are no creat
 function EntityObj(fullUID) { // cb/promises/squish compliant
   // TODO: Make this the basis for CreatureObj, ShipObj, StationObj, etc., for which each object extends from this, adding commands that work for that object type.
 
-  // TODO:  Make this ONLY ACCEPT fullUID - figure out which events only give an entity name and change it to return a promise that returns an EntityObj instead.
+  // TODO:  Make this ONLY ACCEPT fullUID - figure out which events only give an entity name and change it to return a Promise that returns an EntityObj instead.
   // takes EITHER the full UID or the ship name.  If a ship name is provided, it will look up the full UID via a StarNet.jar command.
   var self = this; // this is needed to reference the "this" of functions in other contexts, particularly for creating promises via the outside function.  If "this" is used, the promisify function will not work correctly.
 
@@ -3717,7 +4150,7 @@ function EntityObj(fullUID) { // cb/promises/squish compliant
             var slot = Number();
             var returnArray = []; // This will be returned with an array of itemObjects
             var itemObj = {};
-            for (let i = 0;i < resultArray.length;i++) {
+            for (let i = 0,itemObj={};i < resultArray.length;i++) {
               if ((/^\[ADMIN COMMAND\] \[ERROR\] No inventory found.*/).test(resultArray[i])) {
                 return cb(false, "noInventoryFound");
               } else if ((/^\[ADMIN COMMAND\] \[ERROR\] No Entity found.*/).test(resultArray[i])) {
@@ -3728,19 +4161,19 @@ function EntityObj(fullUID) { // cb/promises/squish compliant
                   slot = toNumIfPossible(resultArray[i].match(/(?<= {2}SLOT: )[^;]+/)); // Set the slot for the next line.
                   // Skip adding to the array. We are interested in the blocks that are actually within the multi-block, not the multi-block itself.
                 } else {
-                  itemObj = {}; // Reset the itemObj
+                  // itemObj = {}; // Reset the itemObj
                   // We will be adding an entry to the array here, but may or may not be adding subSlot data
                   if ((/: - SLOT: [0-9]+;/).test(resultArray[i])) { // Are are looking at a multi-slot item?
-                    itemObj.multi = true; // Indicate it is part of a multi-block
-                    itemObj.slot = slot; // Use the slot number previously set
-                    itemObj.subSlot = toNumIfPossible(resultArray[i].match(/(?<= - SLOT: )[^;]+/));
+                    itemObj["multi"] = true; // Indicate it is part of a multi-block
+                    itemObj["slot"] = slot; // Use the slot number previously set
+                    itemObj["subSlot"] = toNumIfPossible(resultArray[i].match(/(?<= - SLOT: )[^;]+/));
                   } else { // For multi-slot items, multi will remain true till we reach an item that is not a multi slot
-                    itemObj.multi = false;
-                    itemObj.slot = toNumIfPossible(resultArray[i].match(/(?<= {2}SLOT: )[^;]+/));
+                    itemObj["multi"] = false;
+                    itemObj["slot"] = toNumIfPossible(resultArray[i].match(/(?<= {2}SLOT: )[^;]+/));
                   }
-                  itemObj.type = toNumIfPossible(resultArray[i].match(/(?<=; TYPE: )[^;]+/));
-                  itemObj.count = toNumIfPossible(resultArray[i].match(/(?<=; COUNT: )[0-9]+/));
-                  itemObj.meta = toNumIfPossible(resultArray[i].match(/(?<=; META: )[^;]+/));
+                  itemObj["type"] = toNumIfPossible(resultArray[i].match(/(?<=; TYPE: )[^;]+/));
+                  itemObj["count"] = toNumIfPossible(resultArray[i].match(/(?<=; COUNT: )[0-9]+/));
+                  itemObj["meta"] = toNumIfPossible(resultArray[i].match(/(?<=; META: )[^;]+/));
                   returnArray.push(itemObj);
                 }
               }
@@ -4157,8 +4590,9 @@ function EntityObj(fullUID) { // cb/promises/squish compliant
       if (typeof cb == "function") {
         return starNet.getEntityValue(self.fullUID, "Local-Pos", options, function (err, result) {
           if (err) {
-            return cb(err, result);
+            return cb(err, null);
           } else if (result) {
+            // @ts-ignore
             return cb(null, new CoordsObj(...result));
           } else {
             return cb(null, result);
@@ -4193,6 +4627,7 @@ function EntityObj(fullUID) { // cb/promises/squish compliant
           if (err) {
             return cb(err, result);
           } else if (result) {
+            // @ts-ignore
             return cb(null, new CoordsObj(...result));
           } else {
             return cb(null, result);
@@ -4207,6 +4642,7 @@ function EntityObj(fullUID) { // cb/promises/squish compliant
           if (err) {
             return cb(err, result);
           } else if (result) {
+            // @ts-ignore
             return cb(null, new CoordsObj(...result));
           } else {
             return cb(null, result);
@@ -4277,7 +4713,7 @@ function EntityObj(fullUID) { // cb/promises/squish compliant
             if (result != "-1") {
               var dockedTo = result[0]["DOCKED_TO"];
               if (dockedTo == "-1"){
-                return (null,null); // entity is not docked
+                return cb(null,null); // entity is not docked
               } else {
                 return simpleSqlQuery(`SELECT UID,TYPE FROM PUBLIC.ENTITIES WHERE ID='${dockedTo}'`, options, function (err, result) {
                   if (err) {
@@ -4532,7 +4968,7 @@ function createDateObjIfPossible(input) { // Takes either a date string that "ne
 function decodeChmodNum(num) { // runs as Sync
   // A number should be provided, but a number as a string should be coerced into a number.
   // This converts a chmod number value from a sql query to an array of strings, such as ["peace","protected","noindications"].  Values are always returned in an array, even if only a single protection is in the number.  A 0 number will return an empty array.
-  var theNum = toNum(num);
+  var theNum = toNumIfPossible(num);
   if (typeof theNum == "number") {
     var returnArray = [];
     var numberOfProtections = sectorProtectionsArray.length;
@@ -4770,7 +5206,7 @@ function returnEntityUIDList(coords, beginFilter, options, cb) {
     if (checkFaction !== false) {
       var factionRegExp = new RegExp("faction=" + options["factionFilter"] + ",");
     }
-    var checkIfTouched = trueOrFalse(getOption(options, "touchedFilter", "false24352345345234534"));
+    var checkIfTouched = toTrueOrFalseIfPossible(getOption(options, "touchedFilter", "false24352345345234534"));
     if (checkIfTouched !== "false24352345345234534") {
       var touchedRegExp;
       if (checkIfTouched == true) {
@@ -5036,7 +5472,7 @@ function getAdminsList(options, cb) { // TODO:  Test this.. there are 4 ways of 
     var remReg = /^RETURN: \[SERVER, Admins: {/;
     var remReg2 = /}, 0\]$/;
     var processLine;
-    var processArray = []; // Note:  I have no idea if this will work as a callback function converted to a promise with this sync in here.
+    var processArray = []; // Note:  I have no idea if this will work as a callback function converted to a Promise with this sync in here.
     var adminsTxtFile = path.join(serverObj.starMadeInstallFolder, "admins.txt");
     var adminFileContentsArray = [];
     var outputArray = [];
@@ -5251,6 +5687,7 @@ function isIPBanned(ip, options, cb) {
 // TODO: Create a function that converts an array of protection names to a total number
 
 function getPlayerSpawnLocationFromResults(result) { // sync function
+  // TODO:  Fix this so it  handles spawn locations that are tied to specific UID's.  In this instance it should return {entity:EntityObj,localCoords:CoordsObj}
   // RETURN: [SERVER, [ADMINCOMMAND][SPAWN][SUCCESS] PlS[Benevolent27 ; id(2)(1)f(10002)] spawn currently absolute; sector: (2, 2, 2); local position: (8.0, -6.5, 0.0), 0]
   // RETURN: [SERVER, END; Admin command execution ended, 0]
 
@@ -5274,7 +5711,7 @@ split(", "); // Supports scientific e notation, which is used sometimes for spac
   }
   // If failed, the player is offline:
   // RETURN: [SERVER, [ADMINCOMMAND][SPAWN] Player not found, 0]
-  return false; // The player must have been offline.
+  return null; // The player must have been offline.
 }
 function getPlayerSpawnLocation(player, options, cb) {
   if (typeof cb == "function") {
@@ -5312,7 +5749,7 @@ function getSysCoordFromSector(input) {
       if (theInput >= 0) {
         // Positive numbers need an offset of 1 because -1 is in -1 system, except where the value is divisible by 16, whereas 1 is in 0 system.
         // thisConsole.log("theInput%16: " + theInput%16);
-        if (theInput % 16 == "0") {
+        if (theInput % 16 == 0) {
           return Math.floor(theInput / 16);
         } else {
           // thisConsole.log("theInput/16: " + theInput/16);
