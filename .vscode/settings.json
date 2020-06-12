@@ -1,0 +1,6 @@
+{
+  "vsintellicode.features.python.deepLearning": "enabled",
+  "npm-intellisense.importES6": false,
+  "npm-intellisense.packageSubfoldersIntellisense": true,
+  "javascript.implicitProjectConfig.checkJs": true
+}
