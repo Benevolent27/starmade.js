@@ -12,15 +12,15 @@
 module.exports={ // Always put module.exports at the top so circular dependencies work correctly.
   // init, // This is needed so objects can send text directly to the server
   RemoteServerObj,
-  CustomConsole,
-  CustomLog,
+  customConsole,
+  customLog,
   regConstructor, // Allows outside scripts to register new functions for use with squish/unsquish
   deregAllConstructors, // Deregisters constructors registered by mods
   deregConstructor, // Deregisters a specific constructor added by a mod
   squish,
   unSquish,
   isSquishable,
-  CustomEvent
+  customEvent
 }
 
 // Requires
@@ -282,7 +282,7 @@ function SquishedObj(inputObj,objType,objCreationArray){ // Change this to take 
 }
 
 
-function CustomEvent(options){
+function customEvent(options){
   // The purpose of this object is to allow reloading of scripts by deleting their require cache.  One important part of that is removing any event listners without removing listeners created by the wrapper or other scripts.
   // So, here we can create a "master custom event" and from that produce one or more "spawn" event emitter.
   // For each spawn event-emitter, when listeners are registered, a cache is built.  When listeners are removed it only removes one ones registered to that specific spawn event-emitter.
@@ -443,7 +443,7 @@ function CustomEvent(options){
   return newEventCopy; // This is the master event, but we can get a spawn if we'd like.  Anything we do here will affect all spawns.
 }
 
-function CustomLog(inputPath,options){
+function customLog(inputPath,options){
   var logsFolder = path.join(inputPath, "logs");
   ensureFolderExists(logsFolder); // Creates the directory
   var logFileName = getSimpleDate() + ".log";
@@ -472,10 +472,10 @@ function CustomLog(inputPath,options){
   }
 }
 
-function CustomConsole(consoleName,options){
+function customConsole(consoleName,options){
   
   if (typeof consoleName != "string" || consoleName == ""){
-    throw new Error("Invalid input given to CustomConsole!  Requires a string!");
+    throw new Error("Invalid input given to customConsole!  Requires a string!");
   }
   console.log(`Creating new custom console, '${consoleName}'.`);
   var invincible=Boolean(getOption(options,"invincible",false)); // converts a string to boolean
@@ -503,7 +503,7 @@ function CustomConsole(consoleName,options){
   });
   if (!invincible){ // Only listen for the unload if it is not invincible
     global.event.on("unloadMods",function(){ // This will require the customConsole obj be recreated to be usable.
-      // This is done to clear memory for mods that utilize a CustomConsole
+      // This is done to clear memory for mods that utilize a customConsole
       if (global["consoles"].hasOwnProperty(consoleName)){
         delete global["consoles"][consoleName];
       }

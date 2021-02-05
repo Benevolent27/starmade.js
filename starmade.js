@@ -64,15 +64,15 @@ console.log("Importing bin scripts..");
 const miscHelpers = require(path.join(binFolder, "miscHelpers.js"));
 const requireBin = miscHelpers["requireBin"]; // Simplifies requiring scripts from the bin folder..yes I am this lazy.
 global["miscHelpers"] = miscHelpers;
-global["requireBin"] = requireBin;
+global["requireBin"] = requireBin; // Obsoleting in favor of static requires.  May still be useful for servers
 
-var objectCreator = requireBin("objectCreator.js"); // These are ONLY wrapper objects, NOT server objects, which is very limited.  Right now it might only include an object for the StarMade server list.
-const installAndRequire = requireBin("installAndRequire.js"); // This is used to install missing NPM modules and then require them without messing up the require cache with modules not found (which blocks requiring them till an app restart).
-const sleepSync = requireBin("mySleep.js").softSleep; // Only accurate for 100ms or higher wait times.
-const sleepPromise = requireBin("mySleep.js").sleepPromise;
-const ini = requireBin("iniHelper.js"); // This will replace the current functionality of ini by wrapping it and modifying the ini package so that it works correctly for starmade config files and ini files that use # characters.
-const objectHelper = requireBin("objectHelper.js"); // This includes assistance handling of custom objects and conversions
-const regExpHelper = requireBin("regExpHelper.js"); // Contains common patterns, arrays, and pattern functions needed for the wrapper.
+var objectCreator = require("./bin/objectCreator.js"); // These are ONLY wrapper objects, NOT server objects, which is very limited.  Right now it might only include an object for the StarMade server list.
+const installAndRequire = require("./bin/installAndRequire.js"); // This is used to install missing NPM modules and then require them without messing up the require cache with modules not found (which blocks requiring them till an app restart).
+const sleepSync = require("./bin/mySleep.js").softSleep; // Only accurate for 100ms or higher wait times.
+const sleepPromise = require("./bin/mySleep.js").sleepPromise;
+const ini = require("./bin/iniHelper.js"); // This will replace the current functionality of ini by wrapping it and modifying the ini package so that it works correctly for starmade config files and ini files that use # characters.
+const objectHelper = require("./bin/objectHelper.js"); // This includes assistance handling of custom objects and conversions
+const regExpHelper = require("./bin/regExpHelper.js"); // Contains common patterns, arrays, and pattern functions needed for the wrapper.
 global["objectCreator"] = objectCreator;
 global["installAndRequire"] = installAndRequire;
 global["sleep"] = sleepPromise;
@@ -139,7 +139,7 @@ var {
   getParamNames,
   getOption
 } = objectHelper;
-var {CustomEvent,CustomConsole,CustomLog} = objectCreator;
+var {customEvent,customConsole,customLog} = objectCreator;
 
 
 // ######################
@@ -150,41 +150,16 @@ var {CustomEvent,CustomConsole,CustomLog} = objectCreator;
 
 
 
-var globalEventUnmodified=new CustomEvent(); // Events registered here will not be affected if global["event"].removeAllListeners() is called (for example, if reloading wrapper mods)
-global["event"]=globalEventUnmodified.spawn(); // This can be cleared independently from any of the globalEvent for installs
-// Above replaces below.
-
-// const EventEmitter = require('events');
-// class Event extends EventEmitter {};
-// global["event"]=getNewModifiedWrapperEvent(); 
-// var globalEventUnmodified=global["event"].unmodifiedEvent;
-// Above This replaces below.
-
-// var globalEventUnmodified = new Event(); // This is for custom global events
-// global["event"] = objectHelper.copyObj(globalEventUnmodified); // This is a modified event handler that records when event listeners are set.  This allows unsetting the listeners which were added by mods later and then re-initializing the mods by also deleting their require caches and re-requiring them.
-// global["event"]["on"] = function (eventName, theFunction) {
-//   addEventListenerToRemoveOnModReload(eventName, theFunction);
-//   return globalEventUnmodified.on(eventName, theFunction);
-// }
-// global["event"]["once"] = function (eventName, theFunction) {
-//   addEventListenerToRemoveOnModReload(eventName, theFunction);
-//   return globalEventUnmodified.once(eventName, theFunction);
-// }
+var globalEventUnmodified=customEvent(); // Events registered here will not be affected if global["event"].removeAllListeners() is called (for example, if reloading wrapper mods)
+global["event"]=globalEventUnmodified.spawn();; // This can be cleared independently from any of the globalEvent for installs
 var eventListenersToRemoveOnReload = []; // When a global call to reload mods happens, this array will be cycled through to remove the listeners one by one.
-// function addEventListenerToRemoveOnModReload(eventName, eventFunction) { // TODO: Change this so it organizes things based on install, so event listeners can be reloaded for specific installs.
-//   var theObj = {};
-//   theObj[eventName] = eventFunction;
-//   eventListenersToRemoveOnReload.push(theObj);
-// }
-
-
 
 
 // #####################
 // ###    SETTINGS   ###
 // #####################
 
-var dummySettings = {
+var dummySettings = { // example of settings
   // These settings will over-ride any settings for individual servers
   showStderr: null, // If no true or false value set, the server specific setting will be used
   stderrFilter: null,
@@ -235,7 +210,7 @@ global["unloadServerMods"]=unloadServerMods;
 global["reloadServerMods"]=reloadAllServerMods;
 
 
-var mainConsole=new CustomConsole("main", {invincible: true}); // This is a console that only displays if the "main" console is currently selected.  It is "invincible", so it will not be unloaded if the unloadListeners event happens.
+var mainConsole=customConsole("main", {invincible: true}); // This is a console that only displays if the "main" console is currently selected.  It is "invincible", so it will not be unloaded if the unloadListeners event happens.
 global["mainConsole"] = mainConsole;
 
 global["settingsFilePath"] = path.join(mainFolder, "settings.json");
@@ -523,12 +498,6 @@ function requireServerMods(inputPath) { // Requires the path to the install
             }
           }
         }
-        // Obsoleted - TODO:  Remove the below commented section
-        // // Set up the dataObj for each individual mod folder.
-        // tempFolderName=path.basename(modFolders[i]);
-        // if (!global["installObjects"][inputPath]["dataObj"].hasOwnProperty(tempFolderName)){ // If an object for the mod folder doesn't exist..
-        //   global["installObjects"][inputPath]["dataObj"][tempFolderName]={}; // ..set a blank object for it using the folder name only.
-        // }
       }
     } else {
       mainConsole.log("Cannot load any mods. Mods folder contained no mods.  Server Path: " + inputPath);
@@ -581,17 +550,8 @@ function unloadServerMods(theInputPath,options) {
       console.log("################################################################");
       console.log("##### Removing all server and global event listeners for install: " + installFolders[i]);
       console.log("################################################################");
-      // global["installObjects"][installFolders[i]].event.on("theTest",function(theMessage){ // temp
-      //   console.log("@#$@#$@#$ THE TEST WAS RUN @#$@#$@#$@#  Text:" + theMessage); // Temp
-      // }); // temp
-      // global["installObjects"][installFolders[i]].event.emit("theTest","Before clearing the listeners..");
       global["installObjects"][installFolders[i]].event.removeAllListeners();
-      // global["installObjects"][installFolders[i]].event.emit("theTest","AFTER clearing the listeners.. THIS SHOULD NOT DISPLAY!");
       global["installObjects"][installFolders[i]].globalEvent.removeAllListeners();
-      // console.log("@#$%@#$%@#$%#$% These should be blank:"); // temp
-      // console.table(global["installObjects"][installFolders[i]].event.listeners('playerSpawn')); // temp
-      // console.table(global["installObjects"][installFolders[i]].event.rawListeners('playerSpawn')); // temp
-      // console.table(global["installObjects"][installFolders[i]].globalEvent.listeners('init')); // temp
 
 
       loadedModsArray = Object.keys(global["installObjects"][installFolders[i]]["modRequires"]);
@@ -735,66 +695,6 @@ function reloadWrapperMods() { // This function is meant to reload ALL mods.  Sp
   mainConsole.log("Done reloading Wrapper mods!");
 }
 
-// TODO: Delete these, they have been obsoleted by the CustomEvent object
-function unloadServerEventListeners(inputPath) { // Removes the event listeners for all or a specific install
-  if (typeof inputPath != "undefined" || typeof inputPath != "string"){
-    throw new Error("Invalid input given to unloadServerEventListeners!  Expects nothing or a string! Input type given: " + typeof inputPath);
-  }
-  // Now remove the event listeners for mods.
-  var theInstalls=Object.keys(global["installObjects"]);
-  var eventFunction={};
-  for (let i=0;i<theInstalls.length;i++){  // First cycle through all the installs remove all listeners on their eventEmitter.
-    if ((typeof inputPath == "string" && inputPath == theInstalls[i]) || typeof inputPath == "undefined"){
-      // global["installObjects"][theInstalls[i]]["event"].removeAllListeners(); // This is just too lazy..
-      for (let e=0;e<global["installObjects"][theInstalls[i]].eventListeners.length;e++){
-        for (let eventName in global["installObjects"][theInstalls[i]].eventListeners[e]){
-          if (global["installObjects"][theInstalls[i]].eventListeners[e].hasOwnProperty(eventName)){
-            eventFunction=global["installObjects"][theInstalls[i]].eventListeners[e][eventName];
-            global["installObjects"][theInstalls[i]].event.removeListener(eventName,eventFunction);
-          }
-        }
-      }
-      global["installObjects"][theInstalls[i]].eventListeners=[];
-    }
-  } 
-}
-function unloadGlobalEventListeners(inputPath) { // change this after the global event listeners have been changed to require providing a path
-  // TODO: Add removing of event listeners for all the servers or for a specific server.
-  if (typeof inputPath != "undefined" || typeof inputPath != "string"){
-    throw new Error("Invalid input given to unloadGlobalEventListeners!  Expects nothing or a string! Input type given: " + typeof inputPath);
-  }
-  //  Will be needed when the change occurs.       if (typeof inputPath == "undefined" || (typeof inputPath == "string" && inputPath == eventListenersToRemoveOnReload[i])){
-  if (typeof inputPath == "undefined" || inputPath == __dirname){ // If no path or path to starmade.js folder specified, remove the global.event listeners
-    for (let i = 0;i < eventListenersToRemoveOnReload.length;i++) { // Run through the array
-      // eventListenersToRemoveOnReload[i] // This is an object with the event name and function
-      for (let key in eventListenersToRemoveOnReload[i]) {
-        if (eventListenersToRemoveOnReload[i].hasOwnProperty(key)) { // Only run on non-prototype keys
-          mainConsole.log("Removing listener: " + key);
-          global["event"].removeListener(key, eventListenersToRemoveOnReload[i][key]);
-        }
-      }
-    }
-    eventListenersToRemoveOnReload = []; // There should no longer be any event listeners registered.
-  }
-  // Now remove the event listeners for mods.
-  var theInstalls=Object.keys(global["installObjects"]);
-  var eventFunction={};
-  for (let i=0;i<theInstalls.length;i++){  // First cycle through all the installs remove all listeners on their eventEmitter.
-    if ((typeof inputPath == "string" && inputPath == theInstalls[i]) || typeof inputPath == "undefined"){
-      // global["installObjects"][theInstalls[i]]["globalEvent"].removeAllListeners(); // This is just too lazy..
-      for (let e=0;e<global["installObjects"][theInstalls[i]].globalEventListeners.length;e++){
-        for (let eventName in global["installObjects"][theInstalls[i]].globalEventListeners[e]){
-          if (global["installObjects"][theInstalls[i]].globalEventListeners[e].hasOwnProperty(eventName)){
-            eventFunction=global["installObjects"][theInstalls[i]].globalEventListeners[e][eventName];
-            global["installObjects"][theInstalls[i]].globalEvent.removeListener(eventName,eventFunction);
-          }
-        }
-      }
-      global["installObjects"][theInstalls[i]].globalEventListeners=[];
-    }
-  } 
-}
-
 function testStarMadeDirValue(theInstallDir) {
   mainConsole.log("typeof installDir: " + typeof theInstallDir + " theInstallDir: " + theInstallDir);
   var installDir=theInstallDir; // .trim();
@@ -885,18 +785,12 @@ process.stdin.on('data', function (text) { // This runs for any console
   var consoleCommands;
   if (global["installObjects"].hasOwnProperty(global["consoleSelected"])){ // See if the currently selected console has an install object entry
     theInstallObj=global["installObjects"][global["consoleSelected"]];
-    // mainConsole.log("Checking if there is a server Obj.."); // temp
     if (theInstallObj.hasOwnProperty("serverObj")){ // If it does, then is there a serverObj on it to send the data?
-      // mainConsole.log("There was!"); // temp
       serverObj=theInstallObj.serverObj;
     }
-    // mainConsole.log("Checking if there was a console object.."); // temp
     if (theInstallObj.hasOwnProperty("console")){ // If it does, then is there a serverObj on it to send the data?
-      // mainConsole.log("There was!");
       theConsole=theInstallObj.console;
-      // mainConsole.log("Checking if there are commands.."); // temp
       if (theConsole.hasOwnProperty("commands")){ 
-        // mainConsole.log("There were!"); // temp
         consoleCommands=theConsole.commands; // This should be an object, whose elements are the names of the command.  Each element is an array with [category,function]
       }
     }
@@ -909,9 +803,6 @@ process.stdin.on('data', function (text) { // This runs for any console
     tempArray.shift();
     theCommand = tempArray.join("");
     var theProperCommand="";
-    // console.log("Seeing if the command exists: " + theCommand);
-    // console.log("Wrapper command detected: " + theCommand)
-    // console.log("Full: " + theText);
 
     // TODO: Change console commands to be event driven, like playerCommands are.
 
@@ -1045,7 +936,7 @@ process.stdin.on('data', function (text) { // This runs for any console
           } else {
             // console.clear(); // Some say this doesn't work in windows.  There is a global.cls option which I may need to switch to.
             console.log("Switched to console number " + theConsoleNum + ", '" + theChoice + "'.");
-            // global["consoleSelected"] = theChoice;
+            // global["consoleSelected"] = theChoice; // depreciated
             global["consoles"][theChoice]["console"].switchTo();
           }
         }
@@ -1141,12 +1032,8 @@ process.stdin.on('data', function (text) { // This runs for any console
           var objArguments = toStringIfPossible(input.match(/(?<=\()[^(^)]+(?=\))/));
           if (typeof objArguments == "string") {
             var objArgumentsArray = objArguments.replace(/'/g, "").split(",");
-            // console.log("objArgumentsArray: " + objArgumentsArray);
             var paramNamesArray = getParamNames(objectCreator[objName]);
             var paramNames = paramNamesArray.join(",");
-            // console.log("paramNames: " + paramNames);
-            // console.log("typeof paramNames: " + typeof paramNames);
-            // console.log("paramNamesArray:" + paramNamesArray);
             if (objArgumentsArray.length == paramNamesArray.length) {
               if (objectCreator.hasOwnProperty(objName)) {
                 console.log("Listing the elements for: " + objName + "(" + paramNames + ")");
@@ -1158,7 +1045,6 @@ process.stdin.on('data', function (text) { // This runs for any console
                   console.log("ERROR:  Invalid input given to constructor object!  Please provide the correct input.");
                   console.dir(err);
                 }
-                // console.log("Listing methods for: " + theArguments[0]);
                 if (valid) {
                   var theArray = listObjectMethods(dummyObj);
                   theArray = theArray.sort(); // alphabetize the list
@@ -1187,35 +1073,6 @@ process.stdin.on('data', function (text) { // This runs for any console
     } else if (i(theCommand, "quit")) {
       console.log("Exiting wrapper..");
       process.exit(); // Any listeners for the server exit will fire before the wrapper actually stops. 
-
-
-
-      // } else if (i(theCommand,"stdout")) {
-      //   if (i(theArguments[0],"on")){
-      //     console.log("Setting stdout to true!");
-      //     showStdout=true;
-      //   } else if (i(theArguments[0],"off")){
-      //     console.log("Setting showStdout to false!");
-      //     showStdout=false;
-      //   } else {
-      //     console.log("Invalid parameter.  Usage:  !stdout on/off")
-      //   }
-      // } else if (i(theCommand,"stderr")) {
-      //   if (theArguments[0] == "on"){
-      //     console.log("Setting showStderr to true!");
-      //     showStderr=true;
-      //   } else if (i(theArguments[0],"off")){
-      //     console.log("Setting Stderr to false!");
-      //     showStderr=false;
-      //   }
-      // } else if (i(theCommand,"stderrfilter")) {
-      //   if (testIfInput(theArguments[0])){
-      //     console.log("Finish this..");
-      //   } else {
-      //     console.log("ERROR:  Please specify a filter to use!  Example: \\[SPAWN\\]");
-      //   }
-
-
     } else if (i(theCommand, "debug")) {
       if (theArguments[0] == "on") {
         console.log("Setting debug to true!");
@@ -1226,65 +1083,6 @@ process.stdin.on('data', function (text) { // This runs for any console
       } else {
         console.log("Debug is currently set to '" + global["debug"] + "'.  To turn debugging on or off, type !debug on/off");
       }
-
-
-      // } else if (i(theCommand,"enumerateevents")) {
-      //   if (theArguments[0] == "on"){
-      //     console.log("Setting enumerateEventArguments to true!");
-      //     enumerateEventArguments=true;
-      //   } else if (theArguments[0] == "off"){
-      //     console.log("Setting enumerateEventArguments to false!");
-      //     enumerateEventArguments=false;
-      //   }
-      // } else if (i(theCommand,"showallevents")) {
-      //   if (theArguments[0] == "on"){
-      //     console.log("Setting showAllEvents to true!");
-      //     showAllEvents=true;
-      //   } else if (i(theArguments[0],"off")){
-      //     console.log("Setting showAllEvents to false!");
-      //     showAllEvents=false;
-      //   }
-
-
-      // Settings will be specific to server, so these next few commands are now defunct
-      // } else if (i(theCommand,"settings")) {
-      //   if (!theArguments[0]){
-      //     // const copy = Object.create(Object.getPrototypeOf(settings));
-      //     console.log("\nHere are your current settings:")
-      //     const propNames = Object.getOwnPropertyNames(settings);
-      //     propNames.forEach(function(name){
-      //       // console.log("Setting: " + name + " Value: " + Object.getOwnPropertyDescriptor(settings, name));
-      //       if (name != "smTermsAgreedTo"){ console.log(" " + name + ": " + settings[name]); }
-      //     });
-      //     console.log("\nIf you would like to change a setting, try !changesetting [SettingName] [NewValue]");
-      //   }
-      // } else if (i(theCommand,"changesetting")) {
-      //   var usageMsg="Usage: !changeSetting [Property] [NewValue]";
-      //   if (theArguments[0]){
-      //     // console.log("Result of checking hasOwnProperty with " + theArguments[0] + ": " + settings.hasOwnProperty(theArguments[0]));
-      //     if (settings.hasOwnProperty(theArguments[0])){
-      //       let oldSettings=miscHelpers.copyObj(settings);
-      //       let settingNameToChange=theArguments.shift();
-      //       let newSetting=theArguments.join(" ");
-      //       if (newSetting){
-      //         console.log("\nChanged setting from: " + oldSettings[settingNameToChange]);
-      //         settings[settingNameToChange]=newSetting;
-      //         console.log("Changed setting to: " + settings[settingNameToChange]);
-      //         console.log("Settings update will take effect next time the server is restarted.")
-      //         writeSettings();
-      //       } else {
-      //         console.log("ERROR: You need to specify WHAT you wish to change the setting, '', to!");
-      //         console.log(usageMsg);
-      //       }
-      //     } else {
-      //       console.log("ERROR:  Cannot change setting, '" + theArguments[0] + "'! No such setting: ");
-      //     }
-      //   } else {
-      //     console.log("ERROR:  Please provide a setting to change!");
-      //     console.log(usageMsg);
-      //   }
-      // } else if (testIfInput(theCommand)){
-      //   console.log("ERROR: '" + theCommand + "' is not a valid command!  For a list of wrapper console commands, type: !help");
     } else {
       console.log("No such command found!");
     } 
@@ -1380,15 +1178,6 @@ function regServerObj(installPath, serverObj) {
   } else {
     throw new Error("Invalid input given for 'installPath' parameter! Should be a string!  Usage: regInstall(installPathString,serverObj)");
   }
-}
-function getServerPathOld(pathToMod) { // mods will be in /installPath/mods/nameOfMod/, so all this does is remove /mods/nameOfMod/ from the path
-  if (typeof pathToMod == "string") {
-    var pathArray = pathToMod.split(path.sep);
-    pathArray.pop();
-    pathArray.pop();
-    return pathArray.join(path.sep);
-  }
-  throw new Error("Invalid input given for pathToMod argument.  Usage: getServerPath(__dirname)");
 }
 
 function getServerPath(pathToMod) { // mods will be in /installPath/mods/nameOfMod/, so all this does is remove /mods/nameOfMod/ from the path
@@ -1635,11 +1424,6 @@ function goReady(){ // This is called when the "ready" event is emitted globally
   // };
   var serverKeys = Object.keys(global["settings"].servers);
   // Create the installObj entries for each install in settings
-  var log={};
-  var tempConsole={};
-  var tempEvent={};
-  var tempModRequires={}
-  var dataObjName="data.json";
   var modsFolder="";
   for (let i = 0;i < serverKeys.length;i++) {
     //check to see if a mods folder exists, and if not, copy the mods from the root folder over.  This will happen on new install and is self-healing
@@ -1655,12 +1439,12 @@ function goReady(){ // This is called when the "ready" event is emitted globally
     }
 
     mainConsole.log("Creating Install Object for server: " + serverKeys[i]);
-    // tempConsole=new CustomConsole(serverKeys[i],{invincible: true}); // This needs to be fixed before I can use it.
+    // tempConsole=customConsole(serverKeys[i],{invincible: true}); // This needs to be fixed before I can use it.
     global["installObjects"][serverKeys[i]] = {
       "path": serverKeys[i],
-      "log": new CustomLog(serverKeys[i]),
-      "console": new CustomConsole(serverKeys[i],{invincible: true}), // This is a console that only displays when mods for this install use it.  It is "invincible", so it will not be unloaded if the unloadListeners event happens.  This is also used for registering commands for the wrapper.
-      "defaultEvent": new CustomEvent(), // This event does not reload on .reloadmods().  This should only be used for default mods, which also do not reload.
+      "log": customLog(serverKeys[i]),
+      "console": customConsole(serverKeys[i],{invincible: true}), // This is a console that only displays when mods for this install use it.  It is "invincible", so it will not be unloaded if the unloadListeners event happens.  This is also used for registering commands for the wrapper.
+      "defaultEvent": customEvent(), // This event does not reload on .reloadmods().  This should only be used for default mods, which also do not reload.
       "defaultGlobalEvent": global["event"].spawn(), // This should be used by mods instead of global["event"].emit.  This will catch global["event"].emit's and any emits from any other install or sub-spawn of this custom event object.
       "settings": global["settings"].servers[serverKeys[i]], // This is redundant, to make it easier to pull the info.
       "objects":{}, // Objects the server might use, such as PlayerObj.  These must be registered during the init phase, so they are ready by the start phase.
@@ -1730,26 +1514,6 @@ function getJSONPath(installPath,modPath,nameOfFile){ // installPath should alwa
 function getJSON(installPath,modPath,nameOfFile){ // installPath should always be given, modPath and nameOfFile are optional
   // For use with the installObj
   // If modPath and nameOfFile are not given, will return a global.json file object
-
-  // Obsoleted - TODO: Delete below
-  // var theFolderPath="";
-  // var theFileName="data.json"; // This will be used if no nameOfFile given
-  // var modsDataFolderName="modsData";
-  // if (typeof modPath == "undefined" || modPath == "" || modPath === null){  // if no modpath specified
-  //   theFolderPath=path.join(installPath,modsDataFolderName); // set path to modsData folder.
-  //   if (typeof nameOfFile !== "string" || nameOfFile == "" || nameOfFile === null){
-  //     theFileName="global.json"; // if no filename given (typical), use the default
-  //   }
-  // } else { // If mods folder given, resolve the modsData folderPath.
-  //   theFolderPath=resolveFromTwoPaths(installPath,"modsData",modPath);
-  //   // Example of resolution:  "/path/to/install/mods/MyMod" translates to "/path/to/install/modsData/MyMod"
-  // }
-  // if (typeof nameOfFile == "string"){ // Whether a global file or individual mod file, standardize the filename (this is important for linux)
-  //   theFileName=nameOfFile.replace(/\.json$/i,"") + ".json";
-  // }
-  // var theFilePath=path.join(theFolderPath,theFileName);
-  // miscHelpers.ensureFolderExists(theFolderPath);
-
   var theFilePath=getJSONPath(installPath,modPath,nameOfFile);
   miscHelpers.ensureFolderExists(path.dirname(theFilePath));
   if (global["installObjects"][installPath]["JSONFileCache"].hasOwnProperty(theFilePath)){ // If cached,
@@ -1767,26 +1531,6 @@ function writeJSON(installPath,modPath,nameOfFile){
   // Helper function for use with installObj.  Saves an individual JSON file.
   // installPath should always be given, modPath and nameOfFile are optional
   // If modPath and nameOfFile are not given, will save the global.json file
-
-  // Obsoleted - TODO: delete below
-  // var theFolderPath="";
-  // var theFileName="data.json"; // This will be used if no nameOfFile given
-  // var modsDataFolderName="modsData";
-  // if (typeof modPath == "undefined" || modPath == "" || modPath === null){  // if no modpath specified
-  //   theFolderPath=path.join(installPath,modsDataFolderName); // set path to modsData folder.
-  //   if (typeof nameOfFile !== "string" || nameOfFile == "" || nameOfFile === null){
-  //     theFileName="global.json"; // if no filename given (typical), use the default
-  //   }
-  // } else { // If mods folder given, resolve the modsData folderPath.
-  //   theFolderPath=resolveFromTwoPaths(installPath,"modsData",modPath);
-  //   // Example of resolution:  "/path/to/install/mods/MyMod" translates to "/path/to/install/modsData/MyMod"
-  // }
-  // if (typeof nameOfFile == "string"){ // Whether a global file or individual mod file, standardize the filename (this is important for linux)
-  //   theFileName=nameOfFile.replace(/\.json$/i,"") + ".json";
-  // }
-  // miscHelpers.ensureFolderExists(theFolderPath);
-  // var theFilePath=path.join(theFolderPath,theFileName);
-
   var theFilePath=getJSONPath(installPath,modPath,nameOfFile);
   miscHelpers.ensureFolderExists(path.dirname(theFilePath));
   if (!global["installObjects"][installPath]["JSONFileCache"].hasOwnProperty(theFilePath)){ // If not cached,

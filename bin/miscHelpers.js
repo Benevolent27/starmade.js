@@ -55,7 +55,7 @@ const objectHelper      = requireBin("objectHelper.js");
 ensureFolderExists(logFolder); // Let's just do this once the helper being loaded.
 
 // Set up aliases
-const {getOption,trueOrFalse,simplePromisifyIt,testIfInput,toNumIfPossible,toArrayIfPossible,toStringIfPossible} = objectHelper;
+const {getOption,trueOrFalse,simplePromisifyIt,simplerPromisifyIt,testIfInput,toNumIfPossible,toArrayIfPossible,toStringIfPossible} = objectHelper;
 
 // TESTING BEGIN
 if (__filename == require.main.filename){ // Only run the arguments IF this script is being run by itself and NOT as a require.
@@ -754,18 +754,55 @@ function downloadJSON(httpURL, options, cb){
     return simplePromisifyIt(downloadJSON,options,httpURL);
   }
 }
+// function downloadData(httpURL, options, cb) { 
+//   // Downloads a JSON file and returns it as an object - Used for API's that return JSON values
+//   // Code adapted from: https://stackoverflow.com/questions/11944932/how-to-download-a-file-with-node-js-without-using-third-party-libraries
+//   if (typeof cb == "function"){
+//     var request = require('http').get(httpURL, function (response) {
+//       if (response.statusCode != 200) {
+//         return cb(new Error(`Response from HTTP server: ${response.statusMessage}`),null);
+//       };
+//       response.setEncoding('utf8');
+//       let rawData="";
+//       response.on('data', (chunk) => { rawData += chunk; });
+//       return response.on('end', () => {
+//         try {
+//           return cb(null,rawData);
+//         } catch (err) {
+//           return cb(err,null);
+//         }
+//       });
+//     });
+//     request.on('error', (err) => cb(new Error(`problem with request: ${err.message}`),null));
+//     return request;
+//   } else {
+//     return simplePromisifyIt(downloadData,options,httpURL);
+//   }
+// }
 function downloadData(httpURL, options, cb) { 
   // Downloads a JSON file and returns it as an object - Used for API's that return JSON values
   // Code adapted from: https://stackoverflow.com/questions/11944932/how-to-download-a-file-with-node-js-without-using-third-party-libraries
   if (typeof cb == "function"){
-    var request = require('http').get(httpURL, function (response) {
+    var httpGetter;
+    console.log(`Downloading data from URL: ${httpURL}`); // temp
+    if ((/^http:\/\/.*/i).test(httpURL)){
+      console.log("Link detected as HTTP"); // temp
+      httpGetter=require('http');
+    } else if ((/^https:\/\/.*/i).test(httpURL)){
+      console.log("Link detected as HTTPS"); // temp
+      httpGetter=require('https');
+    } else {
+      return cb(new Error("Invalid URL given.  MUST include HTTP or HTTPS at begging of URL!"));
+    }
+    var request = httpGetter.get(httpURL, {headers:{"user-agent":"downloadData"}},function (response) {
+      // console.dir(response)
       if (response.statusCode != 200) {
         return cb(new Error(`Response from HTTP server: ${response.statusMessage}`),null);
       };
       response.setEncoding('utf8');
       let rawData="";
       response.on('data', (chunk) => { rawData += chunk; });
-      return response.on('end', () => {
+      response.on('end', () => {
         try {
           return cb(null,rawData);
         } catch (err) {
@@ -774,9 +811,9 @@ function downloadData(httpURL, options, cb) {
       });
     });
     request.on('error', (err) => cb(new Error(`problem with request: ${err.message}`),null));
-    return request;
+    // return cb(null,request);
   } else {
-    return simplePromisifyIt(downloadData,options,httpURL);
+    return simplerPromisifyIt(downloadData,httpURL,options);
   }
 }
 
